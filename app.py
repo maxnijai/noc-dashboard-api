@@ -27,7 +27,6 @@ def get_client():
         info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
-# ── Date parser: D/M/YYYY HH:MM[:SS] (พ.ศ. หรือ ค.ศ.) ───────
 def parse_dt(v):
     if not v: return None
     s = str(v).strip()
@@ -47,13 +46,35 @@ def to_date_str(dt):
     return f'{dt.year+543}-{dt.month:02d}-{dt.day:02d}'
 
 def fmt_time(v):
-    """แสดงเวลา HH:MM จาก datetime string"""
     if not v: return ''
-    s = str(v).strip()
-    m = re.search(r'(\d{1,2}:\d{2})', s)
-    return m.group(1) if m else s
+    m = re.search(r'(\d{1,2}:\d{2})', str(v))
+    return m.group(1) if m else str(v).strip()
 
-# ── Main builder ──────────────────────────────────────────────
+def prov_short(prov):
+    """TRUE-TH-BBT-NOR1-CMI1-NOP → CMI1"""
+    if not prov: return ''
+    parts = prov.split('-')
+    return parts[4] if len(parts) > 4 else prov
+
+# Province short → Thai name
+PROV_THAI = {
+    'CMI': 'เชียงใหม่', 'CMI1': 'เชียงใหม่',
+    'CRI': 'เชียงราย',
+    'LPG': 'ลำปาง',
+    'LPN': 'ลำพูน',
+    'MHS': 'แม่ฮ่องสอน',
+    'NAN': 'น่าน',
+    'PHE': 'เพชรบูรณ์',
+    'PYO': 'พะเยา',
+    'KPP': 'กำแพงเพชร',
+    'PCB': 'พิจิตร',
+    'PCT': 'พิชัย',
+    'PSN': 'พิษณุโลก',
+    'SKT': 'สุโขทัย',
+    'TAK': 'ตาก',
+    'UTR': 'อุตรดิตถ์',
+}
+
 def build_data():
     log.info('Building dashboard data...')
     t0 = time.time()
@@ -93,7 +114,6 @@ def build_data():
         'cause1':     fc('สาเหตุ 1'),
         'fix1':       fc('วิธีแก้ไข'),
     }
-    log.info(f'Cols: team_id={C["team_id"]} type_team={C["type_team"]} travel={C["travel"]} linkup={C["linkup"]}')
 
     def g(row, key):
         i = C.get(key)
@@ -111,24 +131,30 @@ def build_data():
         team_id   = g(row,'team_id')
         type_team = g(row,'type_team')
         region    = g(row,'region')
-        prov      = g(row,'province')
+        prov_full = g(row,'province')
         if not team_id or type_team not in ('CM','OFC'):
             skip += 1; continue
         ok += 1
-        if prov: prov_names[prov] = prov
+
+        # Province short code
+        prov = prov_short(prov_full)
+        if prov:
+            prov_names[prov] = PROV_THAI.get(prov, prov)
+
+        # Ticket vs Non-Ticket: ticket column ไม่ว่าง = Ticket
+        tkt_val   = g(row,'ticket')
+        is_ticket = bool(tkt_val) and tkt_val.upper().startswith('TT')
 
         # parse datetime
         dt_travel = parse_dt(g(row,'travel'))
         dt_linkup = parse_dt(g(row,'linkup'))
         dt_hold   = parse_dt(g(row,'hold'))
 
-        # ── PDT calculation ──────────────────────────────────
-        # p1 = Link Up - เวลาเดินทาง (hours)
-        # p2 = p1 + hold duration (hours)
+        # ── PDT: เฉพาะ Ticket เท่านั้น ──────────────────────
         p1 = p2 = 0.0
-        if dt_travel and dt_linkup:
+        if is_ticket and dt_travel and dt_linkup:
             diff = (dt_linkup - dt_travel).total_seconds() / 3600
-            if 0 < diff < 24:  # กรอง outlier
+            if 0 < diff < 24:
                 p1 = round(diff, 2)
                 p2 = p1
                 if dt_hold and dt_hold < dt_linkup:
@@ -136,14 +162,9 @@ def build_data():
                     if 0 < hold_dur < 24:
                         p2 = round(p1 + hold_dur, 2)
 
-        # work hours = LinkUp - Travel (same as p1)
-        work_hrs = p1
-
         month    = to_month(dt_linkup)
         date_str = to_date_str(dt_linkup)
         if month: months.add(month)
-
-        is_ticket = bool(g(row,'ticket')) and g(row,'categories') != 'Non-Ticket'
 
         if team_id not in team_map:
             team_map[team_id] = dict(
@@ -158,7 +179,7 @@ def build_data():
 
         if p1 > 0:
             tm['sp1'] += p1; tm['sp2'] += p2; tm['cnt'] += 1
-            tm['sh']  += work_hrs
+            tm['sh']  += p1
             if p1 > tm['max1']: tm['max1'] = p1
             if p2 > tm['max2']: tm['max2'] = p2
         if date_str: tm['days'].add(date_str)
@@ -179,7 +200,7 @@ def build_data():
             if date_str not in drill_map[team_id]: drill_map[team_id][date_str] = []
             if len(drill_map[team_id][date_str]) < 30:
                 drill_map[team_id][date_str].append(dict(
-                    tkt=g(row,'ticket'), type='Ticket' if is_ticket else 'Non-Ticket',
+                    tkt=tkt_val, type='Ticket' if is_ticket else 'Non-Ticket',
                     sla=g(row,'sla'), subj=g(row,'subject')[:80], que=g(row,'que'),
                     travel=fmt_time(g(row,'travel')), start=fmt_time(g(row,'start')),
                     hold=fmt_time(g(row,'hold')),     linkup=fmt_time(g(row,'linkup')),
