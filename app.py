@@ -1,6 +1,6 @@
 import os, json, logging, threading, time, re
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
@@ -14,23 +14,60 @@ REBUILD_HOURS = 6
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
-
 app = Flask(__name__)
 CORS(app)
 
-_cache      = None
+_cache = None
 _cache_lock = threading.Lock()
 _building   = False
 
 def get_client():
-    creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
-    if not creds_json:
-        raise RuntimeError('GOOGLE_CREDENTIALS_JSON not set')
-    info   = json.loads(creds_json)
-    scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-    creds  = Credentials.from_service_account_info(info, scopes=scopes)
+    info  = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
+    creds = Credentials.from_service_account_info(
+        info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
+# ── Date helpers ──────────────────────────────────────────────
+def parse_date(v):
+    """Parse D/M/YYYY HH:MM[:SS] (พุทธศักราช หรือ ค.ศ.)"""
+    if not v: return None
+    s = str(v).strip()
+    m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})', s)
+    if not m: return None
+    d,mo,y,h,mi = int(m.group(1)),int(m.group(2)),int(m.group(3)),int(m.group(4)),int(m.group(5))
+    if y > 2100: y -= 543  # พุทธศักราช → ค.ศ.
+    try: return datetime(y, mo, d, h, mi)
+    except: return None
+
+def to_month(dt):
+    if not dt: return ''
+    return f'{dt.year+543}-{dt.month:02d}'
+
+def to_date_str(dt):
+    if not dt: return ''
+    return f'{dt.year+543}-{dt.month:02d}-{dt.day:02d}'
+
+def to_min(v):
+    if not v: return 0
+    # รองรับ HH:MM หรือ D/M/YYYY HH:MM (เอาแค่ส่วนเวลา)
+    s = str(v).strip()
+    # ถ้ามี / แสดงว่าเป็น datetime → เอาส่วนเวลา
+    if '/' in s:
+        parts = s.split()
+        if len(parts) >= 2: s = parts[1]
+        else: return 0
+    m = re.match(r'(\d+):(\d+)', s)
+    return int(m.group(1))*60 + int(m.group(2)) if m else 0
+
+def fmt_time(v):
+    if not v: return ''
+    s = str(v).strip()
+    if '/' in s:
+        parts = s.split()
+        return parts[1] if len(parts) >= 2 else ''
+    return s
+
+# ── Main builder ───────────────────────────────────────────────
 def build_data():
     log.info('Building dashboard data...')
     t0 = time.time()
@@ -38,130 +75,94 @@ def build_data():
     gc   = get_client()
     ws   = gc.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
     rows = ws.get_all_values()
+    if not rows: raise RuntimeError('Sheet is empty')
 
-    if not rows:
-        raise RuntimeError('Sheet is empty')
+    headers = [' '.join(h.split()) for h in rows[0]]
+    col = {h: i for i, h in enumerate(headers) if h}
+    log.info(f'Headers: {headers[:15]}')
 
-    headers = [h.strip() for h in rows[0]]
-    log.info(f'Headers ({len(headers)}): {headers[:15]}')
-
-    # สร้าง col map — normalize whitespace และ case
-    col = {}
-    for i, h in enumerate(headers):
-        normalized = ' '.join(h.split())  # normalize whitespace
-        col[normalized] = i
-
-    log.info(f'Col map keys: {list(col.keys())[:15]}')
-
-    # หา column indices — ลอง multiple names
-    def find_col(*names):
+    def fc(*names):
         for n in names:
             if n in col: return col[n]
-            # ลอง case-insensitive
-            for k, v in col.items():
+            for k,v in col.items():
                 if k.lower() == n.lower(): return v
         return None
 
     C = {
-        'team_id':   find_col('Team ID', 'TeamID', 'team_id'),
-        'type_team': find_col('Type Team', 'TypeTeam', 'type_team', 'Type'),
-        'region':    find_col('Region'),
-        'province':  find_col('Province'),
-        'ticket':    find_col('Ticket'),
-        'sla':       find_col('SLA'),
-        'subject':   find_col('Subject'),
-        'categories':find_col('Categories'),
-        'que':       find_col('Que'),
-        'travel':    find_col('เวลาเดินทาง'),
-        'start':     find_col('เวลาเริ่มซ่อม'),
-        'hold':      find_col('Hold'),
-        'linkup':    find_col('Link Up'),
-        'status':    find_col('Status Team'),
-        'holdcause': find_col('สาเหตุการ Hold'),
-        'log':       find_col('Update Log'),
-        'cause1':    find_col('สาเหตุ 1'),
-        'fix1':      find_col('วิธีแก้ไข'),
+        'team_id':    fc('Team ID'),
+        'type_team':  fc('Type Team'),
+        'region':     fc('Region'),
+        'province':   fc('Province'),
+        'ticket':     fc('Ticket'),
+        'sla':        fc('SLA'),
+        'subject':    fc('Subject'),
+        'categories': fc('Categories'),
+        'que':        fc('Que'),
+        'travel':     fc('เวลาเดินทาง'),
+        'start':      fc('เวลาเริ่มซ่อม'),
+        'hold':       fc('Hold'),
+        'linkup':     fc('Link Up'),
+        'status':     fc('Status Team'),
+        'holdcause':  fc('สาเหตุการ Hold'),
+        'log':        fc('Update Log'),
+        'cause1':     fc('สาเหตุ 1'),
+        'fix1':       fc('วิธีแก้ไข'),
     }
-
-    log.info(f'Column indices: team_id={C["team_id"]}, type_team={C["type_team"]}, region={C["region"]}, province={C["province"]}')
-
-    missing = [k for k, v in C.items() if v is None]
-    if missing:
-        log.warning(f'Missing columns: {missing}')
+    log.info(f'Cols: { {k:v for k,v in C.items() if v is not None} }')
 
     def g(row, key):
         i = C.get(key)
-        if i is None or i >= len(row): return ''
-        return str(row[i]).strip()
-
-    def to_min(v):
-        if not v: return 0
-        m = re.match(r'(\d+):(\d+)', str(v).strip())
-        return int(m.group(1)) * 60 + int(m.group(2)) if m else 0
+        return str(row[i]).strip() if i is not None and i < len(row) else ''
 
     thai_months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
                    'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-    team_map   = {}
-    heat_map   = {}
-    months     = set()
-    prov_names = {}
-    drill_map  = {}
-    cutoff     = datetime.now() - timedelta(days=90)
-
-    processed = skipped = 0
+    team_map = {}; heat_map = {}; months = set()
+    prov_names = {}; drill_map = {}
+    cutoff  = datetime.now() - timedelta(days=90)
+    ok = skip = 0
 
     for row in rows[1:]:
-        team_id   = g(row, 'team_id')
-        type_team = g(row, 'type_team')
-        region    = g(row, 'region')
-        prov      = g(row, 'province')
+        team_id   = g(row,'team_id')
+        type_team = g(row,'type_team')
+        region    = g(row,'region')
+        prov      = g(row,'province')
+        if not team_id or type_team not in ('CM','OFC'):
+            skip += 1; continue
+        ok += 1
+        if prov: prov_names[prov] = prov
 
-        if not team_id or type_team not in ('CM', 'OFC'):
-            skipped += 1
-            continue
+        hold_min   = to_min(g(row,'hold'))
+        linkup_min = to_min(g(row,'linkup'))
+        work_min   = to_min(g(row,'travel')) + to_min(g(row,'start'))
+        pdt1 = linkup_min/60 if linkup_min > 0 else 0
+        pdt2 = (linkup_min + hold_min)/60
 
-        processed += 1
-        if prov:
-            prov_names[prov] = prov
+        lu_dt    = parse_date(g(row,'linkup'))
+        month    = to_month(lu_dt)
+        date_str = to_date_str(lu_dt)
+        if month: months.add(month)
 
-        hold_min   = to_min(g(row, 'hold'))
-        linkup_min = to_min(g(row, 'linkup'))
-        work_min   = to_min(g(row, 'travel')) + to_min(g(row, 'start'))
-        pdt1 = linkup_min / 60 if linkup_min > 0 else 0
-        pdt2 = (linkup_min + hold_min) / 60
-
-        month = date_str = ''
-        lu_raw = g(row, 'linkup')
-        if lu_raw:
-            try:
-                from dateutil import parser as dp
-                d = dp.parse(lu_raw, dayfirst=False)
-                by = d.year + 543
-                month    = f'{by}-{d.month:02d}'
-                date_str = f'{by}-{d.month:02d}-{d.day:02d}'
-                months.add(month)
-            except:
-                pass
-
-        is_ticket = bool(g(row, 'ticket')) and g(row, 'categories') != 'Non-Ticket'
+        is_ticket = bool(g(row,'ticket')) and g(row,'categories') != 'Non-Ticket'
 
         if team_id not in team_map:
             team_map[team_id] = dict(
                 id=team_id, type=type_team, reg=region, prov=prov,
                 sp1=0, sp2=0, sh=0, cnt=0,
                 max1=0, max2=0, tkt=0, non=0,
-                days=set(), mth={}
-            )
+                days=set(), mth={})
         tm = team_map[team_id]
+
+        # นับ tkt/non ทุก row (ไม่ต้องมี linkup)
+        if is_ticket: tm['tkt'] += 1
+        else:         tm['non'] += 1
+
         if pdt1 > 0:
             tm['sp1'] += pdt1; tm['sp2'] += pdt2; tm['cnt'] += 1
             if pdt1 > tm['max1']: tm['max1'] = pdt1
             if pdt2 > tm['max2']: tm['max2'] = pdt2
-        tm['sh'] += work_min / 60
-        if is_ticket: tm['tkt'] += 1
-        else:         tm['non'] += 1
-        if date_str:  tm['days'].add(date_str)
+        tm['sh'] += work_min/60
+        if date_str: tm['days'].add(date_str)
         if month and pdt1 > 0:
             if month not in tm['mth']:
                 tm['mth'][month] = dict(sp=0, cnt=0, days=set())
@@ -171,62 +172,48 @@ def build_data():
 
         if month and prov and pdt1 > 0:
             hk = f'{month}||{prov}'
-            if hk not in heat_map:
-                heat_map[hk] = dict(sum=0, cnt=0)
-            heat_map[hk]['sum'] += pdt1
-            heat_map[hk]['cnt'] += 1
+            if hk not in heat_map: heat_map[hk] = dict(sum=0, cnt=0)
+            heat_map[hk]['sum'] += pdt1; heat_map[hk]['cnt'] += 1
 
-        if date_str and lu_raw:
-            try:
-                from dateutil import parser as dp
-                d = dp.parse(lu_raw, dayfirst=False)
-                if d >= cutoff:
-                    if team_id not in drill_map:
-                        drill_map[team_id] = {}
-                    if date_str not in drill_map[team_id]:
-                        drill_map[team_id][date_str] = []
-                    if len(drill_map[team_id][date_str]) < 30:
-                        drill_map[team_id][date_str].append(dict(
-                            tkt=g(row,'ticket'),
-                            type='Ticket' if is_ticket else 'Non-Ticket',
-                            sla=g(row,'sla'), subj=g(row,'subject')[:80],
-                            que=g(row,'que'),
-                            travel=g(row,'travel'), start=g(row,'start'),
-                            hold=g(row,'hold'),   linkup=g(row,'linkup'),
-                            status=g(row,'status'),
-                            holdCause=g(row,'holdcause'),
-                            log=g(row,'log')[:150],
-                            cause1=g(row,'cause1'), fix1=g(row,'fix1')
-                        ))
-            except:
-                pass
+        if date_str and lu_dt and lu_dt >= cutoff:
+            if team_id not in drill_map: drill_map[team_id] = {}
+            if date_str not in drill_map[team_id]: drill_map[team_id][date_str] = []
+            if len(drill_map[team_id][date_str]) < 30:
+                drill_map[team_id][date_str].append(dict(
+                    tkt=g(row,'ticket'), type='Ticket' if is_ticket else 'Non-Ticket',
+                    sla=g(row,'sla'), subj=g(row,'subject')[:80], que=g(row,'que'),
+                    travel=fmt_time(g(row,'travel')), start=fmt_time(g(row,'start')),
+                    hold=fmt_time(g(row,'hold')), linkup=fmt_time(g(row,'linkup')),
+                    status=g(row,'status'), holdCause=g(row,'holdcause'),
+                    log=g(row,'log')[:150], cause1=g(row,'cause1'), fix1=g(row,'fix1')
+                ))
 
-    log.info(f'Processed: {processed} rows, skipped: {skipped}, teams: {len(team_map)}')
+    log.info(f'Rows ok:{ok} skip:{skip} teams:{len(team_map)}')
 
     sorted_months = sorted(months)
     ml = {}
     for m in sorted_months:
-        parts = m.split('-')
-        ml[m] = f'{thai_months[int(parts[1])]} {parts[0][2:]}'
+        p = m.split('-')
+        ml[m] = f'{thai_months[int(p[1])]} {p[0][2:]}'
 
-    ts = []
-    rank_data = []
+    ts = []; rank_data = []
     for tm in team_map.values():
-        if tm['cnt'] == 0: continue
-        p1   = round(tm['sp1'] / tm['cnt'], 2)
-        p2   = round(tm['sp2'] / tm['cnt'], 2)
-        base = CM_BASE if tm['type'] == 'CM' else OFC_BASE
+        total = tm['tkt'] + tm['non']
+        if total == 0: continue
+        p1   = round(tm['sp1']/tm['cnt'],2) if tm['cnt'] > 0 else 0
+        p2   = round(tm['sp2']/tm['cnt'],2) if tm['cnt'] > 0 else 0
+        base = CM_BASE if tm['type']=='CM' else OFC_BASE
         vs1  = round(p1 - base, 2)
         days = len(tm['days'])
         st   = 'above' if vs1 >= 0 else ('below' if vs1 < -0.5 else 'near')
         ts.append(dict(
             id=tm['id'], type=tm['type'], reg=tm['reg'], prov=tm['prov'], pn=tm['prov'],
             p1=p1, p2=p2, tot1=tm['cnt'], tot2=tm['cnt'],
-            h=round(tm['sh']/tm['cnt'],2), days=days,
-            max1=round(tm['max1'],2), max2=round(tm['max2'],2),
+            h=round(tm['sh']/tm['cnt'],2) if tm['cnt']>0 else 0,
+            days=days, max1=round(tm['max1'],2), max2=round(tm['max2'],2),
             base=base, vs1=vs1, vs2=vs1, st=st, tkt=tm['tkt'], non=tm['non']
         ))
-        rd = dict(id=tm['id'], type=tm['type'], reg=tm['reg'], prov=tm['prov'],
+        rd = dict(id=tm['id'],type=tm['type'],reg=tm['reg'],prov=tm['prov'],
                   p1_avg=p1, p2_avg=p2, wd_avg=days)
         for m in sorted_months:
             md = tm['mth'].get(m)
@@ -239,22 +226,20 @@ def build_data():
     for t in ts:
         for m in sorted_months:
             md = team_map[t['id']]['mth'].get(m)
-            if not md or md['cnt'] == 0: continue
+            if not md or md['cnt']==0: continue
             k = f"{m}||{t['reg']}||{t['type']}"
             if k not in tr_map: tr_map[k] = dict(sum=0, cnt=0)
-            tr_map[k]['sum'] += md['sp'] / md['cnt']
-            tr_map[k]['cnt'] += 1
+            tr_map[k]['sum'] += md['sp']/md['cnt']; tr_map[k]['cnt'] += 1
     tr = [dict(m=k.split('||')[0], reg=k.split('||')[1], type=k.split('||')[2],
                avg=round(v['sum']/v['cnt'],2), avg_p1=round(v['sum']/v['cnt'],2))
-          for k, v in tr_map.items()]
+          for k,v in tr_map.items()]
 
     heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
                  avg=round(v['sum']/v['cnt'],2), tot=v['cnt'])
-            for k, v in heat_map.items()]
+            for k,v in heat_map.items()]
 
-    nor1 = list(set(t['prov'] for t in ts if t['reg'] == 'NOR1'))
-
-    elapsed = round(time.time() - t0, 1)
+    nor1 = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
+    elapsed = round(time.time()-t0, 1)
     log.info(f'Done: {len(ts)} teams, {len(sorted_months)} months, {elapsed}s')
 
     return dict(
@@ -277,8 +262,7 @@ def rebuild_cache():
     _building = True
     try:
         data = build_data()
-        with _cache_lock:
-            _cache = data
+        with _cache_lock: _cache = data
         log.info('Cache updated')
     except Exception as e:
         log.error(f'rebuild_cache error: {e}')
@@ -290,40 +274,36 @@ def rebuild_cache():
 def api_dashboard():
     with _cache_lock:
         if _cache is None:
-            return jsonify({'error': 'Cache building, retry in 60s'}), 503
+            return jsonify({'error':'Cache building, retry in 60s'}), 503
         return jsonify(_cache)
 
 @app.route('/api/status')
 def api_status():
     with _cache_lock:
-        if _cache is None:
-            return jsonify({'status': 'building'})
+        if _cache is None: return jsonify({'status':'building'})
         return jsonify(dict(
             status='ready',
-            teams=len(_cache.get('ts', [])),
-            months=_cache.get('months', []),
-            tickets=_cache.get('gstats', {}).get('total_tkt', 0),
+            teams=len(_cache.get('ts',[])),
+            months=_cache.get('months',[]),
+            tickets=_cache.get('gstats',{}).get('total_tkt',0),
             cached_at=_cache.get('cached_at')
         ))
 
 @app.route('/api/rebuild', methods=['POST'])
 def api_rebuild():
-    t = threading.Thread(target=rebuild_cache, daemon=True)
-    t.start()
-    return jsonify({'status': 'rebuilding'})
+    threading.Thread(target=rebuild_cache, daemon=True).start()
+    return jsonify({'status':'rebuilding'})
 
 @app.route('/')
 def index():
     return '<h3>NOC Dashboard API</h3><a href="/api/status">/api/status</a>'
 
 def start():
-    t = threading.Thread(target=rebuild_cache, daemon=True)
-    t.start()
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
-    scheduler.start()
+    threading.Thread(target=rebuild_cache, daemon=True).start()
+    s = BackgroundScheduler()
+    s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
+    s.start()
 
 start()
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',5000)))
