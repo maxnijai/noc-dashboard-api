@@ -27,15 +27,14 @@ def get_client():
         info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
-# ── Date helpers ──────────────────────────────────────────────
-def parse_date(v):
-    """Parse D/M/YYYY HH:MM[:SS] (พุทธศักราช หรือ ค.ศ.)"""
+# ── Date parser: D/M/YYYY HH:MM[:SS] (พ.ศ. หรือ ค.ศ.) ───────
+def parse_dt(v):
     if not v: return None
     s = str(v).strip()
     m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})', s)
     if not m: return None
     d,mo,y,h,mi = int(m.group(1)),int(m.group(2)),int(m.group(3)),int(m.group(4)),int(m.group(5))
-    if y > 2100: y -= 543  # พุทธศักราช → ค.ศ.
+    if y > 2100: y -= 543
     try: return datetime(y, mo, d, h, mi)
     except: return None
 
@@ -47,27 +46,14 @@ def to_date_str(dt):
     if not dt: return ''
     return f'{dt.year+543}-{dt.month:02d}-{dt.day:02d}'
 
-def to_min(v):
-    if not v: return 0
-    # รองรับ HH:MM หรือ D/M/YYYY HH:MM (เอาแค่ส่วนเวลา)
-    s = str(v).strip()
-    # ถ้ามี / แสดงว่าเป็น datetime → เอาส่วนเวลา
-    if '/' in s:
-        parts = s.split()
-        if len(parts) >= 2: s = parts[1]
-        else: return 0
-    m = re.match(r'(\d+):(\d+)', s)
-    return int(m.group(1))*60 + int(m.group(2)) if m else 0
-
 def fmt_time(v):
+    """แสดงเวลา HH:MM จาก datetime string"""
     if not v: return ''
     s = str(v).strip()
-    if '/' in s:
-        parts = s.split()
-        return parts[1] if len(parts) >= 2 else ''
-    return s
+    m = re.search(r'(\d{1,2}:\d{2})', s)
+    return m.group(1) if m else s
 
-# ── Main builder ───────────────────────────────────────────────
+# ── Main builder ──────────────────────────────────────────────
 def build_data():
     log.info('Building dashboard data...')
     t0 = time.time()
@@ -79,7 +65,6 @@ def build_data():
 
     headers = [' '.join(h.split()) for h in rows[0]]
     col = {h: i for i, h in enumerate(headers) if h}
-    log.info(f'Headers: {headers[:15]}')
 
     def fc(*names):
         for n in names:
@@ -108,7 +93,7 @@ def build_data():
         'cause1':     fc('สาเหตุ 1'),
         'fix1':       fc('วิธีแก้ไข'),
     }
-    log.info(f'Cols: { {k:v for k,v in C.items() if v is not None} }')
+    log.info(f'Cols: team_id={C["team_id"]} type_team={C["type_team"]} travel={C["travel"]} linkup={C["linkup"]}')
 
     def g(row, key):
         i = C.get(key)
@@ -119,7 +104,7 @@ def build_data():
 
     team_map = {}; heat_map = {}; months = set()
     prov_names = {}; drill_map = {}
-    cutoff  = datetime.now() - timedelta(days=90)
+    cutoff = datetime.now() - timedelta(days=90)
     ok = skip = 0
 
     for row in rows[1:]:
@@ -132,15 +117,30 @@ def build_data():
         ok += 1
         if prov: prov_names[prov] = prov
 
-        hold_min   = to_min(g(row,'hold'))
-        linkup_min = to_min(g(row,'linkup'))
-        work_min   = to_min(g(row,'travel')) + to_min(g(row,'start'))
-        pdt1 = linkup_min/60 if linkup_min > 0 else 0
-        pdt2 = (linkup_min + hold_min)/60
+        # parse datetime
+        dt_travel = parse_dt(g(row,'travel'))
+        dt_linkup = parse_dt(g(row,'linkup'))
+        dt_hold   = parse_dt(g(row,'hold'))
 
-        lu_dt    = parse_date(g(row,'linkup'))
-        month    = to_month(lu_dt)
-        date_str = to_date_str(lu_dt)
+        # ── PDT calculation ──────────────────────────────────
+        # p1 = Link Up - เวลาเดินทาง (hours)
+        # p2 = p1 + hold duration (hours)
+        p1 = p2 = 0.0
+        if dt_travel and dt_linkup:
+            diff = (dt_linkup - dt_travel).total_seconds() / 3600
+            if 0 < diff < 24:  # กรอง outlier
+                p1 = round(diff, 2)
+                p2 = p1
+                if dt_hold and dt_hold < dt_linkup:
+                    hold_dur = (dt_linkup - dt_hold).total_seconds() / 3600
+                    if 0 < hold_dur < 24:
+                        p2 = round(p1 + hold_dur, 2)
+
+        # work hours = LinkUp - Travel (same as p1)
+        work_hrs = p1
+
+        month    = to_month(dt_linkup)
+        date_str = to_date_str(dt_linkup)
         if month: months.add(month)
 
         is_ticket = bool(g(row,'ticket')) and g(row,'categories') != 'Non-Ticket'
@@ -148,34 +148,33 @@ def build_data():
         if team_id not in team_map:
             team_map[team_id] = dict(
                 id=team_id, type=type_team, reg=region, prov=prov,
-                sp1=0, sp2=0, sh=0, cnt=0,
-                max1=0, max2=0, tkt=0, non=0,
+                sp1=0.0, sp2=0.0, sh=0.0, cnt=0,
+                max1=0.0, max2=0.0, tkt=0, non=0,
                 days=set(), mth={})
         tm = team_map[team_id]
 
-        # นับ tkt/non ทุก row (ไม่ต้องมี linkup)
         if is_ticket: tm['tkt'] += 1
         else:         tm['non'] += 1
 
-        if pdt1 > 0:
-            tm['sp1'] += pdt1; tm['sp2'] += pdt2; tm['cnt'] += 1
-            if pdt1 > tm['max1']: tm['max1'] = pdt1
-            if pdt2 > tm['max2']: tm['max2'] = pdt2
-        tm['sh'] += work_min/60
+        if p1 > 0:
+            tm['sp1'] += p1; tm['sp2'] += p2; tm['cnt'] += 1
+            tm['sh']  += work_hrs
+            if p1 > tm['max1']: tm['max1'] = p1
+            if p2 > tm['max2']: tm['max2'] = p2
         if date_str: tm['days'].add(date_str)
-        if month and pdt1 > 0:
+        if month and p1 > 0:
             if month not in tm['mth']:
-                tm['mth'][month] = dict(sp=0, cnt=0, days=set())
-            tm['mth'][month]['sp']  += pdt1
+                tm['mth'][month] = dict(sp=0.0, cnt=0, days=set())
+            tm['mth'][month]['sp']  += p1
             tm['mth'][month]['cnt'] += 1
             if date_str: tm['mth'][month]['days'].add(date_str)
 
-        if month and prov and pdt1 > 0:
+        if month and prov and p1 > 0:
             hk = f'{month}||{prov}'
-            if hk not in heat_map: heat_map[hk] = dict(sum=0, cnt=0)
-            heat_map[hk]['sum'] += pdt1; heat_map[hk]['cnt'] += 1
+            if hk not in heat_map: heat_map[hk] = dict(sum=0.0, cnt=0)
+            heat_map[hk]['sum'] += p1; heat_map[hk]['cnt'] += 1
 
-        if date_str and lu_dt and lu_dt >= cutoff:
+        if date_str and dt_linkup and dt_linkup >= cutoff:
             if team_id not in drill_map: drill_map[team_id] = {}
             if date_str not in drill_map[team_id]: drill_map[team_id][date_str] = []
             if len(drill_map[team_id][date_str]) < 30:
@@ -183,7 +182,7 @@ def build_data():
                     tkt=g(row,'ticket'), type='Ticket' if is_ticket else 'Non-Ticket',
                     sla=g(row,'sla'), subj=g(row,'subject')[:80], que=g(row,'que'),
                     travel=fmt_time(g(row,'travel')), start=fmt_time(g(row,'start')),
-                    hold=fmt_time(g(row,'hold')), linkup=fmt_time(g(row,'linkup')),
+                    hold=fmt_time(g(row,'hold')),     linkup=fmt_time(g(row,'linkup')),
                     status=g(row,'status'), holdCause=g(row,'holdcause'),
                     log=g(row,'log')[:150], cause1=g(row,'cause1'), fix1=g(row,'fix1')
                 ))
@@ -198,10 +197,9 @@ def build_data():
 
     ts = []; rank_data = []
     for tm in team_map.values():
-        total = tm['tkt'] + tm['non']
-        if total == 0: continue
-        p1   = round(tm['sp1']/tm['cnt'],2) if tm['cnt'] > 0 else 0
-        p2   = round(tm['sp2']/tm['cnt'],2) if tm['cnt'] > 0 else 0
+        if tm['cnt'] == 0: continue
+        p1   = round(tm['sp1']/tm['cnt'], 2)
+        p2   = round(tm['sp2']/tm['cnt'], 2)
         base = CM_BASE if tm['type']=='CM' else OFC_BASE
         vs1  = round(p1 - base, 2)
         days = len(tm['days'])
@@ -209,11 +207,11 @@ def build_data():
         ts.append(dict(
             id=tm['id'], type=tm['type'], reg=tm['reg'], prov=tm['prov'], pn=tm['prov'],
             p1=p1, p2=p2, tot1=tm['cnt'], tot2=tm['cnt'],
-            h=round(tm['sh']/tm['cnt'],2) if tm['cnt']>0 else 0,
-            days=days, max1=round(tm['max1'],2), max2=round(tm['max2'],2),
+            h=round(tm['sh']/tm['cnt'], 2), days=days,
+            max1=round(tm['max1'],2), max2=round(tm['max2'],2),
             base=base, vs1=vs1, vs2=vs1, st=st, tkt=tm['tkt'], non=tm['non']
         ))
-        rd = dict(id=tm['id'],type=tm['type'],reg=tm['reg'],prov=tm['prov'],
+        rd = dict(id=tm['id'], type=tm['type'], reg=tm['reg'], prov=tm['prov'],
                   p1_avg=p1, p2_avg=p2, wd_avg=days)
         for m in sorted_months:
             md = tm['mth'].get(m)
@@ -228,7 +226,7 @@ def build_data():
             md = team_map[t['id']]['mth'].get(m)
             if not md or md['cnt']==0: continue
             k = f"{m}||{t['reg']}||{t['type']}"
-            if k not in tr_map: tr_map[k] = dict(sum=0, cnt=0)
+            if k not in tr_map: tr_map[k] = dict(sum=0.0, cnt=0)
             tr_map[k]['sum'] += md['sp']/md['cnt']; tr_map[k]['cnt'] += 1
     tr = [dict(m=k.split('||')[0], reg=k.split('||')[1], type=k.split('||')[2],
                avg=round(v['sum']/v['cnt'],2), avg_p1=round(v['sum']/v['cnt'],2))
@@ -241,6 +239,7 @@ def build_data():
     nor1 = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
     elapsed = round(time.time()-t0, 1)
     log.info(f'Done: {len(ts)} teams, {len(sorted_months)} months, {elapsed}s')
+    log.info(f'Sample PDT: {[(t["id"],t["p1"]) for t in sorted(ts, key=lambda x:x["p1"])[:3]]}')
 
     return dict(
         ts=ts, tr=tr, heat=heat, wk=[],
