@@ -64,15 +64,24 @@ def haversine(lat1,lon1,lat2,lon2):
     return R*2*math.asin(math.sqrt(a))
 
 def find_home_coords(coords_list, radius_km=5):
-    if not coords_list: return None
-    best=None; best_count=0
-    for lat,lon in coords_list:
-        cluster=[(lt,ln) for lt,ln in coords_list if haversine(lat,lon,lt,ln)<=radius_km]
-        if len(cluster)>best_count:
-            best_count=len(cluster)
-            best=(round(sum(c[0] for c in cluster)/len(cluster),6),
-                  round(sum(c[1] for c in cluster)/len(cluster),6),
-                  best_count, len(coords_list))
+    """หา home base จากพิกัดของ 'งานแรกของวัน' ที่เกิดซ้ำบ่อยที่สุด
+    โดยรวมพิกัดที่อยู่ในรัศมีเดียวกันเป็น cluster เดียวกัน
+    """
+    if not coords_list:
+        return None
+
+    best = None
+    best_count = 0
+    for lat, lon in coords_list:
+        cluster = [(lt, ln) for lt, ln in coords_list if haversine(lat, lon, lt, ln) <= radius_km]
+        if len(cluster) > best_count:
+            best_count = len(cluster)
+            best = (
+                round(sum(c[0] for c in cluster) / len(cluster), 6),
+                round(sum(c[1] for c in cluster) / len(cluster), 6),
+                best_count,
+                len(coords_list),
+            )
     return best
 
 def build_boundary(gc):
@@ -202,6 +211,7 @@ def build_data():
 
         dt_linkup = parse_dt(g(row,'linkup'))
         dt_travel = parse_dt(g(row,'travel'))
+        dt_start  = parse_dt(g(row,'start'))
         dt_hold   = parse_dt(g(row,'hold'))
 
         has_lu   = dt_linkup is not None
@@ -234,15 +244,16 @@ def build_data():
                 all_dates=set(),
                 day_first_travel={},
                 day_last_ts={},
+                day_first_coord={},
                 tkt=0, non=0, monthly={},
                 coords=[]
             )
         tm = teams[team_id]
 
-        # เก็บ coords
-        if coord_raw and row_valid:
-            c = parse_coord(coord_raw)
-            if c: tm['coords'].append(c)
+        # เก็บ coords และจดจำพิกัดของ 'งานแรกของวัน'
+        coord = parse_coord(coord_raw) if coord_raw else None
+        if coord and row_valid:
+            tm['coords'].append(coord)
 
         # นับ tkt/non เฉพาะ valid year rows
         if row_valid:
@@ -261,6 +272,14 @@ def build_data():
                 prev = tm['day_last_ts'].get(date_str)
                 if prev is None or last_ts > prev:
                     tm['day_last_ts'][date_str] = last_ts
+
+            # Home base = พิกัดของงานแรกที่เช็คอินบ่อยที่สุดในแต่ละวัน
+            # ใช้เวลาเดินทางก่อน, ถ้าไม่มีใช้เวลาเริ่มซ่อม, ถ้ายังไม่มีใช้ Link Up/Hold fallback
+            checkin_dt = dt_travel or dt_start or dt_linkup or dt_hold
+            if coord and checkin_dt:
+                prev = tm['day_first_coord'].get(date_str)
+                if prev is None or checkin_dt < prev['dt']:
+                    tm['day_first_coord'][date_str] = {'dt': checkin_dt, 'coord': coord}
             if has_lu:
                 tm['pdt1_dates'][date_str] = tm['pdt1_dates'].get(date_str,0) + 1
             if has_lu or has_hold:
@@ -387,15 +406,18 @@ def build_data():
     nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
 
     # ── Build homeCoords จาก Update พิกัด ────────────────────
+    # ใช้เฉพาะพิกัดของ 'งานแรกของวัน' เพื่อให้ได้ home base ตามที่ต้องการ
     home_coords = {}
     for tid, tm in teams.items():
-        result = find_home_coords(tm['coords'])
+        first_job_coords = [v['coord'] for _, v in sorted(tm.get('day_first_coord', {}).items()) if v.get('coord')]
+        result = find_home_coords(first_job_coords)
         if result:
             home_coords[tid] = {
                 'lat': result[0], 'lon': result[1],
-                'count': result[2], 'total': result[3]
+                'count': result[2], 'total': result[3],
+                'method': 'first-job-checkin-cluster'
             }
-    log.info(f'homeCoords: {len(home_coords)} teams')
+    log.info(f'homeCoords: {len(home_coords)} teams (from first-job check-in)')
 
     # ── Build boundary จาก team_boundary sheet ───────────────
     boundary = build_boundary(gc)
