@@ -374,11 +374,10 @@ def build_data():
             md  = len(mm['dates'])
             avg = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
             hk  = f"{m}||{t['prov']}"
-            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
+            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0}
             heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
-            heat_map[hk]['tkt']+=sum(mm['p1d'].values()) if mm['p1d'] else 0  # total tickets
     heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
-                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0))
+                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'])
             for k,v in heat_map.items()]
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
@@ -404,28 +403,10 @@ def build_data():
     log.info(f'Sample lowest p1: {sample}')
     log.info(f'gstats: tkt={sum(t["tkt"] for t in ts)} non={sum(t["non"] for t in ts)}')
 
-    # Build sum per team (for analysis card and team detail)
-    sum_data = {}
-    for t in ts:
-        sum_data[t['id']] = {
-            'tot':   t['tot1'],
-            'tkt':   t['tkt'],
-            'non':   t['non'],
-            'days':  t['days'],
-            'hold':  0,
-            'hold_pct': 0,
-            'inc_work': 0,
-            'sw':    {},
-            'st':    {},
-            'z':     0,
-            'qh':    {},
-            'hr':    [],
-        }
-
     return dict(
         ts=ts, tr=tr, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
-        months=sorted_months, ml=ml, sum=sum_data,
+        months=sorted_months, ml=ml, sum={},
         gstats=dict(
             total_tkt=sum(t['tkt'] for t in ts),
             total_non=sum(t['non'] for t in ts),
