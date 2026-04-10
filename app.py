@@ -111,6 +111,7 @@ def build_boundary(gc):
         return []
 
 
+def parse_dt(v):
     """D/M/YYYY HH:MM (พ.ศ.) → datetime ค.ศ."""
     if not v: return None
     s = str(v).strip()
