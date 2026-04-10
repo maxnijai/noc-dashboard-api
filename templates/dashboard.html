@@ -1108,38 +1108,24 @@ function buildAnalysisCard(t){
 // ===================== BOUNDARY MAP =====================
 let boundaryMap=null, boundaryMarkers=null;
 function initBoundaryMap(){
-  // ถ้า map มีอยู่แล้ว แค่ resize + render
   if(boundaryMap){
-    setTimeout(()=>{
-      boundaryMap.invalidateSize(true);
-      renderBoundary();
-    },100);
+    setTimeout(()=>{boundaryMap.invalidateSize(true);renderBoundary();},100);
     return;
   }
-  // สร้าง map ใหม่
   const el=document.getElementById('boundary-map');
   if(!el)return;
-  // force height ก่อน init
   el.style.height='380px';
-  el.style.display='block';
-  boundaryMap=L.map('boundary-map',{
-    zoomControl:true,
-    preferCanvas:true
-  }).setView([18.5,99.0],7);
+  boundaryMap=L.map('boundary-map',{zoomControl:true,preferCanvas:true}).setView([18.5,99.0],7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap',
-    maxZoom:19,
-    crossOrigin:true
+    attribution:'© OpenStreetMap',maxZoom:19,
+    errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScAAAAAElFTkSuQmCC'
   }).addTo(boundaryMap);
   boundaryMap.getContainer().style.filter='invert(1) hue-rotate(180deg) brightness(0.85)';
   boundaryMarkers=L.layerGroup().addTo(boundaryMap);
-  // รอ map ready แล้ว render
-  boundaryMap.whenReady(()=>{
-    setTimeout(()=>{
-      boundaryMap.invalidateSize(true);
-      renderBoundary();
-    },200);
-  });
+  setTimeout(()=>{
+    boundaryMap.invalidateSize(true);
+    renderBoundary();
+  },400);
 }
 function getMarkerColor(vsv){if(vsv===null||vsv===undefined)return'#888780';if(vsv>=0)return'#3fb950';if(vsv>=-0.5)return'#e3b341';return'#f85149';}
 function updateBoundaryMap(){
@@ -1684,7 +1670,7 @@ function renderHeatBar(monthsShow) {
   const provs = Object.keys(RAW.prov||{}).filter(p=>!filterProv||p===filterProv).sort();
   const datasets = monthsShow.map((m,mi) => {
     const colors=['#3fb950','#58a6ff','#bc8cff','#e3b341'];
-    return { label:(RAW.ml||{})[m]||m, data:provs.map(pv=>{const r=(RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);return r?r.tot:0;}), backgroundColor:colors[mi]||'#888', borderRadius:3, barPercentage:.8 };
+    return { label:(RAW.ml||{})[m]||m, data:provs.map(pv=>{const r=(RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);return r?r.tkt:0;}), backgroundColor:colors[mi]||'#888', borderRadius:3, barPercentage:.8 };
   });
   const ctx = document.getElementById('chart-heat-bar');
   if (!ctx) return;
