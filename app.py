@@ -151,22 +151,23 @@ def build_data():
         row_valid = is_valid_month(month_str)
         if month_str: months.add(month_str) if row_valid else None
 
-        # work_hrs: Link Up - เวลาเดินทาง
-        work_hrs = None
-        if dt_linkup and dt_travel:
-            wh = (dt_linkup - dt_travel).total_seconds() / 3600
-            if 0 < wh < 24: work_hrs = wh
 
         # is_ticket: TT หรือ INC (ตาม v17 label "TT + INC pattern")
         # แต่นับเฉพาะ row ที่ year valid
         tkt_val   = g(row,'ticket')
         is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
 
+        # last_ts = Link Up หรือ Hold (สำหรับ Logic C)
+        last_ts = dt_linkup or dt_hold
+
         if team_id not in teams:
             teams[team_id] = dict(
                 type=type_team, prov=prov, reg=reg,
                 pdt1_dates={}, pdt2_dates={},
-                all_dates=set(), work_hrs_daily={},
+                all_dates=set(),
+                # Logic C: เก็บ min(travel) และ max(last_ts) per day
+                day_first_travel={},  # date → min เวลาเดินทาง
+                day_last_ts={},       # date → max(LinkUp/Hold)
                 tkt=0, non=0, monthly={}
             )
         tm = teams[team_id]
@@ -179,8 +180,15 @@ def build_data():
         # PDT counts เฉพาะ valid rows
         if row_valid and date_str:
             tm['all_dates'].add(date_str)
-            if work_hrs:
-                tm['work_hrs_daily'][date_str] = tm['work_hrs_daily'].get(date_str,0) + work_hrs
+            # Logic C: track min travel และ max last_ts per day
+            if dt_travel:
+                prev = tm['day_first_travel'].get(date_str)
+                if prev is None or dt_travel < prev:
+                    tm['day_first_travel'][date_str] = dt_travel
+            if last_ts:
+                prev = tm['day_last_ts'].get(date_str)
+                if prev is None or last_ts > prev:
+                    tm['day_last_ts'][date_str] = last_ts
             if has_lu:
                 tm['pdt1_dates'][date_str] = tm['pdt1_dates'].get(date_str,0) + 1
             if has_lu or has_hold:
@@ -231,8 +239,8 @@ def build_data():
         st   = 'above' if vs1>=0 else ('below' if vs1<-0.5 else 'near')
         max1 = max(tm['pdt1_dates'].values()) if tm['pdt1_dates'] else 0
         max2 = max(tm['pdt2_dates'].values()) if tm['pdt2_dates'] else 0
-        daily_hrs = list(tm['work_hrs_daily'].values())
-        h = round(sum(daily_hrs)/len(daily_hrs), 2) if daily_hrs else 0
+        daily_h_vals = [round((tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600, 2) for d in tm['all_dates'] if d in tm['day_first_travel'] and d in tm['day_last_ts'] and 0 < (tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600 < 24]
+        h = round(sum(daily_h_vals)/len(daily_h_vals), 2) if daily_h_vals else 0
 
         ts.append(dict(
             id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
