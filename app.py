@@ -376,7 +376,7 @@ def build_data():
             hk  = f"{m}||{t['prov']}"
             if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
             heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
-            heat_map[hk]['tkt']+=mm['cnt']  # total tickets
+            heat_map[hk]['tkt']+=sum(mm['p1d'].values()) if mm['p1d'] else 0  # total tickets
     heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
                  avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0))
             for k,v in heat_map.items()]
