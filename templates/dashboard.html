@@ -288,6 +288,27 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rank-legend-item { display:flex; align-items:center; gap:5px; }
 .rank-legend-dot { width:8px; height:8px; border-radius:50%; }
 
+
+/* Leaflet critical fix */
+.leaflet-container{position:relative;overflow:hidden;outline:0;background:#0f1720;}
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0;}
+.leaflet-pane{z-index:400;}
+.leaflet-tile-pane{z-index:200;}
+.leaflet-overlay-pane{z-index:400;}
+.leaflet-shadow-pane{z-index:500;}
+.leaflet-marker-pane{z-index:600;}
+.leaflet-tooltip-pane{z-index:650;}
+.leaflet-popup-pane{z-index:700;}
+.leaflet-map-pane{z-index:1;}
+.leaflet-tile{max-width:none !important;max-height:none !important;visibility:inherit;}
+.leaflet-marker-icon,.leaflet-marker-shadow{display:block;}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none;}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-control-zoom a{display:block;width:26px;height:26px;line-height:26px;text-align:center;text-decoration:none;background:var(--bg2);color:var(--text);border:1px solid var(--border);}
+.leaflet-control-zoom a:first-child{border-bottom:none;border-radius:6px 6px 0 0;}
+.leaflet-control-zoom a:last-child{border-radius:0 0 6px 6px;}
+
 </style>
 </head>
 <body>
@@ -1110,37 +1131,41 @@ function buildAnalysisCard(t){
 // ===================== BOUNDARY MAP =====================
 let boundaryMap=null, boundaryMarkers=null;
 function initBoundaryMap(){
-  // ถ้า map มีอยู่แล้ว แค่ resize + render
+  const el=document.getElementById('boundary-map');
+  if(!el || typeof L==='undefined') return;
+  el.style.height='380px';
+  el.style.display='block';
+
   if(boundaryMap){
     setTimeout(()=>{
       boundaryMap.invalidateSize(true);
-      renderBoundary();
-    },100);
+      updateBoundaryMap();
+    },120);
+    setTimeout(()=>boundaryMap.invalidateSize(true), 500);
     return;
   }
-  // สร้าง map ใหม่
-  const el=document.getElementById('boundary-map');
-  if(!el)return;
-  // force height ก่อน init
-  el.style.height='380px';
-  el.style.display='block';
-  boundaryMap=L.map('boundary-map',{
+
+  boundaryMap=L.map(el,{
     zoomControl:true,
-    preferCanvas:true
-  }).setView([18.5,99.0],7);
+    preferCanvas:false,
+    zoomSnap:0.5
+  }).setView([17.8,99.0],7);
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© OpenStreetMap',
     maxZoom:19,
     crossOrigin:true
   }).addTo(boundaryMap);
+
   boundaryMap.getContainer().style.filter='invert(1) hue-rotate(180deg) brightness(0.85)';
   boundaryMarkers=L.layerGroup().addTo(boundaryMap);
-  // รอ map ready แล้ว render
+
   boundaryMap.whenReady(()=>{
     setTimeout(()=>{
       boundaryMap.invalidateSize(true);
-      renderBoundary();
-    },200);
+      updateBoundaryMap();
+    },250);
+    setTimeout(()=>boundaryMap.invalidateSize(true), 800);
   });
 }
 function getMarkerColor(vsv){if(vsv===null||vsv===undefined)return'#888780';if(vsv>=0)return'#3fb950';if(vsv>=-0.5)return'#e3b341';return'#f85149';}
@@ -1166,7 +1191,7 @@ function updateBoundaryMap(){
     const col=getMarkerColor(vsv);
     const typeCol=b.type==='CM'?'#3fb950':'#e3b341';
     const svgIcon=L.divIcon({className:'',html:'<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="9" fill="'+col+'" fill-opacity="0.85" stroke="#0d1117" stroke-width="1.5"/><text x="11" y="15" text-anchor="middle" font-size="9" font-weight="700" fill="#0d1117" font-family="monospace">'+b.type+'</text></svg>',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-12]});
-    const marker=L.marker([c.lat,c.lon],{icon:svgIcon});
+    const marker=L.marker([c.lat,c.lon],{icon:svgIcon, keyboard:false});
     const pdtHtml=pv!==null?'<div style="font-size:13px;font-weight:700;color:'+col+'">'+pv.toFixed(2)+' งาน/วัน <span style="font-size:10px;color:var(--text3);">(vs base '+(vsv>=0?'+':'')+(vsv||0).toFixed(2)+')</span></div>':'<div style="color:var(--text3);font-size:11px;">ไม่มีข้อมูล PDT</div>';
     const distHtml=[b.home,...b.resp.filter(r=>r!==b.home)].slice(0,6).map((d,i)=>'<span style="font-size:10px;padding:1px 5px;border-radius:9px;margin:1px;display:inline-block;background:'+(i===0?'#1b5e31':'var(--bg3)')+';color:'+(i===0?'#3fb950':'var(--text2)')+';">'+(i===0?'🏠 ':'')+d+'</span>').join('');
     const sourceLabel=(c.method==='first-job-checkin-cluster')?'Home base จากงานแรกของวัน':'Home base cluster';
