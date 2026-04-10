@@ -49,7 +49,7 @@ def get_client():
         info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
-BOUNDARY_SHEET = 'team_boundary'
+BOUNDARY_SHEET = 'team_boudary'
 
 def parse_coord(v):
     if not v: return None
