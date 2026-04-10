@@ -6,190 +6,443 @@ import gspread
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# ================= CONFIG =================
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
 CM_BASE       = 3
 OFC_BASE      = 2
 REBUILD_HOURS = 6
-VALID_YEAR    = '2569'
 EXCLUDE       = {'PS_CMI_ofc_011','PS_CMI_ofc_012'}
+VALID_YEAR    = '2569'   # กรองเฉพาะปี พ.ศ. นี้
 
-# ================= APP =================
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
-
 app = Flask(__name__)
 CORS(app)
 
 _cache = None
 _cache_lock = threading.Lock()
-_building = False
+_building   = False
 
-# ================= MAP =================
 PROV_MAP = {
-    'TRUE-TH-BBT-NOR1-CMI1-NOP':'CMI','TRUE-TH-BBT-NOR1-CRI-NOP':'CRI',
-    'TRUE-TH-BBT-NOR2-PSN-NOP':'PSN','TRUE-TH-BBT-NOR2-PCB-NOP':'PCB',
-    'TRUE-TH-BBT-NOR2-TAK-NOP':'TAK','TRUE-TH-BBT-NOR1-MHS-NOP':'MHS',
-    'TRUE-TH-BBT-NOR1-NAN-NOP':'NAN','TRUE-TH-BBT-NOR2-PCT-NOP':'PCT',
-    'TRUE-TH-BBT-NOR1-LPG-NOP':'LPG','TRUE-TH-BBT-NOR2-UTR-NOP':'UTR',
-    'TRUE-TH-BBT-NOR2-KPP-NOP':'KPP','TRUE-TH-BBT-NOR2-SKT-NOP':'SKT',
-    'TRUE-TH-BBT-NOR1-PHE-NOP':'PHE','TRUE-TH-BBT-NOR1-LPN-NOP':'LPN',
+    'TRUE-TH-BBT-NOR1-CMI1-NOP':'CMI', 'TRUE-TH-BBT-NOR1-CRI-NOP':'CRI',
+    'TRUE-TH-BBT-NOR2-PSN-NOP':'PSN',  'TRUE-TH-BBT-NOR2-PCB-NOP':'PCB',
+    'TRUE-TH-BBT-NOR2-TAK-NOP':'TAK',  'TRUE-TH-BBT-NOR1-MHS-NOP':'MHS',
+    'TRUE-TH-BBT-NOR1-NAN-NOP':'NAN',  'TRUE-TH-BBT-NOR2-PCT-NOP':'PCT',
+    'TRUE-TH-BBT-NOR1-LPG-NOP':'LPG',  'TRUE-TH-BBT-NOR2-UTR-NOP':'UTR',
+    'TRUE-TH-BBT-NOR2-KPP-NOP':'KPP',  'TRUE-TH-BBT-NOR2-SKT-NOP':'SKT',
+    'TRUE-TH-BBT-NOR1-PHE-NOP':'PHE',  'TRUE-TH-BBT-NOR1-LPN-NOP':'LPN',
     'TRUE-TH-BBT-NOR1-PYO-NOP':'PYO'
 }
-
+PROV_THAI = {
+    'CMI':'เชียงใหม่','CRI':'เชียงราย','PSN':'พิษณุโลก','PCB':'พิจิตร',
+    'TAK':'ตาก','MHS':'แม่ฮ่องสอน','NAN':'น่าน','PCT':'พิชัย',
+    'LPG':'ลำปาง','UTR':'อุตรดิตถ์','KPP':'กำแพงเพชร','SKT':'สุโขทัย',
+    'PHE':'เพชรบูรณ์','LPN':'ลำพูน','PYO':'พะเยา'
+}
 NOR1 = {'CMI','CRI','MHS','NAN','LPG','PHE','LPN','PYO'}
+THAI_MONTHS = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+               'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
 
-# ================= GOOGLE =================
 def get_client():
-    creds_json = os.environ['GOOGLE_CREDENTIALS_JSON']
-    info = json.loads(creds_json)
+    info  = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
     creds = Credentials.from_service_account_info(
-        info,
-        scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
-    )
+        info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
-# ================= PARSE =================
-def parse_dt(v):
+BOUNDARY_SHEET = 'team_boudary'
+
+def parse_coord(v):
     if not v: return None
-    m = re.match(r'(\d+)/(\d+)/(\d+)\s+(\d+):(\d+)', str(v))
+    m = re.match(r'([-\d.]+),\s*([-\d.]+)', str(v).strip())
+    return (float(m.group(1)), float(m.group(2))) if m else None
+
+def haversine(lat1,lon1,lat2,lon2):
+    R=6371; dlat=math.radians(lat2-lat1); dlon=math.radians(lon2-lon1)
+    a=math.sin(dlat/2)**2+math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+    return R*2*math.asin(math.sqrt(a))
+
+def find_home_coords(coords_list, radius_km=5):
+    if not coords_list: return None
+    best=None; best_count=0
+    for lat,lon in coords_list:
+        cluster=[(lt,ln) for lt,ln in coords_list if haversine(lat,lon,lt,ln)<=radius_km]
+        if len(cluster)>best_count:
+            best_count=len(cluster)
+            best=(round(sum(c[0] for c in cluster)/len(cluster),6),
+                  round(sum(c[1] for c in cluster)/len(cluster),6),
+                  best_count, len(coords_list))
+    return best
+
+def build_boundary(gc):
+    """ดึง boundary data จาก team_boundary sheet"""
+    try:
+        ws   = gc.open_by_key(SHEET_ID).worksheet(BOUNDARY_SHEET)
+        rows = ws.get_all_values()
+        if not rows: return []
+        headers = [h.strip() for h in rows[0]]
+        col = {h:i for i,h in enumerate(headers) if h}
+        def g(row,name):
+            i=col.get(name)
+            return str(row[i]).strip() if i is not None and i<len(row) else ''
+        boundary = []
+        for row in rows[1:]:
+            tid = g(row,'Team ID')
+            if not tid or tid=='nan': continue
+            type_team = g(row,'Type Team')
+            prov_code = g(row,'Province')
+            prov_name = g(row,'Province1')
+            home      = g(row,'อำเภอ home base')
+            group     = g(row,'Group District')
+            reg       = 'NOR1' if prov_code in NOR1 else 'NOR2'
+            resp = []
+            for i in range(1,10):
+                v = g(row, f'อำเภอที่รับผิดชอบที่ {i}')
+                if v and v!='nan': resp.append(v)
+            boundary.append(dict(
+                tid=tid, type=type_team, reg=reg,
+                prov=prov_code, prov_name=prov_name,
+                home=home, resp=resp,
+                group=group
+            ))
+        log.info(f'Boundary: {len(boundary)} teams')
+        return boundary
+    except Exception as e:
+        log.error(f'build_boundary error: {e}')
+        return []
+
+
+def parse_dt(v):
+    """D/M/YYYY HH:MM (พ.ศ.) → datetime ค.ศ."""
+    if not v: return None
+    s = str(v).strip()
+    m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})', s)
     if not m: return None
-    d,mn,y,h,mi = map(int,m.groups())
-    if y > 2100: y -= 543
-    return datetime(y,mn,d,h,mi)
+    d,mo,y,h,mi = int(m.group(1)),int(m.group(2)),int(m.group(3)),int(m.group(4)),int(m.group(5))
+    if y > 2100: y -= 543   # พ.ศ. → ค.ศ.
+    try: return datetime(y, mo, d, h, mi)
+    except: return None
 
-def to_month(dt):
-    return f'{dt.year+543}-{dt.month:02d}' if dt else None
+def to_by_month(dt):
+    """datetime ค.ศ. → พ.ศ. month string เช่น 2569-01"""
+    if not dt: return None
+    return f'{dt.year+543}-{dt.month:02d}'
 
-def is_valid(m):
-    return m and m.startswith(VALID_YEAR)
+def to_by_date(dt):
+    """datetime ค.ศ. → พ.ศ. date string เช่น 2569-01-15"""
+    if not dt: return None
+    return f'{dt.year+543}-{dt.month:02d}-{dt.day:02d}'
 
-# ================= CORE =================
+def fmt_time(v):
+    if not v: return ''
+    m = re.search(r'(\d{1,2}:\d{2})', str(v))
+    return m.group(1) if m else str(v).strip()
+
+def is_valid_month(month_str):
+    """กรองเฉพาะปี พ.ศ. ปัจจุบัน"""
+    return month_str and month_str.startswith(VALID_YEAR + '-')
+
 def build_data():
-    log.info("BUILD START")
+    log.info('Building dashboard data...')
+    t0 = time.time()
 
-    gc = get_client()
-    ws = gc.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
+    gc   = get_client()
+    ws   = gc.open_by_key(SHEET_ID).worksheet(SHEET_NAME)
     rows = ws.get_all_values()
+    if not rows: raise RuntimeError('Sheet is empty')
 
-    headers = rows[0]
-    col = {h:i for i,h in enumerate(headers)}
+    headers = [' '.join(h.split()) for h in rows[0]]
+    col = {h: i for i, h in enumerate(headers) if h}
+    def fc(*names):
+        for n in names:
+            if n in col: return col[n]
+            for k,v in col.items():
+                if k.lower()==n.lower(): return v
+        return None
 
-    def g(r,name):
-        return r[col[name]] if name in col and col[name] < len(r) else ""
-
-    teams = {}
-    months = set()
-
-    for r in rows[1:]:
-        tid = g(r,'Team ID')
-        ttype = g(r,'Type Team')
-        prov_raw = g(r,'Province')
-
-        if not tid or ttype not in ['CM','OFC']: continue
-        if tid in EXCLUDE: continue
-
-        prov = PROV_MAP.get(prov_raw,'')
-        reg = 'NOR1' if prov in NOR1 else 'NOR2'
-
-        dt = parse_dt(g(r,'Link Up')) or parse_dt(g(r,'เวลาเดินทาง'))
-        m = to_month(dt)
-
-        if not is_valid(m): continue
-        months.add(m)
-
-        if tid not in teams:
-            teams[tid] = {
-                'type':ttype,
-                'prov':prov,
-                'reg':reg,
-                'p1':0,
-                'p2':0,
-                'days':set(),
-                'tkt':0,
-                'non':0
-            }
-
-        tm = teams[tid]
-        tm['days'].add(m)
-
-        if g(r,'Ticket').startswith(('TT','INC')):
-            tm['tkt'] += 1
-        else:
-            tm['non'] += 1
-
-        tm['p1'] += 1
-        tm['p2'] += 1
-
-    ts = []
-    for tid,tm in teams.items():
-        days = len(tm['days']) or 1
-        p1 = round(tm['p1']/days,2)
-        base = CM_BASE if tm['type']=='CM' else OFC_BASE
-        st = 'above' if p1>=base else 'below'
-
-        ts.append({
-            'id':tid,
-            'type':tm['type'],
-            'reg':tm['reg'],
-            'prov':tm['prov'],
-            'p1':p1,
-            'p2':p1,
-            'base':base,
-            'vs1':round(p1-base,2),
-            'st':st,
-            'days':days,
-            'tkt':tm['tkt'],
-            'non':tm['non']
-        })
-
-    log.info("BUILD DONE")
-
-    return {
-        'ts':ts,
-        'months':sorted(months),
-        'nor1':list(NOR1),
-        'gstats':{
-            'total_tkt':sum(t['tkt'] for t in ts),
-            'total_non':sum(t['non'] for t in ts)
-        },
-        'cached_at':datetime.now().isoformat()
+    C = {
+        'team_id':      fc('Team ID'),
+        'type_team':    fc('Type Team'),
+        'province':     fc('Province'),
+        'ticket':       fc('Ticket'),
+        'sla':          fc('SLA'),
+        'subject':      fc('Subject'),
+        'que':          fc('Que'),
+        'travel':       fc('เวลาเดินทาง'),
+        'start':        fc('เวลาเริ่มซ่อม'),
+        'hold':         fc('Hold'),
+        'linkup':       fc('Link Up'),
+        'status':       fc('Status Team'),
+        'holdcause':    fc('สาเหตุการ Hold'),
+        'log':          fc('Update Log'),
+        'cause1':       fc('สาเหตุ 1'),
+        'fix1':         fc('วิธีแก้ไข'),
+        'update_pikat': fc('Update พิกัด'),
     }
 
-# ================= CACHE =================
+    def g(row, key):
+        i = C.get(key)
+        return str(row[i]).strip() if i is not None and i < len(row) else ''
+
+    teams  = {}
+    months = set()
+    drill  = {}
+    cutoff = datetime.now() - timedelta(days=90)
+
+    for row in rows[1:]:
+        team_id   = g(row,'team_id')
+        type_team = g(row,'type_team')
+        prov_full = g(row,'province')
+        if not team_id or type_team not in ('CM','OFC'): continue
+        if team_id in EXCLUDE: continue
+
+        prov = PROV_MAP.get(prov_full,'')
+        reg  = 'NOR1' if prov in NOR1 else 'NOR2'
+
+        dt_linkup = parse_dt(g(row,'linkup'))
+        dt_travel = parse_dt(g(row,'travel'))
+        dt_hold   = parse_dt(g(row,'hold'))
+
+        has_lu   = dt_linkup is not None
+        has_hold = dt_hold   is not None
+
+        # date จาก Link Up ?? เวลาเดินทาง
+        dt_date   = dt_linkup or dt_travel
+        month_str = to_by_month(dt_date)
+        date_str  = to_by_date(dt_date)
+
+        # กรองเฉพาะ valid year (2569) — ตัด outlier
+        row_valid = is_valid_month(month_str)
+        if month_str: months.add(month_str) if row_valid else None
+
+        # is_ticket: TT หรือ INC (ตาม v17 label "TT + INC pattern")
+        tkt_val   = g(row,'ticket')
+        is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
+
+        coord_raw = g(row,'update_pikat')
+        last_ts = dt_linkup or dt_hold
+
+        if team_id not in teams:
+            teams[team_id] = dict(
+                type=type_team, prov=prov, reg=reg,
+                pdt1_dates={}, pdt2_dates={},
+                all_dates=set(),
+                day_first_travel={},
+                day_last_ts={},
+                tkt=0, non=0, monthly={},
+                coords=[]
+            )
+        tm = teams[team_id]
+
+        if coord_raw and row_valid:
+            c = parse_coord(coord_raw)
+            if c: tm['coords'].append(c)
+
+        if row_valid:
+            if is_ticket: tm['tkt'] += 1
+            else:         tm['non'] += 1
+
+        if row_valid and date_str:
+            tm['all_dates'].add(date_str)
+            if dt_travel:
+                prev = tm['day_first_travel'].get(date_str)
+                if prev is None or dt_travel < prev:
+                    tm['day_first_travel'][date_str] = dt_travel
+            if last_ts:
+                prev = tm['day_last_ts'].get(date_str)
+                if prev is None or last_ts > prev:
+                    tm['day_last_ts'][date_str] = last_ts
+            if has_lu:
+                tm['pdt1_dates'][date_str] = tm['pdt1_dates'].get(date_str,0) + 1
+            if has_lu or has_hold:
+                tm['pdt2_dates'][date_str] = tm['pdt2_dates'].get(date_str,0) + 1
+            if month_str:
+                if month_str not in tm['monthly']:
+                    tm['monthly'][month_str] = {'p1d':{},'p2d':{},'dates':set()}
+                mm = tm['monthly'][month_str]
+                mm['dates'].add(date_str)
+                if has_lu:
+                    mm['p1d'][date_str] = mm['p1d'].get(date_str,0)+1
+                if has_lu or has_hold:
+                    mm['p2d'][date_str] = mm['p2d'].get(date_str,0)+1
+
+        # drill (3 months, valid only)
+        if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
+            if team_id not in drill: drill[team_id] = {}
+            if date_str not in drill[team_id]: drill[team_id][date_str] = []
+            if len(drill[team_id][date_str]) < 30:
+                drill[team_id][date_str].append([
+                    tkt_val,
+                    g(row,'sla'),
+                    g(row,'subject')[:80],
+                    g(row,'que'),
+                    fmt_time(g(row,'travel')),
+                    fmt_time(g(row,'start')),
+                    fmt_time(g(row,'hold')),
+                    fmt_time(g(row,'linkup')),
+                    g(row,'status'),
+                    g(row,'holdcause'),
+                    g(row,'log')[:150],
+                    g(row,'cause1'),
+                    g(row,'fix1'),
+                    '',
+                    'Ticket' if is_ticket else 'Non-Ticket',
+                    1 if (dt_linkup is not None) else 0,
+                    1 if (dt_linkup is not None or dt_hold is not None) else 0,
+                    0,
+                    month_str or '',
+                ])
+
+    log.info(f'Parsed {len(teams)} teams, months={sorted(months)}')
+
+    sorted_months = sorted(months)
+    ml = {}
+    for m in sorted_months:
+        p = m.split('-')
+        ml[m] = f'{THAI_MONTHS[int(p[1])]} {p[0][2:]}'
+
+    ts = []; rank_data = []
+    for tid, tm in teams.items():
+        days = len(tm['all_dates'])
+        if days == 0: continue
+        tot1 = sum(tm['pdt1_dates'].values())
+        tot2 = sum(tm['pdt2_dates'].values())
+        p1   = round(tot1/days, 2)
+        p2   = round(tot2/days, 2)
+        base = CM_BASE if tm['type']=='CM' else OFC_BASE
+        vs1  = round(p1-base, 2)
+        vs2  = round(p2-base, 2)
+        st   = 'above' if vs1>=0 else ('below' if vs1<-0.5 else 'near')
+        max1 = max(tm['pdt1_dates'].values()) if tm['pdt1_dates'] else 0
+        max2 = max(tm['pdt2_dates'].values()) if tm['pdt2_dates'] else 0
+        daily_h_vals = [round((tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600, 2) for d in tm['all_dates'] if d in tm['day_first_travel'] and d in tm['day_last_ts'] and 0 < (tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600 < 24]
+        h = round(sum(daily_h_vals)/len(daily_h_vals), 2) if daily_h_vals else 0
+
+        ts.append(dict(
+            id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
+            pn=PROV_THAI.get(tm['prov'],tm['prov']),
+            p1=p1, p2=p2, tot1=tot1, tot2=tot2,
+            h=h, days=days, max1=max1, max2=max2,
+            base=base, vs1=vs1, vs2=vs2, st=st, tkt=tm['tkt'], non=tm['non']
+        ))
+
+        rd = dict(id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
+                  p1_avg=p1, p2_avg=p2, wd_avg=days)
+        for m in sorted_months:
+            mm = tm['monthly'].get(m)
+            if mm and mm['dates']:
+                md  = len(mm['dates'])
+                mp1 = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
+                mp2 = round(sum(mm['p2d'].values())/md, 2) if mm['p2d'] else 0
+            else:
+                mp1=mp2=md=0
+            rd[f'p1_{m}']=mp1; rd[f'p2_{m}']=mp2; rd[f'wd_{m}']=md
+        rank_data.append(rd)
+
+    tr_map = {}
+    for t in ts:
+        tm = teams[t['id']]
+        for m in sorted_months:
+            mm = tm['monthly'].get(m)
+            if not mm or not mm['dates']: continue
+            md   = len(mm['dates'])
+            avg1 = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
+            avg2 = round(sum(mm['p2d'].values())/md, 2) if mm['p2d'] else 0
+            k = f"{m}||{t['reg']}||{t['type']}"
+            if k not in tr_map: tr_map[k] = {'s1':0,'s2':0,'cnt':0}
+            tr_map[k]['s1']+=avg1; tr_map[k]['s2']+=avg2; tr_map[k]['cnt']+=1
+    tr = [dict(m=k.split('||')[0], reg=k.split('||')[1], type=k.split('||')[2],
+               avg=round(v['s2']/v['cnt'],2), avg_p1=round(v['s1']/v['cnt'],2))
+          for k,v in tr_map.items()]
+
+    heat_map = {}
+    for t in ts:
+        tm = teams[t['id']]
+        for m, mm in tm['monthly'].items():
+            if not mm['dates']: continue
+            md  = len(mm['dates'])
+            avg = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
+            hk  = f"{m}||{t['prov']}"
+            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0}
+            heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
+    heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
+                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'])
+            for k,v in heat_map.items()]
+
+    prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
+    nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
+
+    home_coords = {}
+    for tid, tm in teams.items():
+        result = find_home_coords(tm['coords'])
+        if result:
+            home_coords[tid] = {
+                'lat': result[0], 'lon': result[1],
+                'count': result[2], 'total': result[3]
+            }
+    log.info(f'homeCoords: {len(home_coords)} teams')
+
+    boundary = build_boundary(gc)
+
+    elapsed = round(time.time()-t0,1)
+    log.info(f'Done: {len(ts)} teams, {len(sorted_months)} months, {elapsed}s')
+    log.info(f'gstats: tkt={sum(t["tkt"] for t in ts)} non={sum(t["non"] for t in ts)}')
+
+    return dict(
+        ts=ts, tr=tr, heat=heat, wk=[],
+        prov=prov_names, nor1=nor1_list,
+        months=sorted_months, ml=ml, sum={},
+        gstats=dict(
+            total_tkt=sum(t['tkt'] for t in ts),
+            total_non=sum(t['non'] for t in ts),
+            total_rows=sum(t['tkt']+t['non'] for t in ts)
+        ),
+        rankData=rank_data, boundary=boundary, homeCoords=home_coords,
+        drill=drill, slaData={},
+        cached_at=datetime.now().isoformat()
+    )
+
 def rebuild_cache():
-    global _cache,_building
+    global _cache, _building
     if _building: return
-    _building=True
+    _building = True
     try:
         data = build_data()
-        with _cache_lock:
-            _cache = data
-        log.info("CACHE READY")
+        with _cache_lock: _cache = data
+        log.info('Cache updated ✓')
     except Exception as e:
-        log.error(e)
+        log.error(f'rebuild_cache error: {e}')
+        import traceback; traceback.print_exc()
     finally:
-        _building=False
+        _building = False
 
-# ================= API =================
 @app.route('/api/dashboard')
 def api_dashboard():
     with _cache_lock:
         if _cache is None:
-            return jsonify({'status':'building'}),503
+            return jsonify({'error':'Cache building, retry in 60s'}), 503
         return jsonify(_cache)
 
 @app.route('/api/status')
-def status():
-    return jsonify({'status':'ok'})
+def api_status():
+    with _cache_lock:
+        if _cache is None: return jsonify({'status':'building'})
+        return jsonify(dict(
+            status='ready',
+            teams=len(_cache.get('ts',[])),
+            months=_cache.get('months',[]),
+            tickets=_cache.get('gstats',{}).get('total_tkt',0),
+            cached_at=_cache.get('cached_at')
+        ))
 
-# ================= FRONTEND =================
+@app.route('/api/rebuild', methods=['POST'])
+def api_rebuild():
+    threading.Thread(target=rebuild_cache, daemon=True).start()
+    return jsonify({'status':'rebuilding'})
+
 @app.route('/')
 def home():
     return render_template('dashboard.html')
 
-# ================= START =================
 def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
@@ -197,6 +450,5 @@ def start():
     s.start()
 
 start()
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',8080)))
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',5000)))
