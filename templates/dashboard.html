@@ -1169,7 +1169,8 @@ function updateBoundaryMap(){
     const marker=L.marker([c.lat,c.lon],{icon:svgIcon});
     const pdtHtml=pv!==null?'<div style="font-size:13px;font-weight:700;color:'+col+'">'+pv.toFixed(2)+' งาน/วัน <span style="font-size:10px;color:var(--text3);">(vs base '+(vsv>=0?'+':'')+(vsv||0).toFixed(2)+')</span></div>':'<div style="color:var(--text3);font-size:11px;">ไม่มีข้อมูล PDT</div>';
     const distHtml=[b.home,...b.resp.filter(r=>r!==b.home)].slice(0,6).map((d,i)=>'<span style="font-size:10px;padding:1px 5px;border-radius:9px;margin:1px;display:inline-block;background:'+(i===0?'#1b5e31':'var(--bg3)')+';color:'+(i===0?'#3fb950':'var(--text2)')+';">'+(i===0?'🏠 ':'')+d+'</span>').join('');
-    marker.bindPopup('<div style="min-width:180px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;">'+b.tid+'</div><div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:'+typeCol+';">'+b.type+'</span> <span style="font-size:10px;color:var(--text3);">'+b.prov+' · '+(b.prov_name||'')+'</span></div>'+pdtHtml+'<div style="margin-top:8px;"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;">อำเภอที่รับผิดชอบ</div><div style="margin-top:4px;">'+distHtml+'</div></div><div style="margin-top:8px;font-size:10px;color:var(--text3);">Q1 cluster: '+c.count+'/'+c.total+'</div></div>');
+    const sourceLabel=(c.method==='first-job-checkin-cluster')?'Home base จากงานแรกของวัน':'Home base cluster';
+    marker.bindPopup('<div style="min-width:180px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;">'+b.tid+'</div><div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:'+typeCol+';">'+b.type+'</span> <span style="font-size:10px;color:var(--text3);">'+b.prov+' · '+(b.prov_name||'')+'</span></div>'+pdtHtml+'<div style="margin-top:8px;"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;">อำเภอที่รับผิดชอบ</div><div style="margin-top:4px;">'+distHtml+'</div></div><div style="margin-top:8px;font-size:10px;color:var(--text3);">'+sourceLabel+': '+c.count+'/'+c.total+' วัน</div><div style="margin-top:2px;font-size:10px;color:var(--text3);">Lat, Lon: '+Number(c.lat).toFixed(6)+', '+Number(c.lon).toFixed(6)+'</div></div>');
     boundaryMarkers.addLayer(marker);
     bounds.push([c.lat,c.lon]);
   });
@@ -1824,8 +1825,10 @@ function renderBoundary() {
     return true;
   });
   filtered.sort((a,b)=>{ const ta=tsMap[a.tid],tb=tsMap[b.tid]; return (tb?getPDT(tb):0)-(ta?getPDT(ta):0); });
+  const coords = RAW.homeCoords||{};
+  const withCoords = filtered.filter(b => !!coords[b.tid]).length;
   const bStats = document.getElementById('b-stats');
-  if (bStats) bStats.innerHTML = '<div>แสดง <strong style="color:var(--text)">'+filtered.length+'</strong> ทีม</div><span>|</span><div>CM: <strong style="color:var(--cm)">'+filtered.filter(b=>b.type==='CM').length+'</strong></div><div>OFC: <strong style="color:var(--ofc)">'+filtered.filter(b=>b.type==='OFC').length+'</strong></div>';
+  if (bStats) bStats.innerHTML = '<div>แสดง <strong style="color:var(--text)">'+filtered.length+'</strong> ทีม</div><span>|</span><div>มีพิกัด home base: <strong style="color:var(--blue)">'+withCoords+'</strong></div><div>CM: <strong style="color:var(--cm)">'+filtered.filter(b=>b.type==='CM').length+'</strong></div><div>OFC: <strong style="color:var(--ofc)">'+filtered.filter(b=>b.type==='OFC').length+'</strong></div>';
   const grid = document.getElementById('boundary-grid');
   if (!grid) return;
   if (!filtered.length) { grid.innerHTML='<div class="b-no-results" style="grid-column:1/-1;">ไม่พบทีม</div>'; return; }
