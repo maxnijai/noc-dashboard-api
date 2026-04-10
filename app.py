@@ -1,6 +1,6 @@
 import os, json, logging, threading, time, re, math
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
@@ -214,11 +214,15 @@ def build_data():
         row_valid = is_valid_month(month_str)
         if month_str: months.add(month_str) if row_valid else None
 
+
         # is_ticket: TT หรือ INC (ตาม v17 label "TT + INC pattern")
+        # แต่นับเฉพาะ row ที่ year valid
         tkt_val   = g(row,'ticket')
         is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
 
+        # เก็บ Update พิกัด สำหรับ homeCoords
         coord_raw = g(row,'update_pikat')
+        # last_ts = Link Up หรือ Hold (Logic C)
         last_ts = dt_linkup or dt_hold
 
         if team_id not in teams:
@@ -233,16 +237,20 @@ def build_data():
             )
         tm = teams[team_id]
 
+        # เก็บ coords
         if coord_raw and row_valid:
             c = parse_coord(coord_raw)
             if c: tm['coords'].append(c)
 
+        # นับ tkt/non เฉพาะ valid year rows
         if row_valid:
             if is_ticket: tm['tkt'] += 1
             else:         tm['non'] += 1
 
+        # PDT counts เฉพาะ valid rows
         if row_valid and date_str:
             tm['all_dates'].add(date_str)
+            # Logic C: track min travel และ max last_ts per day
             if dt_travel:
                 prev = tm['day_first_travel'].get(date_str)
                 if prev is None or dt_travel < prev:
@@ -270,26 +278,30 @@ def build_data():
             if team_id not in drill: drill[team_id] = {}
             if date_str not in drill[team_id]: drill[team_id][date_str] = []
             if len(drill[team_id][date_str]) < 30:
+                # Array format ตรง v17:
+                # [0]tkt [1]sla [2]subj [3]que [4]travel [5]start [6]hold [7]linkup
+                # [8]status [9]holdCause [10]log [11]cause1 [12]fix1 [13]detail
+                # [14]type [15]pdt1 [16]pdt2 [17]work_hrs [18]month
                 drill[team_id][date_str].append([
-                    tkt_val,
-                    g(row,'sla'),
-                    g(row,'subject')[:80],
-                    g(row,'que'),
-                    fmt_time(g(row,'travel')),
-                    fmt_time(g(row,'start')),
-                    fmt_time(g(row,'hold')),
-                    fmt_time(g(row,'linkup')),
-                    g(row,'status'),
-                    g(row,'holdcause'),
-                    g(row,'log')[:150],
-                    g(row,'cause1'),
-                    g(row,'fix1'),
-                    '',
-                    'Ticket' if is_ticket else 'Non-Ticket',
-                    1 if (dt_linkup is not None) else 0,
-                    1 if (dt_linkup is not None or dt_hold is not None) else 0,
-                    0,
-                    month_str or '',
+                    tkt_val,                                    # [0] tkt
+                    g(row,'sla'),                               # [1] sla
+                    g(row,'subject')[:80],                      # [2] subj
+                    g(row,'que'),                               # [3] que
+                    fmt_time(g(row,'travel')),                  # [4] travel
+                    fmt_time(g(row,'start')),                   # [5] start
+                    fmt_time(g(row,'hold')),                    # [6] hold
+                    fmt_time(g(row,'linkup')),                  # [7] linkup
+                    g(row,'status'),                            # [8] status
+                    g(row,'holdcause'),                         # [9] holdCause
+                    g(row,'log')[:150],                         # [10] log
+                    g(row,'cause1'),                            # [11] cause1
+                    g(row,'fix1'),                              # [12] fix1
+                    '',                                         # [13] detail
+                    'Ticket' if is_ticket else 'Non-Ticket',    # [14] type
+                    1 if (dt_linkup is not None) else 0,        # [15] pdt1
+                    1 if (dt_linkup is not None or dt_hold is not None) else 0,  # [16] pdt2
+                    0,                                          # [17] work_hrs
+                    month_str or '',                            # [18] month
                 ])
 
     log.info(f'Parsed {len(teams)} teams, months={sorted(months)}')
@@ -362,15 +374,17 @@ def build_data():
             md  = len(mm['dates'])
             avg = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
             hk  = f"{m}||{t['prov']}"
-            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0}
+            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
             heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
+            heat_map[hk]['tkt']+=mm['cnt']  # total tickets
     heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
-                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'])
+                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0))
             for k,v in heat_map.items()]
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
     nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
 
+    # ── Build homeCoords จาก Update พิกัด ────────────────────
     home_coords = {}
     for tid, tm in teams.items():
         result = find_home_coords(tm['coords'])
@@ -381,16 +395,37 @@ def build_data():
             }
     log.info(f'homeCoords: {len(home_coords)} teams')
 
+    # ── Build boundary จาก team_boundary sheet ───────────────
     boundary = build_boundary(gc)
 
     elapsed = round(time.time()-t0,1)
     log.info(f'Done: {len(ts)} teams, {len(sorted_months)} months, {elapsed}s')
+    sample = [(t['id'],t['p1'],t['vs1']) for t in sorted(ts,key=lambda x:x['p1'])[:3]]
+    log.info(f'Sample lowest p1: {sample}')
     log.info(f'gstats: tkt={sum(t["tkt"] for t in ts)} non={sum(t["non"] for t in ts)}')
+
+    # Build sum per team (for analysis card and team detail)
+    sum_data = {}
+    for t in ts:
+        sum_data[t['id']] = {
+            'tot':   t['tot1'],
+            'tkt':   t['tkt'],
+            'non':   t['non'],
+            'days':  t['days'],
+            'hold':  0,
+            'hold_pct': 0,
+            'inc_work': 0,
+            'sw':    {},
+            'st':    {},
+            'z':     0,
+            'qh':    {},
+            'hr':    [],
+        }
 
     return dict(
         ts=ts, tr=tr, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
-        months=sorted_months, ml=ml, sum={},
+        months=sorted_months, ml=ml, sum=sum_data,
         gstats=dict(
             total_tkt=sum(t['tkt'] for t in ts),
             total_non=sum(t['non'] for t in ts),
@@ -440,8 +475,8 @@ def api_rebuild():
     return jsonify({'status':'rebuilding'})
 
 @app.route('/')
-def home():
-    return render_template('dashboard.html')
+def index():
+    return '<h3>NOC Dashboard API</h3><a href="/api/status">/api/status</a>'
 
 def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
