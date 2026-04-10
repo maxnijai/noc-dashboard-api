@@ -1,4 +1,4 @@
-import os, json, logging, threading, time, re
+import os, json, logging, threading, time, re, math
 from datetime import datetime, timedelta
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -49,7 +49,68 @@ def get_client():
         info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
-def parse_dt(v):
+BOUNDARY_SHEET = 'team_boundary'
+
+def parse_coord(v):
+    if not v: return None
+    m = re.match(r'([-\d.]+),\s*([-\d.]+)', str(v).strip())
+    return (float(m.group(1)), float(m.group(2))) if m else None
+
+def haversine(lat1,lon1,lat2,lon2):
+    R=6371; dlat=math.radians(lat2-lat1); dlon=math.radians(lon2-lon1)
+    a=math.sin(dlat/2)**2+math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+    return R*2*math.asin(math.sqrt(a))
+
+def find_home_coords(coords_list, radius_km=5):
+    if not coords_list: return None
+    best=None; best_count=0
+    for lat,lon in coords_list:
+        cluster=[(lt,ln) for lt,ln in coords_list if haversine(lat,lon,lt,ln)<=radius_km]
+        if len(cluster)>best_count:
+            best_count=len(cluster)
+            best=(round(sum(c[0] for c in cluster)/len(cluster),6),
+                  round(sum(c[1] for c in cluster)/len(cluster),6),
+                  best_count, len(coords_list))
+    return best
+
+def build_boundary(gc):
+    """ดึง boundary data จาก team_boundary sheet"""
+    try:
+        ws   = gc.open_by_key(SHEET_ID).worksheet(BOUNDARY_SHEET)
+        rows = ws.get_all_values()
+        if not rows: return []
+        headers = [h.strip() for h in rows[0]]
+        col = {h:i for i,h in enumerate(headers) if h}
+        def g(row,name):
+            i=col.get(name)
+            return str(row[i]).strip() if i is not None and i<len(row) else ''
+        boundary = []
+        for row in rows[1:]:
+            tid = g(row,'Team ID')
+            if not tid or tid=='nan': continue
+            type_team = g(row,'Type Team')
+            prov_code = g(row,'Province')
+            prov_name = g(row,'Province1')
+            home      = g(row,'อำเภอ home base')
+            group     = g(row,'Group District')
+            reg       = 'NOR1' if prov_code in NOR1 else 'NOR2'
+            resp = []
+            for i in range(1,10):
+                v = g(row, f'อำเภอที่รับผิดชอบที่ {i}')
+                if v and v!='nan': resp.append(v)
+            boundary.append(dict(
+                tid=tid, type=type_team, reg=reg,
+                prov=prov_code, prov_name=prov_name,
+                home=home, resp=resp,
+                group=group
+            ))
+        log.info(f'Boundary: {len(boundary)} teams')
+        return boundary
+    except Exception as e:
+        log.error(f'build_boundary error: {e}')
+        return []
+
+
     """D/M/YYYY HH:MM (พ.ศ.) → datetime ค.ศ."""
     if not v: return None
     s = str(v).strip()
@@ -98,22 +159,23 @@ def build_data():
         return None
 
     C = {
-        'team_id':   fc('Team ID'),
-        'type_team': fc('Type Team'),
-        'province':  fc('Province'),
-        'ticket':    fc('Ticket'),
-        'sla':       fc('SLA'),
-        'subject':   fc('Subject'),
-        'que':       fc('Que'),
-        'travel':    fc('เวลาเดินทาง'),
-        'start':     fc('เวลาเริ่มซ่อม'),
-        'hold':      fc('Hold'),
-        'linkup':    fc('Link Up'),
-        'status':    fc('Status Team'),
-        'holdcause': fc('สาเหตุการ Hold'),
-        'log':       fc('Update Log'),
-        'cause1':    fc('สาเหตุ 1'),
-        'fix1':      fc('วิธีแก้ไข'),
+        'team_id':      fc('Team ID'),
+        'type_team':    fc('Type Team'),
+        'province':     fc('Province'),
+        'ticket':       fc('Ticket'),
+        'sla':          fc('SLA'),
+        'subject':      fc('Subject'),
+        'que':          fc('Que'),
+        'travel':       fc('เวลาเดินทาง'),
+        'start':        fc('เวลาเริ่มซ่อม'),
+        'hold':         fc('Hold'),
+        'linkup':       fc('Link Up'),
+        'status':       fc('Status Team'),
+        'holdcause':    fc('สาเหตุการ Hold'),
+        'log':          fc('Update Log'),
+        'cause1':       fc('สาเหตุ 1'),
+        'fix1':         fc('วิธีแก้ไข'),
+        'update_pikat': fc('Update พิกัด'),
     }
 
     def g(row, key):
@@ -157,7 +219,9 @@ def build_data():
         tkt_val   = g(row,'ticket')
         is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
 
-        # last_ts = Link Up หรือ Hold (สำหรับ Logic C)
+        # เก็บ Update พิกัด สำหรับ homeCoords
+        coord_raw = g(row,'update_pikat')
+        # last_ts = Link Up หรือ Hold (Logic C)
         last_ts = dt_linkup or dt_hold
 
         if team_id not in teams:
@@ -165,12 +229,17 @@ def build_data():
                 type=type_team, prov=prov, reg=reg,
                 pdt1_dates={}, pdt2_dates={},
                 all_dates=set(),
-                # Logic C: เก็บ min(travel) และ max(last_ts) per day
-                day_first_travel={},  # date → min เวลาเดินทาง
-                day_last_ts={},       # date → max(LinkUp/Hold)
-                tkt=0, non=0, monthly={}
+                day_first_travel={},
+                day_last_ts={},
+                tkt=0, non=0, monthly={},
+                coords=[]
             )
         tm = teams[team_id]
+
+        # เก็บ coords
+        if coord_raw and row_valid:
+            c = parse_coord(coord_raw)
+            if c: tm['coords'].append(c)
 
         # นับ tkt/non เฉพาะ valid year rows
         if row_valid:
@@ -208,14 +277,31 @@ def build_data():
             if team_id not in drill: drill[team_id] = {}
             if date_str not in drill[team_id]: drill[team_id][date_str] = []
             if len(drill[team_id][date_str]) < 30:
-                drill[team_id][date_str].append(dict(
-                    tkt=tkt_val, type='Ticket' if is_ticket else 'Non-Ticket',
-                    sla=g(row,'sla'), subj=g(row,'subject')[:80], que=g(row,'que'),
-                    travel=fmt_time(g(row,'travel')), start=fmt_time(g(row,'start')),
-                    hold=fmt_time(g(row,'hold')),     linkup=fmt_time(g(row,'linkup')),
-                    status=g(row,'status'), holdCause=g(row,'holdcause'),
-                    log=g(row,'log')[:150], cause1=g(row,'cause1'), fix1=g(row,'fix1')
-                ))
+                # Array format ตรง v17:
+                # [0]tkt [1]sla [2]subj [3]que [4]travel [5]start [6]hold [7]linkup
+                # [8]status [9]holdCause [10]log [11]cause1 [12]fix1 [13]detail
+                # [14]type [15]pdt1 [16]pdt2 [17]work_hrs [18]month
+                drill[team_id][date_str].append([
+                    tkt_val,                                    # [0] tkt
+                    g(row,'sla'),                               # [1] sla
+                    g(row,'subject')[:80],                      # [2] subj
+                    g(row,'que'),                               # [3] que
+                    fmt_time(g(row,'travel')),                  # [4] travel
+                    fmt_time(g(row,'start')),                   # [5] start
+                    fmt_time(g(row,'hold')),                    # [6] hold
+                    fmt_time(g(row,'linkup')),                  # [7] linkup
+                    g(row,'status'),                            # [8] status
+                    g(row,'holdcause'),                         # [9] holdCause
+                    g(row,'log')[:150],                         # [10] log
+                    g(row,'cause1'),                            # [11] cause1
+                    g(row,'fix1'),                              # [12] fix1
+                    '',                                         # [13] detail
+                    'Ticket' if is_ticket else 'Non-Ticket',    # [14] type
+                    1 if (dt_linkup is not None) else 0,        # [15] pdt1
+                    1 if (dt_linkup is not None or dt_hold is not None) else 0,  # [16] pdt2
+                    0,                                          # [17] work_hrs
+                    month_str or '',                            # [18] month
+                ])
 
     log.info(f'Parsed {len(teams)} teams, months={sorted(months)}')
 
@@ -296,6 +382,20 @@ def build_data():
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
     nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
 
+    # ── Build homeCoords จาก Update พิกัด ────────────────────
+    home_coords = {}
+    for tid, tm in teams.items():
+        result = find_home_coords(tm['coords'])
+        if result:
+            home_coords[tid] = {
+                'lat': result[0], 'lon': result[1],
+                'count': result[2], 'total': result[3]
+            }
+    log.info(f'homeCoords: {len(home_coords)} teams')
+
+    # ── Build boundary จาก team_boundary sheet ───────────────
+    boundary = build_boundary(gc)
+
     elapsed = round(time.time()-t0,1)
     log.info(f'Done: {len(ts)} teams, {len(sorted_months)} months, {elapsed}s')
     sample = [(t['id'],t['p1'],t['vs1']) for t in sorted(ts,key=lambda x:x['p1'])[:3]]
@@ -311,7 +411,7 @@ def build_data():
             total_non=sum(t['non'] for t in ts),
             total_rows=sum(t['tkt']+t['non'] for t in ts)
         ),
-        rankData=rank_data, boundary=[], homeCoords={},
+        rankData=rank_data, boundary=boundary, homeCoords=home_coords,
         drill=drill, slaData={},
         cached_at=datetime.now().isoformat()
     )
