@@ -490,6 +490,7 @@ def api_status():
             teams=len(_cache.get('ts',[])),
             months=_cache.get('months',[]),
             tickets=_cache.get('gstats',{}).get('total_tkt',0),
+            home_coords=len(_cache.get('homeCoords',{})),
             cached_at=_cache.get('cached_at')
         ))
 
