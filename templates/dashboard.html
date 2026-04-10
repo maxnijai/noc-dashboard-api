@@ -380,9 +380,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span class="badge cm">CM base:3</span>
       <span class="badge ofc">OFC base:2</span>
       <span style="font-size:11px;color:var(--text3);" id="filter-status">ทุก Region · ทุก Type</span>
-      <button class="btn" onclick="rebuildNow()">Rebuild Cache</button>
-      <button class="btn" onclick="reloadDashboardOnly()">Reload View</button>
-      <span style="font-size:11px;color:var(--text3);" id="rebuild-status"></span>
     <div class="pdt-toggle" title="เลือกวิธีคำนวณ PDT">
       <button class="pdt-btn p2 active" onclick="setPDTMode(2)" id="btn-pdt2">PDT = Link Up + Hold</button>
       <button class="pdt-btn p1" onclick="setPDTMode(1)" id="btn-pdt1">PDT = Link Up เท่านั้น</button>
@@ -654,53 +651,15 @@ async function fetchAndInit(){
   const ov=document.getElementById('loading-overlay');
   try{
     if(ov)ov.style.display='flex';
-    const r=await fetch(API_URL, {cache:'no-store'});
+    const r=await fetch(API_URL);
     if(!r.ok)throw new Error('HTTP '+r.status);
     RAW=await r.json();
     NOR1 = new Set(RAW.nor1 || []);
     if(RAW.error)throw new Error(RAW.error);
-
-    const lu = document.getElementById('last-update');
-    if (lu && RAW.cached_at) {
-      lu.textContent = `${(RAW.ts||[]).length} ทีม · ${(RAW.gstats||{}).total_tkt || 0} tickets · cache ${RAW.cached_at}`;
-    }
-
     if(ov)ov.style.display='none';
     init();
   }catch(e){
     if(ov)ov.innerHTML='<div style="text-align:center;color:#f85149;padding:20px;"><div style="font-size:18px;margin-bottom:8px;">⚠️ โหลดข้อมูลไม่ได้</div><div style="font-size:13px;color:#8b949e;margin-bottom:16px;">'+e.message+'</div><button onclick="fetchAndInit()" style="padding:8px 20px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;">ลองใหม่</button></div>';
-  }
-}
-
-async function rebuildNow(){
-  const el = document.getElementById('rebuild-status');
-  try{
-    if(el) el.textContent = 'กำลังสั่ง rebuild...';
-    const r = await fetch('/api/rebuild', { method:'POST' });
-    if(!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    if(el) el.textContent = 'สั่งแล้ว: ' + (j.status || 'rebuilding');
-
-    setTimeout(async ()=>{
-      if(el) el.textContent = 'กำลังโหลดข้อมูลใหม่...';
-      await fetchAndInit();
-      if(el) el.textContent = 'อัปเดตแล้ว';
-      setTimeout(()=>{ if(el) el.textContent = ''; }, 4000);
-    }, 12000);
-  }catch(e){
-    if(el) el.textContent = 'Rebuild ไม่สำเร็จ: ' + e.message;
-  }
-}
-
-async function reloadDashboardOnly(){
-  const el = document.getElementById('rebuild-status');
-  try{
-    if(el) el.textContent = 'กำลัง reload...';
-    await fetchAndInit();
-    if(el) el.textContent = 'โหลดล่าสุดแล้ว';
-    setTimeout(()=>{ if(el) el.textContent = ''; }, 3000);
-  }catch(e){
-    if(el) el.textContent = 'Reload ไม่สำเร็จ: ' + e.message;
   }
 }
 window.addEventListener('DOMContentLoaded',fetchAndInit);
@@ -1108,24 +1067,38 @@ function buildAnalysisCard(t){
 // ===================== BOUNDARY MAP =====================
 let boundaryMap=null, boundaryMarkers=null;
 function initBoundaryMap(){
+  // ถ้า map มีอยู่แล้ว แค่ resize + render
   if(boundaryMap){
-    setTimeout(()=>{boundaryMap.invalidateSize(true);renderBoundary();},100);
+    setTimeout(()=>{
+      boundaryMap.invalidateSize(true);
+      renderBoundary();
+    },100);
     return;
   }
+  // สร้าง map ใหม่
   const el=document.getElementById('boundary-map');
   if(!el)return;
+  // force height ก่อน init
   el.style.height='380px';
-  boundaryMap=L.map('boundary-map',{zoomControl:true,preferCanvas:true}).setView([18.5,99.0],7);
+  el.style.display='block';
+  boundaryMap=L.map('boundary-map',{
+    zoomControl:true,
+    preferCanvas:true
+  }).setView([18.5,99.0],7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap',maxZoom:19,
-    errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScAAAAAElFTkSuQmCC'
+    attribution:'© OpenStreetMap',
+    maxZoom:19,
+    crossOrigin:true
   }).addTo(boundaryMap);
   boundaryMap.getContainer().style.filter='invert(1) hue-rotate(180deg) brightness(0.85)';
   boundaryMarkers=L.layerGroup().addTo(boundaryMap);
-  setTimeout(()=>{
-    boundaryMap.invalidateSize(true);
-    renderBoundary();
-  },400);
+  // รอ map ready แล้ว render
+  boundaryMap.whenReady(()=>{
+    setTimeout(()=>{
+      boundaryMap.invalidateSize(true);
+      renderBoundary();
+    },200);
+  });
 }
 function getMarkerColor(vsv){if(vsv===null||vsv===undefined)return'#888780';if(vsv>=0)return'#3fb950';if(vsv>=-0.5)return'#e3b341';return'#f85149';}
 function updateBoundaryMap(){
@@ -1670,7 +1643,7 @@ function renderHeatBar(monthsShow) {
   const provs = Object.keys(RAW.prov||{}).filter(p=>!filterProv||p===filterProv).sort();
   const datasets = monthsShow.map((m,mi) => {
     const colors=['#3fb950','#58a6ff','#bc8cff','#e3b341'];
-    return { label:(RAW.ml||{})[m]||m, data:provs.map(pv=>{const r=(RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);return r?r.tkt:0;}), backgroundColor:colors[mi]||'#888', borderRadius:3, barPercentage:.8 };
+    return { label:(RAW.ml||{})[m]||m, data:provs.map(pv=>{const r=(RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);return r?r.tot:0;}), backgroundColor:colors[mi]||'#888', borderRadius:3, barPercentage:.8 };
   });
   const ctx = document.getElementById('chart-heat-bar');
   if (!ctx) return;
