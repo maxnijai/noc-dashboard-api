@@ -1,6 +1,6 @@
 import os, json, logging, threading, time, re, math
 from datetime import datetime, timedelta
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
@@ -16,7 +16,9 @@ VALID_YEAR    = '2569'   # กรองเฉพาะปี พ.ศ. นี้
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+app = Flask(__name__, template_folder=TEMPLATE_DIR)
 CORS(app)
 
 _cache = None
@@ -374,10 +376,11 @@ def build_data():
             md  = len(mm['dates'])
             avg = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
             hk  = f"{m}||{t['prov']}"
-            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0}
+            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
             heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
+            heat_map[hk]['tkt']+=sum(mm['p1d'].values()) if mm['p1d'] else 0  # total tickets
     heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
-                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'])
+                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0))
             for k,v in heat_map.items()]
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
@@ -403,10 +406,28 @@ def build_data():
     log.info(f'Sample lowest p1: {sample}')
     log.info(f'gstats: tkt={sum(t["tkt"] for t in ts)} non={sum(t["non"] for t in ts)}')
 
+    # Build sum per team (for analysis card and team detail)
+    sum_data = {}
+    for t in ts:
+        sum_data[t['id']] = {
+            'tot':   t['tot1'],
+            'tkt':   t['tkt'],
+            'non':   t['non'],
+            'days':  t['days'],
+            'hold':  0,
+            'hold_pct': 0,
+            'inc_work': 0,
+            'sw':    {},
+            'st':    {},
+            'z':     0,
+            'qh':    {},
+            'hr':    [],
+        }
+
     return dict(
         ts=ts, tr=tr, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
-        months=sorted_months, ml=ml, sum={},
+        months=sorted_months, ml=ml, sum=sum_data,
         gstats=dict(
             total_tkt=sum(t['tkt'] for t in ts),
             total_non=sum(t['non'] for t in ts),
@@ -456,8 +477,27 @@ def api_rebuild():
     return jsonify({'status':'rebuilding'})
 
 @app.route('/')
+@app.route('/dashboard')
+@app.route('/dashboard.html')
 def index():
-    return '<h3>NOC Dashboard API</h3><a href="/api/status">/api/status</a>'
+    template_file = os.path.join(TEMPLATE_DIR, 'dashboard.html')
+    local_file = os.path.join(BASE_DIR, 'dashboard.html')
+
+    if os.path.exists(template_file):
+        return render_template('dashboard.html')
+    if os.path.exists(local_file):
+        return send_from_directory(BASE_DIR, 'dashboard.html')
+
+    return '<h3>NOC Dashboard API</h3><p>ไม่พบไฟล์ dashboard.html</p><p>วางไฟล์ไว้ที่ <code>templates/dashboard.html</code> หรือข้างๆ <code>app.py</code></p><p><a href="/api/status">/api/status</a></p>', 404
+
+
+@app.after_request
+def add_no_cache_headers(resp):
+    if resp.content_type and ('text/html' in resp.content_type or 'application/json' in resp.content_type):
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+    return resp
 
 def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
