@@ -425,7 +425,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <div class="chart-title" id="trend-chart-title" style="margin-bottom:0;">Trend Avg PDT (Link Up + Hold) รายเดือน แยก Region + Type</div>
             <div class="tabs" style="margin-bottom:0;">
               <div class="tab active" id="tg-month" onclick="setTrendGranularity('month')">รายเดือน</div>
-              <div class="tab" id="tg-week" onclick="setTrendGranularity('week')">รายสัปดาห์ (Wk)</div>
+              <div class="tab" id="tg-week" onclick="setTrendGranularity('week')">รายสัปดาห์</div>
               <div class="tab" id="tg-day" onclick="setTrendGranularity('day')">รายวัน (Plan)</div>
             </div>
           </div>
@@ -968,7 +968,7 @@ function openKpiModal(type, ft) {
 function updateTrendTitle(){
   const el=document.getElementById('trend-chart-title');
   const mode='Trend Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ';
-  const map={month:'รายเดือน แยก Region + Type',week:'รายสัปดาห์แบบ Wk จาก Plan แยก Region + Type',day:'รายวันจาก Plan แยก Region + Type'};
+  const map={month:'รายเดือน แยก Region + Type',week:'รายสัปดาห์จาก Plan แยก Region + Type',day:'รายวันจาก Plan แยก Region + Type'};
   if(el)el.textContent=mode+(map[trendGranularity]||map.month);
   const hm=document.getElementById('heatmap-title');
   const typeLabel = heatType==='ALL' ? 'ทุกทีม' : heatType;
@@ -1669,10 +1669,21 @@ function renderTrend() {
   if (trendGranularity==='month') {
     labels = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
   } else {
+    if (trendGranularity==='week') {
+    const uniq = new Map();
+    tData.forEach(r => {
+      const sk = r.sort || r.label;
+      if (!uniq.has(sk)) uniq.set(sk, r.label);
+    });
+    const sortedKeys = [...uniq.keys()].sort();
+    const keys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
+    labels = keys.map(k => uniq.get(k));
+    tData = tData.filter(r => keys.includes(r.sort || r.label));
+  } else {
     labels = [...new Set(tData.map(r => r.label))].sort();
     if (trendGranularity==='day' && !filterMonth && labels.length > 35) labels = labels.slice(-35);
-    if (trendGranularity==='week' && !filterMonth && labels.length > 16) labels = labels.slice(-16);
     tData = tData.filter(r => labels.includes(r.label));
+  }
   }
 
   const seriesMap = {};
@@ -1683,7 +1694,7 @@ function renderTrend() {
   tData.forEach(r => {
     const key = r.reg + '_' + r.type;
     if (!seriesMap[key]) seriesMap[key] = {};
-    const axisKey = trendGranularity==='month' ? r.m : r.label;
+    const axisKey = trendGranularity==='month' ? r.m : (trendGranularity==='week' ? (r.sort || r.label) : r.label);
     seriesMap[key][axisKey] = r[avgKey] || 0;
   });
 
