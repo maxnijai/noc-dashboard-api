@@ -123,15 +123,46 @@ def build_boundary(gc):
 
 
 def parse_dt(v):
-    """D/M/YYYY HH:MM (พ.ศ.) → datetime ค.ศ."""
+    """รองรับ D/M/YYYY HH:MM, D/M/YYYY, YYYY-MM-DD HH:MM และ YYYY-MM-DD"""
     if not v: return None
     s = str(v).strip()
-    m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})', s)
-    if not m: return None
-    d,mo,y,h,mi = int(m.group(1)),int(m.group(2)),int(m.group(3)),int(m.group(4)),int(m.group(5))
-    if y > 2100: y -= 543   # พ.ศ. → ค.ศ.
-    try: return datetime(y, mo, d, h, mi)
-    except: return None
+    if not s or s.lower() == 'nan':
+        return None
+
+    patterns = [
+        r'^(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$',
+        r'^(\d{1,2})/(\d{1,2})/(\d{4})$',
+        r'^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$',
+        r'^(\d{4})-(\d{1,2})-(\d{1,2})$'
+    ]
+
+    for idx, pat in enumerate(patterns):
+        m = re.match(pat, s)
+        if not m:
+            continue
+        try:
+            if idx == 0:
+                d, mo, y, h, mi = map(int, m.groups()[:5])
+            elif idx == 1:
+                d, mo, y = map(int, m.groups()[:3]); h = 0; mi = 0
+            elif idx == 2:
+                y, mo, d, h, mi = map(int, m.groups()[:5])
+            else:
+                y, mo, d = map(int, m.groups()[:3]); h = 0; mi = 0
+            if y > 2100:
+                y -= 543
+            return datetime(y, mo, d, h, mi)
+        except Exception:
+            return None
+    return None
+
+
+def week_bucket_label(dt):
+    if not dt:
+        return None
+    monday = dt - timedelta(days=dt.weekday())
+    sunday = monday + timedelta(days=6)
+    return f"{to_by_date(monday)} ถึง {to_by_date(sunday)}"
 
 def to_by_month(dt):
     """datetime ค.ศ. → พ.ศ. month string เช่น 2569-01"""
@@ -188,6 +219,7 @@ def build_data():
         'cause1':       fc('สาเหตุ 1'),
         'fix1':         fc('วิธีแก้ไข'),
         'update_pikat': fc('Update พิกัด'),
+        'plan':         fc('Plan', 'PLAN'),
     }
 
     def g(row, key):
@@ -198,6 +230,8 @@ def build_data():
     months = set()
     drill  = {}
     cutoff = datetime.now() - timedelta(days=90)
+    plan_daily = {}
+    plan_weekly = {}
 
     for row in rows[1:]:
         team_id   = g(row,'team_id')
@@ -213,6 +247,7 @@ def build_data():
         dt_travel = parse_dt(g(row,'travel'))
         dt_start  = parse_dt(g(row,'start'))
         dt_hold   = parse_dt(g(row,'hold'))
+        dt_plan   = parse_dt(g(row,'plan'))
 
         has_lu   = dt_linkup is not None
         has_hold = dt_hold   is not None
@@ -286,13 +321,37 @@ def build_data():
                 tm['pdt2_dates'][date_str] = tm['pdt2_dates'].get(date_str,0) + 1
             if month_str:
                 if month_str not in tm['monthly']:
-                    tm['monthly'][month_str] = {'p1d':{},'p2d':{},'dates':set()}
+                    tm['monthly'][month_str] = {'p1d':{},'p2d':{},'dates':set(),'tkt':0,'non':0,'first':{},'last':{}}
                 mm = tm['monthly'][month_str]
                 mm['dates'].add(date_str)
+                if is_ticket: mm['tkt'] += 1
+                else: mm['non'] += 1
+                if dt_travel:
+                    prev = mm['first'].get(date_str)
+                    if prev is None or dt_travel < prev: mm['first'][date_str] = dt_travel
+                if last_ts:
+                    prev = mm['last'].get(date_str)
+                    if prev is None or last_ts > prev: mm['last'][date_str] = last_ts
                 if has_lu:
                     mm['p1d'][date_str] = mm['p1d'].get(date_str,0)+1
                 if has_lu or has_hold:
                     mm['p2d'][date_str] = mm['p2d'].get(date_str,0)+1
+
+        # trend รายวัน/รายสัปดาห์ จากวันที่ในคอลัมน์ Plan
+        plan_month = to_by_month(dt_plan)
+        plan_date  = to_by_date(dt_plan)
+        if dt_plan and plan_month and is_valid_month(plan_month) and plan_date:
+            day_key = f"{plan_date}||{plan_month}||{reg}||{type_team}"
+            wk_key  = f"{week_bucket_label(dt_plan)}||{plan_month}||{reg}||{type_team}"
+            for bucket, key in ((plan_daily, day_key), (plan_weekly, wk_key)):
+                if key not in bucket:
+                    bucket[key] = {}
+                if team_id not in bucket[key]:
+                    bucket[key][team_id] = {'p1': 0, 'p2': 0}
+                if has_lu:
+                    bucket[key][team_id]['p1'] += 1
+                if has_lu or has_hold:
+                    bucket[key][team_id]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
@@ -350,12 +409,38 @@ def build_data():
         daily_h_vals = [round((tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600, 2) for d in tm['all_dates'] if d in tm['day_first_travel'] and d in tm['day_last_ts'] and 0 < (tm['day_last_ts'][d] - tm['day_first_travel'][d]).total_seconds()/3600 < 24]
         h = round(sum(daily_h_vals)/len(daily_h_vals), 2) if daily_h_vals else 0
 
+        month_stats = {}
+        for m, mm in tm['monthly'].items():
+            mdays = len(mm['dates'])
+            mtot1 = sum(mm['p1d'].values()) if mm['p1d'] else 0
+            mtot2 = sum(mm['p2d'].values()) if mm['p2d'] else 0
+            mp1 = round(mtot1 / mdays, 2) if mdays else 0
+            mp2 = round(mtot2 / mdays, 2) if mdays else 0
+            mhours = []
+            for d in mm['dates']:
+                if d in mm['first'] and d in mm['last']:
+                    diff = (mm['last'][d] - mm['first'][d]).total_seconds() / 3600
+                    if 0 < diff < 24:
+                        mhours.append(round(diff, 2))
+            mh = round(sum(mhours)/len(mhours), 2) if mhours else 0
+            month_stats[m] = {
+                'p1': mp1, 'p2': mp2, 'tot1': mtot1, 'tot2': mtot2,
+                'days': mdays, 'tkt': mm.get('tkt', 0), 'non': mm.get('non', 0),
+                'h': mh,
+                'max1': max(mm['p1d'].values()) if mm['p1d'] else 0,
+                'max2': max(mm['p2d'].values()) if mm['p2d'] else 0,
+            }
+            month_stats[m]['vs1'] = round(month_stats[m]['p1'] - base, 2)
+            month_stats[m]['vs2'] = round(month_stats[m]['p2'] - base, 2)
+            month_stats[m]['st'] = 'above' if month_stats[m]['vs1'] >= 0 else ('below' if month_stats[m]['vs1'] < -0.5 else 'near')
+
         ts.append(dict(
             id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
             pn=PROV_THAI.get(tm['prov'],tm['prov']),
             p1=p1, p2=p2, tot1=tot1, tot2=tot2,
             h=h, days=days, max1=max1, max2=max2,
-            base=base, vs1=vs1, vs2=vs2, st=st, tkt=tm['tkt'], non=tm['non']
+            base=base, vs1=vs1, vs2=vs2, st=st, tkt=tm['tkt'], non=tm['non'],
+            monthStats=month_stats
         ))
 
         rd = dict(id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
@@ -391,16 +476,39 @@ def build_data():
     for t in ts:
         tm = teams[t['id']]
         for m, mm in tm['monthly'].items():
-            if not mm['dates']: continue
+            if not mm['dates']:
+                continue
             md  = len(mm['dates'])
             avg = round(sum(mm['p1d'].values())/md, 2) if mm['p1d'] else 0
-            hk  = f"{m}||{t['prov']}"
-            if hk not in heat_map: heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
-            heat_map[hk]['sum']+=avg; heat_map[hk]['cnt']+=1
-            heat_map[hk]['tkt']+=sum(mm['p1d'].values()) if mm['p1d'] else 0  # total tickets
-    heat = [dict(m=k.split('||')[0], pv=k.split('||')[1],
-                 avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0))
-            for k,v in heat_map.items()]
+            hk  = f"{m}||{t['prov']}||{t['reg']}||{t['type']}"
+            if hk not in heat_map:
+                heat_map[hk] = {'sum':0,'cnt':0,'tkt':0}
+            heat_map[hk]['sum'] += avg
+            heat_map[hk]['cnt'] += 1
+            heat_map[hk]['tkt'] += mm.get('tkt', 0)
+    heat = [
+        dict(
+            m=k.split('||')[0], pv=k.split('||')[1], reg=k.split('||')[2], type=k.split('||')[3],
+            avg=round(v['sum']/v['cnt'],2), tot=v['cnt'], tkt=v.get('tkt',0)
+        )
+        for k,v in heat_map.items()
+    ]
+
+    def finalize_plan_trend(bucket):
+        out = []
+        for key, team_map in bucket.items():
+            label, month_key, reg, ttype = key.split('||')
+            cnt = len(team_map)
+            if cnt == 0:
+                continue
+            s1 = sum(v['p1'] for v in team_map.values())
+            s2 = sum(v['p2'] for v in team_map.values())
+            out.append(dict(label=label, m=month_key, reg=reg, type=ttype,
+                            avg_p1=round(s1/cnt, 2), avg=round(s2/cnt, 2), teams=cnt))
+        return out
+
+    tr_week = finalize_plan_trend(plan_weekly)
+    tr_day = finalize_plan_trend(plan_daily)
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
     nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
@@ -447,7 +555,7 @@ def build_data():
         }
 
     return dict(
-        ts=ts, tr=tr, heat=heat, wk=[],
+        ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
         months=sorted_months, ml=ml, sum=sum_data,
         gstats=dict(
