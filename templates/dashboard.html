@@ -1666,24 +1666,25 @@ function renderTrend() {
   if (filterMonth) tData = tData.filter(r => !r.m || r.m === filterMonth);
 
   let labels = [];
+  let axisKeys = [];
   if (trendGranularity==='month') {
-    labels = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
-  } else {
-    if (trendGranularity==='week') {
+    axisKeys = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
+    labels = [...axisKeys];
+  } else if (trendGranularity==='week') {
     const uniq = new Map();
     tData.forEach(r => {
       const sk = r.sort || r.label;
       if (!uniq.has(sk)) uniq.set(sk, r.label);
     });
     const sortedKeys = [...uniq.keys()].sort();
-    const keys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
-    labels = keys.map(k => uniq.get(k));
-    tData = tData.filter(r => keys.includes(r.sort || r.label));
+    axisKeys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
+    labels = axisKeys.map(k => uniq.get(k) || k);
+    tData = tData.filter(r => axisKeys.includes(r.sort || r.label));
   } else {
-    labels = [...new Set(tData.map(r => r.label))].sort();
-    if (trendGranularity==='day' && !filterMonth && labels.length > 35) labels = labels.slice(-35);
-    tData = tData.filter(r => labels.includes(r.label));
-  }
+    axisKeys = [...new Set(tData.map(r => r.label))].sort();
+    if (trendGranularity==='day' && !filterMonth && axisKeys.length > 35) axisKeys = axisKeys.slice(-35);
+    labels = [...axisKeys];
+    tData = tData.filter(r => axisKeys.includes(r.label));
   }
 
   const seriesMap = {};
@@ -1700,7 +1701,7 @@ function renderTrend() {
 
   const datasets = Object.entries(seriesMap).map(([key, vals]) => ({
     label: labelsMap[key] || key,
-    data: labels.map(l => vals[l] ?? null),
+    data: axisKeys.map(k => vals[k] ?? null),
     borderColor: colors[key] || '#888',
     tension: 0.28,
     pointRadius: trendGranularity==='day' ? 2 : 4,
