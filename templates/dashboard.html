@@ -421,13 +421,20 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <!-- Charts -->
       <div class="charts-grid">
         <div class="chart-card">
-          <div class="chart-title" id="trend-chart-title">Trend Avg PDT (Link Up + Hold) รายเดือน แยก Region + Type</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <div class="chart-title" id="trend-chart-title" style="margin-bottom:0;">Trend Avg PDT (Link Up + Hold) รายเดือน แยก Region + Type</div>
+            <div class="tabs" style="margin-bottom:0;">
+              <div class="tab active" id="tg-month" onclick="setTrendGranularity('month')">รายเดือน</div>
+              <div class="tab" id="tg-week" onclick="setTrendGranularity('week')">รายสัปดาห์ (Plan)</div>
+              <div class="tab" id="tg-day" onclick="setTrendGranularity('day')">รายวัน (Plan)</div>
+            </div>
+          </div>
           <div class="trend-legend" id="trend-legend"></div>
-          <div class="chart-wrap" style="height:220px;"><canvas id="chart-trend"></canvas></div>
+          <div class="chart-wrap" style="height:260px;"><canvas id="chart-trend"></canvas></div>
         </div>
         <div class="chart-card">
           <div class="chart-title">สัดส่วน Status ทีม</div>
-          <div class="chart-wrap" style="height:220px;"><canvas id="chart-status"></canvas></div>
+          <div class="chart-wrap" style="height:260px;"><canvas id="chart-status"></canvas></div>
         </div>
       </div>
 
@@ -490,7 +497,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="page" id="page-heatmap">
     <div class="content">
       <div class="full-card">
-        <div class="chart-title">Heatmap — Avg PDT1/วัน ต่อทีม แยก Province × เดือน</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <div class="chart-title" id="heatmap-title" style="margin-bottom:0;">Heatmap — Avg PDT ต่อทีม แยก Province × เดือน</div>
+          <div class="tabs" style="margin-bottom:0;">
+            <div class="tab active" id="ht-all" onclick="setHeatType('ALL')">ทั้งหมด</div>
+            <div class="tab" id="ht-cm" onclick="setHeatType('CM')">CM</div>
+            <div class="tab" id="ht-ofc" onclick="setHeatType('OFC')">OFC</div>
+          </div>
+        </div>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:11px;color:var(--text3);">
           <span>ต่ำ</span>
           <div style="display:flex;gap:2px;">
@@ -505,8 +519,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div class="heatmap-wrap" id="heatmap-container"></div>
       </div>
       <div class="full-card" style="margin-top:0;">
-        <div class="chart-title">Volume รายเดือน แยก Province (Total tickets)</div>
-        <div class="chart-wrap" style="height:280px;"><canvas id="chart-heat-bar"></canvas></div>
+        <div class="chart-title">Volume รายเดือนจากคอลัมน์ Ticket — เทียบ CM vs OFC แยก NOR1 / NOR2</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+          <div>
+            <div class="section-title" style="margin-bottom:8px;">NOR1</div>
+            <div class="chart-wrap" style="height:280px;"><canvas id="chart-heat-bar-nor1"></canvas></div>
+          </div>
+          <div>
+            <div class="section-title" style="margin-bottom:8px;">NOR2</div>
+            <div class="chart-wrap" style="height:280px;"><canvas id="chart-heat-bar-nor2"></canvas></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -944,9 +967,12 @@ function openKpiModal(type, ft) {
 
 function updateTrendTitle(){
   const el=document.getElementById('trend-chart-title');
-  if(el)el.textContent='Trend Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') รายเดือน แยก Region + Type';
+  const mode='Trend Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ';
+  const map={month:'รายเดือน แยก Region + Type',week:'รายสัปดาห์จาก Plan แยก Region + Type',day:'รายวันจาก Plan แยก Region + Type'};
+  if(el)el.textContent=mode+(map[trendGranularity]||map.month);
   const hm=document.getElementById('heatmap-title');
-  if(hm)hm.textContent='Heatmap — Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ต่อทีม แยก Province × เดือน';
+  const typeLabel = heatType==='ALL' ? 'ทุกทีม' : heatType;
+  if(hm)hm.textContent='Heatmap — Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ต่อทีม แยก Province × เดือน · '+typeLabel;
 }
 
 // ===================== KPI CARDS (renderKPI) =====================
@@ -1173,12 +1199,13 @@ function updateBoundaryMap(){
   if(!boundaryMap||!boundaryMarkers)return;
   boundaryMarkers.clearLayers();
   const coords=RAW.homeCoords||{};
-  const tsMap={};(RAW.ts||[]).forEach(t=>{tsMap[t.id]=t;});
+  const tsMap={}; const activeIds=new Set(); getFilteredTeams().forEach(t=>{tsMap[t.id]=t; activeIds.add(t.id);});
   const BD=RAW.boundary||[];
   const search=(document.getElementById('b-search')?document.getElementById('b-search').value:'').toLowerCase().trim();
   let filtered=BD.filter(b=>{
     if(bFilterType&&b.type!==bFilterType)return false;
     if(bFilterProv&&b.prov!==bFilterProv)return false;
+    if(!activeIds.has(b.tid)) return false;
     if(search&&!b.tid.toLowerCase().includes(search)&&!b.home.toLowerCase().includes(search)&&!b.resp.some(r=>r.toLowerCase().includes(search)))return false;
     return true;
   });
@@ -1234,10 +1261,18 @@ function setBoundaryType(type){
 function initDrillSelects(){
   const sel=document.getElementById('drill-team-sel');
   if(!sel)return;
-  const sorted=[...RAW.ts].sort((a,b)=>a.id.localeCompare(b.id));
+  const currentTeam = sel.value;
+  sel.innerHTML = '<option value="">-- เลือกทีม --</option>';
+  const sorted=[...getFilteredTeams()].sort((a,b)=>a.id.localeCompare(b.id));
   sorted.forEach(t=>{const o=document.createElement('option');o.value=t.id;o.textContent=t.id+' ('+t.type+' · '+t.prov+')';sel.appendChild(o);});
+  if ([...sel.options].some(o=>o.value===currentTeam)) sel.value = currentTeam;
+
   const msel=document.getElementById('drill-month-sel');
-  RAW.months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=RAW.ml[m]||m;msel.appendChild(o);});
+  if (msel && !msel.dataset.ready) {
+    msel.innerHTML = '<option value="">ทุกเดือน</option>';
+    (RAW.months||[]).forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=RAW.ml[m]||m;msel.appendChild(o);});
+    msel.dataset.ready = '1';
+  }
 }
 
 function openDrillForTeam(tid){showPage('drill');document.getElementById('drill-team-sel').value=tid;loadDrill();}
@@ -1327,7 +1362,9 @@ let teamSortDir = -1;
 let pdtMode = 2;
 let rankSortKey = 'avg';
 let rankSortDir = -1;
-let chartTrend = null, chartStatus = null, chartHeatBar = null, detailChart = null;
+let chartTrend = null, chartStatus = null, chartHeatBarNor1 = null, chartHeatBarNor2 = null, detailChart = null;
+let trendGranularity = 'month';
+let heatType = 'ALL';
 
 function br(s, max) { if(!s)return''; var r=String(s).slice(0,max).replace(/\n/g,'<br>').replace(/\r/g,''); return r+(String(s).length>max?'\u2026':''); }
 
@@ -1340,18 +1377,60 @@ function setPDTMode(m) {
   renderAll();
 }
 
+function setTrendGranularity(g) {
+  trendGranularity = g;
+  document.getElementById('tg-month').classList.toggle('active', g==='month');
+  document.getElementById('tg-week').classList.toggle('active', g==='week');
+  document.getElementById('tg-day').classList.toggle('active', g==='day');
+  updateTrendTitle();
+  renderTrend();
+}
+
+function setHeatType(t) {
+  heatType = t;
+  document.getElementById('ht-all').classList.toggle('active', t==='ALL');
+  document.getElementById('ht-cm').classList.toggle('active', t==='CM');
+  document.getElementById('ht-ofc').classList.toggle('active', t==='OFC');
+  renderHeatmap();
+}
+
 function getPDT(t) { return pdtMode===2 ? (t.p2||0) : (t.p1||0); }
 function getVS(t)  { return pdtMode===2 ? (t.vs2||0) : (t.vs1||0); }
 function getTot(t) { return pdtMode===2 ? (t.tot2||0) : (t.tot1||0); }
 function getMax(t) { return pdtMode===2 ? (t.max2||0) : (t.max1||0); }
 
 
+function getMonthAdjustedTeam(t) {
+  if (!filterMonth) return t;
+  const ms = (t.monthStats||{})[filterMonth];
+  if (!ms || !ms.days) return null;
+  return {
+    ...t,
+    p1: ms.p1 || 0,
+    p2: ms.p2 || 0,
+    tot1: ms.tot1 || 0,
+    tot2: ms.tot2 || 0,
+    h: ms.h || 0,
+    days: ms.days || 0,
+    max1: ms.max1 || 0,
+    max2: ms.max2 || 0,
+    vs1: ms.vs1 || 0,
+    vs2: ms.vs2 || 0,
+    st: ms.st || 'near',
+    tkt: ms.tkt || 0,
+    non: ms.non || 0,
+  };
+}
+
 function getFilteredTeams() {
-  return (RAW.ts||[]).filter(t =>
-    (filterReg.size===0 || filterReg.has(t.reg)) &&
-    (filterType.size===0 || filterType.has(t.type)) &&
-    (!filterProv || t.prov===filterProv)
-  );
+  return (RAW.ts||[])
+    .map(getMonthAdjustedTeam)
+    .filter(Boolean)
+    .filter(t =>
+      (filterReg.size===0 || filterReg.has(t.reg)) &&
+      (filterType.size===0 || filterType.has(t.type)) &&
+      (!filterProv || t.prov===filterProv)
+    );
 }
 
 function applyFilters() {
@@ -1367,7 +1446,9 @@ function applyFilters() {
   if (filterReg.size < 2) parts.push([...filterReg].join(', '));
   if (filterType.size < 2) parts.push([...filterType].join(', '));
   if (filterProv) parts.push(filterProv);
+  if (filterMonth) parts.push((RAW.ml||{})[filterMonth] || filterMonth);
   document.getElementById('filter-status').textContent = parts.length ? parts.join(' · ') : 'ทุก Region · ทุก Type';
+  initDrillSelects();
   renderAll();
 }
 
@@ -1530,6 +1611,9 @@ function renderAll() {
   renderTeamTable();
   renderAnalysis(ft);
   renderPivot(ft);
+  renderBoundary();
+  updateBoundaryMap();
+  if (document.getElementById('drill-team-sel') && document.getElementById('drill-team-sel').value) loadDrill();
 }
 
 // ===================== INIT =====================
@@ -1575,42 +1659,61 @@ function showPage(id) {
 // ===================== TREND CHART =====================
 function renderTrend() {
   updateTrendTitle();
-  let tData = (RAW.tr||[]);
+  const source = trendGranularity==='month' ? (RAW.tr||[]) : (trendGranularity==='week' ? (RAW.tr_week||[]) : (RAW.tr_day||[]));
+  let tData = [...source];
   if (filterReg.size < 2) tData = tData.filter(r => filterReg.has(r.reg));
   if (filterType.size < 2) tData = tData.filter(r => filterType.has(r.type));
-  if (filterMonth) tData = tData.filter(r => r.m === filterMonth);
-  const monthsUsed = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
+  if (filterMonth) tData = tData.filter(r => !r.m || r.m === filterMonth);
+
+  let labels = [];
+  if (trendGranularity==='month') {
+    labels = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
+  } else {
+    labels = [...new Set(tData.map(r => r.label))].sort();
+    if (trendGranularity==='day' && !filterMonth && labels.length > 35) labels = labels.slice(-35);
+    if (trendGranularity==='week' && !filterMonth && labels.length > 16) labels = labels.slice(-16);
+    tData = tData.filter(r => labels.includes(r.label));
+  }
+
   const seriesMap = {};
   const colors = {'NOR1_CM':'#3fb950','NOR1_OFC':'#e3b341','NOR2_CM':'#bc8cff','NOR2_OFC':'#58a6ff'};
-  const labels_map = {'NOR1_CM':'NOR1·CM','NOR1_OFC':'NOR1·OFC','NOR2_CM':'NOR2·CM','NOR2_OFC':'NOR2·OFC'};
+  const labelsMap = {'NOR1_CM':'NOR1·CM','NOR1_OFC':'NOR1·OFC','NOR2_CM':'NOR2·CM','NOR2_OFC':'NOR2·OFC'};
   const avgKey = pdtMode===2 ? 'avg' : 'avg_p1';
+
   tData.forEach(r => {
     const key = r.reg + '_' + r.type;
     if (!seriesMap[key]) seriesMap[key] = {};
-    seriesMap[key][r.m] = r[avgKey] || r.avg || 0;
+    const axisKey = trendGranularity==='month' ? r.m : r.label;
+    seriesMap[key][axisKey] = r[avgKey] || 0;
   });
+
   const datasets = Object.entries(seriesMap).map(([key, vals]) => ({
-    label: labels_map[key]||key,
-    data: monthsUsed.map(m => vals[m]||null),
-    borderColor: colors[key]||'#888',
-    tension: 0.3, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, fill: false
+    label: labelsMap[key] || key,
+    data: labels.map(l => vals[l] ?? null),
+    borderColor: colors[key] || '#888',
+    tension: 0.28,
+    pointRadius: trendGranularity==='day' ? 2 : 4,
+    pointHoverRadius: 5,
+    borderWidth: 2,
+    fill: false
   }));
+
   const legendEl = document.getElementById('trend-legend');
   if (legendEl) legendEl.innerHTML = datasets.map(ds =>
     '<div class="legend-item"><div class="legend-dot" style="background:'+ds.borderColor+'"></div>'+ds.label+'</div>'
   ).join('');
+
   const ctx = document.getElementById('chart-trend').getContext('2d');
   if (chartTrend) chartTrend.destroy();
   chartTrend = new Chart(ctx, {
     type: 'line',
-    data: { labels: monthsUsed.map(m=>(RAW.ml||{})[m]||m), datasets },
+    data: { labels: labels.map(l => trendGranularity==='month' ? ((RAW.ml||{})[l]||l) : l), datasets },
     options: {
       responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{display:false} },
       scales:{
-        x:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}} },
-        y:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}},
-            afterDataLimits(scale){scale.min=Math.max(0,scale.min-0.2);scale.max=scale.max+0.3;} }
+        x:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}, maxRotation: trendGranularity==='day' ? 60 : 0, minRotation: trendGranularity==='day' ? 45 : 0} },
+        y:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}}, afterDataLimits(scale){scale.min=Math.max(0,scale.min-0.2);scale.max=scale.max+0.3;} }
       }
     }
   });
@@ -1681,21 +1784,41 @@ function heatColor(val, max) {
   return stops[Math.min(4,Math.floor((val/max)*5))];
 }
 
+function aggregateHeatRows() {
+  let rows = [...(RAW.heat||[])];
+  if (filterMonth) rows = rows.filter(r => r.m===filterMonth);
+  if (filterProv) rows = rows.filter(r => r.pv===filterProv);
+  if (filterReg.size < 2) rows = rows.filter(r => filterReg.has(r.reg));
+  if (heatType !== 'ALL') rows = rows.filter(r => r.type === heatType);
+  return rows;
+}
+
 function renderHeatmap() {
-  const provs = Object.keys(RAW.prov||{}).sort();
+  updateTrendTitle();
+  const baseRows = aggregateHeatRows();
+  const provs = Object.keys(RAW.prov||{}).sort().filter(pv => !filterProv || pv===filterProv).filter(pv => filterReg.size===2 || filterReg.has(NOR1.has(pv)?'NOR1':'NOR2'));
   const monthsShow = filterMonth ? [filterMonth] : (RAW.months||[]);
-  const maxVal = Math.max(...(RAW.heat||[]).map(h=>h.avg||0),0.1);
+
+  const gridRows = [];
+  provs.forEach(pv => {
+    monthsShow.forEach(m => {
+      const rows = baseRows.filter(r => r.pv===pv && r.m===m);
+      const totTeams = rows.reduce((s,r)=>s+(r.tot||0),0);
+      const weightedSum = rows.reduce((s,r)=>s+((r.avg||0)*(r.tot||0)),0);
+      const avg = totTeams ? +(weightedSum/totTeams).toFixed(2) : 0;
+      gridRows.push({pv,m,avg,tot:totTeams});
+    });
+  });
+
+  const maxVal = Math.max(...gridRows.map(h=>h.avg||0),0.1);
   let html = '<table class="heatmap-table"><thead><tr><th>Province</th>';
   monthsShow.forEach(m => { html += '<th style="text-align:center">'+((RAW.ml||{})[m]||m)+'</th>'; });
   html += '</tr></thead><tbody>';
   provs.forEach(pv => {
-    if (filterProv && filterProv!==pv) return;
-    const region = NOR1.has(pv)?'NOR1':'NOR2';
-    if (filterReg.size<2 && !filterReg.has(region)) return;
     html += '<tr><td class="prov-label"><span style="color:'+(NOR1.has(pv)?'var(--nor1)':'var(--nor2)')+'">●</span> '+pv+' <span style="color:var(--text3);font-size:11px;">'+((RAW.prov||{})[pv]||'')+'</span></td>';
     monthsShow.forEach(m => {
-      const row = (RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);
-      const val = row?row.avg:0; const tot = row?row.tot:0;
+      const row = gridRows.find(h=>h.m===m&&h.pv===pv);
+      const val = row?row.avg:0;
       const bg = heatColor(val,maxVal);
       const tc = val>maxVal*0.5?'#fff':'#8b949e';
       html += '<td><div class="hm-cell" style="background:'+bg+';color:'+tc+';" title="'+pv+' '+((RAW.ml||{})[m]||m)+': avg '+val+'/วัน">'+(val||'—')+'</div></td>';
@@ -1705,24 +1828,53 @@ function renderHeatmap() {
   html += '</tbody></table>';
   const hc = document.getElementById('heatmap-container');
   if (hc) hc.innerHTML = html;
-  renderHeatBar(monthsShow);
+  renderHeatVolumeCharts(baseRows, monthsShow);
 }
 
-function renderHeatBar(monthsShow) {
-  const provs = Object.keys(RAW.prov||{}).filter(p=>!filterProv||p===filterProv).sort();
-  const datasets = monthsShow.map((m,mi) => {
-    const colors=['#3fb950','#58a6ff','#bc8cff','#e3b341'];
-    return { label:(RAW.ml||{})[m]||m, data:provs.map(pv=>{const r=(RAW.heat||[]).find(h=>h.m===m&&h.pv===pv);return r?r.tot:0;}), backgroundColor:colors[mi]||'#888', borderRadius:3, barPercentage:.8 };
-  });
-  const ctx = document.getElementById('chart-heat-bar');
-  if (!ctx) return;
-  if (chartHeatBar) chartHeatBar.destroy();
-  chartHeatBar = new Chart(ctx.getContext('2d'), {
-    type:'bar', data:{labels:provs,datasets},
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#8b949e',font:{size:11},boxWidth:10}}},
-      scales:{x:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:10}}},
-              y:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:11}}}} }
+function renderHeatVolumeCharts(baseRows, monthsShow) {
+  const regs = ['NOR1','NOR2'];
+  regs.forEach(reg => {
+    const canvasId = reg==='NOR1' ? 'chart-heat-bar-nor1' : 'chart-heat-bar-nor2';
+    const chartRef = reg==='NOR1' ? chartHeatBarNor1 : chartHeatBarNor2;
+    const ctxEl = document.getElementById(canvasId);
+    if (!ctxEl) return;
+
+    const pvList = Object.keys(RAW.prov||{}).filter(pv => (NOR1.has(pv)?'NOR1':'NOR2')===reg).filter(pv => !filterProv || pv===filterProv).sort();
+    const labels = [];
+    pvList.forEach(pv => monthsShow.forEach(m => labels.push(pv+' · '+((RAW.ml||{})[m]||m))));
+
+    const cmData = [];
+    const ofcData = [];
+    pvList.forEach(pv => {
+      monthsShow.forEach(m => {
+        const cmRows = baseRows.filter(r => r.reg===reg && r.pv===pv && r.m===m && r.type==='CM');
+        const ofcRows = baseRows.filter(r => r.reg===reg && r.pv===pv && r.m===m && r.type==='OFC');
+        cmData.push(cmRows.reduce((s,r)=>s+(r.tkt||0),0));
+        ofcData.push(ofcRows.reduce((s,r)=>s+(r.tkt||0),0));
+      });
+    });
+
+    if (chartRef) chartRef.destroy();
+    const chart = new Chart(ctxEl.getContext('2d'), {
+      type:'bar',
+      data:{
+        labels,
+        datasets:[
+          {label:'CM', data:cmData, backgroundColor:'#3fb950', borderRadius:3},
+          {label:'OFC', data:ofcData, backgroundColor:'#e3b341', borderRadius:3}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#8b949e',font:{size:11},boxWidth:10}}},
+        scales:{
+          x:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:10},maxRotation:50,minRotation:35}},
+          y:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:11}},beginAtZero:true}
+        }
+      }
+    });
+
+    if (reg==='NOR1') chartHeatBarNor1 = chart; else chartHeatBarNor2 = chart;
   });
 }
 
@@ -1784,7 +1936,7 @@ function renderTeamTable() {
 
 // ===================== TEAM DETAIL =====================
 function openTeamDetail(tid) {
-  const t = (RAW.ts||[]).find(x=>x.id===tid);
+  const t = getFilteredTeams().find(x=>x.id===tid) || (RAW.ts||[]).find(x=>x.id===tid);
   if (!t) return;
   const panel = document.getElementById('detail-panel');
   if (!panel) return;
@@ -1841,11 +1993,12 @@ function closeDetail() {
 function renderBoundary() {
   const BD = RAW.boundary||[];
   const search = (document.getElementById('b-search')?document.getElementById('b-search').value:'').toLowerCase().trim();
-  const tsMap = {};
-  (RAW.ts||[]).forEach(t=>{tsMap[t.id]=t;});
+  const tsMap = {}; const activeIds = new Set();
+  getFilteredTeams().forEach(t=>{tsMap[t.id]=t; activeIds.add(t.id);});
   let filtered = BD.filter(b => {
     if (bFilterType && b.type!==bFilterType) return false;
     if (bFilterProv && b.prov!==bFilterProv) return false;
+    if (!activeIds.has(b.tid)) return false;
     if (search && !b.tid.toLowerCase().includes(search) && !b.home.toLowerCase().includes(search) && !b.resp.some(r=>r.toLowerCase().includes(search))) return false;
     return true;
   });
