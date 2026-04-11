@@ -425,7 +425,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <div class="chart-title" id="trend-chart-title" style="margin-bottom:0;">Trend Avg PDT (Link Up + Hold) รายเดือน แยก Region + Type</div>
             <div class="tabs" style="margin-bottom:0;">
               <div class="tab active" id="tg-month" onclick="setTrendGranularity('month')">รายเดือน</div>
-              <div class="tab" id="tg-week" onclick="setTrendGranularity('week')">รายสัปดาห์ (Plan)</div>
+              <div class="tab" id="tg-week" onclick="setTrendGranularity('week')">รายสัปดาห์ (Wk)</div>
               <div class="tab" id="tg-day" onclick="setTrendGranularity('day')">รายวัน (Plan)</div>
             </div>
           </div>
@@ -968,7 +968,7 @@ function openKpiModal(type, ft) {
 function updateTrendTitle(){
   const el=document.getElementById('trend-chart-title');
   const mode='Trend Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ';
-  const map={month:'รายเดือน แยก Region + Type',week:'รายสัปดาห์จาก Plan แยก Region + Type',day:'รายวันจาก Plan แยก Region + Type'};
+  const map={month:'รายเดือน แยก Region + Type',week:'รายสัปดาห์แบบ Wk จาก Plan แยก Region + Type',day:'รายวันจาก Plan แยก Region + Type'};
   if(el)el.textContent=mode+(map[trendGranularity]||map.month);
   const hm=document.getElementById('heatmap-title');
   const typeLabel = heatType==='ALL' ? 'ทุกทีม' : heatType;
