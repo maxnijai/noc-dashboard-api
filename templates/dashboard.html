@@ -1678,7 +1678,7 @@ function renderTrend() {
     });
     const sortedKeys = [...uniq.keys()].sort();
     axisKeys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
-    labels = axisKeys.map(k => uniq.get(k) || k);
+    labels = axisKeys.map((_, idx) => `Wk${idx + 1}`);
     tData = tData.filter(r => axisKeys.includes(r.sort || r.label));
   } else {
     axisKeys = [...new Set(tData.map(r => r.label))].sort();
