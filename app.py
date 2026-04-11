@@ -158,17 +158,16 @@ def parse_dt(v):
 
 
 def week_bucket_label(dt):
-    """แปลงวันที่ Plan เป็น bucket รายสัปดาห์แบบคงที่ 7 วันต่อ 1 wk
-    ตามที่ผู้ใช้ต้องการ: 1-7 ม.ค. = wk2601, 8-14 ม.ค. = wk2602
-    โดยอิงปี พ.ศ. และนับทุก 7 วันจากวันที่ 1 ม.ค. ของปีนั้น
+    """แปลงวันที่ Plan เป็น bucket รายสัปดาห์ในแต่ละเดือน
+    1-7 = Wk1, 8-14 = Wk2, 15-21 = Wk3, 22-28 = Wk4, 29-31 = Wk5
+    คืนค่าเป็น tuple (sort_key, label)
     """
     if not dt:
-        return None
-    byear = dt.year + 543
-    jan1 = datetime(dt.year, 1, 1)
-    day_index = (dt.date() - jan1.date()).days
-    week_no = (day_index // 7) + 1
-    return f"wk{str(byear)[2:]}{week_no:02d}"
+        return None, None
+    week_no = ((dt.day - 1) // 7) + 1
+    sort_key = f"{dt.year+543}-{dt.month:02d}-{week_no:02d}"
+    label = f"Wk{week_no}"
+    return sort_key, label
 
 def to_by_month(dt):
     """datetime ค.ศ. → พ.ศ. month string เช่น 2569-01"""
@@ -348,16 +347,28 @@ def build_data():
         plan_date  = to_by_date(dt_plan)
         if dt_plan and plan_month and is_valid_month(plan_month) and plan_date:
             day_key = f"{plan_date}||{plan_month}||{reg}||{type_team}"
-            wk_key  = f"{week_bucket_label(dt_plan)}||{plan_month}||{reg}||{type_team}"
-            for bucket, key in ((plan_daily, day_key), (plan_weekly, wk_key)):
-                if key not in bucket:
-                    bucket[key] = {}
-                if team_id not in bucket[key]:
-                    bucket[key][team_id] = {'p1': 0, 'p2': 0}
-                if has_lu:
-                    bucket[key][team_id]['p1'] += 1
-                if has_lu or has_hold:
-                    bucket[key][team_id]['p2'] += 1
+            # รายวัน: นับตามวันตรง ๆ
+            if day_key not in plan_daily:
+                plan_daily[day_key] = {}
+            if team_id not in plan_daily[day_key]:
+                plan_daily[day_key][team_id] = {'p1': 0, 'p2': 0}
+            if has_lu:
+                plan_daily[day_key][team_id]['p1'] += 1
+            if has_lu or has_hold:
+                plan_daily[day_key][team_id]['p2'] += 1
+
+            # รายสัปดาห์: ต้องคิดแบบ avg PDT/วัน ภายในสัปดาห์ของแต่ละทีม
+            wk_sort, wk_label = week_bucket_label(dt_plan)
+            wk_key  = f"{wk_sort}||{wk_label}||{plan_month}||{reg}||{type_team}"
+            if wk_key not in plan_weekly:
+                plan_weekly[wk_key] = {}
+            if team_id not in plan_weekly[wk_key]:
+                plan_weekly[wk_key][team_id] = {'p1': 0, 'p2': 0, 'dates': set()}
+            plan_weekly[wk_key][team_id]['dates'].add(plan_date)
+            if has_lu:
+                plan_weekly[wk_key][team_id]['p1'] += 1
+            if has_lu or has_hold:
+                plan_weekly[wk_key][team_id]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
@@ -513,7 +524,27 @@ def build_data():
                             avg_p1=round(s1/cnt, 2), avg=round(s2/cnt, 2), teams=cnt))
         return out
 
-    tr_week = finalize_plan_trend(plan_weekly)
+    def finalize_week_trend(bucket):
+        out = []
+        for key, team_map in bucket.items():
+            sort_key, label, month_key, reg, ttype = key.split('||')
+            team_vals_p1 = []
+            team_vals_p2 = []
+            for v in team_map.values():
+                dcount = len(v.get('dates', set()))
+                if dcount <= 0:
+                    continue
+                team_vals_p1.append(v['p1'] / dcount)
+                team_vals_p2.append(v['p2'] / dcount)
+            cnt = len(team_vals_p1)
+            if cnt == 0:
+                continue
+            out.append(dict(sort=sort_key, label=label, m=month_key, reg=reg, type=ttype,
+                            avg_p1=round(sum(team_vals_p1)/cnt, 2),
+                            avg=round(sum(team_vals_p2)/cnt, 2), teams=cnt))
+        return out
+
+    tr_week = finalize_week_trend(plan_weekly)
     tr_day = finalize_plan_trend(plan_daily)
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
