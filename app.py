@@ -544,6 +544,7 @@ def build_data():
                             avg=round(sum(team_vals_p2)/cnt, 2), teams=cnt))
         return out
 
+    # รายสัปดาห์: avg PDT/วัน ต่อทีม ภายใน Wk ของเดือน โดยอิงวันที่ในคอลัมน์ Plan
     tr_week = finalize_week_trend(plan_weekly)
     tr_day = finalize_plan_trend(plan_daily)
 
