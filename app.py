@@ -158,11 +158,17 @@ def parse_dt(v):
 
 
 def week_bucket_label(dt):
+    """แปลงวันที่ Plan เป็น bucket รายสัปดาห์แบบคงที่ 7 วันต่อ 1 wk
+    ตามที่ผู้ใช้ต้องการ: 1-7 ม.ค. = wk2601, 8-14 ม.ค. = wk2602
+    โดยอิงปี พ.ศ. และนับทุก 7 วันจากวันที่ 1 ม.ค. ของปีนั้น
+    """
     if not dt:
         return None
-    monday = dt - timedelta(days=dt.weekday())
-    sunday = monday + timedelta(days=6)
-    return f"{to_by_date(monday)} ถึง {to_by_date(sunday)}"
+    byear = dt.year + 543
+    jan1 = datetime(dt.year, 1, 1)
+    day_index = (dt.date() - jan1.date()).days
+    week_no = (day_index // 7) + 1
+    return f"wk{str(byear)[2:]}{week_no:02d}"
 
 def to_by_month(dt):
     """datetime ค.ศ. → พ.ศ. month string เช่น 2569-01"""
