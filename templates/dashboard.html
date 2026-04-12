@@ -72,7 +72,7 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .up { color: var(--green); } .down { color: var(--red); } .near-col { color: var(--amber); }
 
 /* Charts row */
-.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.charts-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(300px,0.9fr); gap: 12px; margin-bottom: 20px; align-items: stretch; }
 .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
 .chart-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; }
 .chart-wrap { position: relative; }
@@ -379,6 +379,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <select id="f-prov" style="width:100%;" onchange="applyFilters()">
       <option value="">ทั้งหมด</option>
     </select>
+    <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">Team ID</div>
+    <select id="f-team" style="width:100%;" onchange="applyFilters()">
+      <option value="">ทั้งหมด</option>
+    </select>
     <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">เดือน</div>
     <select id="f-month" style="width:100%;" onchange="applyFilters()">
       <option value="">ทั้งหมด</option>
@@ -433,11 +437,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             </div>
           </div>
           <div class="trend-legend" id="trend-legend"></div>
-          <div class="chart-wrap" style="height:260px;"><canvas id="chart-trend"></canvas></div>
+          <div class="chart-wrap" style="height:320px;"><canvas id="chart-trend"></canvas></div>
         </div>
         <div class="chart-card">
           <div class="chart-title">สัดส่วน Status ทีม</div>
-          <div class="chart-wrap" style="height:260px;"><canvas id="chart-status"></canvas></div>
+          <div class="chart-wrap" style="height:220px;"><canvas id="chart-status"></canvas></div>
         </div>
       </div>
 
@@ -1101,6 +1105,10 @@ function buildLogSummary(t, s) {
 
 function buildAnalysisCard(t){
   const s=(RAW.sum||{})[t.id]||{};
+  const boundary = getBoundaryInfo(t.id);
+  const respAreas = boundary ? (boundary.resp||[]) : [];
+  const avgMonthDays = t.avgMonthDays || avgMonthDaysFromSum(t.id) || 0;
+  const avgMonthOffDays = t.avgMonthOffDays || avgMonthOffDaysFromSum(t.id) || 0;
   const gap=Math.abs(getVS(t)).toFixed(2);
   const regCol=NOR1.has(t.prov)?'var(--nor1)':'var(--nor2)';
   const typeClass=t.type.toLowerCase();
@@ -1132,6 +1140,13 @@ function buildAnalysisCard(t){
   const sevColor={high:'var(--red)',med:'var(--amber)',low:'var(--text2)',info:'var(--blue)'};
   const sevBg={high:'var(--red-bg)',med:'var(--amber-bg)',low:'var(--bg4)',info:'var(--blue-bg)'};
   const logSamples=(s.logs||[]).slice(0,2).map(lg=>'<div style="background:var(--bg3);border-left:2px solid var(--border2);padding:6px 10px;margin-bottom:6px;font-size:11px;color:var(--text2);line-height:1.5;border-radius:0 4px 4px 0;">'+br(lg,220)+'</div>').join('');
+  const areaHtml = boundary
+    ? '<div style="margin-bottom:8px;font-size:11px;color:var(--text2);line-height:1.5;">' +
+        '<div style="margin-bottom:4px;"><span style="color:var(--text3);">พื้นที่รับผิดชอบ:</span> ' + (respAreas.length ? respAreas.slice(0,8).join(', ') : '-') + '</div>' +
+        '<div><span style="color:var(--text3);">Home base:</span> ' + (boundary.home || '-') + (boundary.group ? ' · <span style="color:var(--text3);">Group:</span> '+boundary.group : '') + '</div>' +
+      '</div>'
+    : '<div style="margin-bottom:8px;font-size:11px;color:var(--text3);">ไม่พบข้อมูลพื้นที่รับผิดชอบใน Team Boundary</div>';
+
   return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">'+
     '<span class="mono" style="font-size:13px;font-weight:600;">'+t.id+'</span>'+
@@ -1139,8 +1154,7 @@ function buildAnalysisCard(t){
     '<span style="color:'+regCol+';font-size:12px;">'+t.reg+' · '+t.prov+'</span>'+
     '<span class="pill below"><span class="pill-dot"></span>'+gap+' ต่ำกว่า baseline</span>'+
     '<span style="font-size:12px;color:var(--text3);margin-left:auto;">avg <strong style="color:var(--text)">'+getPDT(t).toFixed(2)+'</strong> งาน/วัน · base='+t.base+' · '+t.days+' วัน</span>'+
-    '</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
+    '</div>'+areaHtml+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
     '<div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">ผลการวิเคราะห์</div>'+
     findings.map(f=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 8px;margin-bottom:4px;background:'+sevBg[f.sev]+';border-radius:5px;border-left:2px solid '+sevColor[f.sev]+';"><span style="font-size:13px;flex-shrink:0;">'+f.icon+'</span><span style="font-size:12px;color:var(--text);line-height:1.4;">'+f.text+'</span></div>').join('')+
     '</div>'+
@@ -1152,6 +1166,9 @@ function buildAnalysisCard(t){
     '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">Link Up</div><div style="font-size:18px;font-weight:600;color:var(--green)">'+(s.done_p2||s.done_p1||0)+'</div></div>'+
     '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">Hold</div><div style="font-size:18px;font-weight:600;color:var(--amber)">'+(s.hold||0)+'</div></div>'+
     '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">ไม่แล้วเสร็จ</div><div style="font-size:18px;font-weight:600;color:var(--red)">'+(s.inc_work||0)+'</div></div>'+
+    '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">Avg Hrs/วัน</div><div style="font-size:18px;font-weight:600;color:var(--purple)">'+(t.h||0).toFixed(1)+'</div></div>'+
+    '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">Avg วันทำงาน/เดือน</div><div style="font-size:18px;font-weight:600;">'+avgMonthDays+'</div></div>'+
+    '<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;text-align:center;"><div style="font-size:10px;color:var(--text3);">Avg วันหยุด/เดือน</div><div style="font-size:18px;font-weight:600;">'+avgMonthOffDays+'</div></div>'+
     '</div></div></div>'+
     '<div style="margin-top:10px;text-align:right;"><button data-tid3="' + t.id + '" style="font-family:inherit;font-size:11px;background:var(--bg4);color:var(--text2);border:1px solid var(--border);border-radius:var(--r);padding:4px 12px;cursor:pointer;">ดู Weekly Chart →</button></div>'+
     '</div>';
@@ -1356,6 +1373,7 @@ function renderTeamSummary(tid,t){
 let filterReg = new Set(['NOR1','NOR2']);
 let filterType = new Set(['CM','OFC']);
 let filterProv = '';
+let filterTeam = '';
 let filterMonth = '';
 let rankType = 'ALL';
 let teamTypeFilter = 'ALL';
@@ -1403,6 +1421,22 @@ function getTot(t) { return pdtMode===2 ? (t.tot2||0) : (t.tot1||0); }
 function getMax(t) { return pdtMode===2 ? (t.max2||0) : (t.max1||0); }
 
 
+function getBoundaryInfo(teamId) {
+  return (RAW.boundary||[]).find(b => b.tid===teamId) || null;
+}
+
+function avgMonthDaysFromSum(teamId) {
+  const byMonth = (((RAW.sum||{})[teamId]||{}).by_month)||{};
+  const vals = Object.values(byMonth).map(v => Number(v.days||0)).filter(v => v>0);
+  return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
+}
+
+function avgMonthOffDaysFromSum(teamId) {
+  const byMonth = (((RAW.sum||{})[teamId]||{}).by_month)||{};
+  const vals = Object.values(byMonth).map(v => Math.max(0, 30-Number(v.days||0)));
+  return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : 0;
+}
+
 function getMonthAdjustedTeam(t) {
   if (!filterMonth) return t;
   const ms = (t.monthStats||{})[filterMonth];
@@ -1432,7 +1466,8 @@ function getFilteredTeams() {
     .filter(t =>
       (filterReg.size===0 || filterReg.has(t.reg)) &&
       (filterType.size===0 || filterType.has(t.type)) &&
-      (!filterProv || t.prov===filterProv)
+      (!filterProv || t.prov===filterProv) &&
+      (!filterTeam || t.id===filterTeam)
     );
 }
 
@@ -1444,11 +1479,13 @@ function applyFilters() {
   if (document.getElementById('f-cm').checked) filterType.add('CM');
   if (document.getElementById('f-ofc').checked) filterType.add('OFC');
   filterProv  = document.getElementById('f-prov').value;
+  filterTeam  = document.getElementById('f-team').value;
   filterMonth = document.getElementById('f-month').value;
   const parts = [];
   if (filterReg.size < 2) parts.push([...filterReg].join(', '));
   if (filterType.size < 2) parts.push([...filterType].join(', '));
   if (filterProv) parts.push(filterProv);
+  if (filterTeam) parts.push(filterTeam);
   if (filterMonth) parts.push((RAW.ml||{})[filterMonth] || filterMonth);
   document.getElementById('filter-status').textContent = parts.length ? parts.join(' · ') : 'ทุก Region · ทุก Type';
   initDrillSelects();
@@ -1622,12 +1659,18 @@ function renderAll() {
 // ===================== INIT =====================
 function init() {
   const provSel = document.getElementById('f-prov');
+  const teamSel = document.getElementById('f-team');
   const months  = document.getElementById('f-month');
   const provs = [...new Set((RAW.ts||[]).map(t=>t.prov))].sort();
   provs.forEach(p => {
     const o = document.createElement('option');
     o.value = p; o.textContent = p + ' — ' + ((RAW.prov||{})[p]||p);
     provSel.appendChild(o);
+  });
+  [...new Set((RAW.ts||[]).map(t=>t.id))].sort().forEach(id => {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = id;
+    if (teamSel) teamSel.appendChild(o);
   });
   (RAW.months||[]).forEach(m => {
     const o = document.createElement('option');
@@ -1661,19 +1704,19 @@ function showPage(id) {
 
 // ===================== TREND CHART =====================
 
-function formatThaiDateRangeFromWeekSort(sortKey) {
-  if (!sortKey) return '';
-  const m = String(sortKey).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return String(sortKey);
-  const buddhistYear = parseInt(m[1], 10);
-  const month = parseInt(m[2], 10);
-  const weekNo = parseInt(m[3], 10);
-  const gregYear = buddhistYear - 543;
-  const startDay = ((weekNo - 1) * 7) + 1;
-  const lastDay = new Date(gregYear, month, 0).getDate();
-  const endDay = Math.min(startDay + 6, lastDay);
-  const monthLabel = (RAW && RAW.ml && RAW.ml[`${buddhistYear}-${String(month).padStart(2,'0')}`]) || `${month}/${String(buddhistYear).slice(-2)}`;
-  return `${startDay}-${endDay} ${monthLabel}`;
+function formatThaiDateLabel(dateStr) {
+  if (!dateStr) return '';
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return String(dateStr);
+  const y = m[1], mo = m[2], d = String(parseInt(m[3],10));
+  const monthLabel = (RAW && RAW.ml && RAW.ml[`${y}-${mo}`]) || `${mo}/${String(y).slice(-2)}`;
+  return `${d} ${monthLabel}`;
+}
+
+function formatThaiDateRange(start, end) {
+  if (!start && !end) return '';
+  if (start && end) return `${formatThaiDateLabel(start)} - ${formatThaiDateLabel(end)}`;
+  return formatThaiDateLabel(start || end);
 }
 
 function renderTrend() {
@@ -1698,8 +1741,11 @@ function renderTrend() {
     });
     const sortedKeys = [...uniq.keys()].sort();
     axisKeys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
-    labels = axisKeys.map((_, idx) => `Wk${idx + 1}`);
-    tooltipWeekRanges = axisKeys.map(k => formatThaiDateRangeFromWeekSort(k));
+    labels = axisKeys.map(k => uniq.get(k) || k);
+    tooltipWeekRanges = axisKeys.map(k => {
+      const row = tData.find(r => (r.sort || r.label) === k);
+      return formatThaiDateRange(row && row.start, row && row.end);
+    });
     tData = tData.filter(r => axisKeys.includes(r.sort || r.label));
   } else {
     axisKeys = [...new Set(tData.map(r => r.label))].sort();
@@ -1832,9 +1878,13 @@ function addTopDelegation(id) {
 
 // ===================== HEATMAP =====================
 function heatColor(val, max) {
-  if (!val||val===0) return '#161b22';
-  const stops = ['#0d2e1a','#1b5e31','#2d8c4a','#3fb950','#7fdc8a'];
-  return stops[Math.min(4,Math.floor((val/max)*5))];
+  if (!val || val===0) return '#161b22';
+  const ratio = max>0 ? (val/max) : 0;
+  if (ratio <= 0.15) return '#1f2937';
+  if (ratio <= 0.35) return '#1d4ed8';
+  if (ratio <= 0.55) return '#0f766e';
+  if (ratio <= 0.75) return '#ca8a04';
+  return '#dc2626';
 }
 
 function aggregateHeatRows() {
@@ -1852,32 +1902,43 @@ function renderHeatmap() {
   const provs = Object.keys(RAW.prov||{}).sort().filter(pv => !filterProv || pv===filterProv).filter(pv => filterReg.size===2 || filterReg.has(NOR1.has(pv)?'NOR1':'NOR2'));
   const monthsShow = filterMonth ? [filterMonth] : (RAW.months||[]);
 
+  const rowModes = heatType==='ALL' ? ['ALL','OFC','CM'] : [heatType];
   const gridRows = [];
   provs.forEach(pv => {
-    monthsShow.forEach(m => {
-      const rows = baseRows.filter(r => r.pv===pv && r.m===m);
-      const totTeams = rows.reduce((s,r)=>s+(r.tot||0),0);
-      const weightedSum = rows.reduce((s,r)=>s+((r.avg||0)*(r.tot||0)),0);
-      const avg = totTeams ? +(weightedSum/totTeams).toFixed(2) : 0;
-      gridRows.push({pv,m,avg,tot:totTeams});
+    rowModes.forEach(mode => {
+      monthsShow.forEach(m => {
+        const rows = baseRows.filter(r => r.pv===pv && r.m===m && (mode==='ALL' || r.type===mode));
+        const totTeams = rows.reduce((s,r)=>s+(r.tot||0),0);
+        const weightedSum = rows.reduce((s,r)=>s+((r.avg||0)*(r.tot||0)),0);
+        const avg = totTeams ? +(weightedSum/totTeams).toFixed(2) : 0;
+        const tkt = rows.reduce((s,r)=>s+(r.tkt||0),0);
+        gridRows.push({pv, mode, m, avg, tot:totTeams, tkt});
+      });
     });
   });
 
   const maxVal = Math.max(...gridRows.map(h=>h.avg||0),0.1);
-  let html = '<table class="heatmap-table"><thead><tr><th>Province</th>';
+  let html = '<table class="heatmap-table"><thead><tr><th>Province / Type</th>';
   monthsShow.forEach(m => { html += '<th style="text-align:center">'+((RAW.ml||{})[m]||m)+'</th>'; });
   html += '</tr></thead><tbody>';
+
   provs.forEach(pv => {
-    html += '<tr><td class="prov-label"><span style="color:'+(NOR1.has(pv)?'var(--nor1)':'var(--nor2)')+'">●</span> '+pv+' <span style="color:var(--text3);font-size:11px;">'+((RAW.prov||{})[pv]||'')+'</span></td>';
-    monthsShow.forEach(m => {
-      const row = gridRows.find(h=>h.m===m&&h.pv===pv);
-      const val = row?row.avg:0;
-      const bg = heatColor(val,maxVal);
-      const tc = val>maxVal*0.5?'#fff':'#8b949e';
-      html += '<td><div class="hm-cell" style="background:'+bg+';color:'+tc+';" title="'+pv+' '+((RAW.ml||{})[m]||m)+': avg '+val+'/วัน">'+(val||'—')+'</div></td>';
+    rowModes.forEach(mode => {
+      const label = mode==='ALL' ? 'ALL' : mode;
+      const subCol = mode==='CM' ? 'var(--cm)' : mode==='OFC' ? 'var(--ofc)' : (NOR1.has(pv)?'var(--nor1)':'var(--nor2)');
+      html += '<tr><td class="prov-label"><span style="color:'+subCol+'">●</span> '+pv+' '+label+' <span style="color:var(--text3);font-size:11px;">'+((RAW.prov||{})[pv]||'')+'</span></td>';
+      monthsShow.forEach(m => {
+        const row = gridRows.find(h=>h.pv===pv&&h.mode===mode&&h.m===m);
+        const val = row?row.avg:0;
+        const bg = heatColor(val,maxVal);
+        const tc = (bg==='#1f2937' || bg==='#1d4ed8') ? '#e6edf3' : '#0d1117';
+        const title = `${pv} ${label} ${(RAW.ml||{})[m]||m} | avg ${val || 0}/วัน | teams ${row?.tot || 0} | ticket ${(row?.tkt || 0).toLocaleString()}`;
+        html += '<td><div class="hm-cell" style="background:'+bg+';color:'+tc+';width:76px;" title="'+title+'">'+(val||'—')+'</div></td>';
+      });
+      html += '</tr>';
     });
-    html += '</tr>';
   });
+
   html += '</tbody></table>';
   const hc = document.getElementById('heatmap-container');
   if (hc) hc.innerHTML = html;
