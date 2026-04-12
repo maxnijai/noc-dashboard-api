@@ -63,11 +63,25 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .content { padding: 20px; flex: 1; }
 
 /* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; min-height: 104px; display:flex; flex-direction:column; justify-content:space-between; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(13,17,23,.98)); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-height: 104px; display:flex; flex-direction:column; justify-content:space-between; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.kpi-card.hero { grid-column: span 3; min-height: 118px; }
+.kpi-card.standard { grid-column: span 2; }
+.kpi-card.hero .kpi-val { font-size: 36px; font-weight: 700; }
+.kpi-card.hero .kpi-label { color: var(--text2); }
 .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
 .kpi-val { font-size: 28px; font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+.exec-grid { display:grid; grid-template-columns: minmax(0,1.15fr) minmax(320px,.85fr); gap:12px; margin-bottom:20px; }
+.exec-card { background: linear-gradient(180deg, rgba(17,24,39,.98), rgba(13,17,23,.98)); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow: 0 10px 28px rgba(0,0,0,.18); }
+.exec-title { font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.55px; margin-bottom:10px; }
+.exec-lead { font-size:22px; font-weight:700; line-height:1.25; margin-bottom:12px; }
+.exec-list { display:grid; gap:8px; }
+.exec-item { display:flex; gap:8px; align-items:flex-start; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,.02); }
+.exec-item strong { color:var(--text); }
+.exec-chip-row { display:flex; flex-wrap:wrap; gap:8px; }
+.exec-chip { padding:7px 10px; border-radius:999px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); font-size:11px; }
+.exec-chip b { color:var(--text); }
 .kpi-delta { font-size: 12px; margin-top: 3px; font-weight: 500; }
 .up { color: var(--green); } .down { color: var(--red); } .near-col { color: var(--amber); }
 
@@ -151,8 +165,15 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 .tab.active { background: var(--bg2); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
 /* Responsive */
+@media (max-width: 980px) {
+  .kpi-grid { grid-template-columns: repeat(6, minmax(0,1fr)); }
+  .kpi-card.hero, .kpi-card.standard { grid-column: span 3; }
+  .exec-grid, .charts-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 768px) {
   .sidebar { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .kpi-card.hero, .kpi-card.standard { grid-column: span 1; }
   .charts-grid { grid-template-columns: 1fr; }
 }
 
@@ -432,6 +453,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="content">
       <!-- KPI cards -->
       <div class="kpi-grid" id="kpi-grid"></div>
+      <div class="exec-grid">
+        <div class="exec-card">
+          <div class="exec-title">Executive Insight</div>
+          <div class="exec-lead" id="exec-lead">กำลังวิเคราะห์ภาพรวม…</div>
+          <div class="exec-list" id="exec-insights"></div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-title">Management Focus</div>
+          <div class="exec-chip-row" id="exec-focus"></div>
+        </div>
+      </div>
 
       <!-- Charts -->
       <div class="charts-grid">
@@ -990,6 +1022,45 @@ function updateTrendTitle(){
   if(hm)hm.textContent='Heatmap — Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ต่อทีม แยก Province × เดือน · '+typeLabel;
 }
 
+function executiveLine(icon, text){ return '<div class="exec-item"><span style="font-size:14px;line-height:1;">'+icon+'</span><div style="font-size:12px;color:var(--text2);line-height:1.5;">'+text+'</div></div>'; }
+function renderExecutiveInsights(ft) {
+  const leadEl = document.getElementById('exec-lead');
+  const listEl = document.getElementById('exec-insights');
+  const focusEl = document.getElementById('exec-focus');
+  if (!leadEl || !listEl || !focusEl) return;
+  if (!ft.length) {
+    leadEl.textContent = 'ไม่พบข้อมูลตามตัวกรอง';
+    listEl.innerHTML = executiveLine('ℹ️','ลองขยาย Region, Type หรือ Month เพื่อดูภาพรวม');
+    focusEl.innerHTML = '<span class="exec-chip">ไม่มีข้อมูล</span>';
+    return;
+  }
+  const sorted = [...ft].sort((a,b)=>getPDT(b)-getPDT(a));
+  const low = [...ft].sort((a,b)=>getPDT(a)-getPDT(b));
+  const top = sorted[0], bottom = low[0];
+  const avgP = ft.reduce((a,t)=>a+getPDT(t),0)/ft.length;
+  const above = ft.filter(t=>getVS(t)>=0).length;
+  const below = ft.filter(t=>getVS(t)<-0.5).length;
+  const hardLow = low.filter(t=>getVS(t)<-0.5).slice(0,3).map(t=>t.id).join(', ');
+  const regionAgg = {};
+  ft.forEach(t=>{ const k=t.reg+'-'+t.type; (regionAgg[k]??=[]).push(getPDT(t)); });
+  const regionRank = Object.entries(regionAgg).map(([k,v])=>({k,avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>b.avg-a.avg);
+  const bestGroup = regionRank[0], weakestGroup = regionRank[regionRank.length-1];
+  leadEl.innerHTML = 'ภาพรวมตอนนี้ <span style="color:var(--blue)">'+avgP.toFixed(2)+'</span> งาน/วัน · Above baseline <span style="color:var(--green)">'+Math.round((above/ft.length)*100)+'%</span>';
+  listEl.innerHTML = [
+    executiveLine('🏆', 'ทีมเด่นสุดตอนนี้ <strong>'+top.id+'</strong> ที่ <strong>'+getPDT(top).toFixed(2)+'</strong> งาน/วัน ใน '+top.prov+' ('+top.type+')'),
+    executiveLine('⚠️', 'ทีมต้องจับตาสุดคือ <strong>'+bottom.id+'</strong> ที่ <strong>'+getPDT(bottom).toFixed(2)+'</strong> งาน/วัน ต่ำกว่า baseline '+Math.abs(getVS(bottom)).toFixed(2)),
+    executiveLine('🧭', 'กลุ่มที่แรงสุดคือ <strong>'+bestGroup.k+'</strong> เฉลี่ย '+bestGroup.avg.toFixed(2)+' งาน/วัน ขณะที่กลุ่มอ่อนสุดคือ <strong>'+weakestGroup.k+'</strong> เฉลี่ย '+weakestGroup.avg.toFixed(2)),
+    executiveLine('📌', below ? 'มีทีมต่ำกว่า baseline ทั้งหมด <strong>'+below+'</strong> ทีม โดยกลุ่มที่ควรติดตามก่อนคือ <strong>'+(hardLow||bottom.id)+'</strong>' : 'ทุกทีมยังอยู่ในกรอบ near/above baseline')
+  ].join('');
+  focusEl.innerHTML = [
+    '<span class="exec-chip"><b>Focus KPI:</b> Avg PDT</span>',
+    '<span class="exec-chip"><b>Top Team:</b> '+top.id+'</span>',
+    '<span class="exec-chip"><b>Risk Team:</b> '+bottom.id+'</span>',
+    '<span class="exec-chip"><b>Best Group:</b> '+bestGroup.k+'</span>',
+    '<span class="exec-chip"><b>Watchlist:</b> '+below+' ทีม</span>'
+  ].join('');
+}
+
 // ===================== KPI CARDS (renderKPI) =====================
 function renderKPI(ft) {
   const total=ft.length;
@@ -1008,25 +1079,26 @@ function renderKPI(ft) {
   const totTT=isFiltered?ft.reduce((a,t)=>a+(t.tkt||0),0):(gs.total_tkt||0);
   const totNon=isFiltered?ft.reduce((a,t)=>a+(t.non||0),0):(gs.total_non||0);
   const totRows=isFiltered?ft.reduce((a,t)=>a+(t.tkt||0)+(t.non||0),0):(gs.total_rows||0);
-  function kCard(label,valHtml,subHtml,kpiType,borderStyle){
+  function kCard(label,valHtml,subHtml,kpiType,borderStyle,variant){
     const border=borderStyle?' style="border-color:var(--border2)"':'';
     const dataAttr=kpiType?' data-kpi="'+kpiType+'"':'';
-    return '<div class="kpi-card"'+border+dataAttr+'><div class="kpi-label">'+label+'</div><div class="kpi-val">'+valHtml+'</div><div class="kpi-sub">'+subHtml+'</div></div>';
+    const cls = variant==='hero' ? 'kpi-card hero' : 'kpi-card standard';
+    return '<div class="'+cls+'"'+border+dataAttr+'><div class="kpi-label">'+label+'</div><div class="kpi-val">'+valHtml+'</div><div class="kpi-sub">'+subHtml+'</div></div>';
   }
   const cmDelta=parseFloat(cmAvg)>=3?'<span class="up">▲ baseline 3</span>':'<span class="down">▼ baseline 3</span>';
   const ofcDelta=parseFloat(ofcAvg)>=2?'<span class="up">▲ baseline 2</span>':'<span class="down">▼ baseline 2</span>';
   document.getElementById('kpi-grid').innerHTML=
+    kCard('Avg PDT/วัน','<span style="color:var(--blue)">'+avgP+'</span>',modeLabel,'all',false,'hero')+
+    kCard('Ticket','<span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span>','TT + INC pattern','',true,'hero')+
+    kCard('Above Baseline','<span class="up">'+above+'</span>',Math.round(above/total*100)+'% ของทีม','above',false,'hero')+
     kCard('ทีมทั้งหมด',total,'CM:'+cm.length+' · OFC:'+ofc.length,'all')+
-    kCard('Avg PDT/วัน','<span style="color:var(--blue)">'+avgP+'</span>',modeLabel,'all')+
     kCard('Avg PDT — CM','<span style="color:var(--cm)">'+cmAvg+'</span>',cmDelta,'cm')+
     kCard('Avg PDT — OFC','<span style="color:var(--ofc)">'+ofcAvg+'</span>',ofcDelta,'ofc')+
-    kCard('Ticket','<span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span>','TT + INC pattern','',true)+
     kCard('Non-Ticket','<span style="color:var(--amber)">'+Number(totNon).toLocaleString()+'</span>','เก็บสาย/ตรวจสอบ/อื่นๆ','',true)+
     kCard('Total Rows',Number(totRows).toLocaleString(),'ทุก row (ไม่รวมวันหยุด)','')+
-    kCard('Above Baseline ↗','<span class="up">'+above+'</span>',Math.round(above/total*100)+'% ของทีม','above')+
-    kCard('Near Baseline ↗','<span class="near-col">'+near+'</span>','(±0.5)','near')+
-    kCard('Below Baseline ↗','<span class="down">'+below+'</span>',Math.round(below/total*100)+'% ของทีม','below')+
-    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','ชั่วโมง/ทีม/วัน','วัดจากเวลาเริ่มงาน → ปิดงานล่าสุด');
+    kCard('Near Baseline','<span class="near-col">'+near+'</span>','(±0.5)','near')+
+    kCard('Below Baseline','<span class="down">'+below+'</span>',Math.round(below/total*100)+'% ของทีม','below')+
+    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','วัดจากเวลาเริ่มงาน → ปิดงานล่าสุด');
   document.getElementById('kpi-grid').onclick=function(e){const card=e.target.closest('[data-kpi]');if(card)openKpiModal(card.dataset.kpi,getFilteredTeams());};
 }
 
@@ -1651,6 +1723,7 @@ function pivotStatusCells(d, bold) {
 function renderAll() {
   const ft = getFilteredTeams();
   renderKPI(ft);
+  renderExecutiveInsights(ft);
   renderTrend();
   renderStatusChart(ft);
   renderTopBottom(ft);
@@ -1877,6 +1950,26 @@ function renderStatusChart(ft) {
   const above = ft.filter(t=>getVS(t)>=0).length;
   const near  = ft.filter(t=>getVS(t)<0&&getVS(t)>=-0.5).length;
   const below = ft.filter(t=>getVS(t)<-0.5).length;
+  const total = Math.max(ft.length, 1);
+  const centerPct = Math.round((above/total)*100);
+  const centerPlugin = {
+    id: 'centerText',
+    afterDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data || !meta.data.length) return;
+      const x = meta.data[0].x, y = meta.data[0].y;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '700 26px IBM Plex Sans Thai, sans-serif';
+      ctx.fillText(centerPct + '%', x, y - 2);
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '600 11px IBM Plex Sans Thai, sans-serif';
+      ctx.fillText('Above baseline', x, y + 18);
+      ctx.restore();
+    }
+  };
   const ctx = document.getElementById('chart-status').getContext('2d');
   if (chartStatus) chartStatus.destroy();
   chartStatus = new Chart(ctx, {
@@ -1885,10 +1978,12 @@ function renderStatusChart(ft) {
       labels: ['Above baseline','Near baseline','Below baseline'],
       datasets: [{ data:[above,near,below],
         backgroundColor:['#238636','#664d03','#a02020'],
-        borderColor:['#3fb950','#e3b341','#f85149'], borderWidth:1 }]
+        hoverBackgroundColor:['#2ea043','#7c5a03','#c62828'],
+        borderColor:['#0d1117','#0d1117','#0d1117'], borderWidth:3, spacing:2, hoverOffset:4 }]
     },
-    options: { responsive:true, maintainAspectRatio:false, cutout:'58%', radius:'82%', layout:{padding:{top:8,right:8,bottom:8,left:8}},
-      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14}} } }
+    plugins:[centerPlugin],
+    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', radius:'78%', layout:{padding:{top:12,right:18,bottom:12,left:18}},
+      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14,usePointStyle:true,pointStyle:'rectRounded'}}, tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} ทีม`}} } }
   });
 }
 
