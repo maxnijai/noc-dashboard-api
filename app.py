@@ -158,16 +158,23 @@ def parse_dt(v):
 
 
 def week_bucket_label(dt):
-    """แปลงวันที่ Plan เป็น bucket รายสัปดาห์ในแต่ละเดือน
-    1-7 = Wk1, 8-14 = Wk2, 15-21 = Wk3, 22-28 = Wk4, 29-31 = Wk5
-    คืนค่าเป็น tuple (sort_key, label)
+    """แปลงวันที่ Plan เป็น ISO week ตามปฏิทินสากล
+    คืนค่าเป็น dict ที่มี key สำหรับ sort, label และช่วงวันที่ของสัปดาห์
     """
     if not dt:
-        return None, None
-    week_no = ((dt.day - 1) // 7) + 1
-    sort_key = f"{dt.year+543}-{dt.month:02d}-{week_no:02d}"
-    label = f"Wk{week_no}"
-    return sort_key, label
+        return None
+    iso_year, iso_week, _ = dt.isocalendar()
+    week_start = dt - timedelta(days=dt.weekday())
+    week_end = week_start + timedelta(days=6)
+    buddhist_iso_year = iso_year + 543
+    return {
+        'sort': f"{buddhist_iso_year}-{iso_week:02d}",
+        'label': f"Wk{iso_week:02d}",
+        'iso_year': buddhist_iso_year,
+        'iso_week': iso_week,
+        'start': to_by_date(week_start),
+        'end': to_by_date(week_end),
+    }
 
 def to_by_month(dt):
     """datetime ค.ศ. → พ.ศ. month string เช่น 2569-01"""
@@ -276,6 +283,18 @@ def build_data():
         coord_raw = g(row,'update_pikat')
         # last_ts = Link Up หรือ Hold (Logic C)
         last_ts = dt_linkup or dt_hold
+        status_val = g(row,'status')
+        sla_val = g(row,'sla')
+        que_val = g(row,'que')
+        holdcause_val = g(row,'holdcause')
+        cause1_val = g(row,'cause1')
+        log_val = g(row,'log')
+        work_start = dt_travel or dt_start
+        row_work_hrs = 0
+        if work_start and last_ts:
+            diff = (last_ts - work_start).total_seconds() / 3600
+            if 0 < diff < 24:
+                row_work_hrs = round(diff, 2)
 
         if team_id not in teams:
             teams[team_id] = dict(
@@ -286,9 +305,28 @@ def build_data():
                 day_last_ts={},
                 day_first_coord={},
                 tkt=0, non=0, monthly={},
-                coords=[]
+                coords=[],
+                summary={'all': None, 'by_month': {}}
             )
         tm = teams[team_id]
+
+        def ensure_summary(month_key=None):
+            bucket_map = tm['summary']['by_month'] if month_key else tm['summary']
+            bucket_key = month_key if month_key else 'all'
+            if bucket_map.get(bucket_key) is None:
+                bucket_map[bucket_key] = {
+                    'tot': 0, 'tkt': 0, 'non': 0,
+                    'done_p1': 0, 'done_p2': 0,
+                    'hold': 0, 'inc_work': 0,
+                    'st': {}, 'sw': {}, 'sla': {},
+                    'logs': [], 'hr': [], 'c1': [],
+                    'que_rows': {}, 'que_hours': {},
+                    'days_set': set(),
+                }
+            return bucket_map[bucket_key]
+
+        summary_all = ensure_summary()
+        summary_month = ensure_summary(month_str) if row_valid and month_str else None
 
         # เก็บ coords และจดจำพิกัดของ 'งานแรกของวัน'
         coord = parse_coord(coord_raw) if coord_raw else None
@@ -299,6 +337,40 @@ def build_data():
         if row_valid:
             if is_ticket: tm['tkt'] += 1
             else:         tm['non'] += 1
+
+            for sb in [summary_all, summary_month]:
+                if not sb:
+                    continue
+                sb['tot'] += 1
+                if is_ticket:
+                    sb['tkt'] += 1
+                else:
+                    sb['non'] += 1
+                    non_key = que_val or 'Non-Ticket'
+                    sb['sw'][non_key] = sb['sw'].get(non_key, 0) + 1
+                if has_lu:
+                    sb['done_p1'] += 1
+                if has_lu or has_hold:
+                    sb['done_p2'] += 1
+                if has_hold:
+                    sb['hold'] += 1
+                if status_val:
+                    sb['st'][status_val] = sb['st'].get(status_val, 0) + 1
+                    if 'ไม่แล้วเสร็จ' in status_val:
+                        sb['inc_work'] += 1
+                if sla_val:
+                    sb['sla'][sla_val] = sb['sla'].get(sla_val, 0) + 1
+                if holdcause_val:
+                    sb['hr'].append(holdcause_val)
+                if cause1_val:
+                    sb['c1'].append(cause1_val)
+                if log_val:
+                    sb['logs'].append(log_val)
+                if que_val:
+                    sb['que_rows'][que_val] = sb['que_rows'].get(que_val, 0) + 1
+                    sb['que_hours'][que_val] = sb['que_hours'].get(que_val, 0) + row_work_hrs
+                if date_str:
+                    sb['days_set'].add(date_str)
 
         # PDT counts เฉพาะ valid rows
         if row_valid and date_str:
@@ -357,18 +429,18 @@ def build_data():
             if has_lu or has_hold:
                 plan_daily[day_key][team_id]['p2'] += 1
 
-            # รายสัปดาห์: ต้องคิดแบบ avg PDT/วัน ภายในสัปดาห์ของแต่ละทีม
-            wk_sort, wk_label = week_bucket_label(dt_plan)
-            wk_key  = f"{wk_sort}||{wk_label}||{plan_month}||{reg}||{type_team}"
+            # รายสัปดาห์: ISO week ตามปฏิทินสากล
+            wk = week_bucket_label(dt_plan)
+            wk_key  = f"{wk['sort']}||{wk['label']}||{plan_month}||{reg}||{type_team}"
             if wk_key not in plan_weekly:
-                plan_weekly[wk_key] = {}
-            if team_id not in plan_weekly[wk_key]:
-                plan_weekly[wk_key][team_id] = {'p1': 0, 'p2': 0, 'dates': set()}
-            plan_weekly[wk_key][team_id]['dates'].add(plan_date)
+                plan_weekly[wk_key] = {'meta': wk, 'teams': {}}
+            if team_id not in plan_weekly[wk_key]['teams']:
+                plan_weekly[wk_key]['teams'][team_id] = {'p1': 0, 'p2': 0, 'dates': set()}
+            plan_weekly[wk_key]['teams'][team_id]['dates'].add(plan_date)
             if has_lu:
-                plan_weekly[wk_key][team_id]['p1'] += 1
+                plan_weekly[wk_key]['teams'][team_id]['p1'] += 1
             if has_lu or has_hold:
-                plan_weekly[wk_key][team_id]['p2'] += 1
+                plan_weekly[wk_key]['teams'][team_id]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
@@ -397,7 +469,7 @@ def build_data():
                     'Ticket' if is_ticket else 'Non-Ticket',    # [14] type
                     1 if (dt_linkup is not None) else 0,        # [15] pdt1
                     1 if (dt_linkup is not None or dt_hold is not None) else 0,  # [16] pdt2
-                    0,                                          # [17] work_hrs
+                    row_work_hrs,                               # [17] work_hrs
                     month_str or '',                            # [18] month
                 ])
 
@@ -427,6 +499,7 @@ def build_data():
         h = round(sum(daily_h_vals)/len(daily_h_vals), 2) if daily_h_vals else 0
 
         month_stats = {}
+        month_work_days_list = []
         for m, mm in tm['monthly'].items():
             mdays = len(mm['dates'])
             mtot1 = sum(mm['p1d'].values()) if mm['p1d'] else 0
@@ -440,10 +513,12 @@ def build_data():
                     if 0 < diff < 24:
                         mhours.append(round(diff, 2))
             mh = round(sum(mhours)/len(mhours), 2) if mhours else 0
+            month_work_days_list.append(mdays)
             month_stats[m] = {
                 'p1': mp1, 'p2': mp2, 'tot1': mtot1, 'tot2': mtot2,
                 'days': mdays, 'tkt': mm.get('tkt', 0), 'non': mm.get('non', 0),
                 'h': mh,
+                'off_days': max(0, 30 - mdays),
                 'max1': max(mm['p1d'].values()) if mm['p1d'] else 0,
                 'max2': max(mm['p2d'].values()) if mm['p2d'] else 0,
             }
@@ -451,11 +526,15 @@ def build_data():
             month_stats[m]['vs2'] = round(month_stats[m]['p2'] - base, 2)
             month_stats[m]['st'] = 'above' if month_stats[m]['vs1'] >= 0 else ('below' if month_stats[m]['vs1'] < -0.5 else 'near')
 
+        avg_month_days = round(sum(month_work_days_list)/len(month_work_days_list), 1) if month_work_days_list else 0
+        avg_month_off_days = round(sum(max(0, 30 - d) for d in month_work_days_list)/len(month_work_days_list), 1) if month_work_days_list else 0
+
         ts.append(dict(
             id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
             pn=PROV_THAI.get(tm['prov'],tm['prov']),
             p1=p1, p2=p2, tot1=tot1, tot2=tot2,
             h=h, days=days, max1=max1, max2=max2,
+            avgMonthDays=avg_month_days, avgMonthOffDays=avg_month_off_days,
             base=base, vs1=vs1, vs2=vs2, st=st, tkt=tm['tkt'], non=tm['non'],
             monthStats=month_stats
         ))
@@ -526,8 +605,10 @@ def build_data():
 
     def finalize_week_trend(bucket):
         out = []
-        for key, team_map in bucket.items():
+        for key, payload in bucket.items():
             sort_key, label, month_key, reg, ttype = key.split('||')
+            meta = payload.get('meta', {})
+            team_map = payload.get('teams', {})
             team_vals_p1 = []
             team_vals_p2 = []
             for v in team_map.values():
@@ -539,9 +620,13 @@ def build_data():
             cnt = len(team_vals_p1)
             if cnt == 0:
                 continue
-            out.append(dict(sort=sort_key, label=label, m=month_key, reg=reg, type=ttype,
-                            avg_p1=round(sum(team_vals_p1)/cnt, 2),
-                            avg=round(sum(team_vals_p2)/cnt, 2), teams=cnt))
+            out.append(dict(
+                sort=sort_key, label=label, m=month_key, reg=reg, type=ttype,
+                avg_p1=round(sum(team_vals_p1)/cnt, 2),
+                avg=round(sum(team_vals_p2)/cnt, 2), teams=cnt,
+                start=meta.get('start'), end=meta.get('end'),
+                iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week')
+            ))
         return out
 
     # รายสัปดาห์: avg PDT/วัน ต่อทีม ภายใน Wk ของเดือน โดยอิงวันที่ในคอลัมน์ Plan
@@ -575,22 +660,118 @@ def build_data():
     log.info(f'gstats: tkt={sum(t["tkt"] for t in ts)} non={sum(t["non"] for t in ts)}')
 
     # Build sum per team (for analysis card and team detail)
-    sum_data = {}
-    for t in ts:
-        sum_data[t['id']] = {
-            'tot':   t['tot1'],
-            'tkt':   t['tkt'],
-            'non':   t['non'],
-            'days':  t['days'],
-            'hold':  0,
-            'hold_pct': 0,
-            'inc_work': 0,
-            'sw':    {},
-            'st':    {},
-            'z':     0,
-            'qh':    {},
-            'hr':    [],
+    def summarize_logs(logs):
+        joined = ' '.join(logs).lower()
+        items = []
+        if 'spare' in joined or 'อะไหล่' in joined:
+            items.append({'type': 'warn', 'text': 'พบประเด็นอะไหล่ / spare part ใน log'})
+        if 'ฝน' in joined or 'น้ำท่วม' in joined or 'weather' in joined:
+            items.append({'type': 'warn', 'text': 'พบผลกระทบสภาพอากาศ'})
+        if 'permission' in joined or 'ขออนุญาต' in joined:
+            items.append({'type': 'warn', 'text': 'พบประเด็น site permission / ขออนุญาต'})
+        if 'link up' in joined:
+            items.append({'type': 'success', 'text': 'มีงานที่ปิดด้วย Link Up ตาม log'})
+        if not items and logs:
+            items.append({'type': 'info', 'text': 'มี log หน้างานให้ตรวจสอบเพิ่มเติม'})
+        return items[:4]
+
+    def build_sum_bucket(raw_bucket, team_obj=None):
+        if not raw_bucket:
+            return None
+        qh = {}
+        for q, cnt in raw_bucket.get('que_rows', {}).items():
+            if cnt:
+                qh[q] = round(raw_bucket.get('que_hours', {}).get(q, 0) / cnt, 2)
+        hold = raw_bucket.get('hold', 0)
+        tot = raw_bucket.get('tot', 0)
+        hold_pct = round((hold / tot) * 100, 1) if tot else 0
+        logs = raw_bucket.get('logs', [])[-8:][::-1]
+        c1 = sorted(raw_bucket.get('c1', {}).items(), key=lambda x: (-x[1], x[0])) if isinstance(raw_bucket.get('c1'), dict) else None
+        if c1 is None:
+            c1_counts = {}
+            for item in raw_bucket.get('c1', []):
+                c1_counts[item] = c1_counts.get(item, 0) + 1
+            c1 = sorted(c1_counts.items(), key=lambda x: (-x[1], x[0]))
+        hr_counts = {}
+        for item in raw_bucket.get('hr', []):
+            hr_counts[item] = hr_counts.get(item, 0) + 1
+        c1_list = [k for k, _ in c1[:5]]
+        hr_list = [f"{k} ({v})" for k, v in sorted(hr_counts.items(), key=lambda x: (-x[1], x[0]))[:5]]
+        days = len(raw_bucket.get('days_set', set()))
+        return {
+            'tot': tot,
+            'tkt': raw_bucket.get('tkt', 0),
+            'non': raw_bucket.get('non', 0),
+            'days': days,
+            'hold': hold,
+            'hold_pct': hold_pct,
+            'inc_work': raw_bucket.get('inc_work', 0),
+            'sw': raw_bucket.get('sw', {}),
+            'st': raw_bucket.get('st', {}),
+            'z': 0,
+            'qh': qh,
+            'hr': hr_list,
+            'c1': c1_list,
+            'logs': logs,
+            'sla': raw_bucket.get('sla', {}),
+            'done_p1': raw_bucket.get('done_p1', 0),
+            'done_p2': raw_bucket.get('done_p2', 0),
         }
+
+    def build_sla_bucket(sum_bucket):
+        if not sum_bucket:
+            return None
+        sla_counts = sum_bucket.get('sla', {}) or {}
+        total = sum(sla_counts.values())
+        if total <= 0:
+            return {
+                'hard_pct': 0, 'medium_pct': 0, 'normal_pct': 0, 'easy_pct': 0,
+                'top_sla': [], 'log_summary': summarize_logs(sum_bucket.get('logs', [])),
+                'total_logs': len(sum_bucket.get('logs', []))
+            }
+        def diff_of(sla_name):
+            s = str(sla_name).upper().strip()
+            if s in ('NSA1', 'NSA2', 'SA1', 'SA2', 'HSP1 = SA1 4H', 'HSP2 = SA2 4H'):
+                return 'hard'
+            if s in ('NSA3', 'SA3', 'HSP3 = SA3 4H'):
+                return 'medium'
+            if s in ('NSA4', 'SA4', 'CSA'):
+                return 'normal'
+            if s in ('NSA5', 'PSA5'):
+                return 'easy'
+            return 'unknown'
+        diff_counts = {'hard': 0, 'medium': 0, 'normal': 0, 'easy': 0, 'unknown': 0}
+        top_sla = []
+        for sla_name, cnt in sorted(sla_counts.items(), key=lambda x: (-x[1], x[0])):
+            diff = diff_of(sla_name)
+            diff_counts[diff] += cnt
+            top_sla.append({'sla': sla_name, 'cnt': cnt, 'pct': round((cnt / total) * 100, 1), 'diff': diff})
+        return {
+            'hard_pct': round((diff_counts['hard'] / total) * 100, 1),
+            'medium_pct': round((diff_counts['medium'] / total) * 100, 1),
+            'normal_pct': round((diff_counts['normal'] / total) * 100, 1),
+            'easy_pct': round((diff_counts['easy'] / total) * 100, 1),
+            'top_sla': top_sla[:5],
+            'log_summary': summarize_logs(sum_bucket.get('logs', [])),
+            'total_logs': len(sum_bucket.get('logs', []))
+        }
+
+    sum_data = {}
+    sla_data = {}
+    for t in ts:
+        raw_all = teams[t['id']]['summary'].get('all') or {}
+        team_sum = build_sum_bucket(raw_all, t) or {'tot': 0, 'tkt': 0, 'non': 0, 'days': 0, 'hold': 0, 'hold_pct': 0, 'inc_work': 0, 'sw': {}, 'st': {}, 'z': 0, 'qh': {}, 'hr': [], 'c1': [], 'logs': [], 'sla': {}, 'done_p1': 0, 'done_p2': 0}
+        team_sum['by_month'] = {}
+        team_sla = build_sla_bucket(team_sum)
+        team_sla['by_month'] = {}
+        for m in sorted_months:
+            raw_month = teams[t['id']]['summary']['by_month'].get(m)
+            month_sum = build_sum_bucket(raw_month, t)
+            if month_sum:
+                team_sum['by_month'][m] = month_sum
+                team_sla['by_month'][m] = build_sla_bucket(month_sum)
+        sum_data[t['id']] = team_sum
+        sla_data[t['id']] = team_sla
 
     return dict(
         ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day, heat=heat, wk=[],
@@ -602,7 +783,7 @@ def build_data():
             total_rows=sum(t['tkt']+t['non'] for t in ts)
         ),
         rankData=rank_data, boundary=boundary, homeCoords=home_coords,
-        drill=drill, slaData={},
+        drill=drill, slaData=sla_data,
         cached_at=datetime.now().isoformat()
     )
 
