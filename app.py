@@ -195,15 +195,6 @@ def is_valid_month(month_str):
     """กรองเฉพาะปี พ.ศ. ปัจจุบัน"""
     return month_str and month_str.startswith(VALID_YEAR + '-')
 
-def parse_buddhist_date(date_str):
-    if not date_str:
-        return None
-    try:
-        y, m, d = map(int, str(date_str).split('-'))
-        return datetime(y - 543, m, d)
-    except Exception:
-        return None
-
 def build_data():
     log.info('Building dashboard data...')
     t0 = time.time()
@@ -253,8 +244,6 @@ def build_data():
     cutoff = datetime.now() - timedelta(days=90)
     plan_daily = {}
     plan_weekly = {}
-    team_plan_daily = {}
-    team_plan_weekly = {}
 
     for row in rows[1:]:
         team_id   = g(row,'team_id')
@@ -440,15 +429,6 @@ def build_data():
             if has_lu or has_hold:
                 plan_daily[day_key][team_id]['p2'] += 1
 
-            if team_id not in team_plan_daily:
-                team_plan_daily[team_id] = {}
-            if plan_date not in team_plan_daily[team_id]:
-                team_plan_daily[team_id][plan_date] = {'p1': 0, 'p2': 0, 'm': plan_month, 'reg': reg, 'type': type_team}
-            if has_lu:
-                team_plan_daily[team_id][plan_date]['p1'] += 1
-            if has_lu or has_hold:
-                team_plan_daily[team_id][plan_date]['p2'] += 1
-
             # รายสัปดาห์: ISO week ตามปฏิทินสากล
             wk = week_bucket_label(dt_plan)
             wk_key  = f"{wk['sort']}||{wk['label']}||{plan_month}||{reg}||{type_team}"
@@ -461,17 +441,6 @@ def build_data():
                 plan_weekly[wk_key]['teams'][team_id]['p1'] += 1
             if has_lu or has_hold:
                 plan_weekly[wk_key]['teams'][team_id]['p2'] += 1
-
-            if team_id not in team_plan_weekly:
-                team_plan_weekly[team_id] = {}
-            team_wk_key = f"{wk['sort']}||{wk['label']}"
-            if team_wk_key not in team_plan_weekly[team_id]:
-                team_plan_weekly[team_id][team_wk_key] = {'p1': 0, 'p2': 0, 'dates': set(), 'm': plan_month, 'reg': reg, 'type': type_team, 'meta': wk}
-            team_plan_weekly[team_id][team_wk_key]['dates'].add(plan_date)
-            if has_lu:
-                team_plan_weekly[team_id][team_wk_key]['p1'] += 1
-            if has_lu or has_hold:
-                team_plan_weekly[team_id][team_wk_key]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
@@ -664,60 +633,71 @@ def build_data():
     tr_week = finalize_week_trend(plan_weekly)
     tr_day = finalize_plan_trend(plan_daily)
 
+    # Team-level trend for Overview when user selects Team ID
     team_tr_month = {}
     for t in ts:
-        rows = []
+        tid = t['id']
+        rows_team = []
         for m in sorted_months:
-            mm = t.get('monthStats', {}).get(m)
-            if not mm:
+            ms = t.get('monthStats', {}).get(m)
+            if not ms:
                 continue
-            rows.append(dict(m=m, label=m, reg=t['reg'], type=t['type'], avg_p1=mm.get('p1', 0), avg=mm.get('p2', 0)))
-        team_tr_month[t['id']] = rows
+            rows_team.append(dict(
+                m=m,
+                label=(ml.get(m) or m),
+                avg_p1=ms.get('p1', 0),
+                avg=ms.get('p2', 0),
+                reg=t.get('reg'),
+                type=t.get('type'),
+                team=tid
+            ))
+        team_tr_month[tid] = rows_team
 
-    team_tr_day = {}
-    for tid, tm in teams.items():
-        day_map = team_plan_daily.get(tid, {})
-        rows = []
-        if day_map:
-            for label, v in sorted(day_map.items(), key=lambda x: x[0]):
-                rows.append(dict(label=label, m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1'], 2), avg=round(v['p2'], 2), teams=1, source='plan'))
-        else:
-            for label in sorted(tm.get('all_dates', set())):
-                dt = parse_buddhist_date(label)
-                rows.append(dict(label=label, m=to_by_month(dt) if dt else None, reg=tm['reg'], type=tm['type'], avg_p1=round(tm.get('pdt1_dates', {}).get(label, 0), 2), avg=round(tm.get('pdt2_dates', {}).get(label, 0), 2), teams=1, source='actual'))
-        team_tr_day[tid] = rows
-
-    team_tr_week = {}
-    for tid, tm in teams.items():
-        wk_map = team_plan_weekly.get(tid, {})
-        rows = []
-        if wk_map:
-            for _, v in sorted(wk_map.items(), key=lambda x: x[0]):
-                dcount = len(v.get('dates', set()))
+    def finalize_team_week_trend(bucket):
+        out = {}
+        for key, payload in bucket.items():
+            sort_key, label, month_key, reg, ttype = key.split('||')
+            meta = payload.get('meta', {})
+            for tid, vals in payload.get('teams', {}).items():
+                dcount = len(vals.get('dates', set()))
                 if dcount <= 0:
                     continue
-                meta = v.get('meta', {})
-                rows.append(dict(sort=meta.get('sort'), label=meta.get('label'), m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1']/dcount, 2), avg=round(v['p2']/dcount, 2), teams=1, start=meta.get('start'), end=meta.get('end'), iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week'), source='plan'))
-        else:
-            actual_week = {}
-            for label in sorted(tm.get('all_dates', set())):
-                dt = parse_buddhist_date(label)
-                if not dt:
-                    continue
-                wk = week_bucket_label(dt)
-                key = wk['sort']
-                if key not in actual_week:
-                    actual_week[key] = {'meta': wk, 'dates': set(), 'p1': 0, 'p2': 0}
-                actual_week[key]['dates'].add(label)
-                actual_week[key]['p1'] += tm.get('pdt1_dates', {}).get(label, 0)
-                actual_week[key]['p2'] += tm.get('pdt2_dates', {}).get(label, 0)
-            for _, v in sorted(actual_week.items(), key=lambda x: x[0]):
-                dcount = len(v.get('dates', set()))
-                if dcount <= 0:
-                    continue
-                meta = v.get('meta', {})
-                rows.append(dict(sort=meta.get('sort'), label=meta.get('label'), m=to_by_month(parse_buddhist_date(sorted(v['dates'])[0])) if v.get('dates') else None, reg=tm['reg'], type=tm['type'], avg_p1=round(v['p1']/dcount, 2), avg=round(v['p2']/dcount, 2), teams=1, start=meta.get('start'), end=meta.get('end'), iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week'), source='actual'))
-        team_tr_week[tid] = rows
+                out.setdefault(tid, []).append(dict(
+                    sort=sort_key,
+                    label=label,
+                    m=month_key,
+                    reg=reg,
+                    type=ttype,
+                    avg_p1=round(vals.get('p1', 0) / dcount, 2),
+                    avg=round(vals.get('p2', 0) / dcount, 2),
+                    start=meta.get('start'),
+                    end=meta.get('end'),
+                    iso_year=meta.get('iso_year'),
+                    iso_week=meta.get('iso_week')
+                ))
+        for tid in out:
+            out[tid].sort(key=lambda r: (r.get('sort') or '', r.get('label') or ''))
+        return out
+
+    def finalize_team_day_trend(bucket):
+        out = {}
+        for key, team_map in bucket.items():
+            date_key, month_key, reg, ttype = key.split('||')
+            for tid, vals in team_map.items():
+                out.setdefault(tid, []).append(dict(
+                    label=date_key,
+                    m=month_key,
+                    reg=reg,
+                    type=ttype,
+                    avg_p1=round(vals.get('p1', 0), 2),
+                    avg=round(vals.get('p2', 0), 2)
+                ))
+        for tid in out:
+            out[tid].sort(key=lambda r: r.get('label') or '')
+        return out
+
+    team_tr_week = finalize_team_week_trend(plan_weekly)
+    team_tr_day = finalize_team_day_trend(plan_daily)
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
     nor1_list  = list(set(t['prov'] for t in ts if t['reg']=='NOR1'))
@@ -860,7 +840,9 @@ def build_data():
         sla_data[t['id']] = team_sla
 
     return dict(
-        ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day, team_tr_month=team_tr_month, team_tr_week=team_tr_week, team_tr_day=team_tr_day, heat=heat, wk=[],
+        ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day,
+        team_tr_month=team_tr_month, team_tr_week=team_tr_week, team_tr_day=team_tr_day,
+        heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
         months=sorted_months, ml=ml, sum=sum_data,
         gstats=dict(
