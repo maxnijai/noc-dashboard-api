@@ -36,6 +36,14 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.3px; }
 .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+
+.header-brand { display:flex; align-items:center; gap:12px; min-width:0; }
+.header-brand-logo { height:34px; width:auto; display:block; object-fit:contain; filter: drop-shadow(0 2px 10px rgba(88,166,255,.12)); }
+.header-brand-text { display:flex; flex-direction:column; min-width:0; }
+.header-brand-sub { font-size:11px; color:var(--text3); letter-spacing:.2px; margin-top:2px; }
+.leaflet-tooltip.boundary-team-tooltip { background: rgba(13,17,23,.96); color: var(--text); border:1px solid var(--border2); box-shadow:none; border-radius:8px; padding:4px 8px; font-size:11px; font-weight:600; }
+.leaflet-tooltip.boundary-team-tooltip:before { border-top-color: rgba(13,17,23,.96) !important; }
+
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 .header-meta { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
@@ -63,49 +71,30 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .content { padding: 20px; flex: 1; }
 
 /* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
-.kpi-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(13,17,23,.98)); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-height: 104px; display:flex; flex-direction:column; justify-content:space-between; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
-.kpi-card.hero { grid-column: span 3; min-height: 118px; }
-.kpi-card.standard { grid-column: span 2; }
-.kpi-card.hero .kpi-val { font-size: 36px; font-weight: 700; }
-.kpi-card.hero .kpi-label { color: var(--text2); }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
 .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
 .kpi-val { font-size: 28px; font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
-.exec-grid { display:grid; grid-template-columns: minmax(0,1.15fr) minmax(320px,.85fr); gap:12px; margin-bottom:20px; }
-.exec-card { background: linear-gradient(180deg, rgba(17,24,39,.98), rgba(13,17,23,.98)); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow: 0 10px 28px rgba(0,0,0,.18); }
-.exec-title { font-size:12px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.55px; margin-bottom:10px; }
-.exec-lead { font-size:22px; font-weight:700; line-height:1.25; margin-bottom:12px; }
-.exec-list { display:grid; gap:8px; }
-.exec-item { display:flex; gap:8px; align-items:flex-start; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,.02); }
-.exec-item strong { color:var(--text); }
-.exec-chip-row { display:flex; flex-wrap:wrap; gap:8px; }
-.exec-chip { padding:7px 10px; border-radius:999px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); font-size:11px; }
-.exec-chip b { color:var(--text); }
 .kpi-delta { font-size: 12px; margin-top: 3px; font-weight: 500; }
 .up { color: var(--green); } .down { color: var(--red); } .near-col { color: var(--amber); }
 
 /* Charts row */
 .charts-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(300px,0.9fr); gap: 12px; margin-bottom: 20px; align-items: stretch; }
-.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; box-shadow: 0 10px 28px rgba(0,0,0,.18); }
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
 .chart-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; }
 .chart-wrap { position: relative; }
-.status-chart-wrap { position:relative; height:260px; max-width:360px; margin:8px auto 0; display:flex; align-items:center; justify-content:center; }
-.heatmap-table tr.prov-sep td { border-bottom: 2px solid var(--border2); padding-bottom: 14px; }
+.status-chart-wrap { position:relative; height:220px; max-width:340px; margin:0 auto; display:flex; align-items:center; justify-content:center; }
+.heatmap-table tr.prov-sep td { border-bottom: 2px solid var(--border2); padding-bottom: 12px; }
 .heatmap-table tr.prov-start td { padding-top: 12px; }
 
 /* Heatmap */
-.heatmap-wrap { overflow: auto; max-height: 70vh; border:1px solid var(--border); border-radius: var(--r); }
-.heatmap-table thead th { position: sticky; top: 0; z-index: 5; background: var(--bg2); }
-.heatmap-table th:first-child, .heatmap-table td:first-child { position: sticky; left: 0; z-index: 4; background: var(--bg2); }
-.heatmap-table thead th:first-child { z-index: 6; }
+.heatmap-wrap { overflow-x: auto; }
 .heatmap-table { border-collapse: collapse; min-width: 100%; }
 .heatmap-table th { font-size: 11px; color: var(--text3); font-weight: 500; padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
 .heatmap-table td { padding: 5px 6px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
 .hm-cell { width: 62px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
-.prov-label { text-align: left; font-size: 12px; color: var(--text2); white-space: nowrap; padding-right: 12px; box-shadow: 8px 0 16px rgba(0,0,0,.12); }
-.hm-cell.clickable{cursor:pointer; transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;}
-.hm-cell.clickable:hover{transform:translateY(-1px); filter:brightness(1.04); box-shadow:0 8px 20px rgba(0,0,0,.18);} 
+.prov-label { text-align: left; font-size: 12px; color: var(--text2); white-space: nowrap; padding-right: 8px; }
 
 /* Team table */
 .team-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 20px; }
@@ -165,15 +154,8 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 .tab.active { background: var(--bg2); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
 /* Responsive */
-@media (max-width: 980px) {
-  .kpi-grid { grid-template-columns: repeat(6, minmax(0,1fr)); }
-  .kpi-card.hero, .kpi-card.standard { grid-column: span 3; }
-  .exec-grid, .charts-grid { grid-template-columns: 1fr; }
-}
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .kpi-card.hero, .kpi-card.standard { grid-column: span 1; }
   .charts-grid { grid-template-columns: 1fr; }
 }
 
@@ -190,7 +172,7 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
-.full-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; margin-bottom: 20px; box-shadow: 0 10px 28px rgba(0,0,0,.18); }
+.full-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 20px; }
 
 /* Summary panel */
 .sum-section { margin-bottom:10px; }
@@ -430,8 +412,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <!-- MAIN -->
 <div class="main">
   <div class="header">
-    <div class="logo-dot"></div>
-    <h1>Intelligent Productivity Dashboard</h1>
+    <div class="header-brand">
+      <img src="data:image/png;base64,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" alt="BBTEC" class="header-brand-logo">
+      <div class="header-brand-text">
+        <h1>Intelligent Productivity Dashboard</h1>
+        <div class="header-brand-sub">BBTEC executive view</div>
+      </div>
+    </div>
     <div class="header-meta">
       <span class="badge nor1">NOR1</span>
       <span class="badge nor2">NOR2</span>
@@ -440,7 +427,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:11px;color:var(--text3);" id="filter-status">ทุก Region · ทุก Type</span>
       <button class="btn" onclick="rebuildNow()">Rebuild Cache</button>
       <button class="btn" onclick="reloadDashboardOnly()">Reload View</button>
-      <button class="btn" onclick="resetFilters()">Reset Filters</button>
+      <button class="btn" onclick="resetAllFilters()">Reset All Filters</button>
       <span style="font-size:11px;color:var(--text3);" id="rebuild-status"></span>
     <div class="pdt-toggle" title="เลือกวิธีคำนวณ PDT">
       <button class="pdt-btn p2 active" onclick="setPDTMode(2)" id="btn-pdt2">PDT = Link Up + Hold</button>
@@ -454,17 +441,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="content">
       <!-- KPI cards -->
       <div class="kpi-grid" id="kpi-grid"></div>
-      <div class="exec-grid">
-        <div class="exec-card">
-          <div class="exec-title">Executive Insight</div>
-          <div class="exec-lead" id="exec-lead">กำลังวิเคราะห์ภาพรวม…</div>
-          <div class="exec-list" id="exec-insights"></div>
-        </div>
-        <div class="exec-card">
-          <div class="exec-title">Management Focus</div>
-          <div class="exec-chip-row" id="exec-focus"></div>
-        </div>
-      </div>
 
       <!-- Charts -->
       <div class="charts-grid">
@@ -1023,45 +999,6 @@ function updateTrendTitle(){
   if(hm)hm.textContent='Heatmap — Avg PDT ('+(pdtMode===2?'Link Up + Hold':'Link Up เท่านั้น')+') ต่อทีม แยก Province × เดือน · '+typeLabel;
 }
 
-function executiveLine(icon, text){ return '<div class="exec-item"><span style="font-size:14px;line-height:1;">'+icon+'</span><div style="font-size:12px;color:var(--text2);line-height:1.5;">'+text+'</div></div>'; }
-function renderExecutiveInsights(ft) {
-  const leadEl = document.getElementById('exec-lead');
-  const listEl = document.getElementById('exec-insights');
-  const focusEl = document.getElementById('exec-focus');
-  if (!leadEl || !listEl || !focusEl) return;
-  if (!ft.length) {
-    leadEl.textContent = 'ไม่พบข้อมูลตามตัวกรอง';
-    listEl.innerHTML = executiveLine('ℹ️','ลองขยาย Region, Type หรือ Month เพื่อดูภาพรวม');
-    focusEl.innerHTML = '<span class="exec-chip">ไม่มีข้อมูล</span>';
-    return;
-  }
-  const sorted = [...ft].sort((a,b)=>getPDT(b)-getPDT(a));
-  const low = [...ft].sort((a,b)=>getPDT(a)-getPDT(b));
-  const top = sorted[0], bottom = low[0];
-  const avgP = ft.reduce((a,t)=>a+getPDT(t),0)/ft.length;
-  const above = ft.filter(t=>getVS(t)>=0).length;
-  const below = ft.filter(t=>getVS(t)<-0.5).length;
-  const hardLow = low.filter(t=>getVS(t)<-0.5).slice(0,3).map(t=>t.id).join(', ');
-  const regionAgg = {};
-  ft.forEach(t=>{ const k=t.reg+'-'+t.type; (regionAgg[k]??=[]).push(getPDT(t)); });
-  const regionRank = Object.entries(regionAgg).map(([k,v])=>({k,avg:v.reduce((a,b)=>a+b,0)/v.length})).sort((a,b)=>b.avg-a.avg);
-  const bestGroup = regionRank[0], weakestGroup = regionRank[regionRank.length-1];
-  leadEl.innerHTML = 'ภาพรวมตอนนี้ <span style="color:var(--blue)">'+avgP.toFixed(2)+'</span> งาน/วัน · Above baseline <span style="color:var(--green)">'+Math.round((above/ft.length)*100)+'%</span>';
-  listEl.innerHTML = [
-    executiveLine('🏆', 'ทีมเด่นสุดตอนนี้ <strong>'+top.id+'</strong> ที่ <strong>'+getPDT(top).toFixed(2)+'</strong> งาน/วัน ใน '+top.prov+' ('+top.type+')'),
-    executiveLine('⚠️', 'ทีมต้องจับตาสุดคือ <strong>'+bottom.id+'</strong> ที่ <strong>'+getPDT(bottom).toFixed(2)+'</strong> งาน/วัน ต่ำกว่า baseline '+Math.abs(getVS(bottom)).toFixed(2)),
-    executiveLine('🧭', 'กลุ่มที่แรงสุดคือ <strong>'+bestGroup.k+'</strong> เฉลี่ย '+bestGroup.avg.toFixed(2)+' งาน/วัน ขณะที่กลุ่มอ่อนสุดคือ <strong>'+weakestGroup.k+'</strong> เฉลี่ย '+weakestGroup.avg.toFixed(2)),
-    executiveLine('📌', below ? 'มีทีมต่ำกว่า baseline ทั้งหมด <strong>'+below+'</strong> ทีม โดยกลุ่มที่ควรติดตามก่อนคือ <strong>'+(hardLow||bottom.id)+'</strong>' : 'ทุกทีมยังอยู่ในกรอบ near/above baseline')
-  ].join('');
-  focusEl.innerHTML = [
-    '<span class="exec-chip"><b>Focus KPI:</b> Avg PDT</span>',
-    '<span class="exec-chip"><b>Top Team:</b> '+top.id+'</span>',
-    '<span class="exec-chip"><b>Risk Team:</b> '+bottom.id+'</span>',
-    '<span class="exec-chip"><b>Best Group:</b> '+bestGroup.k+'</span>',
-    '<span class="exec-chip"><b>Watchlist:</b> '+below+' ทีม</span>'
-  ].join('');
-}
-
 // ===================== KPI CARDS (renderKPI) =====================
 function renderKPI(ft) {
   const total=ft.length;
@@ -1080,26 +1017,25 @@ function renderKPI(ft) {
   const totTT=isFiltered?ft.reduce((a,t)=>a+(t.tkt||0),0):(gs.total_tkt||0);
   const totNon=isFiltered?ft.reduce((a,t)=>a+(t.non||0),0):(gs.total_non||0);
   const totRows=isFiltered?ft.reduce((a,t)=>a+(t.tkt||0)+(t.non||0),0):(gs.total_rows||0);
-  function kCard(label,valHtml,subHtml,kpiType,borderStyle,variant){
+  function kCard(label,valHtml,subHtml,kpiType,borderStyle){
     const border=borderStyle?' style="border-color:var(--border2)"':'';
     const dataAttr=kpiType?' data-kpi="'+kpiType+'"':'';
-    const cls = variant==='hero' ? 'kpi-card hero' : 'kpi-card standard';
-    return '<div class="'+cls+'"'+border+dataAttr+'><div class="kpi-label">'+label+'</div><div class="kpi-val">'+valHtml+'</div><div class="kpi-sub">'+subHtml+'</div></div>';
+    return '<div class="kpi-card"'+border+dataAttr+'><div class="kpi-label">'+label+'</div><div class="kpi-val">'+valHtml+'</div><div class="kpi-sub">'+subHtml+'</div></div>';
   }
   const cmDelta=parseFloat(cmAvg)>=3?'<span class="up">▲ baseline 3</span>':'<span class="down">▼ baseline 3</span>';
   const ofcDelta=parseFloat(ofcAvg)>=2?'<span class="up">▲ baseline 2</span>':'<span class="down">▼ baseline 2</span>';
   document.getElementById('kpi-grid').innerHTML=
-    kCard('Avg PDT/วัน','<span style="color:var(--blue)">'+avgP+'</span>',modeLabel,'all',false,'hero')+
-    kCard('Ticket','<span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span>','TT + INC pattern','',true,'hero')+
-    kCard('Above Baseline','<span class="up">'+above+'</span>',Math.round(above/total*100)+'% ของทีม','above',false,'hero')+
     kCard('ทีมทั้งหมด',total,'CM:'+cm.length+' · OFC:'+ofc.length,'all')+
+    kCard('Avg PDT/วัน','<span style="color:var(--blue)">'+avgP+'</span>',modeLabel,'all')+
     kCard('Avg PDT — CM','<span style="color:var(--cm)">'+cmAvg+'</span>',cmDelta,'cm')+
     kCard('Avg PDT — OFC','<span style="color:var(--ofc)">'+ofcAvg+'</span>',ofcDelta,'ofc')+
+    kCard('Ticket','<span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span>','TT + INC pattern','',true)+
     kCard('Non-Ticket','<span style="color:var(--amber)">'+Number(totNon).toLocaleString()+'</span>','เก็บสาย/ตรวจสอบ/อื่นๆ','',true)+
     kCard('Total Rows',Number(totRows).toLocaleString(),'ทุก row (ไม่รวมวันหยุด)','')+
-    kCard('Near Baseline','<span class="near-col">'+near+'</span>','(±0.5)','near')+
-    kCard('Below Baseline','<span class="down">'+below+'</span>',Math.round(below/total*100)+'% ของทีม','below')+
-    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','วัดจากเวลาเริ่มงาน → ปิดงานล่าสุด');
+    kCard('Above Baseline ↗','<span class="up">'+above+'</span>',Math.round(above/total*100)+'% ของทีม','above')+
+    kCard('Near Baseline ↗','<span class="near-col">'+near+'</span>','(±0.5)','near')+
+    kCard('Below Baseline ↗','<span class="down">'+below+'</span>',Math.round(below/total*100)+'% ของทีม','below')+
+    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','ชั่วโมง/ทีม/วัน','วัดจากเวลาเริ่มงาน → ปิดงานล่าสุด');
   document.getElementById('kpi-grid').onclick=function(e){const card=e.target.closest('[data-kpi]');if(card)openKpiModal(card.dataset.kpi,getFilteredTeams());};
 }
 
@@ -1323,6 +1259,7 @@ function updateBoundaryMap(){
     const pdtHtml=pv!==null?'<div style="font-size:13px;font-weight:700;color:'+col+'">'+pv.toFixed(2)+' งาน/วัน <span style="font-size:10px;color:var(--text3);">(vs base '+(vsv>=0?'+':'')+(vsv||0).toFixed(2)+')</span></div>':'<div style="color:var(--text3);font-size:11px;">ไม่มีข้อมูล PDT</div>';
     const distHtml=[b.home,...b.resp.filter(r=>r!==b.home)].slice(0,6).map((d,i)=>'<span style="font-size:10px;padding:1px 5px;border-radius:9px;margin:1px;display:inline-block;background:'+(i===0?'#1b5e31':'var(--bg3)')+';color:'+(i===0?'#3fb950':'var(--text2)')+';">'+(i===0?'🏠 ':'')+d+'</span>').join('');
     const sourceLabel=(c.method==='first-job-checkin-cluster')?'Home base จากงานแรกของวัน':'Home base cluster';
+    marker.bindTooltip(b.tid, {direction:'top', offset:[0,-12], opacity:0.98, sticky:true, className:'boundary-team-tooltip'});
     marker.bindPopup('<div style="min-width:180px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;">'+b.tid+'</div><div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:'+typeCol+';">'+b.type+'</span> <span style="font-size:10px;color:var(--text3);">'+b.prov+' · '+(b.prov_name||'')+'</span></div>'+pdtHtml+'<div style="margin-top:8px;"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;">อำเภอที่รับผิดชอบ</div><div style="margin-top:4px;">'+distHtml+'</div></div><div style="margin-top:8px;font-size:10px;color:var(--text3);">'+sourceLabel+': '+c.count+'/'+c.total+' วัน</div><div style="margin-top:2px;font-size:10px;color:var(--text3);">Lat, Lon: '+Number(c.lat).toFixed(6)+', '+Number(c.lon).toFixed(6)+'</div></div>');
     boundaryMarkers.addLayer(marker);
     bounds.push([c.lat,c.lon]);
@@ -1552,14 +1489,45 @@ function getFilteredTeams() {
     );
 }
 
-function resetFilters() {
-  document.getElementById('f-nor1').checked = true;
-  document.getElementById('f-nor2').checked = true;
-  document.getElementById('f-cm').checked = true;
-  document.getElementById('f-ofc').checked = true;
-  document.getElementById('f-prov').value = '';
-  document.getElementById('f-team').value = '';
-  document.getElementById('f-month').value = '';
+
+function resetAllFilters() {
+  const setVal = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+  const setChk = (id, value) => { const el = document.getElementById(id); if (el) el.checked = value; };
+
+  setChk('f-nor1', true);
+  setChk('f-nor2', true);
+  setChk('f-cm', true);
+  setChk('f-ofc', true);
+  setVal('f-prov', '');
+  setVal('f-team', '');
+  setVal('f-month', '');
+
+  const bSearch = document.getElementById('b-search');
+  if (bSearch) bSearch.value = '';
+  bFilterType = '';
+  bFilterProv = '';
+  document.getElementById('b-type-all')?.classList.add('active');
+  document.getElementById('b-type-cm')?.classList.remove('active');
+  document.getElementById('b-type-ofc')?.classList.remove('active');
+  document.querySelectorAll('#b-prov-tabs .prov-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.prov === ''));
+
+  teamTypeFilter = 'ALL';
+  teamSearch = '';
+  const teamSearchEl = document.getElementById('team-search');
+  if (teamSearchEl) teamSearchEl.value = '';
+  document.querySelectorAll('#team-type-tabs .tab').forEach((el,i)=>{
+    el.classList.toggle('active', ['ALL','CM','OFC'][i] === 'ALL');
+  });
+
+  const drillTeam = document.getElementById('drill-team-sel');
+  const drillMonth = document.getElementById('drill-month-sel');
+  const drillStatus = document.getElementById('drill-status-sel');
+  const drillType = document.getElementById('drill-ttype-sel');
+  if (drillTeam) drillTeam.value = '';
+  if (drillMonth) drillMonth.value = '';
+  if (drillStatus) drillStatus.value = '';
+  if (drillType) drillType.value = '';
+
   applyFilters();
 }
 
@@ -1735,7 +1703,6 @@ function pivotStatusCells(d, bold) {
 function renderAll() {
   const ft = getFilteredTeams();
   renderKPI(ft);
-  renderExecutiveInsights(ft);
   renderTrend();
   renderStatusChart(ft);
   renderTopBottom(ft);
@@ -1754,6 +1721,10 @@ function init() {
   const provSel = document.getElementById('f-prov');
   const teamSel = document.getElementById('f-team');
   const months  = document.getElementById('f-month');
+  if (provSel) provSel.innerHTML = '<option value="">ทั้งหมด</option>';
+  if (teamSel) teamSel.innerHTML = '<option value="">ทั้งหมด</option>';
+  if (months) months.innerHTML = '<option value="">ทั้งหมด</option>';
+
   const provs = [...new Set((RAW.ts||[]).map(t=>t.prov))].sort();
   provs.forEach(p => {
     const o = document.createElement('option');
@@ -1962,26 +1933,6 @@ function renderStatusChart(ft) {
   const above = ft.filter(t=>getVS(t)>=0).length;
   const near  = ft.filter(t=>getVS(t)<0&&getVS(t)>=-0.5).length;
   const below = ft.filter(t=>getVS(t)<-0.5).length;
-  const total = Math.max(ft.length, 1);
-  const centerPct = Math.round((above/total)*100);
-  const centerPlugin = {
-    id: 'centerText',
-    afterDraw(chart) {
-      const meta = chart.getDatasetMeta(0);
-      if (!meta || !meta.data || !meta.data.length) return;
-      const x = meta.data[0].x, y = meta.data[0].y;
-      const ctx = chart.ctx;
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#e6edf3';
-      ctx.font = '700 26px IBM Plex Sans Thai, sans-serif';
-      ctx.fillText(centerPct + '%', x, y - 2);
-      ctx.fillStyle = '#8b949e';
-      ctx.font = '600 11px IBM Plex Sans Thai, sans-serif';
-      ctx.fillText('Above baseline', x, y + 18);
-      ctx.restore();
-    }
-  };
   const ctx = document.getElementById('chart-status').getContext('2d');
   if (chartStatus) chartStatus.destroy();
   chartStatus = new Chart(ctx, {
@@ -1990,12 +1941,10 @@ function renderStatusChart(ft) {
       labels: ['Above baseline','Near baseline','Below baseline'],
       datasets: [{ data:[above,near,below],
         backgroundColor:['#238636','#664d03','#a02020'],
-        hoverBackgroundColor:['#2ea043','#7c5a03','#c62828'],
-        borderColor:['#0d1117','#0d1117','#0d1117'], borderWidth:3, spacing:2, hoverOffset:4 }]
+        borderColor:['#3fb950','#e3b341','#f85149'], borderWidth:1 }]
     },
-    plugins:[centerPlugin],
-    options: { responsive:true, maintainAspectRatio:false, cutout:'62%', radius:'78%', layout:{padding:{top:12,right:18,bottom:12,left:18}},
-      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14,usePointStyle:true,pointStyle:'rectRounded'}}, tooltip:{callbacks:{label:(ctx)=>`${ctx.label}: ${ctx.raw} ทีม`}} } }
+    options: { responsive:true, maintainAspectRatio:false, cutout:'58%', radius:'82%', layout:{padding:{top:8,right:8,bottom:8,left:8}},
+      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14}} } }
   });
 }
 
@@ -2095,7 +2044,7 @@ function renderHeatmap() {
         const bg = heatColor(val,maxVal);
         const tc = (bg==='#1f2937' || bg==='#1d4ed8') ? '#e6edf3' : '#0d1117';
         const title = `${pv} ${label} ${(RAW.ml||{})[m]||m} | avg ${val || 0}/วัน | teams ${row?.tot || 0} | ticket ${(row?.tkt || 0).toLocaleString()}`;
-        html += '<td><div class="hm-cell clickable" data-pv="'+pv+'" data-mode="'+mode+'" data-month="'+m+'" style="background:'+bg+';color:'+tc+';width:76px;" title="'+title+' · คลิกเพื่อดูรายทีม">'+(val||'—')+'</div></td>';
+        html += '<td><div class="hm-cell" style="background:'+bg+';color:'+tc+';width:76px;" title="'+title+'">'+(val||'—')+'</div></td>';
       });
       html += '</tr>';
     });
@@ -2103,56 +2052,8 @@ function renderHeatmap() {
 
   html += '</tbody></table>';
   const hc = document.getElementById('heatmap-container');
-  if (hc) {
-    hc.innerHTML = html;
-    hc.onclick = function(e){
-      const cell = e.target.closest('.hm-cell.clickable');
-      if (!cell) return;
-      openHeatmapTeamModal(cell.dataset.pv, cell.dataset.mode, cell.dataset.month);
-    };
-  }
+  if (hc) hc.innerHTML = html;
   renderHeatVolumeCharts(baseRows, monthsShow);
-}
-
-function openHeatmapTeamModal(pv, mode, month){
-  let teams = (RAW.ts||[]).map(getMonthAdjustedTeam).filter(Boolean).filter(t => t.prov===pv);
-  if (month) teams = teams.filter(t => (t.monthStats||{}) ? true : true);
-  if (mode==='CM' || mode==='OFC') teams = teams.filter(t => t.type===mode);
-  teams = teams.filter(t => !month || ((RAW.sum||{})[t.id]?.by_month||{})[month]);
-  teams.sort((a,b)=>getPDT(b)-getPDT(a));
-  const monthLabel = (RAW.ml||{})[month] || month || '';
-  const title = `${pv} ${mode} ${monthLabel}`.trim() + ` — ${teams.length} ทีม`;
-  const color = mode==='CM' ? 'var(--cm)' : mode==='OFC' ? 'var(--ofc)' : (NOR1.has(pv)?'var(--nor1)':'var(--nor2)');
-  if (!teams.length) {
-    document.getElementById('modal-title').innerHTML='<span style="color:'+color+'">'+title+'</span>';
-    document.getElementById('modal-body').innerHTML='<div style="padding:12px;color:var(--text2);">ไม่พบทีมในช่วงที่เลือก</div>';
-    document.getElementById('kpi-modal').style.display='block';
-    return;
-  }
-  const maxPDT = Math.max(...teams.map(t=>getPDT(t)),1);
-  const rows = teams.map((t,i)=>{
-    const pvVal = getPDT(t), vsv = getVS(t);
-    const barCol=vsv>=0?'var(--green)':vsv>=-0.5?'var(--amber)':'var(--red)';
-    const typeCol=t.type==='CM'?'var(--cm)':'var(--ofc)';
-    const barW=Math.round((pvVal/maxPDT)*100);
-    const hrs=(t.h||0).toFixed(1);
-    const days=t.days||0;
-    return '<div class="modal-team-row" data-tid="'+t.id+'">'+
-      '<span style="font-size:11px;color:var(--text3);min-width:22px;text-align:right;">'+(i+1)+'</span>'+
-      '<span style="font-size:11px;font-weight:600;color:'+typeCol+';min-width:30px;">'+t.type+'</span>'+
-      '<span style="font-family:monospace;font-size:12px;min-width:180px;color:var(--text);">'+t.id+'</span>'+
-      '<span style="font-size:10px;color:var(--text3);min-width:34px;">'+pv+'</span>'+
-      '<div class="modal-bar-wrap"><div class="modal-bar" style="width:'+barW+'%;background:'+barCol+';"></div></div>'+
-      '<span style="font-size:13px;font-weight:600;color:'+barCol+';min-width:46px;text-align:right;">'+pvVal.toFixed(2)+'</span>'+
-      '<span style="font-size:11px;color:var(--text3);min-width:56px;text-align:right;">'+hrs+' ชม.</span>'+
-      '<span style="font-size:11px;color:var(--text3);min-width:40px;text-align:right;">'+days+' วัน</span>'+
-      '</div>';
-  }).join('');
-  const hdr='<div style="display:flex;gap:10px;padding:6px 10px;font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);"><span style="min-width:22px;"></span><span style="min-width:30px;">Type</span><span style="min-width:180px;">Team ID</span><span style="min-width:34px;">Prov</span><span style="flex:1;">PDT avg/วัน</span><span style="min-width:46px;text-align:right;">PDT</span><span style="min-width:56px;text-align:right;">ชม./วัน</span><span style="min-width:40px;text-align:right;">วัน</span></div>';
-  document.getElementById('modal-title').innerHTML='<span style="color:'+color+'">'+title+'</span><span style="font-size:11px;color:var(--text3);margin-left:8px;">คลิกทีมเพื่อเปิดรายละเอียด</span>';
-  document.getElementById('modal-body').innerHTML=hdr+rows;
-  document.getElementById('modal-body').onclick=function(e){const row=e.target.closest('[data-tid]');if(row){closeModal(); document.getElementById('f-prov').value=pv; document.getElementById('f-month').value=month||''; document.getElementById('f-team').value=row.dataset.tid; applyFilters(); openTeamDetail(row.dataset.tid); showPage('team');}};
-  document.getElementById('kpi-modal').style.display='block';
 }
 
 function renderHeatVolumeCharts(baseRows, monthsShow) {
