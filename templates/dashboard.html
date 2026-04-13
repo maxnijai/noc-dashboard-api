@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intelligent Productivity Dashboard</title>
+<title>NOC Productivity Dashboard v5</title>
 <!-- Fixed build: compatible with Flask route / -->
 <style>
 
@@ -63,21 +63,8 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .content { padding: 20px; flex: 1; }
 
 /* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-.exec-grid { display:grid; grid-template-columns: minmax(0,1.25fr) minmax(320px,.95fr) minmax(320px,.95fr); gap:14px; margin-bottom:20px; }
-.exec-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(13,17,23,.98)); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; min-height: 172px; box-shadow: 0 10px 24px rgba(0,0,0,.14); }
-.exec-card.hero { min-height: 184px; }
-.exec-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .65px; font-weight: 700; margin-bottom: 10px; }
-.exec-headline { font-size: 28px; font-weight: 700; line-height: 1.08; margin-bottom: 8px; }
-.exec-sub { font-size: 12px; color: var(--text2); line-height: 1.55; }
-.exec-mini-grid { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 12px; }
-.exec-mini { background: var(--bg3); border:1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
-.exec-mini .k { font-size:10px; color:var(--text3); text-transform: uppercase; letter-spacing:.45px; margin-bottom:4px; }
-.exec-mini .v { font-size:20px; font-weight:700; font-variant-numeric: tabular-nums; }
-.exec-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
-.exec-list li { font-size:12px; color:var(--text2); line-height:1.5; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:rgba(255,255,255,.02); }
-.kpi-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(17,23,31,.98)); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-height: 108px; box-shadow: 0 8px 18px rgba(0,0,0,.12); }
-.kpi-card.hero { min-height: 122px; border-color: rgba(88,166,255,.25); }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
 .kpi-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
 .kpi-val { font-size: 28px; font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
@@ -86,10 +73,10 @@ select:focus, .btn:hover { border-color: var(--border2); }
 
 /* Charts row */
 .charts-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(300px,0.9fr); gap: 12px; margin-bottom: 20px; align-items: stretch; }
-.chart-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(13,17,23,.98)); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 10px 24px rgba(0,0,0,.14); }
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
 .chart-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; }
 .chart-wrap { position: relative; }
-.status-chart-wrap { position:relative; height:250px; max-width:360px; margin:0 auto; display:flex; align-items:center; justify-content:center; }
+.status-chart-wrap { position:relative; height:220px; max-width:340px; margin:0 auto; display:flex; align-items:center; justify-content:center; }
 .heatmap-table tr.prov-sep td { border-bottom: 2px solid var(--border2); padding-bottom: 12px; }
 .heatmap-table tr.prov-start td { padding-top: 12px; }
 
@@ -100,11 +87,6 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .heatmap-table td { padding: 5px 6px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
 .hm-cell { width: 62px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
 .prov-label { text-align: left; font-size: 12px; color: var(--text2); white-space: nowrap; padding-right: 8px; }
-.hm-sticky-left { position: sticky; left: 0; z-index: 4; background: var(--bg2); }
-.hm-clickable { cursor:pointer; transition: transform .08s ease, box-shadow .12s ease; }
-.hm-clickable:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.18), 0 2px 10px rgba(0,0,0,.18); }
-.hm-group-start td { border-top: 2px solid rgba(255,255,255,.12); }
-.hm-row-sep td { border-bottom: 1px solid rgba(255,255,255,.06); }
 
 /* Team table */
 .team-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 20px; }
@@ -164,15 +146,8 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 .tab.active { background: var(--bg2); color: var(--text); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
 
 /* Responsive */
-@media (max-width: 1100px) {
-  .exec-grid { grid-template-columns: 1fr; }
-  .kpi-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .charts-grid { grid-template-columns: 1fr; }
-}
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .exec-mini-grid { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr; }
 }
 
@@ -189,7 +164,7 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
-.full-card { background: linear-gradient(180deg, rgba(22,27,34,.98), rgba(13,17,23,.98)); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; box-shadow: 0 10px 24px rgba(0,0,0,.12); }
+.full-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 20px; }
 
 /* Summary panel */
 .sum-section { margin-bottom:10px; }
@@ -348,7 +323,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div style="padding:16px 12px 8px; border-bottom:1px solid var(--border);">
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="logo-dot"></div>
-      <span style="font-size:13px;font-weight:600;">Intelligent Productivity</span>
+      <span style="font-size:13px;font-weight:600;">NOC Productivity</span>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:3px;">NOR1 · NOR2 · 2569</div>
   </div>
@@ -430,7 +405,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <div class="main">
   <div class="header">
     <div class="logo-dot"></div>
-    <h1>Intelligent Productivity Dashboard</h1>
+    <h1>NOC Productivity Dashboard</h1>
     <div class="header-meta">
       <span class="badge nor1">NOR1</span>
       <span class="badge nor2">NOR2</span>
@@ -452,23 +427,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="content">
       <!-- KPI cards -->
       <div class="kpi-grid" id="kpi-grid"></div>
-
-      <div class="exec-grid">
-        <div class="exec-card hero">
-          <div class="exec-title">Executive Summary</div>
-          <div class="exec-headline" id="exec-headline">ภาพรวมหน่วยงานวันนี้</div>
-          <div class="exec-sub" id="exec-sub">กำลังสรุปข้อมูล…</div>
-          <div class="exec-mini-grid" id="exec-mini-grid"></div>
-        </div>
-        <div class="exec-card">
-          <div class="exec-title">Executive Insight</div>
-          <ul class="exec-list" id="exec-insight-list"></ul>
-        </div>
-        <div class="exec-card">
-          <div class="exec-title">Management Focus</div>
-          <ul class="exec-list" id="focus-list"></ul>
-        </div>
-      </div>
 
       <!-- Charts -->
       <div class="charts-grid">
@@ -1053,17 +1011,17 @@ function renderKPI(ft) {
   const cmDelta=parseFloat(cmAvg)>=3?'<span class="up">▲ baseline 3</span>':'<span class="down">▼ baseline 3</span>';
   const ofcDelta=parseFloat(ofcAvg)>=2?'<span class="up">▲ baseline 2</span>':'<span class="down">▼ baseline 2</span>';
   document.getElementById('kpi-grid').innerHTML=
-    '<div class="kpi-card hero" data-kpi="all" style="grid-column: span 3;"><div class="kpi-label">Avg PDT/วัน</div><div class="kpi-val"><span style="color:var(--blue)">'+avgP+'</span></div><div class="kpi-sub">'+modeLabel+'</div></div>'+
-    '<div class="kpi-card hero" style="grid-column: span 3;"><div class="kpi-label">Ticket</div><div class="kpi-val"><span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span></div><div class="kpi-sub">TT + INC pattern</div></div>'+
-    '<div class="kpi-card hero" data-kpi="above" style="grid-column: span 3;"><div class="kpi-label">Above Baseline</div><div class="kpi-val"><span class="up">'+above+'</span></div><div class="kpi-sub">'+(total?Math.round(above/total*100):0)+'% ของทีม</div></div>'+
-    '<div class="kpi-card" data-kpi="all" style="grid-column: span 3;"><div class="kpi-label">ทีมทั้งหมด</div><div class="kpi-val">'+total+'</div><div class="kpi-sub">CM:'+cm.length+' · OFC:'+ofc.length+'</div></div>'+
+    kCard('ทีมทั้งหมด',total,'CM:'+cm.length+' · OFC:'+ofc.length,'all')+
+    kCard('Avg PDT/วัน','<span style="color:var(--blue)">'+avgP+'</span>',modeLabel,'all')+
     kCard('Avg PDT — CM','<span style="color:var(--cm)">'+cmAvg+'</span>',cmDelta,'cm')+
     kCard('Avg PDT — OFC','<span style="color:var(--ofc)">'+ofcAvg+'</span>',ofcDelta,'ofc')+
+    kCard('Ticket','<span style="color:var(--green)">'+Number(totTT).toLocaleString()+'</span>','TT + INC pattern','',true)+
     kCard('Non-Ticket','<span style="color:var(--amber)">'+Number(totNon).toLocaleString()+'</span>','เก็บสาย/ตรวจสอบ/อื่นๆ','',true)+
     kCard('Total Rows',Number(totRows).toLocaleString(),'ทุก row (ไม่รวมวันหยุด)','')+
-    kCard('Near Baseline','<span class="near-col">'+near+'</span>','(±0.5)','near')+
-    kCard('Below Baseline','<span class="down">'+below+'</span>',(total?Math.round(below/total*100):0)+'% ของทีม','below')+
-    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','เวลาเริ่มงาน → ปิดงานล่าสุด','วัดเป็นชั่วโมง/ทีม/วัน');
+    kCard('Above Baseline ↗','<span class="up">'+above+'</span>',Math.round(above/total*100)+'% ของทีม','above')+
+    kCard('Near Baseline ↗','<span class="near-col">'+near+'</span>','(±0.5)','near')+
+    kCard('Below Baseline ↗','<span class="down">'+below+'</span>',Math.round(below/total*100)+'% ของทีม','below')+
+    kCard('Avg Work Hrs/วัน','<span style="color:var(--purple)">'+avgHrs+'</span>','ชั่วโมง/ทีม/วัน','วัดจากเวลาเริ่มงาน → ปิดงานล่าสุด');
   document.getElementById('kpi-grid').onclick=function(e){const card=e.target.closest('[data-kpi]');if(card)openKpiModal(card.dataset.kpi,getFilteredTeams());};
 }
 
@@ -1685,62 +1643,9 @@ function pivotStatusCells(d, bold) {
          '</td>';
 }
 
-
-function renderExecutivePanels(ft) {
-  const headline = document.getElementById('exec-headline');
-  const sub = document.getElementById('exec-sub');
-  const mini = document.getElementById('exec-mini-grid');
-  const insight = document.getElementById('exec-insight-list');
-  const focus = document.getElementById('focus-list');
-  if (!headline || !sub || !mini || !insight || !focus) return;
-  if (!ft.length) {
-    headline.textContent = 'ไม่พบข้อมูลตามตัวกรอง';
-    sub.textContent = 'ลองขยายเงื่อนไข filter เพื่อดูภาพรวมอีกครั้ง';
-    mini.innerHTML = '';
-    insight.innerHTML = '<li>ไม่มีข้อมูล</li>';
-    focus.innerHTML = '<li>ไม่มีข้อมูล</li>';
-    return;
-  }
-  const avgP = +(ft.reduce((a,t)=>a+getPDT(t),0)/ft.length).toFixed(2);
-  const avgH = +(ft.reduce((a,t)=>a+(t.h||0),0)/ft.length).toFixed(1);
-  const above = ft.filter(t=>getVS(t)>=0).length;
-  const below = ft.filter(t=>getVS(t)<-0.5).length;
-  const top = [...ft].sort((a,b)=>getPDT(b)-getPDT(a))[0];
-  const low = [...ft].sort((a,b)=>getPDT(a)-getPDT(b))[0];
-  const cmList = ft.filter(t=>t.type==='CM');
-  const ofcList = ft.filter(t=>t.type==='OFC');
-  const cmAvg = cmList.length ? +(cmList.reduce((a,t)=>a+getPDT(t),0)/cmList.length).toFixed(2) : 0;
-  const ofcAvg = ofcList.length ? +(ofcList.reduce((a,t)=>a+getPDT(t),0)/ofcList.length).toFixed(2) : 0;
-  const lowProvMap = {};
-  ft.filter(t=>getVS(t)<-0.5).forEach(t=>{ lowProvMap[t.prov]=(lowProvMap[t.prov]||0)+1; });
-  const lowProv = Object.entries(lowProvMap).sort((a,b)=>b[1]-a[1])[0];
-  headline.textContent = avgP >= 3 ? 'ภาพรวมผลผลิตอยู่ในระดับแข็งแรง' : avgP >= 2 ? 'ภาพรวมอยู่ในระดับทรงตัว ควรจับตา' : 'ภาพรวมต่ำกว่าเป้าหมาย ควรเร่งจัดการ';
-  sub.textContent = 'จาก '+ft.length+' ทีมที่ถูกกรองอยู่ตอนนี้ ค่าเฉลี่ย PDT อยู่ที่ '+avgP+' งาน/วัน และเวลาเฉลี่ยทำงาน '+avgH+' ชั่วโมงต่อวัน';
-  mini.innerHTML = [
-    ['ทีมที่ผ่าน baseline', above],
-    ['ทีมที่ต้องโฟกัส', below],
-    ['ทีมดีที่สุดตอนนี้', top ? top.id : '—']
-  ].map(([k,v]) => '<div class="exec-mini"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>').join('');
-  const insightItems = [
-    'CM เฉลี่ย <b style="color:var(--cm)">'+cmAvg+'</b> · OFC เฉลี่ย <b style="color:var(--ofc)">'+ofcAvg+'</b>',
-    'ทีมผลงานสูงสุดคือ <b>'+ (top?top.id:'—') +'</b> ที่ <b>'+ (top?getPDT(top).toFixed(2):'0') +'</b> งาน/วัน',
-    'ทีมที่ต่ำสุดคือ <b>'+ (low?low.id:'—') +'</b> ที่ <b>'+ (low?getPDT(low).toFixed(2):'0') +'</b> งาน/วัน'
-  ];
-  if (filterTeam) insightItems.unshift('กำลังเจาะดูทีม <b>'+filterTeam+'</b> โดยตรง กราฟทุกตัวจะแสดงเฉพาะทีมนี้');
-  if (filterMonth) insightItems.push('ชุดข้อมูลนี้อ้างอิงเดือน <b>'+((RAW.ml||{})[filterMonth]||filterMonth)+'</b>');
-  insight.innerHTML = insightItems.map(x => '<li>'+x+'</li>').join('');
-  const focusItems = [];
-  if (lowProv) focusItems.push('จังหวัดที่มีทีม Low PDT มากสุดคือ <b>'+lowProv[0]+'</b> จำนวน <b>'+lowProv[1]+'</b> ทีม');
-  if (below > 0) focusItems.push('ควรไล่สาเหตุ Hold, SLA และชั่วโมงทำงานของทีมต่ำกว่า baseline ทั้ง <b>'+below+'</b> ทีม');
-  if (Math.abs(cmAvg - ofcAvg) >= 0.5) focusItems.push('ช่องว่างผลผลิต CM กับ OFC ต่างกัน <b>'+Math.abs(cmAvg-ofcAvg).toFixed(2)+'</b> งาน/วัน');
-  focusItems.push('Avg Work Hrs/วัน เป็น metric ด้านเวลา จึงอาจไม่เปลี่ยนเมื่อสลับโหมด PDT หากช่วงเริ่ม-จบงานยังเท่าเดิม');
-  focus.innerHTML = focusItems.map(x => '<li>'+x+'</li>').join('');
-}
-
 function renderAll() {
   const ft = getFilteredTeams();
   renderKPI(ft);
-  renderExecutivePanels(ft);
   renderTrend();
   renderStatusChart(ft);
   renderTopBottom(ft);
@@ -1819,45 +1724,57 @@ function formatThaiDateRange(start, end) {
 
 function renderTrend() {
   updateTrendTitle();
-
+  const teamObj = (RAW.ts||[]).find(t => t.id===filterTeam);
   const useTeam = !!filterTeam;
   let source = [];
+
   if (useTeam) {
-    if (trendGranularity==='month') source = ((RAW.team_tr_month||{})[filterTeam] || []);
-    else if (trendGranularity==='week') source = ((RAW.team_tr_week||{})[filterTeam] || []);
-    else source = ((RAW.team_tr_day||{})[filterTeam] || []);
+    if (trendGranularity==='month') {
+      source = ((RAW.team_tr_month||{})[filterTeam] || []);
+      if ((!source || !source.length) && teamObj && teamObj.monthStats) {
+        source = Object.keys(teamObj.monthStats).sort().map(m => ({
+          m,
+          label:m,
+          reg: teamObj.reg,
+          type: teamObj.type,
+          avg_p1: teamObj.monthStats[m]?.p1 || 0,
+          avg: teamObj.monthStats[m]?.p2 || 0
+        }));
+      }
+    } else if (trendGranularity==='week') {
+      source = ((RAW.team_tr_week||{})[filterTeam] || []);
+    } else {
+      source = ((RAW.team_tr_day||{})[filterTeam] || []);
+    }
   } else {
     source = trendGranularity==='month' ? (RAW.tr||[]) : (trendGranularity==='week' ? (RAW.tr_week||[]) : (RAW.tr_day||[]));
   }
 
-  let tData = [...source];
+  let tData = Array.isArray(source) ? [...source] : [];
   if (!useTeam) {
     if (filterReg.size < 2) tData = tData.filter(r => filterReg.has(r.reg));
     if (filterType.size < 2) tData = tData.filter(r => filterType.has(r.type));
   }
   if (filterMonth) tData = tData.filter(r => !r.m || r.m === filterMonth);
-  if (filterProv && !useTeam) {
-    const teamIds = new Set(getFilteredTeams().map(t=>t.id));
-    if (trendGranularity==='month') {
-      // province filter is already reflected in getFilteredTeams; aggregated source has no pv field
-      const allowedSeries = new Set(getFilteredTeams().map(t => t.reg + '_' + t.type));
-      tData = tData.filter(r => allowedSeries.has(r.reg + '_' + r.type));
-    }
-  }
 
   let labels = [];
   let axisKeys = [];
   let tooltipWeekRanges = [];
+
   if (trendGranularity==='month') {
-    axisKeys = useTeam
-      ? [...new Set(tData.map(r => r.m))].sort()
-      : (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
+    if (useTeam) {
+      const uniqMonths = [...new Set(tData.map(r => r.m || r.label).filter(Boolean))].sort();
+      axisKeys = filterMonth ? uniqMonths.filter(m => m===filterMonth) : uniqMonths;
+    } else {
+      axisKeys = (RAW.months||[]).filter(m => !filterMonth || m===filterMonth);
+    }
     labels = [...axisKeys];
+    tData = tData.filter(r => axisKeys.includes(r.m || r.label));
   } else if (trendGranularity==='week') {
     const uniq = new Map();
     tData.forEach(r => {
       const sk = r.sort || r.label;
-      if (!uniq.has(sk)) uniq.set(sk, r.label);
+      if (!uniq.has(sk)) uniq.set(sk, r.label || sk);
     });
     const sortedKeys = [...uniq.keys()].sort();
     axisKeys = (!filterMonth && sortedKeys.length > 16) ? sortedKeys.slice(-16) : sortedKeys;
@@ -1868,8 +1785,8 @@ function renderTrend() {
     });
     tData = tData.filter(r => axisKeys.includes(r.sort || r.label));
   } else {
-    axisKeys = [...new Set(tData.map(r => r.label))].sort();
-    if (trendGranularity==='day' && !filterMonth && axisKeys.length > 35) axisKeys = axisKeys.slice(-35);
+    axisKeys = [...new Set(tData.map(r => r.label).filter(Boolean))].sort();
+    if (!filterMonth && axisKeys.length > 35) axisKeys = axisKeys.slice(-35);
     labels = [...axisKeys];
     tData = tData.filter(r => axisKeys.includes(r.label));
   }
@@ -1877,13 +1794,12 @@ function renderTrend() {
   const avgKey = pdtMode===2 ? 'avg' : 'avg_p1';
   let datasets = [];
   if (useTeam) {
-    const teamObj = (RAW.ts||[]).find(t => t.id===filterTeam);
     const lineColor = teamObj ? (teamObj.type==='CM' ? '#3fb950' : '#e3b341') : '#58a6ff';
     const label = filterTeam + (teamObj ? ` · ${teamObj.reg} · ${teamObj.type}` : '');
     const valMap = {};
     tData.forEach(r => {
-      const axisKey = trendGranularity==='month' ? r.m : (trendGranularity==='week' ? (r.sort || r.label) : r.label);
-      valMap[axisKey] = r[avgKey] || 0;
+      const axisKey = trendGranularity==='month' ? (r.m || r.label) : (trendGranularity==='week' ? (r.sort || r.label) : r.label);
+      valMap[axisKey] = r[avgKey] ?? 0;
     });
     datasets = [{
       label,
@@ -1894,7 +1810,8 @@ function renderTrend() {
       pointRadius: trendGranularity==='day' ? 2 : 4,
       pointHoverRadius: 5,
       borderWidth: 3,
-      fill: false
+      fill: false,
+      spanGaps: true
     }];
   } else {
     const seriesMap = {};
@@ -1905,7 +1822,7 @@ function renderTrend() {
       const key = r.reg + '_' + r.type;
       if (!seriesMap[key]) seriesMap[key] = {};
       const axisKey = trendGranularity==='month' ? r.m : (trendGranularity==='week' ? (r.sort || r.label) : r.label);
-      seriesMap[key][axisKey] = r[avgKey] || 0;
+      seriesMap[key][axisKey] = r[avgKey] ?? 0;
     });
 
     datasets = Object.entries(seriesMap).map(([key, vals]) => ({
@@ -1917,17 +1834,20 @@ function renderTrend() {
       pointRadius: trendGranularity==='day' ? 2 : 4,
       pointHoverRadius: 5,
       borderWidth: 2,
-      fill: false
+      fill: false,
+      spanGaps: true
     }));
   }
 
   const legendEl = document.getElementById('trend-legend');
-  if (legendEl && (!datasets.length || !axisKeys.length)) legendEl.innerHTML = '<div class="legend-item">ไม่มีข้อมูลสำหรับตัวกรองนี้</div>';
-  else if (legendEl) legendEl.innerHTML = datasets.map(ds =>
-    '<div class="legend-item"><div class="legend-dot" style="background:'+ds.borderColor+'"></div>'+ds.label+'</div>'
-  ).join('');
+  if (legendEl) {
+    if (datasets.length && datasets.some(ds => (ds.data||[]).some(v => v!==null && v!==undefined))) {
+      legendEl.innerHTML = datasets.map(ds => '<div class="legend-item"><div class="legend-dot" style="background:'+ds.borderColor+'"></div>'+ds.label+'</div>').join('');
+    } else {
+      legendEl.innerHTML = '<div class="legend-item" style="color:var(--amber)">ไม่มีข้อมูลเทรนสำหรับตัวกรองนี้</div>';
+    }
+  }
 
-  if (!datasets.length) datasets = [{label:'No data', data: axisKeys.map(()=>null), borderColor:'#6e7681', backgroundColor:'#6e7681', tension:0.28, pointRadius:0, borderWidth:2, fill:false}];
   const ctx = document.getElementById('chart-trend').getContext('2d');
   if (chartTrend) chartTrend.destroy();
   chartTrend = new Chart(ctx, {
@@ -1958,7 +1878,7 @@ function renderTrend() {
       },
       scales:{
         x:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}, maxRotation: trendGranularity==='day' ? 60 : 0, minRotation: trendGranularity==='day' ? 45 : 0} },
-        y:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}}, afterDataLimits(scale){scale.min=Math.max(0,scale.min-0.2);scale.max=scale.max+0.3;} }
+        y:{ grid:{color:'#30363d'}, ticks:{color:'#8b949e',font:{size:11}}, beginAtZero:false, afterDataLimits(scale){ if (!Number.isFinite(scale.min)) { scale.min = 0; scale.max = 1; return; } scale.min=Math.max(0,scale.min-0.2); scale.max=scale.max+0.3; } }
       }
     }
   });
@@ -1971,36 +1891,55 @@ function renderStatusChart(ft) {
   const below = ft.filter(t=>getVS(t)<-0.5).length;
   const ctx = document.getElementById('chart-status').getContext('2d');
   if (chartStatus) chartStatus.destroy();
-  const total = above + near + below;
-  const centerPct = total ? Math.round((above/total)*100) : 0;
-  const centerText = {
-    id:'centerText',
-    afterDraw(chart){
-      const meta = chart.getDatasetMeta(0);
-      if (!meta || !meta.data || !meta.data.length) return;
-      const x = meta.data[0].x, y = meta.data[0].y;
-      const c = chart.ctx;
-      c.save();
-      c.textAlign='center'; c.textBaseline='middle';
-      c.fillStyle='#e6edf3'; c.font='700 26px IBM Plex Sans Thai, sans-serif';
-      c.fillText(centerPct + '%', x, y - 6);
-      c.fillStyle='#8b949e'; c.font='500 11px IBM Plex Sans Thai, sans-serif';
-      c.fillText('Above baseline', x, y + 18);
-      c.restore();
-    }
-  };
   chartStatus = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['Above baseline','Near baseline','Below baseline'],
       datasets: [{ data:[above,near,below],
         backgroundColor:['#238636','#664d03','#a02020'],
-        borderColor:['#3fb950','#e3b341','#f85149'], borderWidth:1, hoverOffset:4 }]
+        borderColor:['#3fb950','#e3b341','#f85149'], borderWidth:1 }]
     },
-    options: { responsive:true, maintainAspectRatio:false, cutout:'68%', radius:'84%', layout:{padding:{top:8,right:8,bottom:8,left:8}},
-      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14}} } },
-    plugins:[centerText]
+    options: { responsive:true, maintainAspectRatio:false, cutout:'58%', radius:'82%', layout:{padding:{top:8,right:8,bottom:8,left:8}},
+      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14}} } }
   });
+}
+
+// ===================== TOP/BOTTOM =====================
+function renderTopBottom(ft) {
+  const cm  = ft.filter(t=>t.type==='CM').sort((a,b)=>getPDT(b)-getPDT(a));
+  const ofc = ft.filter(t=>t.type==='OFC').sort((a,b)=>getPDT(b)-getPDT(a));
+  const cmMax  = cm.length  ? getPDT(cm[0])  : 1;
+  const ofcMax = ofc.length ? getPDT(ofc[0]) : 1;
+  function makeBar(teams, maxV, colorFn) {
+    return teams.map((t,i) => {
+      const pv = getPDT(t);
+      return '<div class="rank-bar-row" data-tidtop="'+t.id+'" style="cursor:pointer;">' +
+        '<span class="rank-num">'+(i+1)+'</span>' +
+        '<span class="rank-name" title="'+t.id+'">'+t.id+'</span>' +
+        '<span class="rank-prov" style="font-size:10px;color:'+(NOR1.has(t.prov)?'var(--nor1)':'var(--nor2)')+'">'+t.prov+'</span>' +
+        '<div class="rank-bar-bg"><div class="rank-bar-fill" style="width:'+Math.round(pv/maxV*100)+'%;background:'+colorFn(t)+';"></div></div>' +
+        '<span class="rank-val">'+pv.toFixed(2)+'</span>' +
+        '</div>';
+    }).join('');
+  }
+  const colFn = t => getVS(t)>=0?'#3fb950':getVS(t)>=-0.5?'#e3b341':'#f85149';
+  const topCM  = document.getElementById('top-cm');
+  const topOFC = document.getElementById('top-ofc');
+  const lowCM  = document.getElementById('low-cm');
+  const lowOFC = document.getElementById('low-ofc');
+  if (topCM)  { topCM.innerHTML  = makeBar(cm.slice(0,5),  cmMax,  colFn); addTopDelegation('top-cm'); }
+  if (topOFC) { topOFC.innerHTML = makeBar(ofc.slice(0,5), ofcMax, colFn); addTopDelegation('top-ofc'); }
+  if (lowCM)  { lowCM.innerHTML  = makeBar(cm.filter(t=>getVS(t)<-0.5).sort((a,b)=>getPDT(a)-getPDT(b)).slice(0,5), cmMax, ()=>'#f85149'); addTopDelegation('low-cm'); }
+  if (lowOFC) { lowOFC.innerHTML = makeBar(ofc.filter(t=>getVS(t)<-0.5).sort((a,b)=>getPDT(a)-getPDT(b)).slice(0,5), ofcMax, ()=>'#f85149'); addTopDelegation('low-ofc'); }
+}
+
+function addTopDelegation(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.onclick = function(e) {
+    const row = e.target.closest('[data-tidtop]');
+    if (row) { openTeamDetail(row.dataset.tidtop); showPage('team'); }
+  };
 }
 
 // ===================== HEATMAP =====================
@@ -2045,23 +1984,23 @@ function renderHeatmap() {
   });
 
   const maxVal = Math.max(...gridRows.map(h=>h.avg||0),0.1);
-  let html = '<table class="heatmap-table"><thead><tr><th class="hm-sticky-left" style="min-width:118px;">Province / Type</th>';
-  monthsShow.forEach(m => { html += '<th style="text-align:center;position:sticky;top:0;background:var(--bg2);z-index:2">'+((RAW.ml||{})[m]||m)+'</th>'; });
+  let html = '<table class="heatmap-table"><thead><tr><th>Province / Type</th>';
+  monthsShow.forEach(m => { html += '<th style="text-align:center">'+((RAW.ml||{})[m]||m)+'</th>'; });
   html += '</tr></thead><tbody>';
 
   provs.forEach(pv => {
     rowModes.forEach((mode, idx) => {
       const label = mode==='ALL' ? 'ALL' : mode;
       const subCol = mode==='CM' ? 'var(--cm)' : mode==='OFC' ? 'var(--ofc)' : (NOR1.has(pv)?'var(--nor1)':'var(--nor2)');
-      const rowCls = (idx===0 ? 'prov-start hm-group-start ' : 'hm-row-sep ') + (idx===rowModes.length-1 ? 'prov-sep' : '');
-      html += '<tr class="'+rowCls.trim()+'"><td class="prov-label hm-sticky-left"><span style="color:'+subCol+'">●</span> '+pv+' '+label+' <span style="color:var(--text3);font-size:11px;">'+((RAW.prov||{})[pv]||'')+'</span></td>';
+      const rowCls = (idx===0 ? 'prov-start ' : '') + (idx===rowModes.length-1 ? 'prov-sep' : '');
+      html += '<tr class="'+rowCls.trim()+'"><td class="prov-label"><span style="color:'+subCol+'">●</span> '+pv+' '+label+' <span style="color:var(--text3);font-size:11px;">'+((RAW.prov||{})[pv]||'')+'</span></td>';
       monthsShow.forEach(m => {
         const row = gridRows.find(h=>h.pv===pv&&h.mode===mode&&h.m===m);
         const val = row?row.avg:0;
         const bg = heatColor(val,maxVal);
         const tc = (bg==='#1f2937' || bg==='#1d4ed8') ? '#e6edf3' : '#0d1117';
         const title = `${pv} ${label} ${(RAW.ml||{})[m]||m} | avg ${val || 0}/วัน | teams ${row?.tot || 0} | ticket ${(row?.tkt || 0).toLocaleString()}`;
-        html += '<td><div class="hm-cell hm-clickable" style="background:'+bg+';color:'+tc+';width:76px;" title="'+title+'" onclick="openHeatCell(\''+pv+'\',\''+mode+'\',\''+m+'\')">'+(val||'—')+'</div></td>';
+        html += '<td><div class="hm-cell" style="background:'+bg+';color:'+tc+';width:76px;" title="'+title+'">'+(val||'—')+'</div></td>';
       });
       html += '</tr>';
     });
@@ -2071,64 +2010,6 @@ function renderHeatmap() {
   const hc = document.getElementById('heatmap-container');
   if (hc) hc.innerHTML = html;
   renderHeatVolumeCharts(baseRows, monthsShow);
-}
-
-
-function openHeatCell(pv, mode, m) {
-  const teams = getFilteredTeams().map(t => {
-    if (!m) return t;
-    const ms = (t.monthStats||{})[m];
-    if (!ms || !ms.days) return null;
-    return {
-      ...t,
-      p1: ms.p1 || 0,
-      p2: ms.p2 || 0,
-      h: ms.h || 0,
-      days: ms.days || 0,
-      vs1: ms.vs1 || 0,
-      vs2: ms.vs2 || 0,
-      tkt: ms.tkt || 0,
-      non: ms.non || 0,
-    };
-  }).filter(Boolean).filter(t => t.prov===pv && (mode==='ALL' || t.type===mode));
-
-  const rows = teams.map(t => ({
-    id:t.id,
-    type:t.type,
-    pdt:getPDT(t),
-    hrs:(t.h||0),
-    status:getVS(t)>=0 ? 'Above' : getVS(t)>=-0.5 ? 'Near' : 'Below'
-  })).sort((a,b)=>b.pdt-a.pdt);
-
-  const title = pv+' · '+mode+' · '+(((RAW.ml||{})[m]||m)||'ทุกเดือน');
-  let body = '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">คลิกชื่อทีมเพื่อเปิดรายละเอียดในหน้า Team</div>';
-  if (!rows.length) {
-    body += '<div style="font-size:12px;color:var(--text3);">ไม่มีข้อมูล</div>';
-  } else {
-    body += rows.map(r => {
-      const width = Math.min(100, (r.pdt / Math.max(1, rows[0].pdt)) * 100);
-      const color = r.status==='Above' ? 'var(--green)' : (r.status==='Near' ? 'var(--amber)' : 'var(--red)');
-      return '<div class="modal-team-row" data-tid="'+r.id+'">'
-        + '<div style="min-width:92px;font-family:monospace;font-size:12px;font-weight:700;">'+r.id+'</div>'
-        + '<div style="min-width:44px;color:'+(r.type==='CM'?'var(--cm)':'var(--ofc)')+';font-size:11px;">'+r.type+'</div>'
-        + '<div class="modal-bar-wrap"><div class="modal-bar" style="width:'+width+'%;background:'+color+';"></div></div>'
-        + '<div style="min-width:56px;text-align:right;font-weight:700;">'+r.pdt.toFixed(2)+'</div>'
-        + '<div style="min-width:62px;text-align:right;color:var(--text3);">'+r.hrs.toFixed(1)+'h</div>'
-        + '</div>';
-    }).join('');
-  }
-  openModal(title, body);
-  setTimeout(() => {
-    const bodyEl = document.getElementById('modal-body');
-    if (!bodyEl) return;
-    bodyEl.querySelectorAll('.modal-team-row[data-tid]').forEach(el => {
-      el.addEventListener('click', () => {
-        closeModal();
-        showPage('team');
-        openTeamDetail(el.dataset.tid);
-      });
-    });
-  }, 0);
 }
 
 function renderHeatVolumeCharts(baseRows, monthsShow) {
