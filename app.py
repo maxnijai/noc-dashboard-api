@@ -195,15 +195,6 @@ def is_valid_month(month_str):
     """กรองเฉพาะปี พ.ศ. ปัจจุบัน"""
     return month_str and month_str.startswith(VALID_YEAR + '-')
 
-def parse_buddhist_date(date_str):
-    if not date_str:
-        return None
-    try:
-        y, m, d = map(int, str(date_str).split('-'))
-        return datetime(y - 543, m, d)
-    except Exception:
-        return None
-
 def build_data():
     log.info('Building dashboard data...')
     t0 = time.time()
@@ -675,48 +666,21 @@ def build_data():
         team_tr_month[t['id']] = rows
 
     team_tr_day = {}
-    for tid, tm in teams.items():
-        day_map = team_plan_daily.get(tid, {})
+    for tid, day_map in team_plan_daily.items():
         rows = []
-        if day_map:
-            for label, v in sorted(day_map.items(), key=lambda x: x[0]):
-                rows.append(dict(label=label, m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1'], 2), avg=round(v['p2'], 2), teams=1, source='plan'))
-        else:
-            for label in sorted(tm.get('all_dates', set())):
-                dt = parse_buddhist_date(label)
-                rows.append(dict(label=label, m=to_by_month(dt) if dt else None, reg=tm['reg'], type=tm['type'], avg_p1=round(tm.get('pdt1_dates', {}).get(label, 0), 2), avg=round(tm.get('pdt2_dates', {}).get(label, 0), 2), teams=1, source='actual'))
+        for label, v in sorted(day_map.items(), key=lambda x: x[0]):
+            rows.append(dict(label=label, m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1'], 2), avg=round(v['p2'], 2), teams=1))
         team_tr_day[tid] = rows
 
     team_tr_week = {}
-    for tid, tm in teams.items():
-        wk_map = team_plan_weekly.get(tid, {})
+    for tid, wk_map in team_plan_weekly.items():
         rows = []
-        if wk_map:
-            for _, v in sorted(wk_map.items(), key=lambda x: x[0]):
-                dcount = len(v.get('dates', set()))
-                if dcount <= 0:
-                    continue
-                meta = v.get('meta', {})
-                rows.append(dict(sort=meta.get('sort'), label=meta.get('label'), m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1']/dcount, 2), avg=round(v['p2']/dcount, 2), teams=1, start=meta.get('start'), end=meta.get('end'), iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week'), source='plan'))
-        else:
-            actual_week = {}
-            for label in sorted(tm.get('all_dates', set())):
-                dt = parse_buddhist_date(label)
-                if not dt:
-                    continue
-                wk = week_bucket_label(dt)
-                key = wk['sort']
-                if key not in actual_week:
-                    actual_week[key] = {'meta': wk, 'dates': set(), 'p1': 0, 'p2': 0}
-                actual_week[key]['dates'].add(label)
-                actual_week[key]['p1'] += tm.get('pdt1_dates', {}).get(label, 0)
-                actual_week[key]['p2'] += tm.get('pdt2_dates', {}).get(label, 0)
-            for _, v in sorted(actual_week.items(), key=lambda x: x[0]):
-                dcount = len(v.get('dates', set()))
-                if dcount <= 0:
-                    continue
-                meta = v.get('meta', {})
-                rows.append(dict(sort=meta.get('sort'), label=meta.get('label'), m=to_by_month(parse_buddhist_date(sorted(v['dates'])[0])) if v.get('dates') else None, reg=tm['reg'], type=tm['type'], avg_p1=round(v['p1']/dcount, 2), avg=round(v['p2']/dcount, 2), teams=1, start=meta.get('start'), end=meta.get('end'), iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week'), source='actual'))
+        for _, v in sorted(wk_map.items(), key=lambda x: x[0]):
+            dcount = len(v.get('dates', set()))
+            if dcount <= 0:
+                continue
+            meta = v.get('meta', {})
+            rows.append(dict(sort=meta.get('sort'), label=meta.get('label'), m=v.get('m'), reg=v.get('reg'), type=v.get('type'), avg_p1=round(v['p1']/dcount, 2), avg=round(v['p2']/dcount, 2), teams=1, start=meta.get('start'), end=meta.get('end'), iso_year=meta.get('iso_year'), iso_week=meta.get('iso_week')))
         team_tr_week[tid] = rows
 
     prov_names = {p:PROV_THAI.get(p,p) for p in set(t['prov'] for t in ts)}
