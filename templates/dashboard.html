@@ -440,6 +440,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:11px;color:var(--text3);" id="filter-status">ทุก Region · ทุก Type</span>
       <button class="btn" onclick="rebuildNow()">Rebuild Cache</button>
       <button class="btn" onclick="reloadDashboardOnly()">Reload View</button>
+      <button class="btn" onclick="resetFilters()">Reset Filters</button>
       <span style="font-size:11px;color:var(--text3);" id="rebuild-status"></span>
     <div class="pdt-toggle" title="เลือกวิธีคำนวณ PDT">
       <button class="pdt-btn p2 active" onclick="setPDTMode(2)" id="btn-pdt2">PDT = Link Up + Hold</button>
@@ -1549,6 +1550,17 @@ function getFilteredTeams() {
       (!filterProv || t.prov===filterProv) &&
       (!filterTeam || t.id===filterTeam)
     );
+}
+
+function resetFilters() {
+  document.getElementById('f-nor1').checked = true;
+  document.getElementById('f-nor2').checked = true;
+  document.getElementById('f-cm').checked = true;
+  document.getElementById('f-ofc').checked = true;
+  document.getElementById('f-prov').value = '';
+  document.getElementById('f-team').value = '';
+  document.getElementById('f-month').value = '';
+  applyFilters();
 }
 
 function applyFilters() {
