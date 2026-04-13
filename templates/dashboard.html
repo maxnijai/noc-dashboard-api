@@ -89,7 +89,15 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
 .chart-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .5px; }
 .chart-wrap { position: relative; }
-.status-chart-wrap { position:relative; height:220px; max-width:340px; margin:0 auto; display:flex; align-items:center; justify-content:center; }
+.status-chart-wrap { position:relative; height:255px; max-width:360px; margin:4px auto 8px; display:flex; align-items:center; justify-content:center; }
+.status-insight-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:8px; }
+.status-insight-card { background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); border:1px solid var(--border); border-radius:10px; padding:10px 12px; min-height:74px; }
+.status-insight-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.status-insight-value { font-size:22px; line-height:1; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text); }
+.status-insight-sub { margin-top:6px; font-size:11px; color:var(--text2); line-height:1.35; }
+.status-insight-value.good { color:var(--green); }
+.status-insight-value.warn { color:var(--amber); }
+.status-insight-value.bad { color:var(--red); }
 .heatmap-table tr.prov-sep td { border-bottom: 2px solid var(--border2); padding-bottom: 12px; }
 .heatmap-table tr.prov-start td { padding-top: 12px; }
 
@@ -464,6 +472,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div class="chart-card">
           <div class="chart-title">สัดส่วน Status ทีม</div>
           <div class="status-chart-wrap"><canvas id="chart-status"></canvas></div>
+          <div class="status-insight-grid" id="status-insight-grid"></div>
         </div>
       </div>
 
@@ -1980,9 +1989,9 @@ function renderStatusChart(ft) {
     options: {
       responsive:true,
       maintainAspectRatio:false,
-      cutout:'68%',
-      radius:'78%',
-      layout:{padding:{top:4,right:8,bottom:4,left:8}},
+      cutout:'64%',
+      radius:'88%',
+      layout:{padding:{top:0,right:0,bottom:0,left:0}},
       animation:false,
       plugins:{
         legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14,usePointStyle:true,pointStyle:'rectRounded'}},
