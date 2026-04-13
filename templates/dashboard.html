@@ -41,11 +41,16 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 .header-brand-logo { height:34px; width:auto; display:block; object-fit:contain; filter: drop-shadow(0 2px 10px rgba(88,166,255,.12)); }
 .header-brand-text { display:flex; flex-direction:column; min-width:0; }
 .header-brand-sub { font-size:11px; color:var(--text3); letter-spacing:.2px; margin-top:2px; }
-.leaflet-tooltip.boundary-team-tooltip { background: rgba(13,17,23,.96); color: var(--text); border:1px solid var(--border2); box-shadow:none; border-radius:8px; padding:4px 8px; font-size:11px; font-weight:600; }
-.leaflet-tooltip.boundary-team-tooltip:before { border-top-color: rgba(13,17,23,.96) !important; }
+.leaflet-tooltip.boundary-team-tooltip { background: linear-gradient(180deg, rgba(28,33,40,.98), rgba(13,17,23,.98)); color: var(--text); border:1px solid rgba(88,166,255,.32); box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03) inset; border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; letter-spacing:.2px; }
+.leaflet-tooltip.boundary-team-tooltip:before { border-top-color: rgba(18,24,31,.98) !important; }
+.leaflet-popup-content-wrapper { background: linear-gradient(180deg, rgba(22,27,34,.99), rgba(13,17,23,.99)); color: var(--text); border:1px solid rgba(88,166,255,.18); border-radius:12px; box-shadow: 0 12px 36px rgba(0,0,0,.35); }
+.leaflet-popup-tip { background: rgba(18,24,31,.99); }
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-.header-meta { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.header-meta { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.header .btn { padding: 4px 10px; }
+.header .badge { padding: 2px 7px; font-size: 10px; }
+.header #filter-status { margin: 0 2px; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
 .badge.nor1 { background: var(--blue-bg); color: var(--blue); }
 .badge.nor2 { background: var(--purple-bg); color: var(--purple); }
@@ -1256,11 +1261,11 @@ function updateBoundaryMap(){
     const typeCol=b.type==='CM'?'#3fb950':'#e3b341';
     const svgIcon=L.divIcon({className:'',html:'<svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="9" fill="'+col+'" fill-opacity="0.85" stroke="#0d1117" stroke-width="1.5"/><text x="11" y="15" text-anchor="middle" font-size="9" font-weight="700" fill="#0d1117" font-family="monospace">'+b.type+'</text></svg>',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-12]});
     const marker=L.marker([c.lat,c.lon],{icon:svgIcon, keyboard:false});
-    const pdtHtml=pv!==null?'<div style="font-size:13px;font-weight:700;color:'+col+'">'+pv.toFixed(2)+' งาน/วัน <span style="font-size:10px;color:var(--text3);">(vs base '+(vsv>=0?'+':'')+(vsv||0).toFixed(2)+')</span></div>':'<div style="color:var(--text3);font-size:11px;">ไม่มีข้อมูล PDT</div>';
+    const pdtHtml=pv!==null?'<div style="display:flex;align-items:flex-end;gap:8px;margin-top:2px;"><div style="font-size:15px;font-weight:800;color:'+col+';letter-spacing:.2px;">'+pv.toFixed(2)+'</div><div style="font-size:10px;color:var(--text3);margin-bottom:2px;">งาน/วัน · vs base '+(vsv>=0?'+':'')+(vsv||0).toFixed(2)+'</div></div>':'<div style="color:var(--text3);font-size:11px;">ไม่มีข้อมูล PDT</div>'; 
     const distHtml=[b.home,...b.resp.filter(r=>r!==b.home)].slice(0,6).map((d,i)=>'<span style="font-size:10px;padding:1px 5px;border-radius:9px;margin:1px;display:inline-block;background:'+(i===0?'#1b5e31':'var(--bg3)')+';color:'+(i===0?'#3fb950':'var(--text2)')+';">'+(i===0?'🏠 ':'')+d+'</span>').join('');
     const sourceLabel=(c.method==='first-job-checkin-cluster')?'Home base จากงานแรกของวัน':'Home base cluster';
     marker.bindTooltip(b.tid, {direction:'top', offset:[0,-12], opacity:0.98, sticky:true, className:'boundary-team-tooltip'});
-    marker.bindPopup('<div style="min-width:180px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px;">'+b.tid+'</div><div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:600;color:'+typeCol+';">'+b.type+'</span> <span style="font-size:10px;color:var(--text3);">'+b.prov+' · '+(b.prov_name||'')+'</span></div>'+pdtHtml+'<div style="margin-top:8px;"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;">อำเภอที่รับผิดชอบ</div><div style="margin-top:4px;">'+distHtml+'</div></div><div style="margin-top:8px;font-size:10px;color:var(--text3);">'+sourceLabel+': '+c.count+'/'+c.total+' วัน</div><div style="margin-top:2px;font-size:10px;color:var(--text3);">Lat, Lon: '+Number(c.lat).toFixed(6)+', '+Number(c.lon).toFixed(6)+'</div></div>');
+    marker.bindPopup('<div style="min-width:220px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;"><div style="font-size:13px;font-weight:800;color:var(--text);letter-spacing:.2px;">'+b.tid+'</div><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:'+(b.type==='CM'?'rgba(63,185,80,.12)':'rgba(227,179,65,.14)')+';color:'+typeCol+';">'+b.type+'</span></div><div style="font-size:10px;color:var(--text3);margin-bottom:8px;">'+b.prov+' · '+(b.prov_name||'')+'</div>'+pdtHtml+'<div style="margin-top:10px;"><div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;">พื้นที่รับผิดชอบ</div><div style="margin-top:5px;">'+distHtml+'</div></div><div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;color:var(--text3);">'+sourceLabel+': '+c.count+'/'+c.total+' วัน<br>Lat, Lon: '+Number(c.lat).toFixed(6)+', '+Number(c.lon).toFixed(6)+'</div></div>');
     boundaryMarkers.addLayer(marker);
     bounds.push([c.lat,c.lon]);
   });
@@ -1933,18 +1938,57 @@ function renderStatusChart(ft) {
   const above = ft.filter(t=>getVS(t)>=0).length;
   const near  = ft.filter(t=>getVS(t)<0&&getVS(t)>=-0.5).length;
   const below = ft.filter(t=>getVS(t)<-0.5).length;
+  const total = Math.max(above + near + below, 1);
+  const abovePct = Math.round((above / total) * 100);
+  const centerLabelPlugin = {
+    id: 'statusCenterLabel',
+    afterDatasetsDraw(chart) {
+      const meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data || !meta.data.length) return;
+      const arc = meta.data[0];
+      const {ctx} = chart;
+      const x = arc.x;
+      const y = arc.y;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#e6edf3';
+      ctx.font = '700 26px IBM Plex Sans Thai, sans-serif';
+      ctx.fillText(abovePct + '%', x, y - 8);
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '600 10px IBM Plex Sans Thai, sans-serif';
+      ctx.fillText('Above baseline', x, y + 14);
+      ctx.restore();
+    }
+  };
   const ctx = document.getElementById('chart-status').getContext('2d');
   if (chartStatus) chartStatus.destroy();
   chartStatus = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['Above baseline','Near baseline','Below baseline'],
-      datasets: [{ data:[above,near,below],
-        backgroundColor:['#238636','#664d03','#a02020'],
-        borderColor:['#3fb950','#e3b341','#f85149'], borderWidth:1 }]
+      datasets: [{
+        data:[above,near,below],
+        backgroundColor:['#238636','#805f00','#a02020'],
+        borderColor:['rgba(63,185,80,.95)','rgba(227,179,65,.95)','rgba(248,81,73,.95)'],
+        borderWidth:1.2,
+        hoverOffset:4,
+        spacing:2
+      }]
     },
-    options: { responsive:true, maintainAspectRatio:false, cutout:'58%', radius:'82%', layout:{padding:{top:8,right:8,bottom:8,left:8}},
-      plugins:{ legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14}} } }
+    plugins:[centerLabelPlugin],
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      cutout:'68%',
+      radius:'78%',
+      layout:{padding:{top:4,right:8,bottom:4,left:8}},
+      animation:false,
+      plugins:{
+        legend:{position:'bottom',align:'center',labels:{color:'#8b949e',font:{size:11},boxWidth:12,padding:14,usePointStyle:true,pointStyle:'rectRounded'}},
+        tooltip:{callbacks:{label(ctx){ const v=ctx.raw||0; const pct=Math.round((v/total)*100); return ` ${ctx.label}: ${v} ทีม (${pct}%)`; }}}
+      }
+    }
   });
 }
 
