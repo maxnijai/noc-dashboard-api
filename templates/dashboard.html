@@ -333,6 +333,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .leaflet-control-zoom a:first-child{border-bottom:none;border-radius:6px 6px 0 0;}
 .leaflet-control-zoom a:last-child{border-radius:0 0 6px 6px;}
 
+
+.pdt-sim-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));}
+.pdt-sim-title{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.2px;}
+.pdt-sim-group{display:flex;align-items:center;gap:6px;}
+.pdt-sim-label{font-size:11px;color:var(--text2);}
+.pdt-sim-input{width:62px;padding:4px 8px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:12px;}
+.pdt-sim-input:focus{outline:none;border-color:var(--blue);}
+
 </style>
 </head>
 <body>
@@ -393,10 +401,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">Type Team</div>
     <div style="display:flex;flex-direction:column;gap:3px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
-        <input type="checkbox" id="f-cm" checked onchange="applyFilters()"> <span style="color:var(--cm)">CM</span> <span style="font-size:11px;color:var(--text3)">(base 3)</span>
+        <input type="checkbox" id="f-cm" checked onchange="applyFilters()"> <span style="color:var(--cm)">CM</span> <span style="font-size:11px;color:var(--text3)">(<span id="cm-base-side">base 3</span>)</span>
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
-        <input type="checkbox" id="f-ofc" checked onchange="applyFilters()"> <span style="color:var(--ofc)">OFC</span> <span style="font-size:11px;color:var(--text3)">(base 2)</span>
+        <input type="checkbox" id="f-ofc" checked onchange="applyFilters()"> <span style="color:var(--ofc)">OFC</span> <span style="font-size:11px;color:var(--text3)">(<span id="ofc-base-side">base 2</span>)</span>
       </label>
     </div>
     <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">Province</div>
@@ -435,8 +443,21 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="header-meta">
       <span class="badge nor1">NOR1</span>
       <span class="badge nor2">NOR2</span>
-      <span class="badge cm">CM base:3</span>
-      <span class="badge ofc">OFC base:2</span>
+      <span class="badge cm" id="cm-base-badge">CM base:3</span>
+      <span class="badge ofc" id="ofc-base-badge">OFC base:2</span>
+      <div class="pdt-sim-wrap" title="จำลองค่า baseline PDT ใหม่โดยไม่ต้อง rebuild cache">
+        <span class="pdt-sim-title">PDT Simulator</span>
+        <div class="pdt-sim-group">
+          <span class="pdt-sim-label">CM</span>
+          <input class="pdt-sim-input" id="sim-cm-base" type="number" min="0" step="0.1" value="3" onchange="applySimBase()" onkeydown="handleSimBaseKey(event)">
+        </div>
+        <div class="pdt-sim-group">
+          <span class="pdt-sim-label">OFC</span>
+          <input class="pdt-sim-input" id="sim-ofc-base" type="number" min="0" step="0.1" value="2" onchange="applySimBase()" onkeydown="handleSimBaseKey(event)">
+        </div>
+        <button class="btn" onclick="applySimBase()">Apply PDT</button>
+        <button class="btn" onclick="resetSimBase()">Reset Default</button>
+      </div>
       <span style="font-size:11px;color:var(--text3);" id="filter-status">ทุก Region · ทุก Type</span>
       <button class="btn" onclick="rebuildNow()">Rebuild Cache</button>
       <button class="btn" onclick="reloadDashboardOnly()">Reload View</button>
@@ -749,6 +770,10 @@ async function fetchAndInit(){
       lu.textContent = `${(RAW.ts||[]).length} ทีม · ${(RAW.gstats||{}).total_tkt || 0} tickets · cache ${RAW.cached_at}`;
     }
 
+    defaultBaseCM = Number((RAW.baseConfig||{}).CM ?? 3);
+    defaultBaseOFC = Number((RAW.baseConfig||{}).OFC ?? 2);
+    simBaseCM = defaultBaseCM;
+    simBaseOFC = defaultBaseOFC;
     if(ov)ov.style.display='none';
     init();
   }catch(e){
@@ -848,7 +873,7 @@ function renderRanking(ft) {
   const maxWdAvg = Math.max(...sortedRD.map(r=>r.wd_avg||0), 1);
 
   // Color helpers
-  const col = (v, base) => v>=base?'#3fb950':v>=base-0.5?'#e3b341':'#f85149';
+  const col = (v, base) => classifyVS(v-base)==='above'?'#3fb950':classifyVS(v-base)==='near'?'#e3b341':'#f85149';
 
   // Build table header
   const sortIcon = (key) => {
@@ -867,7 +892,7 @@ let thWdAvg = '<th' + thStyle('wd_avg') + ' data-sortkey="wd_avg" class="rk-mo-c
 
   // Build table rows
   const rows = sortedRD.map((r,i) => {
-    const base = r.type==='CM' ? 3 : 2;
+    const base = getTeamBase(r);
     const typeCol = r.type==='CM' ? 'var(--cm)' : 'var(--ofc)';
     const regCol  = ['CMI','CRI','MHS','NAN','LPG','PHE','LPN','PYO'].includes(r.prov)
                     ? 'var(--nor1)' : 'var(--nor2)';
@@ -1160,7 +1185,7 @@ function buildAnalysisCard(t){
   else if(hrs<3&&hrs>0)findings.push({icon:'⏱',sev:'med',text:'ชั่วโมงทำงานน้อย avg '+hrs.toFixed(1)+' ชม./วัน'});
   const qh=s.qh||{};const slowQ=Object.entries(qh).filter(([q,h])=>h>5).map(([q,h])=>q+'='+h+'ชม.');
   if(slowQ.length)findings.push({icon:'🕐',sev:'low',text:'Que ที่ใช้เวลานาน: '+slowQ.slice(0,4).join(', ')});
-  if(t.max2>=t.base*2)findings.push({icon:'📈',sev:'info',text:'มีศักยภาพ — max '+t.max2+' งาน/วัน แต่ไม่สม่ำเสมอ'});
+  if(t.max2>=getTeamBase(t)*2)findings.push({icon:'📈',sev:'info',text:'มีศักยภาพ — max '+t.max2+' งาน/วัน แต่ไม่สม่ำเสมอ'});
   if((s.z||0)>0)findings.push({icon:'📅',sev:(s.z||0)>10?'med':'low',text:'มีวันที่ไม่มี output '+(s.z||0)+' วัน'});
   if(s.c1&&s.c1.length)findings.push({icon:'🔍',sev:'info',text:'สาเหตุหลัก: '+s.c1.slice(0,2).join(' / ')});
   const logText=(s.logs||[]).join(' ').toLowerCase();
@@ -1184,7 +1209,7 @@ function buildAnalysisCard(t){
     '<span class="badge '+typeClass+'">'+t.type+'</span>'+
     '<span style="color:'+regCol+';font-size:12px;">'+t.reg+' · '+t.prov+'</span>'+
     '<span class="pill below"><span class="pill-dot"></span>'+gap+' ต่ำกว่า baseline</span>'+
-    '<span style="font-size:12px;color:var(--text3);margin-left:auto;">avg <strong style="color:var(--text)">'+getPDT(t).toFixed(2)+'</strong> งาน/วัน · base='+t.base+' · '+t.days+' วัน</span>'+
+    '<span style="font-size:12px;color:var(--text3);margin-left:auto;">avg <strong style="color:var(--text)">'+getPDT(t).toFixed(2)+'</strong> งาน/วัน · base='+fmtBase(getTeamBase(t))+' · '+t.days+' วัน</span>'+
     '</div>'+areaHtml+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
     '<div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">ผลการวิเคราะห์</div>'+
     findings.map(f=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 8px;margin-bottom:4px;background:'+sevBg[f.sev]+';border-radius:5px;border-left:2px solid '+sevColor[f.sev]+';"><span style="font-size:13px;flex-shrink:0;">'+f.icon+'</span><span style="font-size:12px;color:var(--text);line-height:1.4;">'+f.text+'</span></div>').join('')+
@@ -1353,7 +1378,7 @@ function loadDrill(){
   let html='';
   Object.entries(filteredDates).forEach(([dt,rows])=>{
     const dayP1=rows.reduce((s,r)=>s+r[15],0),dayP2=rows.reduce((s,r)=>s+r[16],0);
-    const dayPDT=pdtMode===2?dayP2:dayP1,base=t.base||0;
+    const dayPDT=pdtMode===2?dayP2:dayP1,base=getTeamBase(t);
     const barCol=dayPDT>=base?'var(--green)':dayPDT>=base-0.5?'var(--amber)':'var(--red)';
     html+='<div class="drill-day-header" onclick="toggleDay(this)"><span style="color:var(--text2)">'+dt+'</span>&nbsp;&nbsp;<span style="font-size:10px;color:var(--text3);">'+rows.length+' งาน</span>&nbsp;&nbsp;<span style="font-size:11px;font-weight:600;color:'+barCol+'">PDT'+pdtMode+'='+dayPDT+'</span><span class="expand-icon">▾</span></div>';
     html+='<div class="drill-day-body"><table class="drill"><thead><tr><th>Ticket</th><th>Type</th><th>SLA</th><th>Subject</th><th>Que</th><th>เดินทาง</th><th>เริ่มซ่อม</th><th>Hold</th><th>Link Up</th><th>Status</th><th>สาเหตุ Hold</th><th>Update Log</th><th>สาเหตุ 1</th><th>วิธีแก้ไข</th><th>รายละเอียด</th></tr></thead><tbody>';
@@ -1418,6 +1443,10 @@ let rankSortDir = -1;
 let chartTrend = null, chartStatus = null, chartHeatBarNor1 = null, chartHeatBarNor2 = null, detailChart = null;
 let trendGranularity = 'month';
 let heatType = 'ALL';
+let defaultBaseCM = 3;
+let defaultBaseOFC = 2;
+let simBaseCM = 3;
+let simBaseOFC = 2;
 
 function br(s, max) { if(!s)return''; var r=String(s).slice(0,max).replace(/\n/g,'<br>').replace(/\r/g,''); return r+(String(s).length>max?'\u2026':''); }
 
@@ -1448,9 +1477,56 @@ function setHeatType(t) {
 }
 
 function getPDT(t) { return pdtMode===2 ? (t.p2||0) : (t.p1||0); }
-function getVS(t)  { return pdtMode===2 ? (t.vs2||0) : (t.vs1||0); }
+function getTeamBase(t) {
+  if (!t) return 0;
+  return t.type==='CM' ? Number(simBaseCM||0) : Number(simBaseOFC||0);
+}
+function classifyVS(vs) {
+  return vs >= 0 ? 'above' : (vs >= -0.5 ? 'near' : 'below');
+}
+function getVS(t)  { return round2(getPDT(t) - getTeamBase(t)); }
 function getTot(t) { return pdtMode===2 ? (t.tot2||0) : (t.tot1||0); }
 function getMax(t) { return pdtMode===2 ? (t.max2||0) : (t.max1||0); }
+function round2(v){ return Math.round((Number(v)||0) * 100) / 100; }
+function fmtBase(v){ return Number.isInteger(v) ? String(v) : v.toFixed(1); }
+function syncBaseUI() {
+  const cmBadge=document.getElementById('cm-base-badge');
+  const ofcBadge=document.getElementById('ofc-base-badge');
+  const cmSide=document.getElementById('cm-base-side');
+  const ofcSide=document.getElementById('ofc-base-side');
+  const cmInput=document.getElementById('sim-cm-base');
+  const ofcInput=document.getElementById('sim-ofc-base');
+  if (cmBadge) cmBadge.textContent='CM base:'+fmtBase(simBaseCM);
+  if (ofcBadge) ofcBadge.textContent='OFC base:'+fmtBase(simBaseOFC);
+  if (cmSide) cmSide.textContent='base '+fmtBase(simBaseCM);
+  if (ofcSide) ofcSide.textContent='base '+fmtBase(simBaseOFC);
+  if (cmInput && document.activeElement!==cmInput) cmInput.value=fmtBase(simBaseCM);
+  if (ofcInput && document.activeElement!==ofcInput) ofcInput.value=fmtBase(simBaseOFC);
+}
+function applySimBase() {
+  const cmEl=document.getElementById('sim-cm-base');
+  const ofcEl=document.getElementById('sim-ofc-base');
+  let nextCM=parseFloat(cmEl?.value);
+  let nextOFC=parseFloat(ofcEl?.value);
+  if (!Number.isFinite(nextCM) || nextCM < 0) nextCM=defaultBaseCM;
+  if (!Number.isFinite(nextOFC) || nextOFC < 0) nextOFC=defaultBaseOFC;
+  simBaseCM=round2(nextCM);
+  simBaseOFC=round2(nextOFC);
+  syncBaseUI();
+  renderAll();
+}
+function resetSimBase() {
+  simBaseCM=defaultBaseCM;
+  simBaseOFC=defaultBaseOFC;
+  syncBaseUI();
+  renderAll();
+}
+function handleSimBaseKey(ev) {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    applySimBase();
+  }
+}
 
 
 function getBoundaryInfo(teamId) {
@@ -1483,9 +1559,9 @@ function getMonthAdjustedTeam(t) {
     days: ms.days || 0,
     max1: ms.max1 || 0,
     max2: ms.max2 || 0,
-    vs1: ms.vs1 || 0,
-    vs2: ms.vs2 || 0,
-    st: ms.st || 'near',
+    vs1: 0,
+    vs2: 0,
+    st: classifyVS((pdtMode===2 ? (ms.p2 || 0) : (ms.p1 || 0)) - getTeamBase({type:t.type})),
     tkt: ms.tkt || 0,
     non: ms.non || 0,
   };
@@ -1758,6 +1834,7 @@ function init() {
   initDrillSelects();
   initBoundary();
   updateTrendTitle();
+  syncBaseUI();
   renderAll();
 }
 
@@ -2241,7 +2318,7 @@ function openTeamDetail(tid) {
     '<div class="dg-card"><div class="dg-label">สูงสุด/วัน</div><div class="dg-val">'+getMax(t)+'</div></div>' +
     '<div class="dg-card"><div class="dg-label">วันทำงาน</div><div class="dg-val">'+t.days+'</div></div>' +
     '<div class="dg-card"><div class="dg-label">Avg ชม./วัน</div><div class="dg-val">'+(t.h||0).toFixed(1)+'</div></div>' +
-    '<div class="dg-card"><div class="dg-label">Baseline</div><div class="dg-val" style="color:var(--text3)">'+t.base+'</div></div>';
+    '<div class="dg-card"><div class="dg-label">Baseline</div><div class="dg-val" style="color:var(--text3)">'+fmtBase(getTeamBase(t))+'</div></div>';
   // Weekly chart
   const wkData = (RAW.wk||[]).filter(w=>w.tid===tid).sort((a,b)=>a.wk.localeCompare(b.wk));
   const wkLabels = wkData.map(w=>w.wk.replace(/^\d+-W/,'W'));
