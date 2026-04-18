@@ -246,6 +246,7 @@ def build_data():
     plan_weekly = {}
     team_plan_daily = {}
     team_plan_weekly = {}
+    daily_team_stats = {}
 
     for row in rows[1:]:
         team_id   = g(row,'team_id')
@@ -464,6 +465,24 @@ def build_data():
                 team_plan_weekly[team_id][team_wk_key]['p1'] += 1
             if has_lu or has_hold:
                 team_plan_weekly[team_id][team_wk_key]['p2'] += 1
+
+            if plan_date not in daily_team_stats:
+                daily_team_stats[plan_date] = {}
+            if team_id not in daily_team_stats[plan_date]:
+                daily_team_stats[plan_date][team_id] = {
+                    'id': team_id,
+                    'type': type_team,
+                    'reg': reg,
+                    'prov': prov,
+                    'p1': 0,
+                    'p2': 0,
+                    'rows': 0,
+                }
+            daily_team_stats[plan_date][team_id]['rows'] += 1
+            if has_lu:
+                daily_team_stats[plan_date][team_id]['p1'] += 1
+            if has_lu or has_hold:
+                daily_team_stats[plan_date][team_id]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
@@ -824,6 +843,21 @@ def build_data():
         sum_data[t['id']] = team_sum
         sla_data[t['id']] = team_sla
 
+    summary_daily = []
+    for dt in sorted(daily_team_stats.keys()):
+        teams_rows = []
+        for _, rec in sorted(daily_team_stats[dt].items(), key=lambda x: (x[1]['type'], x[1]['prov'], x[0])):
+            teams_rows.append({
+                'id': rec['id'],
+                'type': rec['type'],
+                'reg': rec['reg'],
+                'prov': rec['prov'],
+                'p1': rec['p1'],
+                'p2': rec['p2'],
+                'rows': rec['rows'],
+            })
+        summary_daily.append({'date': dt, 'teams': teams_rows})
+
     return dict(
         ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day, team_tr_month=team_tr_month, team_tr_week=team_tr_week, team_tr_day=team_tr_day, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
@@ -835,6 +869,7 @@ def build_data():
         ),
         rankData=rank_data, boundary=boundary, homeCoords=home_coords,
         drill=drill, slaData=sla_data,
+        summaryDaily=summary_daily,
         baseConfig=dict(CM=CM_BASE, OFC=OFC_BASE),
         cached_at=datetime.now().isoformat()
     )
