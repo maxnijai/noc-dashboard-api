@@ -371,6 +371,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .summary-section-title { font-size:12px; font-weight:700; color:var(--text2); margin:0 0 10px; text-transform:uppercase; letter-spacing:.5px; }
 .summary-empty { padding:20px; color:var(--text3); font-size:13px; text-align:center; }
 .summary-open-btn { font-size:11px; padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg4); color:var(--blue); cursor:pointer; }
+.summary-pct-cell { font-weight:700; border-radius:8px; }
+.summary-kpi .val.good { color: var(--green); }
+.summary-kpi .val.warn { color: var(--amber); }
+.summary-kpi .val.bad { color: var(--red); }
 @media (max-width: 980px) { .summary-grid { grid-template-columns:1fr; } }
 
 </style>
@@ -1449,7 +1453,25 @@ function initDrillSelects(){
   }
 }
 
-function openDrillForTeam(tid){showPage('drill');document.getElementById('drill-team-sel').value=tid;loadDrill();}
+let drillFocusDate = '';
+
+function setDrillFocusDate(dateStr) {
+  drillFocusDate = dateStr || '';
+}
+
+function focusDrillDate(dateStr) {
+  if (!dateStr) return;
+  const target = Array.from(document.querySelectorAll('#drill-content .drill-day-header')).find(el => (el.dataset.date || '') === dateStr);
+  if (!target) return;
+  document.querySelectorAll('#drill-content .drill-day-header').forEach(el => {
+    const same = el === target;
+    el.classList.toggle('collapsed', !same);
+    if (el.nextElementSibling) el.nextElementSibling.style.display = same ? 'block' : 'none';
+  });
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function openDrillForTeam(tid, dateStr){showPage('drill');document.getElementById('drill-team-sel').value=tid;if(dateStr){setDrillFocusDate(dateStr);const msel=document.getElementById('drill-month-sel');if(msel){const monthKey=String(dateStr).slice(0,7);const hasOpt=Array.from(msel.options||[]).some(o=>o.value===monthKey);if(hasOpt)msel.value=monthKey;}}loadDrill();}
 
 function loadDrill(){
   const tid=document.getElementById('drill-team-sel').value;
@@ -1477,8 +1499,8 @@ function loadDrill(){
     const dayP1=rows.reduce((s,r)=>s+r[15],0),dayP2=rows.reduce((s,r)=>s+r[16],0);
     const dayPDT=pdtMode===2?dayP2:dayP1,base=getTeamBase(t);
     const barCol=dayPDT>=base?'var(--green)':dayPDT>=base-0.5?'var(--amber)':'var(--red)';
-    html+='<div class="drill-day-header" onclick="toggleDay(this)"><span style="color:var(--text2)">'+dt+'</span>&nbsp;&nbsp;<span style="font-size:10px;color:var(--text3);">'+rows.length+' งาน</span>&nbsp;&nbsp;<span style="font-size:11px;font-weight:600;color:'+barCol+'">PDT'+pdtMode+'='+dayPDT+'</span><span class="expand-icon">▾</span></div>';
-    html+='<div class="drill-day-body"><table class="drill"><thead><tr><th>Ticket</th><th>Type</th><th>SLA</th><th>Subject</th><th>Que</th><th>เดินทาง</th><th>เริ่มซ่อม</th><th>Hold</th><th>Link Up</th><th>Status</th><th>สาเหตุ Hold</th><th>Update Log</th><th>สาเหตุ 1</th><th>วิธีแก้ไข</th><th>รายละเอียด</th></tr></thead><tbody>';
+    html+='<div class="drill-day-header'+(drillFocusDate && drillFocusDate!==dt?' collapsed':'')+'" data-date="'+dt+'" onclick="toggleDay(this)"><span style="color:var(--text2)">'+dt+'</span>&nbsp;&nbsp;<span style="font-size:10px;color:var(--text3);">'+rows.length+' งาน</span>&nbsp;&nbsp;<span style="font-size:11px;font-weight:600;color:'+barCol+'">PDT'+pdtMode+'='+dayPDT+'</span><span class="expand-icon">▾</span></div>';
+    html+='<div class="drill-day-body" style="display:'+(drillFocusDate && drillFocusDate!==dt?'none':'block')+'"><table class="drill"><thead><tr><th>Ticket</th><th>Type</th><th>SLA</th><th>Subject</th><th>Que</th><th>เดินทาง</th><th>เริ่มซ่อม</th><th>Hold</th><th>Link Up</th><th>Status</th><th>สาเหตุ Hold</th><th>Update Log</th><th>สาเหตุ 1</th><th>วิธีแก้ไข</th><th>รายละเอียด</th></tr></thead><tbody>';
     rows.forEach(r=>{
       const stC=stClass(r[8]);
       const tktBadge='<span class="tkt-badge '+r[14]+'">'+r[14]+'</span>';
@@ -1489,6 +1511,7 @@ function loadDrill(){
   });
   if(!html)html='<div style="padding:20px;color:var(--text3);font-size:13px;">ไม่พบข้อมูล</div>';
   document.getElementById('drill-content').innerHTML=html;
+  if (drillFocusDate) { focusDrillDate(drillFocusDate); drillFocusDate = ''; }
 }
 
 function toggleDay(header){
@@ -1917,6 +1940,26 @@ function fmtCap(v) {
   return Number.isInteger(v) ? String(v) : Number(v).toFixed(1);
 }
 
+function summaryPctTone(pct) {
+  const n = Number(pct || 0);
+  if (n >= 90) return "good";
+  if (n >= 75) return "warn";
+  return "bad";
+}
+
+function summaryPctCellStyle(pct) {
+  const n = Math.max(0, Math.min(100, Number(pct || 0)));
+  const tone = summaryPctTone(n);
+  if (tone === "good") return "background:rgba(63,185,80,.16);color:var(--green);";
+  if (tone === "warn") return "background:rgba(227,179,65,.16);color:var(--amber);";
+  return "background:rgba(248,81,73,.14);color:var(--red);";
+}
+
+function summaryKpiValueClass(pct) {
+  const tone = summaryPctTone(pct);
+  return tone === "good" ? "good" : (tone === "warn" ? "warn" : "bad");
+}
+
 function summaryBucketKey(pdt) {
   if (pdt > 3) return '>3';
   return String(Math.max(0, Math.round(Number(pdt) || 0)));
@@ -1961,8 +2004,6 @@ function renderSummaryChart(days) {
   const labels = days.map(d => d.date);
   const cm = days.map(d => d.teams.filter(t => t.type==='CM').length);
   const ofc = days.map(d => d.teams.filter(t => t.type==='OFC').length);
-  const cmBase = labels.map(() => 46);
-  const ofcBase = labels.map(() => 113);
   const ctx = el.getContext('2d');
   if (chartSummaryActive) chartSummaryActive.destroy();
   chartSummaryActive = new Chart(ctx, {
@@ -1970,10 +2011,8 @@ function renderSummaryChart(days) {
     data: {
       labels,
       datasets: [
-        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
-        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
-        { label: 'CM Baseline (46)', data: cmBase, borderColor: 'rgba(63,185,80,.9)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5, borderDash: [6, 6], fill: false },
-        { label: 'OFC Baseline (113)', data: ofcBase, borderColor: 'rgba(227,179,65,.9)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5, borderDash: [6, 6], fill: false }
+        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 },
+        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 }
       ]
     },
     options: {
@@ -1982,20 +2021,11 @@ function renderSummaryChart(days) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { color: '#e6edf3', boxWidth: 12 } },
-        tooltip: {
-          callbacks: {
-            footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : ''
-          }
-        }
+        tooltip: { callbacks: { footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : '' } }
       },
       scales: {
         x: { ticks: { color: '#8b949e', maxRotation: 50, minRotation: 35 }, grid: { color: 'rgba(255,255,255,.06)' } },
-        y: {
-          beginAtZero: true,
-          suggestedMax: Math.max(120, ...cm, ...ofc, 46, 113) + 5,
-          ticks: { color: '#8b949e', precision: 0 },
-          grid: { color: 'rgba(255,255,255,.06)' }
-        }
+        y: { beginAtZero: true, ticks: { color: '#8b949e', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } }
       }
     }
   });
@@ -2027,11 +2057,11 @@ function renderSummaryOverview(days) {
   const latestOFC = mkCell(latest, 'OFC');
   const latestAll = mkCell(latest, 'ALL');
   kpiEl.innerHTML = [
-    ['วันที่เลือก', summarySelectedDate, latestAll.active+' ทีม active'],
-    ['CM Active', latestCM.active, latestCM.pct+' ของทีม CM ทั้งหมด'],
-    ['OFC Active', latestOFC.active, latestOFC.pct+' ของทีม OFC ทั้งหมด'],
-    ['รวม Active', latestAll.active, latestAll.pct+' ของทุกทีมใน filter']
-  ].map(([a,b,c]) => '<div class="summary-kpi"><div class="label">'+a+'</div><div class="val">'+b+'</div><div class="sub">'+c+'</div></div>').join('');
+    ['วันที่เลือก', summarySelectedDate, latestAll.active+' ทีม active', null],
+    ['CM Active', latestCM.active, latestCM.pct+' ของทีม CM ทั้งหมด', parseFloat(latestCM.pct)],
+    ['OFC Active', latestOFC.active, latestOFC.pct+' ของทีม OFC ทั้งหมด', parseFloat(latestOFC.pct)],
+    ['รวม Active', latestAll.active, latestAll.pct+' ของทุกทีมใน filter', parseFloat(latestAll.pct)]
+  ].map(([a,b,c,pct]) => '<div class="summary-kpi"><div class="label">'+a+'</div><div class="val '+(pct==null?'':summaryKpiValueClass(pct))+'">'+b+'</div><div class="sub">'+c+'</div></div>').join('');
 
   let html = '<table class="table-summary"><thead><tr><th rowspan="2" style="min-width:110px;">Type</th>';
   shown.forEach(day=>{ html += '<th colspan="3" class="date-group '+(day.date===summarySelectedDate?'is-selected':'')+'" onclick="setSummaryDate(\''+day.date+'\')">'+day.date+'</th>'; });
@@ -2042,7 +2072,7 @@ function renderSummaryOverview(days) {
     html += '<tr><td class="row-hd">'+label+'</td>';
     shown.forEach(day => {
       const c = mkCell(day, type);
-      html += '<td>'+c.total+'</td><td class="summary-click '+(day.date===summarySelectedDate?'is-selected':'')+'" onclick="setSummaryDate(\''+day.date+'\')">'+c.active+'</td><td>'+c.pct+'</td>';
+      html += '<td>'+c.total+'</td><td class="summary-click '+(day.date===summarySelectedDate?'is-selected':'')+'" onclick="setSummaryDate(\''+day.date+'\')">'+c.active+'</td><td class="summary-pct-cell" style="'+summaryPctCellStyle(parseFloat(c.pct))+'">'+c.pct+'</td>';
     });
     html += '</tr>';
   });
@@ -2112,9 +2142,9 @@ function renderSummaryDetail() {
     html += '<div class="summary-section-title">'+type+'</div>';
     html += '<table class="table-summary-detail"><thead><tr><th>Province</th><th>Team Total</th><th>Working Plan</th><th>Cap. Plan</th><th>% Working</th><th>WO Closed</th><th>PDT=0</th><th>PDT=1</th><th>PDT=2</th><th>PDT=3</th><th>PDT&gt;3</th></tr></thead><tbody>';
     rows.forEach(r => {
-      html += '<tr class="summary-click '+((summarySelectedProv===r.prov || (!summarySelectedProv && r===rows[0]))?'is-selected':'')+'" onclick="setSummaryProv(\''+r.prov+'\')"><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td>'+r.teamTotal+'</td><td>'+r.active+'</td><td>'+fmtCap(r.cap)+'</td><td>'+r.pct.toFixed(2)+'%</td><td>'+r.wo+'</td><td>'+r.bucket['0']+'</td><td>'+r.bucket['1']+'</td><td>'+r.bucket['2']+'</td><td>'+r.bucket['3']+'</td><td>'+r.bucket['>3']+'</td></tr>';
+      html += '<tr class="summary-click '+((summarySelectedProv===r.prov || (!summarySelectedProv && r===rows[0]))?'is-selected':'')+'" onclick="setSummaryProv(\''+r.prov+'\')"><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td>'+r.teamTotal+'</td><td>'+r.active+'</td><td>'+fmtCap(r.cap)+'</td><td class="summary-pct-cell" style="'+summaryPctCellStyle(r.pct)+'">'+r.pct.toFixed(2)+'%</td><td>'+r.wo+'</td><td>'+r.bucket['0']+'</td><td>'+r.bucket['1']+'</td><td>'+r.bucket['2']+'</td><td>'+r.bucket['3']+'</td><td>'+r.bucket['>3']+'</td></tr>';
     });
-    html += '<tr style="font-weight:700;background:var(--bg3);"><td>Total</td><td>'+totalTeams+'</td><td>'+totalActive+'</td><td>'+fmtCap(round2(totalCap))+'</td><td>'+(totalTeams?round2(totalActive/totalTeams*100).toFixed(2):'0.00')+'%</td><td>'+totalWO+'</td><td>'+totalBucket['0']+'</td><td>'+totalBucket['1']+'</td><td>'+totalBucket['2']+'</td><td>'+totalBucket['3']+'</td><td>'+totalBucket['>3']+'</td></tr>';
+    html += '<tr style="font-weight:700;background:var(--bg3);"><td>Total</td><td>'+totalTeams+'</td><td>'+totalActive+'</td><td>'+fmtCap(round2(totalCap))+'</td><td class="summary-pct-cell" style="'+summaryPctCellStyle(totalTeams?round2(totalActive/totalTeams*100):0)+'">'+(totalTeams?round2(totalActive/totalTeams*100).toFixed(2):'0.00')+'%</td><td>'+totalWO+'</td><td>'+totalBucket['0']+'</td><td>'+totalBucket['1']+'</td><td>'+totalBucket['2']+'</td><td>'+totalBucket['3']+'</td><td>'+totalBucket['>3']+'</td></tr>';
     html += '</tbody></table><div style="height:14px;"></div>';
   });
   wrap.innerHTML = html || '<div class="summary-empty">ไม่พบข้อมูล detail</div>';
@@ -2153,7 +2183,7 @@ function renderSummaryDrill() {
   rows.forEach(r => {
     const vs = round2(r.pdt - r.base);
     const color = r.cls==='above' ? 'var(--green)' : (r.cls==='near' ? 'var(--amber)' : 'var(--red)');
-    html += '<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td style="font-weight:700;color:'+color+'">'+r.pdt+'</td><td>'+fmtBase(r.base)+'</td><td style="color:'+color+'">'+vs+'</td><td><span class="pill '+r.cls+'"><span class="pill-dot"></span>'+r.cls+'</span></td><td>'+r.pdt+'</td><td>'+r.rows+'</td><td><button class="summary-open-btn" onclick="openDrillForTeam(\''+r.id+'\')">เปิด Deep Down</button></td></tr>';
+    html += '<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td style="font-weight:700;color:'+color+'">'+r.pdt+'</td><td>'+fmtBase(r.base)+'</td><td style="color:'+color+'">'+vs+'</td><td><span class="pill '+r.cls+'"><span class="pill-dot"></span>'+r.cls+'</span></td><td>'+r.pdt+'</td><td>'+r.rows+'</td><td><button class="summary-open-btn" onclick="openDrillForTeam(\''+r.id+'\', \''+summarySelectedDate+'\')">เปิด Deep Down</button></td></tr>';
   });
   html += '</tbody></table>';
   wrap.innerHTML = html;
