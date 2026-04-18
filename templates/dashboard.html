@@ -333,6 +333,46 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .leaflet-control-zoom a:first-child{border-bottom:none;border-radius:6px 6px 0 0;}
 .leaflet-control-zoom a:last-child{border-radius:0 0 6px 6px;}
 
+
+.pdt-sim-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));}
+.pdt-sim-title{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.2px;}
+.pdt-sim-group{display:flex;align-items:center;gap:6px;}
+.pdt-sim-label{font-size:11px;color:var(--text2);}
+.pdt-sim-input{width:62px;padding:4px 8px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r);font-family:inherit;font-size:12px;}
+.pdt-sim-input:focus{outline:none;border-color:var(--blue);}
+
+
+/* Summary page */
+.summary-grid { display:grid; grid-template-columns: minmax(0,1.2fr) minmax(320px,0.8fr); gap:12px; margin-bottom:16px; }
+.summary-date-table-wrap, .summary-detail-wrap, .summary-drill-wrap { overflow-x:auto; }
+.table-summary { width:100%; border-collapse:collapse; min-width:780px; }
+.table-summary th, .table-summary td { border:1px solid var(--border); padding:8px 10px; text-align:center; font-size:12px; }
+.table-summary th { background:var(--bg3); color:var(--text2); font-weight:600; }
+.table-summary th.date-group { color:var(--text); cursor:pointer; }
+.table-summary td.row-hd { text-align:left; font-weight:600; white-space:nowrap; background:var(--bg3); }
+.table-summary td.row-sub { text-align:left; color:var(--text2); }
+.table-summary .summary-click { cursor:pointer; transition:background .12s, border-color .12s; }
+.table-summary .summary-click:hover { background:var(--bg3); }
+.table-summary .is-selected { outline:2px solid var(--blue); outline-offset:-2px; }
+.summary-kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-bottom:12px; }
+.summary-kpi { background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.summary-kpi .label { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--text3); margin-bottom:6px; }
+.summary-kpi .val { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+.summary-kpi .sub { font-size:11px; color:var(--text2); margin-top:4px; }
+.table-summary-detail { width:100%; border-collapse:collapse; min-width:980px; }
+.table-summary-detail th, .table-summary-detail td { border-bottom:1px solid var(--border); padding:8px 10px; text-align:center; font-size:12px; }
+.table-summary-detail th { background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+.table-summary-detail td:first-child, .table-summary-detail th:first-child { text-align:left; }
+.table-summary-detail tr:hover td { background:var(--bg3); }
+.table-summary-detail tr.is-selected td { background:rgba(88,166,255,.09); }
+.summary-chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.summary-chip { font-size:11px; padding:4px 10px; border-radius:99px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); cursor:pointer; }
+.summary-chip.active { background:var(--blue-bg); color:var(--blue); border-color:var(--blue); }
+.summary-section-title { font-size:12px; font-weight:700; color:var(--text2); margin:0 0 10px; text-transform:uppercase; letter-spacing:.5px; }
+.summary-empty { padding:20px; color:var(--text3); font-size:13px; text-align:center; }
+.summary-open-btn { font-size:11px; padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg4); color:var(--blue); cursor:pointer; }
+@media (max-width: 980px) { .summary-grid { grid-template-columns:1fr; } }
+
 </style>
 </head>
 <body>
@@ -353,6 +393,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="nav-item active" onclick="showPage('overview')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
     ภาพรวม
+  </div>
+  <div class="nav-item" onclick="showPage('summary')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v3H2zm0 5h12v3H2zm0 5h12v2H2z"/></svg>
+    Summary
   </div>
   <div class="nav-item" onclick="showPage('ranking')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 11h3v4H1zm5-5h3v9H6zm5-5h3v14h-3z"/></svg>
@@ -378,10 +422,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3A1.5 1.5 0 0115 10.5v3A1.5 1.5 0 0113.5 15h-3A1.5 1.5 0 019 13.5v-3z"/></svg>
     Deep Down รายวัน
   </div>
-  <div class="nav-item" onclick="showPage('summary')">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v3H2V2zm0 5h12v3H2V7zm0 5h12v2H2v-2z"/></svg>
-    Summary
-  </div>
 
   <div class="nav-section" style="margin-top:8px;">ตัวกรอง</div>
   <div style="padding:4px 8px 8px;">
@@ -397,10 +437,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">Type Team</div>
     <div style="display:flex;flex-direction:column;gap:3px;">
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
-        <input type="checkbox" id="f-cm" checked onchange="applyFilters()"> <span style="color:var(--cm)">CM</span> <span style="font-size:11px;color:var(--text3)">(base 3)</span>
+        <input type="checkbox" id="f-cm" checked onchange="applyFilters()"> <span style="color:var(--cm)">CM</span> <span style="font-size:11px;color:var(--text3)">(<span id="cm-base-side">base 3</span>)</span>
       </label>
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
-        <input type="checkbox" id="f-ofc" checked onchange="applyFilters()"> <span style="color:var(--ofc)">OFC</span> <span style="font-size:11px;color:var(--text3)">(base 2)</span>
+        <input type="checkbox" id="f-ofc" checked onchange="applyFilters()"> <span style="color:var(--ofc)">OFC</span> <span style="font-size:11px;color:var(--text3)">(<span id="ofc-base-side">base 2</span>)</span>
       </label>
     </div>
     <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">Province</div>
@@ -415,9 +455,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <select id="f-month" style="width:100%;" onchange="applyFilters()">
       <option value="">ทั้งหมด</option>
     </select>
-    <div style="font-size:11px;color:var(--text3);margin:8px 0 5px;">ช่วงวันที่</div>
-    <input id="f-date-from" type="date" style="width:100%;margin-bottom:6px;font-family:inherit;font-size:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;" onchange="applyFilters()">
-    <input id="f-date-to" type="date" style="width:100%;font-family:inherit;font-size:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:5px 8px;" onchange="applyFilters()">
     <div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
       <img src="data:image/webp;base64,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" alt="MAXMA AI" style="max-width:100%;height:auto;display:block;opacity:.96;filter:drop-shadow(0 0 10px rgba(88,166,255,.12));">
     </div>
@@ -442,8 +479,21 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="header-meta">
       <span class="badge nor1">NOR1</span>
       <span class="badge nor2">NOR2</span>
-      <span class="badge cm">CM base:3</span>
-      <span class="badge ofc">OFC base:2</span>
+      <span class="badge cm" id="cm-base-badge">CM base:3</span>
+      <span class="badge ofc" id="ofc-base-badge">OFC base:2</span>
+      <div class="pdt-sim-wrap" title="จำลองค่า baseline PDT ใหม่โดยไม่ต้อง rebuild cache">
+        <span class="pdt-sim-title">PDT Simulator</span>
+        <div class="pdt-sim-group">
+          <span class="pdt-sim-label">CM</span>
+          <input class="pdt-sim-input" id="sim-cm-base" type="number" min="0" step="0.1" value="3" onchange="applySimBase()" onkeydown="handleSimBaseKey(event)">
+        </div>
+        <div class="pdt-sim-group">
+          <span class="pdt-sim-label">OFC</span>
+          <input class="pdt-sim-input" id="sim-ofc-base" type="number" min="0" step="0.1" value="2" onchange="applySimBase()" onkeydown="handleSimBaseKey(event)">
+        </div>
+        <button class="btn" onclick="applySimBase()">Apply PDT</button>
+        <button class="btn" onclick="resetSimBase()">Reset Default</button>
+      </div>
       <span style="font-size:11px;color:var(--text3);" id="filter-status">ทุก Region · ทุก Type</span>
       <button class="btn" onclick="rebuildNow()">Rebuild Cache</button>
       <button class="btn" onclick="reloadDashboardOnly()">Reload View</button>
@@ -516,6 +566,67 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
         </div>
         <div style="overflow-x:auto;width:100%;"><div id="pivot-container" style="width:100%;"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: SUMMARY -->
+  <div class="page" id="page-summary">
+    <div class="content">
+      <div class="summary-grid">
+        <div class="full-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <div class="chart-title" style="margin-bottom:0;">จำนวนทีม Active รายวัน</div>
+            <div style="font-size:11px;color:var(--text3);">นับจากทีมที่มีงานตามคอลัมน์ Plan ในแต่ละวัน</div>
+          </div>
+          <div class="chart-wrap" style="height:300px;"><canvas id="chart-summary-active"></canvas></div>
+        </div>
+        <div class="full-card">
+          <div class="section-title" style="margin-bottom:10px;">Summary Controls</div>
+          <div class="summary-chip-row" id="summary-type-chips">
+            <button class="summary-chip active" onclick="setSummaryDetailType('ALL')" id="summary-type-all">ทั้งหมด</button>
+            <button class="summary-chip" onclick="setSummaryDetailType('CM')" id="summary-type-cm">CM</button>
+            <button class="summary-chip" onclick="setSummaryDetailType('OFC')" id="summary-type-ofc">OFC</button>
+          </div>
+          <div class="summary-kpis" id="summary-kpis"></div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.6;">
+            คลิกหัววันที่ในตารางด้านล่างเพื่อเลือกวัน<br>
+            คลิกแถวจังหวัดเพื่อ drill down ไปดูรายทีม<br>
+            ค่า Capacity ใช้ baseline จาก PDT Simulator ด้านบน
+          </div>
+        </div>
+      </div>
+
+      <div class="full-card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <div class="chart-title" style="margin-bottom:0;">Summary รายวันแบบ Slide</div>
+          <div style="font-size:11px;color:var(--text3);">คลิกหัววันที่เพื่อเปิดรายละเอียด</div>
+        </div>
+        <div class="summary-date-table-wrap" id="summary-date-table-wrap"></div>
+      </div>
+
+      <div class="full-card" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <div class="chart-title" style="margin-bottom:2px;">Detail รายวัน</div>
+            <div id="summary-detail-caption" style="font-size:11px;color:var(--text3);"></div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:11px;color:var(--text3);">จังหวัด:</span>
+            <div class="summary-chip-row" id="summary-prov-chips" style="margin:0;"></div>
+          </div>
+        </div>
+        <div class="summary-detail-wrap" id="summary-detail-wrap"></div>
+      </div>
+
+      <div class="full-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <div class="chart-title" style="margin-bottom:2px;">Drill Down รายทีม</div>
+            <div id="summary-drill-caption" style="font-size:11px;color:var(--text3);"></div>
+          </div>
+        </div>
+        <div class="summary-drill-wrap" id="summary-drill-wrap"></div>
       </div>
     </div>
   </div>
@@ -678,26 +789,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
-  <!-- PAGE: SUMMARY -->
-  <div class="page" id="page-summary">
-    <div class="content">
-      <div class="full-card" style="margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-          <div>
-            <div class="chart-title" style="margin-bottom:4px;">จำนวนทีม Active รายวัน</div>
-            <div style="font-size:11px;color:var(--text3);">Active team = ทีมที่มีการทำงานจริงในวันนั้น (มี Travel / Start / Hold / Link Up)</div>
-          </div>
-          <div style="font-size:11px;color:var(--text2);">Baseline: CM 46 ทีม · OFC 113 ทีม</div>
-        </div>
-        <div class="chart-wrap" style="height:360px;"><canvas id="chart-summary-active"></canvas></div>
-      </div>
-      <div class="full-card">
-        <div class="chart-title">สรุปช่วงวันที่ที่เลือก</div>
-        <div id="summary-range-info" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- PAGE: TEAM BOUNDARY -->
   <div class="page" id="page-boundary">
     <div class="content">
@@ -776,6 +867,10 @@ async function fetchAndInit(){
       lu.textContent = `${(RAW.ts||[]).length} ทีม · ${(RAW.gstats||{}).total_tkt || 0} tickets · cache ${RAW.cached_at}`;
     }
 
+    defaultBaseCM = Number((RAW.baseConfig||{}).CM ?? 3);
+    defaultBaseOFC = Number((RAW.baseConfig||{}).OFC ?? 2);
+    simBaseCM = defaultBaseCM;
+    simBaseOFC = defaultBaseOFC;
     if(ov)ov.style.display='none';
     init();
   }catch(e){
@@ -875,7 +970,7 @@ function renderRanking(ft) {
   const maxWdAvg = Math.max(...sortedRD.map(r=>r.wd_avg||0), 1);
 
   // Color helpers
-  const col = (v, base) => v>=base?'#3fb950':v>=base-0.5?'#e3b341':'#f85149';
+  const col = (v, base) => classifyVS(v-base)==='above'?'#3fb950':classifyVS(v-base)==='near'?'#e3b341':'#f85149';
 
   // Build table header
   const sortIcon = (key) => {
@@ -894,7 +989,7 @@ let thWdAvg = '<th' + thStyle('wd_avg') + ' data-sortkey="wd_avg" class="rk-mo-c
 
   // Build table rows
   const rows = sortedRD.map((r,i) => {
-    const base = r.type==='CM' ? 3 : 2;
+    const base = getTeamBase(r);
     const typeCol = r.type==='CM' ? 'var(--cm)' : 'var(--ofc)';
     const regCol  = ['CMI','CRI','MHS','NAN','LPG','PHE','LPN','PYO'].includes(r.prov)
                     ? 'var(--nor1)' : 'var(--nor2)';
@@ -1187,7 +1282,7 @@ function buildAnalysisCard(t){
   else if(hrs<3&&hrs>0)findings.push({icon:'⏱',sev:'med',text:'ชั่วโมงทำงานน้อย avg '+hrs.toFixed(1)+' ชม./วัน'});
   const qh=s.qh||{};const slowQ=Object.entries(qh).filter(([q,h])=>h>5).map(([q,h])=>q+'='+h+'ชม.');
   if(slowQ.length)findings.push({icon:'🕐',sev:'low',text:'Que ที่ใช้เวลานาน: '+slowQ.slice(0,4).join(', ')});
-  if(t.max2>=t.base*2)findings.push({icon:'📈',sev:'info',text:'มีศักยภาพ — max '+t.max2+' งาน/วัน แต่ไม่สม่ำเสมอ'});
+  if(t.max2>=getTeamBase(t)*2)findings.push({icon:'📈',sev:'info',text:'มีศักยภาพ — max '+t.max2+' งาน/วัน แต่ไม่สม่ำเสมอ'});
   if((s.z||0)>0)findings.push({icon:'📅',sev:(s.z||0)>10?'med':'low',text:'มีวันที่ไม่มี output '+(s.z||0)+' วัน'});
   if(s.c1&&s.c1.length)findings.push({icon:'🔍',sev:'info',text:'สาเหตุหลัก: '+s.c1.slice(0,2).join(' / ')});
   const logText=(s.logs||[]).join(' ').toLowerCase();
@@ -1211,7 +1306,7 @@ function buildAnalysisCard(t){
     '<span class="badge '+typeClass+'">'+t.type+'</span>'+
     '<span style="color:'+regCol+';font-size:12px;">'+t.reg+' · '+t.prov+'</span>'+
     '<span class="pill below"><span class="pill-dot"></span>'+gap+' ต่ำกว่า baseline</span>'+
-    '<span style="font-size:12px;color:var(--text3);margin-left:auto;">avg <strong style="color:var(--text)">'+getPDT(t).toFixed(2)+'</strong> งาน/วัน · base='+t.base+' · '+t.days+' วัน</span>'+
+    '<span style="font-size:12px;color:var(--text3);margin-left:auto;">avg <strong style="color:var(--text)">'+getPDT(t).toFixed(2)+'</strong> งาน/วัน · base='+fmtBase(getTeamBase(t))+' · '+t.days+' วัน</span>'+
     '</div>'+areaHtml+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+
     '<div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:8px;">ผลการวิเคราะห์</div>'+
     findings.map(f=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 8px;margin-bottom:4px;background:'+sevBg[f.sev]+';border-radius:5px;border-left:2px solid '+sevColor[f.sev]+';"><span style="font-size:13px;flex-shrink:0;">'+f.icon+'</span><span style="font-size:12px;color:var(--text);line-height:1.4;">'+f.text+'</span></div>').join('')+
@@ -1380,7 +1475,7 @@ function loadDrill(){
   let html='';
   Object.entries(filteredDates).forEach(([dt,rows])=>{
     const dayP1=rows.reduce((s,r)=>s+r[15],0),dayP2=rows.reduce((s,r)=>s+r[16],0);
-    const dayPDT=pdtMode===2?dayP2:dayP1,base=t.base||0;
+    const dayPDT=pdtMode===2?dayP2:dayP1,base=getTeamBase(t);
     const barCol=dayPDT>=base?'var(--green)':dayPDT>=base-0.5?'var(--amber)':'var(--red)';
     html+='<div class="drill-day-header" onclick="toggleDay(this)"><span style="color:var(--text2)">'+dt+'</span>&nbsp;&nbsp;<span style="font-size:10px;color:var(--text3);">'+rows.length+' งาน</span>&nbsp;&nbsp;<span style="font-size:11px;font-weight:600;color:'+barCol+'">PDT'+pdtMode+'='+dayPDT+'</span><span class="expand-icon">▾</span></div>';
     html+='<div class="drill-day-body"><table class="drill"><thead><tr><th>Ticket</th><th>Type</th><th>SLA</th><th>Subject</th><th>Que</th><th>เดินทาง</th><th>เริ่มซ่อม</th><th>Hold</th><th>Link Up</th><th>Status</th><th>สาเหตุ Hold</th><th>Update Log</th><th>สาเหตุ 1</th><th>วิธีแก้ไข</th><th>รายละเอียด</th></tr></thead><tbody>';
@@ -1445,6 +1540,14 @@ let rankSortDir = -1;
 let chartTrend = null, chartStatus = null, chartHeatBarNor1 = null, chartHeatBarNor2 = null, detailChart = null;
 let trendGranularity = 'month';
 let heatType = 'ALL';
+let defaultBaseCM = 3;
+let defaultBaseOFC = 2;
+let simBaseCM = 3;
+let simBaseOFC = 2;
+let chartSummaryActive = null;
+let summarySelectedDate = '';
+let summaryDetailType = 'ALL';
+let summarySelectedProv = '';
 
 function br(s, max) { if(!s)return''; var r=String(s).slice(0,max).replace(/\n/g,'<br>').replace(/\r/g,''); return r+(String(s).length>max?'\u2026':''); }
 
@@ -1475,9 +1578,56 @@ function setHeatType(t) {
 }
 
 function getPDT(t) { return pdtMode===2 ? (t.p2||0) : (t.p1||0); }
-function getVS(t)  { return pdtMode===2 ? (t.vs2||0) : (t.vs1||0); }
+function getTeamBase(t) {
+  if (!t) return 0;
+  return t.type==='CM' ? Number(simBaseCM||0) : Number(simBaseOFC||0);
+}
+function classifyVS(vs) {
+  return vs >= 0 ? 'above' : (vs >= -0.5 ? 'near' : 'below');
+}
+function getVS(t)  { return round2(getPDT(t) - getTeamBase(t)); }
 function getTot(t) { return pdtMode===2 ? (t.tot2||0) : (t.tot1||0); }
 function getMax(t) { return pdtMode===2 ? (t.max2||0) : (t.max1||0); }
+function round2(v){ return Math.round((Number(v)||0) * 100) / 100; }
+function fmtBase(v){ return Number.isInteger(v) ? String(v) : v.toFixed(1); }
+function syncBaseUI() {
+  const cmBadge=document.getElementById('cm-base-badge');
+  const ofcBadge=document.getElementById('ofc-base-badge');
+  const cmSide=document.getElementById('cm-base-side');
+  const ofcSide=document.getElementById('ofc-base-side');
+  const cmInput=document.getElementById('sim-cm-base');
+  const ofcInput=document.getElementById('sim-ofc-base');
+  if (cmBadge) cmBadge.textContent='CM base:'+fmtBase(simBaseCM);
+  if (ofcBadge) ofcBadge.textContent='OFC base:'+fmtBase(simBaseOFC);
+  if (cmSide) cmSide.textContent='base '+fmtBase(simBaseCM);
+  if (ofcSide) ofcSide.textContent='base '+fmtBase(simBaseOFC);
+  if (cmInput && document.activeElement!==cmInput) cmInput.value=fmtBase(simBaseCM);
+  if (ofcInput && document.activeElement!==ofcInput) ofcInput.value=fmtBase(simBaseOFC);
+}
+function applySimBase() {
+  const cmEl=document.getElementById('sim-cm-base');
+  const ofcEl=document.getElementById('sim-ofc-base');
+  let nextCM=parseFloat(cmEl?.value);
+  let nextOFC=parseFloat(ofcEl?.value);
+  if (!Number.isFinite(nextCM) || nextCM < 0) nextCM=defaultBaseCM;
+  if (!Number.isFinite(nextOFC) || nextOFC < 0) nextOFC=defaultBaseOFC;
+  simBaseCM=round2(nextCM);
+  simBaseOFC=round2(nextOFC);
+  syncBaseUI();
+  renderAll();
+}
+function resetSimBase() {
+  simBaseCM=defaultBaseCM;
+  simBaseOFC=defaultBaseOFC;
+  syncBaseUI();
+  renderAll();
+}
+function handleSimBaseKey(ev) {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    applySimBase();
+  }
+}
 
 
 function getBoundaryInfo(teamId) {
@@ -1510,9 +1660,9 @@ function getMonthAdjustedTeam(t) {
     days: ms.days || 0,
     max1: ms.max1 || 0,
     max2: ms.max2 || 0,
-    vs1: ms.vs1 || 0,
-    vs2: ms.vs2 || 0,
-    st: ms.st || 'near',
+    vs1: 0,
+    vs2: 0,
+    st: classifyVS((pdtMode===2 ? (ms.p2 || 0) : (ms.p1 || 0)) - getTeamBase({type:t.type})),
     tkt: ms.tkt || 0,
     non: ms.non || 0,
   };
@@ -1741,6 +1891,270 @@ function pivotStatusCells(d, bold) {
          '</td>';
 }
 
+function getSummaryDaysFiltered() {
+  const ftMap = new Map(getFilteredTeams().map(t => [t.id, t]));
+  let days = (RAW.summaryDaily || []).map(day => {
+    const teams = (day.teams || []).map(r => {
+      const meta = ftMap.get(r.id);
+      if (!meta) return null;
+      return {
+        ...r,
+        reg: meta.reg || r.reg,
+        pn: meta.pn || ((RAW.prov||{})[meta.prov || r.prov] || (meta.prov || r.prov)),
+      };
+    }).filter(Boolean);
+    return { date: day.date, teams };
+  }).filter(day => day.teams.length > 0);
+  if (filterMonth) days = days.filter(day => String(day.date||'').startsWith(filterMonth));
+  return days.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+function getSummaryTypeBase(type) {
+  return type === 'CM' ? Number(simBaseCM || 0) : Number(simBaseOFC || 0);
+}
+
+function fmtCap(v) {
+  return Number.isInteger(v) ? String(v) : Number(v).toFixed(1);
+}
+
+function summaryBucketKey(pdt) {
+  if (pdt > 3) return '>3';
+  return String(Math.max(0, Math.round(Number(pdt) || 0)));
+}
+
+function setSummaryDetailType(type) {
+  summaryDetailType = type;
+  document.getElementById('summary-type-all')?.classList.toggle('active', type==='ALL');
+  document.getElementById('summary-type-cm')?.classList.toggle('active', type==='CM');
+  document.getElementById('summary-type-ofc')?.classList.toggle('active', type==='OFC');
+  summarySelectedProv = '';
+  renderSummary();
+}
+
+function setSummaryDate(dateStr) {
+  summarySelectedDate = dateStr || '';
+  summarySelectedProv = '';
+  renderSummary();
+}
+
+function setSummaryProv(prov) {
+  summarySelectedProv = prov || '';
+  renderSummaryProvChips();
+  renderSummaryDrill();
+}
+
+function renderSummaryProvChips(provs) {
+  const el = document.getElementById('summary-prov-chips');
+  if (!el) return;
+  const list = provs || [];
+  const items = ['<button class="summary-chip '+(!summarySelectedProv?'active':'')+'" onclick="setSummaryProv(\'\')">ทุกจังหวัด</button>'];
+  list.forEach(p => {
+    const name = (RAW.prov||{})[p] || p;
+    items.push('<button class="summary-chip '+(summarySelectedProv===p?'active':'')+'" onclick="setSummaryProv(\''+p+'\')">'+p+' · '+name+'</button>');
+  });
+  el.innerHTML = items.join('');
+}
+
+function renderSummaryChart(days) {
+  const el = document.getElementById('chart-summary-active');
+  if (!el) return;
+  const labels = days.map(d => d.date);
+  const cm = days.map(d => d.teams.filter(t => t.type==='CM').length);
+  const ofc = days.map(d => d.teams.filter(t => t.type==='OFC').length);
+  const ctx = el.getContext('2d');
+  if (chartSummaryActive) chartSummaryActive.destroy();
+  chartSummaryActive = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 },
+        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e6edf3', boxWidth: 12 } },
+        tooltip: { callbacks: { footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : '' } }
+      },
+      scales: {
+        x: { ticks: { color: '#8b949e', maxRotation: 50, minRotation: 35 }, grid: { color: 'rgba(255,255,255,.06)' } },
+        y: { beginAtZero: true, ticks: { color: '#8b949e', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } }
+      }
+    }
+  });
+}
+
+function renderSummaryOverview(days) {
+  const wrap = document.getElementById('summary-date-table-wrap');
+  const kpiEl = document.getElementById('summary-kpis');
+  if (!wrap || !kpiEl) return;
+  if (!days.length) {
+    wrap.innerHTML = '<div class="summary-empty">ไม่พบข้อมูล summary ตาม filter ปัจจุบัน</div>';
+    kpiEl.innerHTML = '';
+    return;
+  }
+  if (!summarySelectedDate || !days.some(d => d.date===summarySelectedDate)) summarySelectedDate = days[days.length-1].date;
+  const shown = days.slice(-7);
+  const ft = getFilteredTeams();
+  const totalCM = ft.filter(t=>t.type==='CM').length;
+  const totalOFC = ft.filter(t=>t.type==='OFC').length;
+  const totalAll = ft.length;
+  const mkCell = (day, type) => {
+    const active = type==='ALL' ? day.teams.length : day.teams.filter(t=>t.type===type).length;
+    const total = type==='ALL' ? totalAll : (type==='CM' ? totalCM : totalOFC);
+    const pct = total ? ((active/total)*100).toFixed(2)+'%' : '0.00%';
+    return { active, total, pct };
+  };
+  const latest = days.find(d=>d.date===summarySelectedDate) || days[days.length-1];
+  const latestCM = mkCell(latest, 'CM');
+  const latestOFC = mkCell(latest, 'OFC');
+  const latestAll = mkCell(latest, 'ALL');
+  kpiEl.innerHTML = [
+    ['วันที่เลือก', summarySelectedDate, latestAll.active+' ทีม active'],
+    ['CM Active', latestCM.active, latestCM.pct+' ของทีม CM ทั้งหมด'],
+    ['OFC Active', latestOFC.active, latestOFC.pct+' ของทีม OFC ทั้งหมด'],
+    ['รวม Active', latestAll.active, latestAll.pct+' ของทุกทีมใน filter']
+  ].map(([a,b,c]) => '<div class="summary-kpi"><div class="label">'+a+'</div><div class="val">'+b+'</div><div class="sub">'+c+'</div></div>').join('');
+
+  let html = '<table class="table-summary"><thead><tr><th rowspan="2" style="min-width:110px;">Type</th>';
+  shown.forEach(day=>{ html += '<th colspan="3" class="date-group '+(day.date===summarySelectedDate?'is-selected':'')+'" onclick="setSummaryDate(\''+day.date+'\')">'+day.date+'</th>'; });
+  html += '</tr><tr>';
+  shown.forEach(()=>{ html += '<th>Team</th><th>Plan</th><th>% Actual</th>'; });
+  html += '</tr></thead><tbody>';
+  [['CM','CM'],['OFC','OFC'],['Total','ALL']].forEach(([label,type]) => {
+    html += '<tr><td class="row-hd">'+label+'</td>';
+    shown.forEach(day => {
+      const c = mkCell(day, type);
+      html += '<td>'+c.total+'</td><td class="summary-click '+(day.date===summarySelectedDate?'is-selected':'')+'" onclick="setSummaryDate(\''+day.date+'\')">'+c.active+'</td><td>'+c.pct+'</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function computeSummaryProvinceRows(day, type) {
+  const ft = getFilteredTeams().filter(t => type==='ALL' ? true : t.type===type);
+  const totalsByProv = {};
+  ft.forEach(t => { totalsByProv[t.prov] = (totalsByProv[t.prov] || 0) + 1; });
+  const activeByProv = {};
+  (day?.teams || []).filter(t => type==='ALL' ? true : t.type===type).forEach(t => {
+    if (!activeByProv[t.prov]) activeByProv[t.prov] = [];
+    activeByProv[t.prov].push(t);
+  });
+  const provs = Array.from(new Set([...Object.keys(totalsByProv), ...Object.keys(activeByProv)])).sort();
+  const base = type==='ALL' ? 0 : getSummaryTypeBase(type);
+  const rows = provs.map(prov => {
+    const activeTeams = activeByProv[prov] || [];
+    const teamTotal = totalsByProv[prov] || 0;
+    const active = activeTeams.length;
+    const cap = type==='ALL'
+      ? round2((totalsByProv[prov] || 0) * 0) // placeholder
+      : round2(teamTotal * base);
+    const wo = activeTeams.reduce((s, t) => s + (pdtMode===2 ? Number(t.p2||0) : Number(t.p1||0)), 0);
+    const bucket = {'0':0,'1':0,'2':0,'3':0,'>3':0};
+    activeTeams.forEach(t => { bucket[summaryBucketKey(pdtMode===2 ? t.p2 : t.p1)] += 1; });
+    return { prov, teamTotal, active, cap, pct: teamTotal ? round2(active/teamTotal*100) : 0, wo, bucket, teams: activeTeams };
+  });
+  if (type==='ALL') {
+    rows.forEach(r => {
+      const cmTotal = getFilteredTeams().filter(t=>t.type==='CM' && t.prov===r.prov).length;
+      const ofcTotal = getFilteredTeams().filter(t=>t.type==='OFC' && t.prov===r.prov).length;
+      r.cap = round2(cmTotal * getSummaryTypeBase('CM') + ofcTotal * getSummaryTypeBase('OFC'));
+    });
+  }
+  return rows.sort((a,b) => (b.active - a.active) || a.prov.localeCompare(b.prov));
+}
+
+function renderSummaryDetail() {
+  const wrap = document.getElementById('summary-detail-wrap');
+  const capEl = document.getElementById('summary-detail-caption');
+  if (!wrap || !capEl) return;
+  const days = getSummaryDaysFiltered();
+  if (!days.length) {
+    wrap.innerHTML = '<div class="summary-empty">ไม่พบข้อมูล detail</div>';
+    capEl.textContent = '';
+    renderSummaryProvChips([]);
+    return;
+  }
+  const day = days.find(d => d.date===summarySelectedDate) || days[days.length-1];
+  if (summarySelectedDate !== day.date) summarySelectedDate = day.date;
+  const types = summaryDetailType==='ALL' ? ['CM','OFC'] : [summaryDetailType];
+  capEl.textContent = 'วันที่ ' + day.date + ' · PDT mode ' + pdtMode + ' · CM base=' + fmtBase(simBaseCM) + ' · OFC base=' + fmtBase(simBaseOFC);
+  const provSet = new Set();
+  let html = '';
+  types.forEach(type => {
+    const rows = computeSummaryProvinceRows(day, type);
+    rows.forEach(r => provSet.add(r.prov));
+    const totalTeams = rows.reduce((s,r)=>s+r.teamTotal,0);
+    const totalActive = rows.reduce((s,r)=>s+r.active,0);
+    const totalCap = rows.reduce((s,r)=>s+Number(r.cap||0),0);
+    const totalWO = rows.reduce((s,r)=>s+r.wo,0);
+    const totalBucket = {'0':0,'1':0,'2':0,'3':0,'>3':0};
+    rows.forEach(r => Object.keys(totalBucket).forEach(k => totalBucket[k]+=r.bucket[k]||0));
+    html += '<div class="summary-section-title">'+type+'</div>';
+    html += '<table class="table-summary-detail"><thead><tr><th>Province</th><th>Team Total</th><th>Working Plan</th><th>Cap. Plan</th><th>% Working</th><th>WO Closed</th><th>PDT=0</th><th>PDT=1</th><th>PDT=2</th><th>PDT=3</th><th>PDT&gt;3</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      html += '<tr class="summary-click '+((summarySelectedProv===r.prov || (!summarySelectedProv && r===rows[0]))?'is-selected':'')+'" onclick="setSummaryProv(\''+r.prov+'\')"><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td>'+r.teamTotal+'</td><td>'+r.active+'</td><td>'+fmtCap(r.cap)+'</td><td>'+r.pct.toFixed(2)+'%</td><td>'+r.wo+'</td><td>'+r.bucket['0']+'</td><td>'+r.bucket['1']+'</td><td>'+r.bucket['2']+'</td><td>'+r.bucket['3']+'</td><td>'+r.bucket['>3']+'</td></tr>';
+    });
+    html += '<tr style="font-weight:700;background:var(--bg3);"><td>Total</td><td>'+totalTeams+'</td><td>'+totalActive+'</td><td>'+fmtCap(round2(totalCap))+'</td><td>'+(totalTeams?round2(totalActive/totalTeams*100).toFixed(2):'0.00')+'%</td><td>'+totalWO+'</td><td>'+totalBucket['0']+'</td><td>'+totalBucket['1']+'</td><td>'+totalBucket['2']+'</td><td>'+totalBucket['3']+'</td><td>'+totalBucket['>3']+'</td></tr>';
+    html += '</tbody></table><div style="height:14px;"></div>';
+  });
+  wrap.innerHTML = html || '<div class="summary-empty">ไม่พบข้อมูล detail</div>';
+  const provs = Array.from(provSet).sort();
+  if (summarySelectedProv && !provs.includes(summarySelectedProv)) summarySelectedProv = '';
+  if (!summarySelectedProv && provs.length) summarySelectedProv = provs[0];
+  renderSummaryProvChips(provs);
+  renderSummaryDrill();
+}
+
+function renderSummaryDrill() {
+  const wrap = document.getElementById('summary-drill-wrap');
+  const capEl = document.getElementById('summary-drill-caption');
+  if (!wrap || !capEl) return;
+  const days = getSummaryDaysFiltered();
+  const day = days.find(d => d.date===summarySelectedDate) || days[days.length-1];
+  if (!day) {
+    wrap.innerHTML = '<div class="summary-empty">ไม่พบข้อมูล drill down</div>';
+    capEl.textContent = '';
+    return;
+  }
+  let rows = (day.teams || []).filter(t => summaryDetailType==='ALL' ? true : t.type===summaryDetailType);
+  if (summarySelectedProv) rows = rows.filter(t => t.prov===summarySelectedProv);
+  rows = rows.map(t => {
+    const pdt = pdtMode===2 ? Number(t.p2||0) : Number(t.p1||0);
+    const base = getSummaryTypeBase(t.type);
+    const cls = classifyVS(round2(pdt - base));
+    return { ...t, pdt, base, cls };
+  }).sort((a,b) => (b.pdt-a.pdt) || a.id.localeCompare(b.id));
+  capEl.textContent = 'วันที่ ' + summarySelectedDate + (summarySelectedProv ? ' · จังหวัด ' + summarySelectedProv : ' · ทุกจังหวัด') + ' · จำนวนทีม ' + rows.length;
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="summary-empty">ไม่พบทีมตามเงื่อนไขที่เลือก</div>';
+    return;
+  }
+  let html = '<table class="table-summary-detail"><thead><tr><th>Team ID</th><th>Type</th><th>Province</th><th>PDT</th><th>Base</th><th>vs Base</th><th>Status</th><th>WO Closed</th><th>Rows</th><th>เปิดรายวัน</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const vs = round2(r.pdt - r.base);
+    const color = r.cls==='above' ? 'var(--green)' : (r.cls==='near' ? 'var(--amber)' : 'var(--red)');
+    html += '<tr><td class="mono">'+r.id+'</td><td>'+r.type+'</td><td>'+r.prov+' · '+((RAW.prov||{})[r.prov]||r.prov)+'</td><td style="font-weight:700;color:'+color+'">'+r.pdt+'</td><td>'+fmtBase(r.base)+'</td><td style="color:'+color+'">'+vs+'</td><td><span class="pill '+r.cls+'"><span class="pill-dot"></span>'+r.cls+'</span></td><td>'+r.pdt+'</td><td>'+r.rows+'</td><td><button class="summary-open-btn" onclick="openDrillForTeam(\''+r.id+'\')">เปิด Deep Down</button></td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function renderSummary() {
+  const days = getSummaryDaysFiltered();
+  const summaryPage = document.getElementById('page-summary');
+  if (!summaryPage) return;
+  renderSummaryChart(days);
+  renderSummaryOverview(days);
+  renderSummaryDetail();
+}
+
 function renderAll() {
   const ft = getFilteredTeams();
   renderKPI(ft);
@@ -1752,6 +2166,7 @@ function renderAll() {
   renderTeamTable();
   renderAnalysis(ft);
   renderPivot(ft);
+  renderSummary();
   renderBoundary();
   updateBoundaryMap();
   if (document.getElementById('drill-team-sel') && document.getElementById('drill-team-sel').value) loadDrill();
@@ -1785,6 +2200,7 @@ function init() {
   initDrillSelects();
   initBoundary();
   updateTrendTitle();
+  syncBaseUI();
   renderAll();
 }
 
@@ -1796,13 +2212,14 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['overview','ranking','heatmap','team','analysis','boundary','drill'][i]===id);
+    el.classList.toggle('active', ['overview','summary','ranking','heatmap','team','analysis','boundary','drill'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
   if (pc) pc.scrollTop = 0;
   // Re-render charts when switching to that page (canvas needs visible parent)
   if (id==='overview') { setTimeout(()=>{ renderTrend(); renderStatusChart(getFilteredTeams()); },50); }
+  if (id==='summary')  { setTimeout(()=>renderSummary(),50); }
   if (id==='heatmap')  { setTimeout(()=>renderHeatmap(),50); }
   if (id==='boundary') { initBoundaryMap(); }
 }
@@ -2268,7 +2685,7 @@ function openTeamDetail(tid) {
     '<div class="dg-card"><div class="dg-label">สูงสุด/วัน</div><div class="dg-val">'+getMax(t)+'</div></div>' +
     '<div class="dg-card"><div class="dg-label">วันทำงาน</div><div class="dg-val">'+t.days+'</div></div>' +
     '<div class="dg-card"><div class="dg-label">Avg ชม./วัน</div><div class="dg-val">'+(t.h||0).toFixed(1)+'</div></div>' +
-    '<div class="dg-card"><div class="dg-label">Baseline</div><div class="dg-val" style="color:var(--text3)">'+t.base+'</div></div>';
+    '<div class="dg-card"><div class="dg-label">Baseline</div><div class="dg-val" style="color:var(--text3)">'+fmtBase(getTeamBase(t))+'</div></div>';
   // Weekly chart
   const wkData = (RAW.wk||[]).filter(w=>w.tid===tid).sort((a,b)=>a.wk.localeCompare(b.wk));
   const wkLabels = wkData.map(w=>w.wk.replace(/^\d+-W/,'W'));
@@ -2499,170 +2916,6 @@ function renderPivot(ft) {
 
 
 
-</script>
-<script>
-let filterDateFrom = '';
-let filterDateTo = '';
-let chartSummaryActive = null;
-const CM_ACTIVE_BASELINE = 46;
-const OFC_ACTIVE_BASELINE = 113;
-
-function byToAdDate(v){ if(!v) return ''; const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return ''; let y=+m[1], mo=m[2], d=m[3]; if(y>2400) y-=543; return `${y.toString().padStart(4,'0')}-${mo}-${d}`; }
-function adToByDate(v){ if(!v) return ''; const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return ''; return `${(+m[1]+543).toString().padStart(4,'0')}-${m[2]}-${m[3]}`; }
-function hasDateRange(){ return !!(filterDateFrom || filterDateTo); }
-function inSelectedDateRange(byDate){
-  if(!byDate) return false;
-  if(filterDateFrom && byDate < filterDateFrom) return false;
-  if(filterDateTo && byDate > filterDateTo) return false;
-  return !filterMonth || byDate.slice(0,7)===filterMonth;
-}
-function fmtDateRangeStatus(){
-  if(!hasDateRange()) return '';
-  const from = filterDateFrom ? filterDateFrom : 'เริ่มต้นทั้งหมด';
-  const to = filterDateTo ? filterDateTo : 'จนถึงล่าสุด';
-  return `${from} ถึง ${to}`;
-}
-function round2(v){ return Math.round((Number(v)||0)*100)/100; }
-
-const _initOriginal = init;
-init = function(){
-  _initOriginal();
-  const fromEl = document.getElementById('f-date-from');
-  const toEl = document.getElementById('f-date-to');
-  const b = RAW.dateBounds || {};
-  if(fromEl){ if(b.min) fromEl.min = b.min; if(b.max) fromEl.max = b.max; if(!fromEl.value) fromEl.value = ''; }
-  if(toEl){ if(b.min) toEl.min = b.min; if(b.max) toEl.max = b.max; if(!toEl.value) toEl.value = ''; }
-  renderSummaryPage();
-};
-
-resetAllFilters = (function(orig){ return function(){ orig(); const f=document.getElementById('f-date-from'); const t=document.getElementById('f-date-to'); if(f) f.value=''; if(t) t.value=''; filterDateFrom=''; filterDateTo=''; renderAll(); }; })(resetAllFilters);
-
-applyFilters = function() {
-  filterReg = new Set();
-  if (document.getElementById('f-nor1').checked) filterReg.add('NOR1');
-  if (document.getElementById('f-nor2').checked) filterReg.add('NOR2');
-  filterType = new Set();
-  if (document.getElementById('f-cm').checked) filterType.add('CM');
-  if (document.getElementById('f-ofc').checked) filterType.add('OFC');
-  filterProv  = document.getElementById('f-prov').value;
-  filterTeam  = document.getElementById('f-team').value;
-  filterMonth = document.getElementById('f-month').value;
-  filterDateFrom = adToByDate(document.getElementById('f-date-from')?.value || '');
-  filterDateTo = adToByDate(document.getElementById('f-date-to')?.value || '');
-  const parts = [];
-  if (filterReg.size < 2) parts.push([...filterReg].join(', '));
-  if (filterType.size < 2) parts.push([...filterType].join(', '));
-  if (filterProv) parts.push(filterProv);
-  if (filterTeam) parts.push(filterTeam);
-  if (filterMonth) parts.push((RAW.ml||{})[filterMonth] || filterMonth);
-  if (hasDateRange()) parts.push(fmtDateRangeStatus());
-  document.getElementById('filter-status').textContent = parts.length ? parts.join(' · ') : 'ทุก Region · ทุก Type';
-  initDrillSelects();
-  renderAll();
-}
-
-getFilteredTeams = function() {
-  return (RAW.ts||[])
-    .map(t => {
-      if (hasDateRange()) {
-        const stats = t.dailyStats || {};
-        const entries = Object.entries(stats).filter(([d]) => inSelectedDateRange(d));
-        if (!entries.length) return null;
-        let tot1=0, tot2=0, days=0, max1=0, max2=0, tkt=0, non=0;
-        entries.forEach(([d,s]) => { days += 1; tot1 += Number(s.p1||0); tot2 += Number(s.p2||0); max1 = Math.max(max1, Number(s.p1||0)); max2 = Math.max(max2, Number(s.p2||0)); tkt += Number(s.tkt||0); non += Number(s.non||0); });
-        const p1 = days ? round2(tot1/days) : 0;
-        const p2 = days ? round2(tot2/days) : 0;
-        const base = t.base || (t.type==='CM' ? 3 : 2);
-        return {...t, p1, p2, tot1, tot2, days, max1, max2, tkt, non, vs1: round2(p1-base), vs2: round2(p2-base)};
-      }
-      return getMonthAdjustedTeam(t);
-    })
-    .filter(Boolean)
-    .filter(t =>
-      (filterReg.size===0 || filterReg.has(t.reg)) &&
-      (filterType.size===0 || filterType.has(t.type)) &&
-      (!filterProv || t.prov===filterProv) &&
-      (!filterTeam || t.id===filterTeam)
-    );
-}
-
-const _renderAllOriginal = renderAll;
-renderAll = function(){
-  _renderAllOriginal();
-  renderSummaryPage();
-};
-
-showPage = (function(orig){ return function(id){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const pg = document.getElementById('page-'+id);
-  if (pg) pg.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach((el)=>el.classList.remove('active'));
-  const order = ['overview','ranking','heatmap','team','analysis','boundary','drill','summary'];
-  const idx = order.indexOf(id);
-  const items = document.querySelectorAll('.nav-item');
-  if (idx>=0 && items[idx]) items[idx].classList.add('active');
-  if (id==='overview') { setTimeout(()=>{ renderTrend(); renderStatusChart(getFilteredTeams()); },50); }
-  if (id==='heatmap')  { setTimeout(()=>renderHeatmap(),50); }
-  if (id==='boundary') { initBoundaryMap(); }
-  if (id==='summary')  { setTimeout(()=>renderSummaryPage(),50); }
-}; })(showPage);
-
-function getFilteredActiveDaily(){
-  let rows = [...(RAW.activeDaily||[])];
-  rows = rows.filter(r => (!filterMonth || r.m===filterMonth) && inSelectedDateRange(r.label || r.m+'-01'));
-  if (filterReg.size < 2 || filterType.size < 2 || filterProv || filterTeam) {
-    const teamMap = new Map((RAW.ts||[]).map(t => [t.id, t]));
-    const out = [];
-    const dates = new Set(rows.map(r=>r.label));
-    dates.forEach(d => {
-      let cm = new Set(), ofc = new Set();
-      (RAW.ts||[]).forEach(t => {
-        if ((filterReg.size===0 || filterReg.has(t.reg)) && (filterType.size===0 || filterType.has(t.type)) && (!filterProv || t.prov===filterProv) && (!filterTeam || t.id===filterTeam)) {
-          const ds = (t.dailyStats||{})[d];
-          if (ds && ds.active) {
-            if (t.type==='CM') cm.add(t.id); else ofc.add(t.id);
-          }
-        }
-      });
-      out.push({label:d, m:d.slice(0,7), cm_active:cm.size, ofc_active:ofc.size, total_active:cm.size+ofc.size});
-    });
-    rows = out.sort((a,b)=> String(a.label).localeCompare(String(b.label)));
-  }
-  return rows;
-}
-
-function renderSummaryPage(){
-  renderSummaryChart();
-  const info = document.getElementById('summary-range-info');
-  if(!info) return;
-  const rows = getFilteredActiveDaily();
-  const cmPeak = Math.max(0, ...rows.map(r=>Number(r.cm_active||0)));
-  const ofcPeak = Math.max(0, ...rows.map(r=>Number(r.ofc_active||0)));
-  const avg = (arr,key)=> arr.length ? round2(arr.reduce((s,r)=>s+Number(r[key]||0),0)/arr.length) : 0;
-  info.innerHTML = `ช่วงวันที่: <b>${hasDateRange() ? fmtDateRangeStatus() : 'ทั้งหมด'}</b><br>จำนวนวันในกราฟ: <b>${rows.length}</b> วัน<br>CM active เฉลี่ย: <b>${avg(rows,'cm_active')}</b> ทีม · สูงสุด <b>${cmPeak}</b> ทีม<br>OFC active เฉลี่ย: <b>${avg(rows,'ofc_active')}</b> ทีม · สูงสุด <b>${ofcPeak}</b> ทีม`;
-}
-
-function renderSummaryChart(){
-  const canvas = document.getElementById('chart-summary-active');
-  if(!canvas) return;
-  const rows = getFilteredActiveDaily();
-  const labels = rows.map(r=>r.label);
-  const cm = rows.map(r=>Number(r.cm_active||0));
-  const ofc = rows.map(r=>Number(r.ofc_active||0));
-  const cmBase = rows.map(()=>CM_ACTIVE_BASELINE);
-  const ofcBase = rows.map(()=>OFC_ACTIVE_BASELINE);
-  if(chartSummaryActive) chartSummaryActive.destroy();
-  chartSummaryActive = new Chart(canvas.getContext('2d'), {
-    type:'line',
-    data:{ labels, datasets:[
-      {label:'CM Active', data:cm, borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,.15)', tension:.25, fill:false, pointRadius:2, pointHoverRadius:4},
-      {label:'OFC Active', data:ofc, borderColor:'#e3b341', backgroundColor:'rgba(227,179,65,.15)', tension:.25, fill:false, pointRadius:2, pointHoverRadius:4},
-      {label:'CM Base 46', data:cmBase, borderColor:'rgba(63,185,80,.7)', borderDash:[6,6], tension:0, pointRadius:0, fill:false},
-      {label:'OFC Base 113', data:ofcBase, borderColor:'rgba(227,179,65,.7)', borderDash:[6,6], tension:0, pointRadius:0, fill:false}
-    ]},
-    options:{ maintainAspectRatio:false, interaction:{mode:'index', intersect:false}, plugins:{ legend:{ labels:{ color:'#e6edf3', boxWidth:14 }}, tooltip:{ callbacks:{ label:(ctx)=> `${ctx.dataset.label}: ${ctx.formattedValue} ทีม` } } }, scales:{ x:{ ticks:{ color:'#8b949e', maxRotation:45, minRotation:45, autoSkip:true, maxTicksLimit:18 }, grid:{ color:'rgba(255,255,255,.05)' } }, y:{ beginAtZero:true, ticks:{ color:'#8b949e' }, grid:{ color:'rgba(255,255,255,.08)' } } } }
-  });
-}
 </script>
 <div id="loading-overlay" style="position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;align-items:center;justify-content:center;z-index:9999;"><div style="text-align:center;"><div style="font-size:16px;color:#e6edf3;margin-bottom:8px;">⏳ กำลังโหลดข้อมูล...</div><div style="font-size:12px;color:#8b949e;">กำลังดึงข้อมูลจาก Google Sheet</div></div></div>
 </body>
