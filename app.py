@@ -288,6 +288,9 @@ def build_data():
         last_candidates = [d for d in (dt_linkup, dt_hold) if d is not None]
         last_ts = max(last_candidates) if last_candidates else None
         status_val = g(row,'status')
+        status_norm = status_val.replace(' ', '') if status_val else ''
+        active_status = any(k in status_norm for k in ('เดินทาง', 'เริ่มซ่อม'))
+        is_active_work = bool(dt_travel or dt_start or active_status)
         sla_val = g(row,'sla')
         que_val = g(row,'que')
         holdcause_val = g(row,'holdcause')
@@ -466,23 +469,24 @@ def build_data():
             if has_lu or has_hold:
                 team_plan_weekly[team_id][team_wk_key]['p2'] += 1
 
-            if plan_date not in daily_team_stats:
-                daily_team_stats[plan_date] = {}
-            if team_id not in daily_team_stats[plan_date]:
-                daily_team_stats[plan_date][team_id] = {
-                    'id': team_id,
-                    'type': type_team,
-                    'reg': reg,
-                    'prov': prov,
-                    'p1': 0,
-                    'p2': 0,
-                    'rows': 0,
-                }
-            daily_team_stats[plan_date][team_id]['rows'] += 1
-            if has_lu:
-                daily_team_stats[plan_date][team_id]['p1'] += 1
-            if has_lu or has_hold:
-                daily_team_stats[plan_date][team_id]['p2'] += 1
+            if is_active_work:
+                if plan_date not in daily_team_stats:
+                    daily_team_stats[plan_date] = {}
+                if team_id not in daily_team_stats[plan_date]:
+                    daily_team_stats[plan_date][team_id] = {
+                        'id': team_id,
+                        'type': type_team,
+                        'reg': reg,
+                        'prov': prov,
+                        'p1': 0,
+                        'p2': 0,
+                        'rows': 0,
+                    }
+                daily_team_stats[plan_date][team_id]['rows'] += 1
+                if has_lu:
+                    daily_team_stats[plan_date][team_id]['p1'] += 1
+                if has_lu or has_hold:
+                    daily_team_stats[plan_date][team_id]['p2'] += 1
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
