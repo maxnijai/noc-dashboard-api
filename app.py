@@ -835,6 +835,7 @@ def build_data():
         ),
         rankData=rank_data, boundary=boundary, homeCoords=home_coords,
         drill=drill, slaData=sla_data,
+        baseConfig=dict(CM=CM_BASE, OFC=OFC_BASE),
         cached_at=datetime.now().isoformat()
     )
 
