@@ -581,7 +581,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div class="full-card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
             <div class="chart-title" style="margin-bottom:0;">จำนวนทีม Active รายวัน</div>
-            <div style="font-size:11px;color:var(--text3);">นับจากทีมที่มีงานตามคอลัมน์ Plan ในแต่ละวัน</div>
+            <div style="font-size:11px;color:var(--text3);">นับจากทีมที่ออกทำงานจริงในวันนั้น (เดินทาง / เริ่มซ่อม)</div>
           </div>
           <div class="chart-wrap" style="height:300px;"><canvas id="chart-summary-active"></canvas></div>
         </div>
@@ -2002,8 +2002,10 @@ function renderSummaryChart(days) {
   const el = document.getElementById('chart-summary-active');
   if (!el) return;
   const labels = days.map(d => d.date);
-  const cm = days.map(d => d.teams.filter(t => t.type==='CM').length);
-  const ofc = days.map(d => d.teams.filter(t => t.type==='OFC').length);
+  const cm = days.map(d => d.teams.filter(t => t.type==='CM' && !!t.is_active).length);
+  const ofc = days.map(d => d.teams.filter(t => t.type==='OFC' && !!t.is_active).length);
+  const cmBase = labels.map(() => 46);
+  const ofcBase = labels.map(() => 113);
   const ctx = el.getContext('2d');
   if (chartSummaryActive) chartSummaryActive.destroy();
   chartSummaryActive = new Chart(ctx, {
@@ -2011,8 +2013,10 @@ function renderSummaryChart(days) {
     data: {
       labels,
       datasets: [
-        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 },
-        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 }
+        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
+        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
+        { label: 'CM Baseline', data: cmBase, borderColor: 'rgba(63,185,80,.95)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderDash: [7,5], borderWidth: 1.5 },
+        { label: 'OFC Baseline', data: ofcBase, borderColor: 'rgba(227,179,65,.95)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderDash: [7,5], borderWidth: 1.5 }
       ]
     },
     options: {
@@ -2020,8 +2024,18 @@ function renderSummaryChart(days) {
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#e6edf3', boxWidth: 12 } },
-        tooltip: { callbacks: { footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : '' } }
+        legend: { labels: { color: '#e6edf3', boxWidth: 12, filter: (item) => !String(item.text||'').includes('Baseline') ? true : true } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const lbl = String(ctx.dataset?.label || '');
+              const val = ctx.parsed?.y ?? ctx.raw;
+              if (lbl.includes('Baseline')) return lbl + ': ' + val + ' ทีม';
+              return lbl + ': ' + val + ' ทีม';
+            },
+            footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : ''
+          }
+        }
       },
       scales: {
         x: { ticks: { color: '#8b949e', maxRotation: 50, minRotation: 35 }, grid: { color: 'rgba(255,255,255,.06)' } },
@@ -2047,7 +2061,9 @@ function renderSummaryOverview(days) {
   const totalOFC = ft.filter(t=>t.type==='OFC').length;
   const totalAll = ft.length;
   const mkCell = (day, type) => {
-    const active = type==='ALL' ? day.teams.length : day.teams.filter(t=>t.type===type).length;
+    const active = type==='ALL'
+      ? day.teams.filter(t => !!t.is_active).length
+      : day.teams.filter(t => t.type===type && !!t.is_active).length;
     const total = type==='ALL' ? totalAll : (type==='CM' ? totalCM : totalOFC);
     const pct = total ? ((active/total)*100).toFixed(2)+'%' : '0.00%';
     return { active, total, pct };
@@ -2085,7 +2101,7 @@ function computeSummaryProvinceRows(day, type) {
   const totalsByProv = {};
   ft.forEach(t => { totalsByProv[t.prov] = (totalsByProv[t.prov] || 0) + 1; });
   const activeByProv = {};
-  (day?.teams || []).filter(t => type==='ALL' ? true : t.type===type).forEach(t => {
+  (day?.teams || []).filter(t => (type==='ALL' ? true : t.type===type) && !!t.is_active).forEach(t => {
     if (!activeByProv[t.prov]) activeByProv[t.prov] = [];
     activeByProv[t.prov].push(t);
   });
