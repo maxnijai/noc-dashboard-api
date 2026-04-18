@@ -186,18 +186,6 @@ def to_by_date(dt):
     if not dt: return None
     return f'{dt.year+543}-{dt.month:02d}-{dt.day:02d}'
 
-
-def by_to_ad_date(date_str):
-    if not date_str:
-        return None
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', str(date_str))
-    if not m:
-        return None
-    y, mo, d = map(int, m.groups())
-    if y > 2400:
-        y -= 543
-    return f'{y:04d}-{mo:02d}-{d:02d}'
-
 def fmt_time(v):
     if not v: return ''
     m = re.search(r'(\d{1,2}:\d{2})', str(v))
@@ -258,8 +246,7 @@ def build_data():
     plan_weekly = {}
     team_plan_daily = {}
     team_plan_weekly = {}
-    active_daily = {}
-    all_plan_dates = set()
+    daily_team_stats = {}
 
     for row in rows[1:]:
         team_id   = g(row,'team_id')
@@ -323,7 +310,6 @@ def build_data():
                 day_first_coord={},
                 tkt=0, non=0, monthly={},
                 coords=[],
-                dailyStats={},
                 summary={'all': None, 'by_month': {}}
             )
         tm = teams[team_id]
@@ -480,6 +466,24 @@ def build_data():
             if has_lu or has_hold:
                 team_plan_weekly[team_id][team_wk_key]['p2'] += 1
 
+            if plan_date not in daily_team_stats:
+                daily_team_stats[plan_date] = {}
+            if team_id not in daily_team_stats[plan_date]:
+                daily_team_stats[plan_date][team_id] = {
+                    'id': team_id,
+                    'type': type_team,
+                    'reg': reg,
+                    'prov': prov,
+                    'p1': 0,
+                    'p2': 0,
+                    'rows': 0,
+                }
+            daily_team_stats[plan_date][team_id]['rows'] += 1
+            if has_lu:
+                daily_team_stats[plan_date][team_id]['p1'] += 1
+            if has_lu or has_hold:
+                daily_team_stats[plan_date][team_id]['p2'] += 1
+
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
             if team_id not in drill: drill[team_id] = {}
@@ -574,7 +578,7 @@ def build_data():
             h=h, days=days, max1=max1, max2=max2,
             avgMonthDays=avg_month_days, avgMonthOffDays=avg_month_off_days,
             base=base, vs1=vs1, vs2=vs2, st=st, tkt=tm['tkt'], non=tm['non'],
-            monthStats=month_stats, dailyStats=tm.get('dailyStats', {})
+            monthStats=month_stats
         ))
 
         rd = dict(id=tid, type=tm['type'], reg=tm['reg'], prov=tm['prov'],
@@ -822,16 +826,6 @@ def build_data():
             'total_logs': len(sum_bucket.get('logs', []))
         }
 
-    active_daily_rows = []
-    for d in sorted(all_plan_dates):
-        active_daily_rows.append(dict(
-            label=d,
-            m=d[:7],
-            cm_active=len(active_daily.get(d, {}).get('CM', set())),
-            ofc_active=len(active_daily.get(d, {}).get('OFC', set())),
-            total_active=len(active_daily.get(d, {}).get('CM', set())) + len(active_daily.get(d, {}).get('OFC', set()))
-        ))
-
     sum_data = {}
     sla_data = {}
     for t in ts:
@@ -849,18 +843,25 @@ def build_data():
         sum_data[t['id']] = team_sum
         sla_data[t['id']] = team_sla
 
+    summary_daily = []
+    for dt in sorted(daily_team_stats.keys()):
+        teams_rows = []
+        for _, rec in sorted(daily_team_stats[dt].items(), key=lambda x: (x[1]['type'], x[1]['prov'], x[0])):
+            teams_rows.append({
+                'id': rec['id'],
+                'type': rec['type'],
+                'reg': rec['reg'],
+                'prov': rec['prov'],
+                'p1': rec['p1'],
+                'p2': rec['p2'],
+                'rows': rec['rows'],
+            })
+        summary_daily.append({'date': dt, 'teams': teams_rows})
+
     return dict(
         ts=ts, tr=tr, tr_week=tr_week, tr_day=tr_day, team_tr_month=team_tr_month, team_tr_week=team_tr_week, team_tr_day=team_tr_day, heat=heat, wk=[],
         prov=prov_names, nor1=nor1_list,
         months=sorted_months, ml=ml, sum=sum_data,
-        activeDaily=active_daily_rows,
-        dateBounds=dict(
-            min=by_to_ad_date(min(all_plan_dates)) if all_plan_dates else '',
-            max=by_to_ad_date(max(all_plan_dates)) if all_plan_dates else '',
-            min_by=min(all_plan_dates) if all_plan_dates else '',
-            max_by=max(all_plan_dates) if all_plan_dates else ''
-        ),
-        baseConfig=dict(CM=CM_BASE, OFC=OFC_BASE),
         gstats=dict(
             total_tkt=sum(t['tkt'] for t in ts),
             total_non=sum(t['non'] for t in ts),
@@ -868,6 +869,8 @@ def build_data():
         ),
         rankData=rank_data, boundary=boundary, homeCoords=home_coords,
         drill=drill, slaData=sla_data,
+        summaryDaily=summary_daily,
+        baseConfig=dict(CM=CM_BASE, OFC=OFC_BASE),
         cached_at=datetime.now().isoformat()
     )
 
