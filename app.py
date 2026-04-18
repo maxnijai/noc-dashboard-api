@@ -197,6 +197,12 @@ def dedupe_ticket_key(ticket_value, row_index=None):
         return s
     return f'ROW_{row_index if row_index is not None else "X"}'
 
+def is_real_active_team_row(status_value, dt_travel=None, dt_start=None):
+    status = str(status_value or '').strip()
+    if dt_travel is not None or dt_start is not None:
+        return True
+    return ('เดินทาง' in status) or ('เริ่มซ่อม' in status)
+
 def is_valid_month(month_str):
     """กรองเฉพาะปี พ.ศ. ปัจจุบัน"""
     return month_str and month_str.startswith(VALID_YEAR + '-')
@@ -253,6 +259,7 @@ def build_data():
     team_plan_daily = {}
     team_plan_weekly = {}
     daily_team_stats = {}
+    drill_seen_keys = {}
 
     for row_idx, row in enumerate(rows[1:], start=1):
         team_id   = g(row,'team_id')
@@ -497,10 +504,13 @@ def build_data():
                     'p1': 0,
                     'p2': 0,
                     'rows': 0,
+                    'is_active': False,
                     'p1keys': set(),
                     'p2keys': set(),
                 }
             daily_team_stats[plan_date][team_id]['rows'] += 1
+            if is_real_active_team_row(status_val, dt_travel, dt_start):
+                daily_team_stats[plan_date][team_id]['is_active'] = True
             if has_lu:
                 daily_team_stats[plan_date][team_id]['p1keys'].add(ticket_key)
                 daily_team_stats[plan_date][team_id]['p1'] = len(daily_team_stats[plan_date][team_id]['p1keys'])
@@ -508,35 +518,45 @@ def build_data():
                 daily_team_stats[plan_date][team_id]['p2keys'].add(ticket_key)
                 daily_team_stats[plan_date][team_id]['p2'] = len(daily_team_stats[plan_date][team_id]['p2keys'])
 
-        # drill (3 months, valid only)
-        if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
-            if team_id not in drill: drill[team_id] = {}
-            if date_str not in drill[team_id]: drill[team_id][date_str] = []
-            if len(drill[team_id][date_str]) < 30:
-                # Array format ตรง v17:
-                # [0]tkt [1]sla [2]subj [3]que [4]travel [5]start [6]hold [7]linkup
-                # [8]status [9]holdCause [10]log [11]cause1 [12]fix1 [13]detail
-                # [14]type [15]pdt1 [16]pdt2 [17]work_hrs [18]month
-                drill[team_id][date_str].append([
-                    tkt_val,                                    # [0] tkt
-                    g(row,'sla'),                               # [1] sla
-                    g(row,'subject')[:80],                      # [2] subj
-                    g(row,'que'),                               # [3] que
-                    fmt_time(g(row,'travel')),                  # [4] travel
-                    fmt_time(g(row,'start')),                   # [5] start
-                    fmt_time(g(row,'hold')),                    # [6] hold
-                    fmt_time(g(row,'linkup')),                  # [7] linkup
-                    g(row,'status'),                            # [8] status
-                    g(row,'holdcause'),                         # [9] holdCause
-                    g(row,'log')[:150],                         # [10] log
-                    g(row,'cause1'),                            # [11] cause1
-                    g(row,'fix1'),                              # [12] fix1
-                    '',                                         # [13] detail
-                    'Ticket' if is_ticket else 'Non-Ticket',    # [14] type
-                    1 if (dt_linkup is not None) else 0,        # [15] pdt1
-                    1 if (dt_linkup is not None or dt_hold is not None) else 0,  # [16] pdt2
-                    row_work_hrs,                               # [17] work_hrs
-                    month_str or '',                            # [18] month
+        # drill down รายวันให้ยึดวันจาก Plan เป็นหลัก เพื่อให้ตรงกับ Summary
+        drill_dt = dt_plan if (dt_plan and is_valid_month(plan_month)) else (dt_linkup or dt_travel or dt_start or dt_hold)
+        drill_date_str = to_by_date(drill_dt)
+        drill_month_str = to_by_month(drill_dt)
+        if drill_dt and drill_dt >= cutoff and drill_date_str and is_valid_month(drill_month_str):
+            if team_id not in drill:
+                drill[team_id] = {}
+            if drill_date_str not in drill[team_id]:
+                drill[team_id][drill_date_str] = []
+            drill_seen_keys.setdefault(team_id, {}).setdefault(drill_date_str, {'p1': set(), 'p2': set()})
+            row_p1 = 0
+            row_p2 = 0
+            if has_lu and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p1']:
+                drill_seen_keys[team_id][drill_date_str]['p1'].add(ticket_key)
+                row_p1 = 1
+            if (has_lu or has_hold) and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p2']:
+                drill_seen_keys[team_id][drill_date_str]['p2'].add(ticket_key)
+                row_p2 = 1
+            if len(drill[team_id][drill_date_str]) < 50:
+                drill[team_id][drill_date_str].append([
+                    tkt_val,
+                    g(row,'sla'),
+                    g(row,'subject')[:80],
+                    g(row,'que'),
+                    fmt_time(g(row,'travel')),
+                    fmt_time(g(row,'start')),
+                    fmt_time(g(row,'hold')),
+                    fmt_time(g(row,'linkup')),
+                    g(row,'status'),
+                    g(row,'holdcause'),
+                    g(row,'log')[:150],
+                    g(row,'cause1'),
+                    g(row,'fix1'),
+                    '',
+                    'Ticket' if is_ticket else 'Non-Ticket',
+                    row_p1,
+                    row_p2,
+                    row_work_hrs,
+                    drill_month_str or '',
                 ])
 
     log.info(f'Parsed {len(teams)} teams, months={sorted(months)}')
@@ -879,6 +899,7 @@ def build_data():
                 'p1': rec['p1'],
                 'p2': rec['p2'],
                 'rows': rec['rows'],
+                'is_active': bool(rec.get('is_active')),
             })
         summary_daily.append({'date': dt, 'teams': teams_rows})
 
