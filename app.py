@@ -96,7 +96,7 @@ def build_boundary(gc):
             i=col.get(name)
             return str(row[i]).strip() if i is not None and i<len(row) else ''
         boundary = []
-        for row in rows[1:]:
+        for row_idx, row in enumerate(rows[1:], start=1):
             tid = g(row,'Team ID')
             if not tid or tid=='nan': continue
             type_team = g(row,'Type Team')
@@ -191,6 +191,12 @@ def fmt_time(v):
     m = re.search(r'(\d{1,2}:\d{2})', str(v))
     return m.group(1) if m else str(v).strip()
 
+def dedupe_ticket_key(ticket_value, row_index=None):
+    s = str(ticket_value or '').strip()
+    if s:
+        return s
+    return f'ROW_{row_index if row_index is not None else "X"}'
+
 def is_valid_month(month_str):
     """กรองเฉพาะปี พ.ศ. ปัจจุบัน"""
     return month_str and month_str.startswith(VALID_YEAR + '-')
@@ -248,7 +254,7 @@ def build_data():
     team_plan_weekly = {}
     daily_team_stats = {}
 
-    for row in rows[1:]:
+    for row_idx, row in enumerate(rows[1:], start=1):
         team_id   = g(row,'team_id')
         type_team = g(row,'type_team')
         prov_full = g(row,'province')
@@ -280,6 +286,7 @@ def build_data():
         # is_ticket: TT หรือ INC (ตาม v17 label "TT + INC pattern")
         # แต่นับเฉพาะ row ที่ year valid
         tkt_val   = g(row,'ticket')
+        ticket_key = dedupe_ticket_key(tkt_val, row_idx)
         is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
 
         # เก็บ Update พิกัด สำหรับ homeCoords
@@ -288,9 +295,6 @@ def build_data():
         last_candidates = [d for d in (dt_linkup, dt_hold) if d is not None]
         last_ts = max(last_candidates) if last_candidates else None
         status_val = g(row,'status')
-        status_norm = status_val.replace(' ', '') if status_val else ''
-        active_status = any(k in status_norm for k in ('เดินทาง', 'เริ่มซ่อม'))
-        is_active_work = bool(dt_travel or dt_start or active_status)
         sla_val = g(row,'sla')
         que_val = g(row,'que')
         holdcause_val = g(row,'holdcause')
@@ -307,6 +311,7 @@ def build_data():
             teams[team_id] = dict(
                 type=type_team, prov=prov, reg=reg,
                 pdt1_dates={}, pdt2_dates={},
+                pdt1_keys={}, pdt2_keys={},
                 all_dates=set(),
                 day_first_travel={},
                 day_last_ts={},
@@ -400,12 +405,14 @@ def build_data():
                 if prev is None or checkin_dt < prev['dt']:
                     tm['day_first_coord'][date_str] = {'dt': checkin_dt, 'coord': coord}
             if has_lu:
-                tm['pdt1_dates'][date_str] = tm['pdt1_dates'].get(date_str,0) + 1
+                tm['pdt1_keys'].setdefault(date_str, set()).add(ticket_key)
+                tm['pdt1_dates'][date_str] = len(tm['pdt1_keys'][date_str])
             if has_lu or has_hold:
-                tm['pdt2_dates'][date_str] = tm['pdt2_dates'].get(date_str,0) + 1
+                tm['pdt2_keys'].setdefault(date_str, set()).add(ticket_key)
+                tm['pdt2_dates'][date_str] = len(tm['pdt2_keys'][date_str])
             if month_str:
                 if month_str not in tm['monthly']:
-                    tm['monthly'][month_str] = {'p1d':{},'p2d':{},'dates':set(),'tkt':0,'non':0,'first':{},'last':{}}
+                    tm['monthly'][month_str] = {'p1d':{},'p2d':{},'p1keys':{},'p2keys':{},'dates':set(),'tkt':0,'non':0,'first':{},'last':{}}
                 mm = tm['monthly'][month_str]
                 mm['dates'].add(date_str)
                 if is_ticket: mm['tkt'] += 1
@@ -417,9 +424,11 @@ def build_data():
                     prev = mm['last'].get(date_str)
                     if prev is None or last_ts > prev: mm['last'][date_str] = last_ts
                 if has_lu:
-                    mm['p1d'][date_str] = mm['p1d'].get(date_str,0)+1
+                    mm['p1keys'].setdefault(date_str, set()).add(ticket_key)
+                    mm['p1d'][date_str] = len(mm['p1keys'][date_str])
                 if has_lu or has_hold:
-                    mm['p2d'][date_str] = mm['p2d'].get(date_str,0)+1
+                    mm['p2keys'].setdefault(date_str, set()).add(ticket_key)
+                    mm['p2d'][date_str] = len(mm['p2keys'][date_str])
 
         # trend รายวัน/รายสัปดาห์ จากวันที่ในคอลัมน์ Plan
         plan_month = to_by_month(dt_plan)
@@ -430,20 +439,24 @@ def build_data():
             if day_key not in plan_daily:
                 plan_daily[day_key] = {}
             if team_id not in plan_daily[day_key]:
-                plan_daily[day_key][team_id] = {'p1': 0, 'p2': 0}
+                plan_daily[day_key][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set()}
             if has_lu:
-                plan_daily[day_key][team_id]['p1'] += 1
+                plan_daily[day_key][team_id]['p1keys'].add(ticket_key)
+                plan_daily[day_key][team_id]['p1'] = len(plan_daily[day_key][team_id]['p1keys'])
             if has_lu or has_hold:
-                plan_daily[day_key][team_id]['p2'] += 1
+                plan_daily[day_key][team_id]['p2keys'].add(ticket_key)
+                plan_daily[day_key][team_id]['p2'] = len(plan_daily[day_key][team_id]['p2keys'])
 
             if team_id not in team_plan_daily:
                 team_plan_daily[team_id] = {}
             if plan_date not in team_plan_daily[team_id]:
-                team_plan_daily[team_id][plan_date] = {'p1': 0, 'p2': 0, 'm': plan_month, 'reg': reg, 'type': type_team}
+                team_plan_daily[team_id][plan_date] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'm': plan_month, 'reg': reg, 'type': type_team}
             if has_lu:
-                team_plan_daily[team_id][plan_date]['p1'] += 1
+                team_plan_daily[team_id][plan_date]['p1keys'].add(ticket_key)
+                team_plan_daily[team_id][plan_date]['p1'] = len(team_plan_daily[team_id][plan_date]['p1keys'])
             if has_lu or has_hold:
-                team_plan_daily[team_id][plan_date]['p2'] += 1
+                team_plan_daily[team_id][plan_date]['p2keys'].add(ticket_key)
+                team_plan_daily[team_id][plan_date]['p2'] = len(team_plan_daily[team_id][plan_date]['p2keys'])
 
             # รายสัปดาห์: ISO week ตามปฏิทินสากล
             wk = week_bucket_label(dt_plan)
@@ -451,42 +464,49 @@ def build_data():
             if wk_key not in plan_weekly:
                 plan_weekly[wk_key] = {'meta': wk, 'teams': {}}
             if team_id not in plan_weekly[wk_key]['teams']:
-                plan_weekly[wk_key]['teams'][team_id] = {'p1': 0, 'p2': 0, 'dates': set()}
+                plan_weekly[wk_key]['teams'][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'dates': set()}
             plan_weekly[wk_key]['teams'][team_id]['dates'].add(plan_date)
             if has_lu:
-                plan_weekly[wk_key]['teams'][team_id]['p1'] += 1
+                plan_weekly[wk_key]['teams'][team_id]['p1keys'].add(ticket_key)
+                plan_weekly[wk_key]['teams'][team_id]['p1'] = len(plan_weekly[wk_key]['teams'][team_id]['p1keys'])
             if has_lu or has_hold:
-                plan_weekly[wk_key]['teams'][team_id]['p2'] += 1
+                plan_weekly[wk_key]['teams'][team_id]['p2keys'].add(ticket_key)
+                plan_weekly[wk_key]['teams'][team_id]['p2'] = len(plan_weekly[wk_key]['teams'][team_id]['p2keys'])
 
             if team_id not in team_plan_weekly:
                 team_plan_weekly[team_id] = {}
             team_wk_key = f"{wk['sort']}||{wk['label']}"
             if team_wk_key not in team_plan_weekly[team_id]:
-                team_plan_weekly[team_id][team_wk_key] = {'p1': 0, 'p2': 0, 'dates': set(), 'm': plan_month, 'reg': reg, 'type': type_team, 'meta': wk}
+                team_plan_weekly[team_id][team_wk_key] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'dates': set(), 'm': plan_month, 'reg': reg, 'type': type_team, 'meta': wk}
             team_plan_weekly[team_id][team_wk_key]['dates'].add(plan_date)
             if has_lu:
-                team_plan_weekly[team_id][team_wk_key]['p1'] += 1
+                team_plan_weekly[team_id][team_wk_key]['p1keys'].add(ticket_key)
+                team_plan_weekly[team_id][team_wk_key]['p1'] = len(team_plan_weekly[team_id][team_wk_key]['p1keys'])
             if has_lu or has_hold:
-                team_plan_weekly[team_id][team_wk_key]['p2'] += 1
+                team_plan_weekly[team_id][team_wk_key]['p2keys'].add(ticket_key)
+                team_plan_weekly[team_id][team_wk_key]['p2'] = len(team_plan_weekly[team_id][team_wk_key]['p2keys'])
 
-            if is_active_work:
-                if plan_date not in daily_team_stats:
-                    daily_team_stats[plan_date] = {}
-                if team_id not in daily_team_stats[plan_date]:
-                    daily_team_stats[plan_date][team_id] = {
-                        'id': team_id,
-                        'type': type_team,
-                        'reg': reg,
-                        'prov': prov,
-                        'p1': 0,
-                        'p2': 0,
-                        'rows': 0,
-                    }
-                daily_team_stats[plan_date][team_id]['rows'] += 1
-                if has_lu:
-                    daily_team_stats[plan_date][team_id]['p1'] += 1
-                if has_lu or has_hold:
-                    daily_team_stats[plan_date][team_id]['p2'] += 1
+            if plan_date not in daily_team_stats:
+                daily_team_stats[plan_date] = {}
+            if team_id not in daily_team_stats[plan_date]:
+                daily_team_stats[plan_date][team_id] = {
+                    'id': team_id,
+                    'type': type_team,
+                    'reg': reg,
+                    'prov': prov,
+                    'p1': 0,
+                    'p2': 0,
+                    'rows': 0,
+                    'p1keys': set(),
+                    'p2keys': set(),
+                }
+            daily_team_stats[plan_date][team_id]['rows'] += 1
+            if has_lu:
+                daily_team_stats[plan_date][team_id]['p1keys'].add(ticket_key)
+                daily_team_stats[plan_date][team_id]['p1'] = len(daily_team_stats[plan_date][team_id]['p1keys'])
+            if has_lu or has_hold:
+                daily_team_stats[plan_date][team_id]['p2keys'].add(ticket_key)
+                daily_team_stats[plan_date][team_id]['p2'] = len(daily_team_stats[plan_date][team_id]['p2keys'])
 
         # drill (3 months, valid only)
         if row_valid and dt_linkup and dt_linkup >= cutoff and date_str:
