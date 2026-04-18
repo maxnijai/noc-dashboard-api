@@ -1961,6 +1961,8 @@ function renderSummaryChart(days) {
   const labels = days.map(d => d.date);
   const cm = days.map(d => d.teams.filter(t => t.type==='CM').length);
   const ofc = days.map(d => d.teams.filter(t => t.type==='OFC').length);
+  const cmBase = labels.map(() => 46);
+  const ofcBase = labels.map(() => 113);
   const ctx = el.getContext('2d');
   if (chartSummaryActive) chartSummaryActive.destroy();
   chartSummaryActive = new Chart(ctx, {
@@ -1968,8 +1970,10 @@ function renderSummaryChart(days) {
     data: {
       labels,
       datasets: [
-        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 },
-        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4 }
+        { label: 'CM Active', data: cm, borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
+        { label: 'OFC Active', data: ofc, borderColor: '#e3b341', backgroundColor: 'rgba(227,179,65,.12)', tension: .28, pointRadius: 2, pointHoverRadius: 4, borderWidth: 3 },
+        { label: 'CM Baseline (46)', data: cmBase, borderColor: 'rgba(63,185,80,.9)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5, borderDash: [6, 6], fill: false },
+        { label: 'OFC Baseline (113)', data: ofcBase, borderColor: 'rgba(227,179,65,.9)', tension: 0, pointRadius: 0, pointHoverRadius: 0, borderWidth: 1.5, borderDash: [6, 6], fill: false }
       ]
     },
     options: {
@@ -1978,11 +1982,20 @@ function renderSummaryChart(days) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { labels: { color: '#e6edf3', boxWidth: 12 } },
-        tooltip: { callbacks: { footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : '' } }
+        tooltip: {
+          callbacks: {
+            footer: (items) => items?.[0] ? 'วันที่: ' + items[0].label : ''
+          }
+        }
       },
       scales: {
         x: { ticks: { color: '#8b949e', maxRotation: 50, minRotation: 35 }, grid: { color: 'rgba(255,255,255,.06)' } },
-        y: { beginAtZero: true, ticks: { color: '#8b949e', precision: 0 }, grid: { color: 'rgba(255,255,255,.06)' } }
+        y: {
+          beginAtZero: true,
+          suggestedMax: Math.max(120, ...cm, ...ofc, 46, 113) + 5,
+          ticks: { color: '#8b949e', precision: 0 },
+          grid: { color: 'rgba(255,255,255,.06)' }
+        }
       }
     }
   });
