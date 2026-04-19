@@ -941,6 +941,227 @@ REALTIME_SHEET_IDS = {
 }
 REALTIME_SHEET_NAMES = ['ชีต 1', 'Sheet1', 'sheet1', 'ชีต1']
 
+FOCUS_SOURCE_SHEET_ID = '1AEQSsiLUbr5p6HYh36WNGF9TkUDVeW2xN-vDvDkjy1k'
+FOCUS_SOURCE_BOOKMARKS = {
+    '3. All NW Incident NSA1-2',
+    '4.FBB with SA1-4',
+    '7.MB with SA1-4',
+}
+FOCUS_PLAN_SHEET_IDS = {
+    'NOR1': '1t8DErfQLBRXkoaorDFMdAxtLZf-RA_hzQ-xFQI6EgBo',
+    'NOR2': '1q5xC5lQv2-FhjM-h_o4xqw1dpmei8oB5xo7lSyQm8us',
+}
+
+
+def _fp_norm_header(v):
+    return ' '.join(str(v or '').replace('\n', ' ').split()).strip()
+
+
+def _fp_fc(col, *names):
+    low = {k.lower(): v for k, v in col.items()}
+    for n in names:
+        if n in col:
+            return col[n]
+        if n.lower() in low:
+            return low[n.lower()]
+    return None
+
+
+def _fp_get(row, idx):
+    if idx is None or idx >= len(row):
+        return ''
+    return str(row[idx]).strip()
+
+
+def _fp_parse_num(v):
+    s = str(v or '').replace(',', '').strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except Exception:
+        return None
+
+
+def _fp_fmt_dt(dt):
+    if not dt:
+        return ''
+    return f"{dt.day}/{dt.month}/{dt.year + 543} {dt:%H:%M}"
+
+
+def _fp_time_only(dt):
+    if not dt:
+        return ''
+    return dt.strftime('%H:%M')
+
+
+def _fp_best_plan_row(rows):
+    def score(r):
+        last_candidates = [r.get('dt_log'), r.get('dt_done'), r.get('dt_hold'), r.get('dt_start'), r.get('dt_go')]
+        last_ts = max([d for d in last_candidates if d is not None], default=datetime.min)
+        filled = sum(1 for k in ('team_id', 'que', 'go', 'start', 'done', 'hold', 'status_sccd', 'log_update') if r.get(k))
+        return (last_ts, filled)
+    return max(rows, key=score) if rows else None
+
+
+def _fp_load_plan_sheet(gc, region):
+    ws = _rt_open_worksheet(gc, FOCUS_PLAN_SHEET_IDS[region])
+    rows = ws.get_all_values()
+    out = {}
+    if not rows:
+        return out
+    headers = [_fp_norm_header(h) for h in rows[0]]
+    col = {h: i for i, h in enumerate(headers) if h}
+    C = {
+        'ticket': _fp_fc(col, 'TICKETID', 'Ticket', 'Ticket ID'),
+        'ciname': _fp_fc(col, 'CINAME', 'CI Name', 'CI NAME'),
+        'subject': _fp_fc(col, 'SUBJECT', 'Subject'),
+        'que': _fp_fc(col, 'Que', 'QUE'),
+        'team_id': _fp_fc(col, 'Team ID', 'TEAM ID'),
+        'go': _fp_fc(col, 'Go', 'เวลาเดินทาง'),
+        'start': _fp_fc(col, 'Start', 'เวลาเริ่มซ่อม'),
+        'done': _fp_fc(col, 'Done', 'Link Up'),
+        'hold': _fp_fc(col, 'Hold'),
+        'status_sccd': _fp_fc(col, 'Status SCCD', 'STATUS SCCD'),
+        'log_update': _fp_fc(col, 'Log Update', 'Update Log', 'LOG UPDATE'),
+        'inoc_name': _fp_fc(col, 'INOC Name', 'INOCNAME'),
+        'priority_src': _fp_fc(col, 'Priority'),
+    }
+    for idx, row in enumerate(rows[1:], start=2):
+        ticket = _fp_get(row, C['ticket'])
+        if not ticket:
+            continue
+        rec = {
+            'ticketid': ticket,
+            'ciname': _fp_get(row, C['ciname']),
+            'subject': _fp_get(row, C['subject']),
+            'que': _fp_get(row, C['que']),
+            'team_id': _fp_get(row, C['team_id']),
+            'go': _fp_get(row, C['go']),
+            'start': _fp_get(row, C['start']),
+            'done': _fp_get(row, C['done']),
+            'hold': _fp_get(row, C['hold']),
+            'status_sccd': _fp_get(row, C['status_sccd']),
+            'log_update': _fp_get(row, C['log_update']),
+            'inoc_name': _fp_get(row, C['inoc_name']),
+            'priority_src': _fp_get(row, C['priority_src']),
+            'region': region,
+            'dt_go': parse_dt(_fp_get(row, C['go'])),
+            'dt_start': parse_dt(_fp_get(row, C['start'])),
+            'dt_done': parse_dt(_fp_get(row, C['done'])),
+            'dt_hold': parse_dt(_fp_get(row, C['hold'])),
+            'dt_log': parse_dt(_fp_get(row, C['log_update'])),
+            '_row_idx': idx,
+        }
+        out.setdefault(ticket, []).append(rec)
+    return {k: _fp_best_plan_row(v) for k, v in out.items()}
+
+
+def build_focus_priority():
+    gc = get_client()
+    source_ws = gc.open_by_key(FOCUS_SOURCE_SHEET_ID).get_worksheet(0)
+    source_rows = source_ws.get_all_values()
+    if not source_rows:
+        return {'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'regions': {'NOR1': {}, 'NOR2': {}}}
+
+    headers = [_fp_norm_header(h) for h in source_rows[0]]
+    col = {h: i for i, h in enumerate(headers) if h}
+    C = {
+        'region': _fp_fc(col, 'Region', 'REGION'),
+        'bookmark': _fp_fc(col, 'Bookmark', 'BOOKMARK'),
+        'ticket': _fp_fc(col, 'TICKETID', 'Ticket', 'Ticket ID'),
+        'targetfinish': _fp_fc(col, 'TARGETFINISH', 'Target Finish'),
+        'subject': _fp_fc(col, 'SUBJECT', 'Subject'),
+        'ciname': _fp_fc(col, 'CINAME', 'CI Name', 'CI NAME'),
+        'status_sccd': _fp_fc(col, 'Status SCCD', 'STATUS SCCD'),
+        'penalty': _fp_fc(col, 'ยอดค่าปรับ ณ เวลานี้', 'PENALTYBAHT_TRACKB', 'Penalty'),
+        'inoc_name': _fp_fc(col, 'INOC Name', 'INOCNAME'),
+        'priority_src': _fp_fc(col, 'Priority'),
+    }
+
+    plan_maps = {r: _fp_load_plan_sheet(gc, r) for r in ('NOR1', 'NOR2')}
+    now_dt = datetime.now()
+    ref_dt = (now_dt + timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    out = {
+        'generated_at': now_dt.strftime('%Y-%m-%d %H:%M:%S'),
+        'reference_cutoff': _fp_fmt_dt(ref_dt),
+        'now': _fp_fmt_dt(now_dt),
+        'regions': {
+            'NOR1': {'summary': {}, 'priorities': {'Priority0': [], 'Priority1': [], 'Priority2': []}},
+            'NOR2': {'summary': {}, 'priorities': {'Priority0': [], 'Priority1': [], 'Priority2': []}},
+        }
+    }
+
+    for idx, row in enumerate(source_rows[1:], start=2):
+        region = (_fp_get(row, C['region']) or '').strip().upper()
+        bookmark = _fp_get(row, C['bookmark'])
+        if region not in ('NOR1', 'NOR2') or bookmark not in FOCUS_SOURCE_BOOKMARKS:
+            continue
+        ticket = _fp_get(row, C['ticket'])
+        if not ticket:
+            continue
+        targetfinish_raw = _fp_get(row, C['targetfinish'])
+        dt_target = parse_dt(targetfinish_raw)
+        if not dt_target:
+            continue
+        diff_hours = round((dt_target - ref_dt).total_seconds() / 3600.0, 2)
+        overdue = dt_target < now_dt
+        if diff_hours > 24:
+            pr = 'Priority0'
+        elif overdue:
+            pr = 'Priority1'
+        else:
+            pr = 'Priority2'
+        plan = plan_maps.get(region, {}).get(ticket)
+        plan_found = plan is not None
+        rec = {
+            'row_no': idx,
+            'region': region,
+            'bookmark': bookmark,
+            'priority_bucket': pr,
+            'priority_src': _fp_get(row, C['priority_src']) or (plan.get('priority_src') if plan else ''),
+            'ciname': _fp_get(row, C['ciname']) or (plan.get('ciname') if plan else ''),
+            'subject': _fp_get(row, C['subject']) or (plan.get('subject') if plan else ''),
+            'ticketid': ticket,
+            'targetfinish': _fp_fmt_dt(dt_target),
+            'hours_vs_cutoff': diff_hours,
+            'overdue': overdue,
+            'plan_found': plan_found,
+            'que': plan.get('que', '') if plan else '',
+            'team_id': plan.get('team_id', '') if plan else '',
+            'go': plan.get('go', '') if plan else '',
+            'start': plan.get('start', '') if plan else '',
+            'done': plan.get('done', '') if plan else '',
+            'hold': plan.get('hold', '') if plan else '',
+            'status_sccd': _fp_get(row, C['status_sccd']) or (plan.get('status_sccd') if plan else ''),
+            'penalty': _fp_get(row, C['penalty']),
+            'penalty_num': _fp_parse_num(_fp_get(row, C['penalty'])),
+            'inoc_name': _fp_get(row, C['inoc_name']) or (plan.get('inoc_name') if plan else ''),
+            'log_update': plan.get('log_update', '') if plan else '',
+            'go_time': _fp_time_only(plan.get('dt_go')) if plan else '',
+            'start_time': _fp_time_only(plan.get('dt_start')) if plan else '',
+            'done_time': _fp_time_only(plan.get('dt_done')) if plan else '',
+            'hold_time': _fp_time_only(plan.get('dt_hold')) if plan else '',
+        }
+        out['regions'][region]['priorities'][pr].append(rec)
+
+    for region in ('NOR1', 'NOR2'):
+        reg = out['regions'][region]
+        rows_all = []
+        for pr in ('Priority0', 'Priority1', 'Priority2'):
+            reg['priorities'][pr].sort(key=lambda r: (0 if r['plan_found'] else 1, -(r['penalty_num'] or 0), r['ticketid']))
+            rows_all.extend(reg['priorities'][pr])
+        reg['summary'] = {
+            'total': len(rows_all),
+            'planned': sum(1 for r in rows_all if r['plan_found']),
+            'unplanned': sum(1 for r in rows_all if not r['plan_found']),
+            'Priority0': len(reg['priorities']['Priority0']),
+            'Priority1': len(reg['priorities']['Priority1']),
+            'Priority2': len(reg['priorities']['Priority2']),
+        }
+    return out
+
+
 
 def _rt_open_worksheet(gc, sheet_id):
     sh = gc.open_by_key(sheet_id)
@@ -1229,6 +1450,16 @@ def build_realtime_monitoring():
         out['regions'][region] = reg_out
     return out
 
+
+
+
+@app.route('/api/focus-priority')
+def api_focus_priority():
+    try:
+        return jsonify(build_focus_priority())
+    except Exception as e:
+        log.exception('api_focus_priority error')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/realtime')
 def api_realtime():
