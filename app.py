@@ -1131,6 +1131,8 @@ def build_realtime_monitoring():
             planned_not_departed = []
             travel_not_started = []
             off_teams = []
+            off_teams_cm = []
+            off_teams_ofc = []
             for team_id, tb in b['team_map'].items():
                 if not tb.get('has_ticket_plan'):
                     row = {
@@ -1148,6 +1150,10 @@ def build_realtime_monitoring():
                     }
                     teams.append(row)
                     off_teams.append(row)
+                    if str(tb['type_team'] or '').strip().upper() == 'CM':
+                        off_teams_cm.append(row)
+                    elif str(tb['type_team'] or '').strip().upper() == 'OFC':
+                        off_teams_ofc.append(row)
                     continue
                 stage = 'planned'
                 if tb['travel_tickets']:
@@ -1184,7 +1190,7 @@ def build_realtime_monitoring():
             travel_stall_pct = round((travel_not_started_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
             insight = []
             if off_teams:
-                insight.append(f"ทีมหยุด {len(off_teams)} ทีม (ไม่มี Ticket ในแผนของวันนั้น)")
+                insight.append(f"ทีมหยุด {len(off_teams)} ทีม (CM {len(off_teams_cm)} · OFC {len(off_teams_ofc)}) ไม่มี Ticket ในแผนของวันนั้น")
             if planned_not_departed_n:
                 insight.append(f"ยังไม่ออกเดินทาง {planned_not_departed_n} ทีม ({plan_stall_pct:.0f}% ของทีมตามแผน)")
             if travel_not_started_n:
@@ -1207,11 +1213,15 @@ def build_realtime_monitoring():
                     'plan_stall_pct': plan_stall_pct,
                     'travel_stall_pct': travel_stall_pct,
                     'off_teams': len(off_teams),
+                    'off_teams_cm': len(off_teams_cm),
+                    'off_teams_ofc': len(off_teams_ofc),
                 },
                 'alerts': {
                     'planned_not_departed': planned_not_departed,
                     'travel_not_started': travel_not_started,
                     'off_teams': off_teams,
+                    'off_teams_cm': off_teams_cm,
+                    'off_teams_ofc': off_teams_ofc,
                     'insight': insight,
                 },
                 'teams': teams
