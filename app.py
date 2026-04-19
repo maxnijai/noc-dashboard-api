@@ -1118,6 +1118,8 @@ def build_realtime_monitoring():
         for date_key in sorted(regions.get(region, {}).get('by_date', {}).keys()):
             b = regions[region]['by_date'][date_key]
             teams = []
+            planned_not_departed = []
+            travel_not_started = []
             for team_id, tb in b['team_map'].items():
                 stage = 'planned'
                 if tb['travel_tickets']:
@@ -1126,7 +1128,7 @@ def build_realtime_monitoring():
                     stage = 'start'
                 if tb['done_tickets']:
                     stage = 'done'
-                teams.append({
+                row = {
                     'team_id': team_id,
                     'region': region,
                     'province': tb['province'],
@@ -1138,12 +1140,31 @@ def build_realtime_monitoring():
                     'que_count': len(tb['que_set']),
                     'latest_status': tb['latest_status'],
                     'stage': stage,
-                })
+                }
+                teams.append(row)
+                if stage == 'planned':
+                    planned_not_departed.append(row)
+                elif stage == 'travel':
+                    travel_not_started.append(row)
             teams.sort(key=lambda x: (-x['done_tickets'], -x['start_tickets'], -x['travel_tickets'], -x['planned_tickets'], x['team_id']))
+            planned_not_departed.sort(key=lambda x: (-x['planned_tickets'], x['team_id']))
+            travel_not_started.sort(key=lambda x: (-x['travel_tickets'], -x['planned_tickets'], x['team_id']))
+            planned_teams_n = len(b['planned_teams'])
+            planned_not_departed_n = len(planned_not_departed)
+            travel_not_started_n = len(travel_not_started)
+            plan_stall_pct = round((planned_not_departed_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
+            travel_stall_pct = round((travel_not_started_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
+            insight = []
+            if planned_not_departed_n:
+                insight.append(f"ยังไม่ออกเดินทาง {planned_not_departed_n} ทีม ({plan_stall_pct:.0f}% ของทีมตามแผน)")
+            if travel_not_started_n:
+                insight.append(f"เดินทางแล้วแต่ยังไม่เริ่มซ่อม {travel_not_started_n} ทีม ({travel_stall_pct:.0f}% ของทีมตามแผน)")
+            if not insight:
+                insight.append('ทุกทีมเริ่มขยับงานตามแผนแล้ว')
             reg_out['by_date'][date_key] = {
                 'summary': {
                     'planned_tickets': len(b['planned_tickets']),
-                    'planned_teams': len(b['planned_teams']),
+                    'planned_teams': planned_teams_n,
                     'active_teams': len(b['active_teams']),
                     'travel_teams': len(b['travel_teams']),
                     'travel_tickets': len(b['travel_tickets']),
@@ -1151,6 +1172,15 @@ def build_realtime_monitoring():
                     'start_tickets': len(b['start_tickets']),
                     'done_teams': len(b['done_teams']),
                     'done_tickets': len(b['done_tickets']),
+                    'planned_not_departed_teams': planned_not_departed_n,
+                    'travel_not_started_teams': travel_not_started_n,
+                    'plan_stall_pct': plan_stall_pct,
+                    'travel_stall_pct': travel_stall_pct,
+                },
+                'alerts': {
+                    'planned_not_departed': planned_not_departed,
+                    'travel_not_started': travel_not_started,
+                    'insight': insight,
                 },
                 'teams': teams
             }
