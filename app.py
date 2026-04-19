@@ -1042,7 +1042,7 @@ def build_realtime_monitoring():
 
             team_id = _rt_get(row, C['team_id']) or f'NO_TEAM_{row_idx}'
             ticket_raw = _rt_get(row, C['ticket'])
-            has_ticket = bool(str(ticket_raw or '').strip())
+            has_ticket_plan = bool(str(ticket_raw or '').strip())
             ticket_key = dedupe_ticket_key(ticket_raw, row_idx)
             dedupe_key = f'{team_id}::{ticket_key}'
             province = _rt_get(row, C['province'])
@@ -1054,7 +1054,6 @@ def build_realtime_monitoring():
             dt_hold = parse_dt(_rt_get(row, C['hold']))
             dt_linkup = parse_dt(_rt_get(row, C['linkup']))
             is_travel, is_start, is_done, is_active = _rt_stage_flags(status_val, dt_travel, dt_start, dt_hold, dt_linkup)
-            is_day_off = (not has_ticket) and (not is_travel) and (not is_start) and (not is_done)
 
             bucket = regions.setdefault(region, {'by_date': {}})['by_date'].setdefault(plan_date, {
                 'planned_tickets': set(),
@@ -1066,25 +1065,9 @@ def build_realtime_monitoring():
                 'start_tickets': set(),
                 'done_teams': set(),
                 'done_tickets': set(),
-                'day_off_teams': set(),
+                'off_teams': set(),
                 'team_map': {}
             })
-            if has_ticket:
-                bucket['planned_tickets'].add(dedupe_key)
-                bucket['planned_teams'].add(team_id)
-            elif is_day_off:
-                bucket['day_off_teams'].add(team_id)
-            if has_ticket and is_active:
-                bucket['active_teams'].add(team_id)
-            if has_ticket and is_travel:
-                bucket['travel_teams'].add(team_id)
-                bucket['travel_tickets'].add(dedupe_key)
-            if has_ticket and is_start:
-                bucket['start_teams'].add(team_id)
-                bucket['start_tickets'].add(dedupe_key)
-            if has_ticket and is_done:
-                bucket['done_teams'].add(team_id)
-                bucket['done_tickets'].add(dedupe_key)
 
             tb = bucket['team_map'].setdefault(team_id, {
                 'team_id': team_id,
@@ -1097,21 +1080,38 @@ def build_realtime_monitoring():
                 'done_tickets': set(),
                 'que_set': set(),
                 'latest_status': '',
-                'is_day_off': False,
+                'has_ticket_plan': False,
+                'off_rows': 0,
             })
-            if has_ticket:
-                tb['planned_tickets'].add(dedupe_key)
-            else:
-                tb['is_day_off'] = True
             if que:
                 tb['que_set'].add(que)
             if status_val:
                 tb['latest_status'] = status_val
-            if has_ticket and is_travel:
+
+            if not has_ticket_plan:
+                tb['off_rows'] += 1
+                if not tb['has_ticket_plan']:
+                    bucket['off_teams'].add(team_id)
+                continue
+
+            tb['has_ticket_plan'] = True
+            bucket['off_teams'].discard(team_id)
+            bucket['planned_tickets'].add(dedupe_key)
+            bucket['planned_teams'].add(team_id)
+            tb['planned_tickets'].add(dedupe_key)
+            if is_active:
+                bucket['active_teams'].add(team_id)
+            if is_travel:
+                bucket['travel_teams'].add(team_id)
+                bucket['travel_tickets'].add(dedupe_key)
                 tb['travel_tickets'].add(dedupe_key)
-            if has_ticket and is_start:
+            if is_start:
+                bucket['start_teams'].add(team_id)
+                bucket['start_tickets'].add(dedupe_key)
                 tb['start_tickets'].add(dedupe_key)
-            if has_ticket and is_done:
+            if is_done:
+                bucket['done_teams'].add(team_id)
+                bucket['done_tickets'].add(dedupe_key)
                 tb['done_tickets'].add(dedupe_key)
 
     out = {
@@ -1128,47 +1128,79 @@ def build_realtime_monitoring():
         for date_key in sorted(regions.get(region, {}).get('by_date', {}).keys()):
             b = regions[region]['by_date'][date_key]
             teams = []
-            province_summary = []
+            planned_not_departed = []
+            travel_not_started = []
+            off_teams = []
+            off_teams_cm = []
+            off_teams_ofc = []
             for team_id, tb in b['team_map'].items():
+                if not tb.get('has_ticket_plan'):
+                    row = {
+                        'team_id': team_id,
+                        'region': region,
+                        'province': tb['province'],
+                        'type_team': tb['type_team'],
+                        'planned_tickets': 0,
+                        'travel_tickets': 0,
+                        'start_tickets': 0,
+                        'done_tickets': 0,
+                        'que_count': len(tb['que_set']),
+                        'latest_status': tb['latest_status'] or 'หยุด',
+                        'stage': 'off',
+                    }
+                    teams.append(row)
+                    off_teams.append(row)
+                    if str(tb['type_team'] or '').strip().upper() == 'CM':
+                        off_teams_cm.append(row)
+                    elif str(tb['type_team'] or '').strip().upper() == 'OFC':
+                        off_teams_ofc.append(row)
+                    continue
                 stage = 'planned'
-                if tb.get('is_day_off') and not tb['planned_tickets']:
-                    stage = 'dayoff'
                 if tb['travel_tickets']:
                     stage = 'travel'
                 if tb['start_tickets']:
                     stage = 'start'
                 if tb['done_tickets']:
                     stage = 'done'
-                plan_cnt = len(tb['planned_tickets'])
-                travel_cnt = len(tb['travel_tickets'])
-                start_cnt = len(tb['start_tickets'])
-                done_cnt = len(tb['done_tickets'])
-                hold_cnt = max(0, start_cnt - done_cnt)
-                capacity_pct = round((done_cnt / plan_cnt) * 100, 2) if plan_cnt else None
-                team_row = {
+                row = {
                     'team_id': team_id,
                     'region': region,
                     'province': tb['province'],
                     'type_team': tb['type_team'],
-                    'planned_tickets': plan_cnt,
-                    'travel_tickets': travel_cnt,
-                    'start_tickets': start_cnt,
-                    'done_tickets': done_cnt,
-                    'hold_tickets': hold_cnt,
+                    'planned_tickets': len(tb['planned_tickets']),
+                    'travel_tickets': len(tb['travel_tickets']),
+                    'start_tickets': len(tb['start_tickets']),
+                    'done_tickets': len(tb['done_tickets']),
                     'que_count': len(tb['que_set']),
                     'latest_status': tb['latest_status'],
                     'stage': stage,
-                    'capacity_pct': capacity_pct,
-                    'is_day_off': bool(tb.get('is_day_off') and not plan_cnt),
                 }
-                teams.append(team_row)
-                province_summary.append(team_row)
-            teams.sort(key=lambda x: (-x['done_tickets'], -x['start_tickets'], -x['travel_tickets'], -x['planned_tickets'], x['team_id']))
-            province_summary.sort(key=lambda x: ((x['province'] or ''), (x['type_team'] or ''), (x['team_id'] or '')))
+                teams.append(row)
+                if stage == 'planned':
+                    planned_not_departed.append(row)
+                elif stage == 'travel':
+                    travel_not_started.append(row)
+            teams.sort(key=lambda x: (0 if x['stage'] != 'off' else 1, -x['done_tickets'], -x['start_tickets'], -x['travel_tickets'], -x['planned_tickets'], x['team_id']))
+            planned_not_departed.sort(key=lambda x: (-x['planned_tickets'], x['team_id']))
+            travel_not_started.sort(key=lambda x: (-x['travel_tickets'], -x['planned_tickets'], x['team_id']))
+            planned_teams_n = len(b['planned_teams'])
+            planned_not_departed_n = len(planned_not_departed)
+            travel_not_started_n = len(travel_not_started)
+            plan_stall_pct = round((planned_not_departed_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
+            travel_stall_pct = round((travel_not_started_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
+            insight = []
+            if off_teams:
+                insight.append(f"ทีมหยุด {len(off_teams)} ทีม (CM {len(off_teams_cm)} · OFC {len(off_teams_ofc)}) ไม่มี Ticket ในแผนของวันนั้น")
+            if planned_not_departed_n:
+                insight.append(f"ยังไม่ออกเดินทาง {planned_not_departed_n} ทีม ({plan_stall_pct:.0f}% ของทีมตามแผน)")
+            if travel_not_started_n:
+                insight.append(f"เดินทางแล้วแต่ยังไม่เริ่มซ่อม {travel_not_started_n} ทีม ({travel_stall_pct:.0f}% ของทีมตามแผน)")
+            if not insight:
+                insight.append('ทุกทีมเริ่มขยับงานตามแผนแล้ว')
             reg_out['by_date'][date_key] = {
                 'summary': {
                     'planned_tickets': len(b['planned_tickets']),
-                    'planned_teams': len(b['planned_teams']),
+                    'planned_teams': planned_teams_n,
                     'active_teams': len(b['active_teams']),
                     'travel_teams': len(b['travel_teams']),
                     'travel_tickets': len(b['travel_tickets']),
@@ -1176,10 +1208,23 @@ def build_realtime_monitoring():
                     'start_tickets': len(b['start_tickets']),
                     'done_teams': len(b['done_teams']),
                     'done_tickets': len(b['done_tickets']),
-                    'day_off_teams': len(b.get('day_off_teams', set())),
+                    'planned_not_departed_teams': planned_not_departed_n,
+                    'travel_not_started_teams': travel_not_started_n,
+                    'plan_stall_pct': plan_stall_pct,
+                    'travel_stall_pct': travel_stall_pct,
+                    'off_teams': len(off_teams),
+                    'off_teams_cm': len(off_teams_cm),
+                    'off_teams_ofc': len(off_teams_ofc),
                 },
-                'teams': teams,
-                'province_summary': province_summary,
+                'alerts': {
+                    'planned_not_departed': planned_not_departed,
+                    'travel_not_started': travel_not_started,
+                    'off_teams': off_teams,
+                    'off_teams_cm': off_teams_cm,
+                    'off_teams_ofc': off_teams_ofc,
+                    'insight': insight,
+                },
+                'teams': teams
             }
         out['regions'][region] = reg_out
     return out
