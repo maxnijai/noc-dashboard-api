@@ -421,7 +421,24 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rt-meta-note { font-size:11px; color:var(--text3); }
 .tv-mode .content { padding:14px; }
 .tv-mode .rt-region-card { min-height:calc(100vh - 180px); }
-@media (max-width: 1200px){ .realtime-split { grid-template-columns:1fr; } }
+.rt-smart-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px; }
+.rt-smart-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px; min-height:148px; }
+.rt-smart-card.plan { border-left:4px solid var(--amber); }
+.rt-smart-card.travelwait { border-left:4px solid var(--blue); }
+.rt-smart-title { font-size:12px; font-weight:800; margin-bottom:6px; }
+.rt-smart-title.plan { color:var(--amber); }
+.rt-smart-title.travelwait { color:var(--blue); }
+.rt-smart-count { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; }
+.rt-smart-sub { font-size:11px; color:var(--text2); margin-top:4px; }
+.rt-smart-list { margin-top:8px; max-height:92px; overflow:auto; display:flex; flex-wrap:wrap; gap:6px; }
+.rt-smart-chip { font-size:11px; padding:3px 8px; border-radius:99px; background:var(--bg4); color:var(--text2); border:1px solid var(--border); white-space:nowrap; }
+.rt-insight-box { margin:0 16px 16px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); padding:12px 14px; }
+.rt-insight-title { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; font-weight:700; }
+.rt-insight-line { font-size:12px; color:var(--text2); line-height:1.5; }
+.rt-insight-line.warn { color:var(--amber); }
+.rt-insight-line.info { color:var(--blue); }
+.rt-table-wrap.pro { max-height:320px; }
+@media (max-width: 1200px){ .realtime-split { grid-template-columns:1fr; } .rt-smart-grid{grid-template-columns:1fr;} }
 
 </style>
 </head>
@@ -2420,12 +2437,16 @@ function renderRealtime(){
   ['NOR1','NOR2'].forEach(region => {
     const target = document.getElementById('rt-' + region.toLowerCase() + '-body');
     const note = document.getElementById('rt-' + region.toLowerCase() + '-note');
-    const payload = (((REALTIME_RAW.regions||{})[region]||{}).by_date||{})[dateVal] || {summary:{},teams:[]};
+    const payload = (((REALTIME_RAW.regions||{})[region]||{}).by_date||{})[dateVal] || {summary:{},alerts:{},teams:[]};
     const s = payload.summary || {};
+    const a = payload.alerts || {};
     const plannedTickets = Math.max(rtSafe(s.planned_tickets), 0);
     const travelPct = plannedTickets ? Math.min(100, (rtSafe(s.travel_tickets) / plannedTickets) * 100) : 0;
     const startPct  = plannedTickets ? Math.min(100, (rtSafe(s.start_tickets) / plannedTickets) * 100) : 0;
     const donePct   = plannedTickets ? Math.min(100, (rtSafe(s.done_tickets) / plannedTickets) * 100) : 0;
+    const plannedWait = a.planned_not_departed || [];
+    const travelWait = a.travel_not_started || [];
+    const insights = a.insight || [];
     if(note) note.textContent = `${rtFmtDate(dateVal)} · ${rtSafe(s.planned_teams)} ทีม · ${plannedTickets} ticket`;
     if(!target) return;
     const rows = (payload.teams || []).map(t => `
@@ -2440,6 +2461,9 @@ function renderRealtime(){
         <td style="color:var(--green);font-weight:700;">${rtSafe(t.done_tickets)}</td>
         <td style="color:var(--text3);">${t.latest_status || '-'}</td>
       </tr>`).join('');
+    const plannedChips = plannedWait.length ? plannedWait.slice(0, 12).map(t => `<span class="rt-smart-chip">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีมค้างออกเดินทาง</span>';
+    const travelChips = travelWait.length ? travelWait.slice(0, 12).map(t => `<span class="rt-smart-chip">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีมค้างเริ่มซ่อม</span>';
+    const insightHtml = insights.map((txt, idx) => `<div class="rt-insight-line ${idx===0?'warn':'info'}">• ${txt}</div>`).join('');
     target.innerHTML = `
       <div class="rt-kpi-grid">
         <div class="rt-kpi"><div class="lb">Planned Ticket</div><div class="vl">${plannedTickets}</div><div class="sb">วางแผนทั้งหมด</div></div>
@@ -2456,7 +2480,25 @@ function renderRealtime(){
           <div class="rt-step done" style="--fill:${donePct}%;"><div class="stg">เสร็จ</div><div class="num">${rtSafe(s.done_teams)}</div><div class="meta">${rtSafe(s.done_tickets)} งาน · ${donePct.toFixed(0)}%</div></div>
         </div>
       </div>
-      <div class="rt-table-wrap">
+      <div class="rt-smart-grid">
+        <div class="rt-smart-card plan">
+          <div class="rt-smart-title plan">มี Plan แล้วยังไม่เดินทาง</div>
+          <div class="rt-smart-count">${rtSafe(s.planned_not_departed_teams)}</div>
+          <div class="rt-smart-sub">${rtSafe(s.plan_stall_pct)}% ของทีมตามแผน</div>
+          <div class="rt-smart-list">${plannedChips}</div>
+        </div>
+        <div class="rt-smart-card travelwait">
+          <div class="rt-smart-title travelwait">เดินทางแล้ว ยังไม่เริ่มซ่อม</div>
+          <div class="rt-smart-count">${rtSafe(s.travel_not_started_teams)}</div>
+          <div class="rt-smart-sub">${rtSafe(s.travel_stall_pct)}% ของทีมตามแผน</div>
+          <div class="rt-smart-list">${travelChips}</div>
+        </div>
+      </div>
+      <div class="rt-insight-box">
+        <div class="rt-insight-title">Smart Insight</div>
+        ${insightHtml || '<div class="rt-insight-line">• ไม่พบคอขวดในช่วงเวลานี้</div>'}
+      </div>
+      <div class="rt-table-wrap pro">
         <table class="table-rt">
           <thead>
             <tr><th>Team ID</th><th>Type</th><th>Province</th><th>Status</th><th>Plan</th><th>Travel</th><th>Start</th><th>Done</th><th>Latest Status</th></tr>
