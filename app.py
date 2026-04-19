@@ -1125,6 +1125,8 @@ def build_focus_priority():
 
         trueownergroup = _fp_get(row, C['trueownergroup'])
         region = _fp_extract_region(trueownergroup, _fp_get(row, C['region']))
+        if region not in ('NOR1', 'NOR2'):
+            continue
         plan = None
         if region in ('NOR1', 'NOR2'):
             plan = plan_maps.get(region, {}).get(ticket)
