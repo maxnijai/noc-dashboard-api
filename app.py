@@ -1026,6 +1026,7 @@ def _fp_load_plan_sheet(gc, region):
         'log_update': _fp_fc(col, 'Log Update', 'Update Log', 'LOG UPDATE'),
         'inoc_name': _fp_fc(col, 'INOC Name', 'INOCNAME'),
         'priority_src': _fp_fc(col, 'Priority'),
+        'trueownergroup': _fp_fc(col, 'TRUEOWNERGROUP', 'TrueOwnerGroup', 'TRUE OWNER GROUP'),
     }
     for idx, row in enumerate(rows[1:], start=2):
         ticket = _fp_get(row, C['ticket'])
@@ -1045,6 +1046,7 @@ def _fp_load_plan_sheet(gc, region):
             'log_update': _fp_get(row, C['log_update']),
             'inoc_name': _fp_get(row, C['inoc_name']),
             'priority_src': _fp_get(row, C['priority_src']),
+            'trueownergroup': _fp_get(row, C['trueownergroup']),
             'region': region,
             'dt_go': parse_dt(_fp_get(row, C['go'])),
             'dt_start': parse_dt(_fp_get(row, C['start'])),
@@ -1057,12 +1059,26 @@ def _fp_load_plan_sheet(gc, region):
     return {k: _fp_best_plan_row(v) for k, v in out.items()}
 
 
+def _fp_extract_region(trueownergroup_value, fallback=''):
+    s = str(trueownergroup_value or '').strip().upper()
+    m = re.search(r'-(NOR[12])-', s)
+    if m:
+        return m.group(1)
+    s2 = str(fallback or '').strip().upper()
+    return s2 if s2 in ('NOR1', 'NOR2') else ''
+
+
+def _fp_trueowner_sort_key(v):
+    s = str(v or '').strip().upper()
+    return s or 'ZZZ'
+
+
 def build_focus_priority():
     gc = get_client()
     source_ws = gc.open_by_key(FOCUS_SOURCE_SHEET_ID).get_worksheet(0)
     source_rows = source_ws.get_all_values()
     if not source_rows:
-        return {'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'regions': {'NOR1': {}, 'NOR2': {}}}
+        return {'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'bookmarks': {}, 'bookmark_order': list(FOCUS_SOURCE_BOOKMARKS)}
 
     headers = [_fp_norm_header(h) for h in source_rows[0]]
     col = {h: i for i, h in enumerate(headers) if h}
@@ -1070,32 +1086,34 @@ def build_focus_priority():
         'region': _fp_fc(col, 'Region', 'REGION'),
         'bookmark': _fp_fc(col, 'Bookmark', 'BOOKMARK'),
         'ticket': _fp_fc(col, 'TICKETID', 'Ticket', 'Ticket ID'),
-        'targetfinish': _fp_fc(col, 'TARGETFINISH', 'Target Finish'),
+        'targetfinish': _fp_fc(col, 'TARGETFINISH', 'Target Finish', 'Target date'),
         'subject': _fp_fc(col, 'SUBJECT', 'Subject'),
         'ciname': _fp_fc(col, 'CINAME', 'CI Name', 'CI NAME'),
         'status_sccd': _fp_fc(col, 'Status SCCD', 'STATUS SCCD'),
         'penalty': _fp_fc(col, 'ยอดค่าปรับ ณ เวลานี้', 'PENALTYBAHT_TRACKB', 'Penalty'),
         'inoc_name': _fp_fc(col, 'INOC Name', 'INOCNAME'),
         'priority_src': _fp_fc(col, 'Priority'),
+        'trueownergroup': _fp_fc(col, 'TRUEOWNERGROUP', 'TrueOwnerGroup', 'TRUE OWNER GROUP'),
     }
 
     plan_maps = {r: _fp_load_plan_sheet(gc, r) for r in ('NOR1', 'NOR2')}
     now_dt = datetime.now()
     ref_dt = (now_dt + timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    bookmark_order = ['3. All NW Incident NSA1-2', '4.FBB with SA1-4', '7.MB with SA1-4']
     out = {
         'generated_at': now_dt.strftime('%Y-%m-%d %H:%M:%S'),
         'reference_cutoff': _fp_fmt_dt(ref_dt),
         'now': _fp_fmt_dt(now_dt),
-        'regions': {
-            'NOR1': {'summary': {}, 'priorities': {'Priority0': [], 'Priority1': [], 'Priority2': []}},
-            'NOR2': {'summary': {}, 'priorities': {'Priority0': [], 'Priority1': [], 'Priority2': []}},
-        }
+        'bookmark_order': bookmark_order,
+        'bookmarks': {},
+        'summary': {'total': 0, 'planned': 0, 'unplanned': 0, 'Priority0': 0, 'Priority1': 0, 'Priority2': 0},
     }
+    for bm in bookmark_order:
+        out['bookmarks'][bm] = {'summary': {'total': 0, 'planned': 0, 'unplanned': 0, 'Priority0': 0, 'Priority1': 0, 'Priority2': 0}, 'priorities': {'Priority0': [], 'Priority1': [], 'Priority2': []}}
 
     for idx, row in enumerate(source_rows[1:], start=2):
-        region = (_fp_get(row, C['region']) or '').strip().upper()
         bookmark = _fp_get(row, C['bookmark'])
-        if region not in ('NOR1', 'NOR2') or bookmark not in FOCUS_SOURCE_BOOKMARKS:
+        if bookmark not in FOCUS_SOURCE_BOOKMARKS:
             continue
         ticket = _fp_get(row, C['ticket'])
         if not ticket:
@@ -1104,20 +1122,29 @@ def build_focus_priority():
         dt_target = parse_dt(targetfinish_raw)
         if not dt_target:
             continue
-        diff_hours = round((dt_target - ref_dt).total_seconds() / 3600.0, 2)
-        overdue = dt_target < now_dt
+
+        trueownergroup = _fp_get(row, C['trueownergroup'])
+        region = _fp_extract_region(trueownergroup, _fp_get(row, C['region']))
+        plan = None
+        if region in ('NOR1', 'NOR2'):
+            plan = plan_maps.get(region, {}).get(ticket)
+        if plan is None:
+            plan = plan_maps.get('NOR1', {}).get(ticket) or plan_maps.get('NOR2', {}).get(ticket)
+
+        diff_hours = round((ref_dt - dt_target).total_seconds() / 3600.0, 2)
         if diff_hours > 24:
             pr = 'Priority0'
-        elif overdue:
+        elif diff_hours >= 0:
             pr = 'Priority1'
         else:
             pr = 'Priority2'
-        plan = plan_maps.get(region, {}).get(ticket)
+
         plan_found = plan is not None
         rec = {
             'row_no': idx,
-            'region': region,
             'bookmark': bookmark,
+            'region': region,
+            'trueownergroup': trueownergroup or (plan.get('trueownergroup') if plan else ''),
             'priority_bucket': pr,
             'priority_src': _fp_get(row, C['priority_src']) or (plan.get('priority_src') if plan else ''),
             'ciname': _fp_get(row, C['ciname']) or (plan.get('ciname') if plan else ''),
@@ -1125,7 +1152,7 @@ def build_focus_priority():
             'ticketid': ticket,
             'targetfinish': _fp_fmt_dt(dt_target),
             'hours_vs_cutoff': diff_hours,
-            'overdue': overdue,
+            'summary_hours': diff_hours,
             'plan_found': plan_found,
             'que': plan.get('que', '') if plan else '',
             'team_id': plan.get('team_id', '') if plan else '',
@@ -1143,22 +1170,32 @@ def build_focus_priority():
             'done_time': _fp_time_only(plan.get('dt_done')) if plan else '',
             'hold_time': _fp_time_only(plan.get('dt_hold')) if plan else '',
         }
-        out['regions'][region]['priorities'][pr].append(rec)
+        out['bookmarks'][bookmark]['priorities'][pr].append(rec)
 
-    for region in ('NOR1', 'NOR2'):
-        reg = out['regions'][region]
+    def _sort_rows(rows):
+        rows.sort(key=lambda r: (
+            _fp_trueowner_sort_key(r.get('trueownergroup')),
+            0 if r.get('plan_found') else 1,
+            -(r.get('penalty_num') or 0),
+            r.get('ticketid') or ''
+        ))
+
+    for bm in bookmark_order:
+        payload = out['bookmarks'][bm]
         rows_all = []
         for pr in ('Priority0', 'Priority1', 'Priority2'):
-            reg['priorities'][pr].sort(key=lambda r: (0 if r['plan_found'] else 1, -(r['penalty_num'] or 0), r['ticketid']))
-            rows_all.extend(reg['priorities'][pr])
-        reg['summary'] = {
+            _sort_rows(payload['priorities'][pr])
+            rows_all.extend(payload['priorities'][pr])
+        payload['summary'] = {
             'total': len(rows_all),
             'planned': sum(1 for r in rows_all if r['plan_found']),
             'unplanned': sum(1 for r in rows_all if not r['plan_found']),
-            'Priority0': len(reg['priorities']['Priority0']),
-            'Priority1': len(reg['priorities']['Priority1']),
-            'Priority2': len(reg['priorities']['Priority2']),
+            'Priority0': len(payload['priorities']['Priority0']),
+            'Priority1': len(payload['priorities']['Priority1']),
+            'Priority2': len(payload['priorities']['Priority2']),
         }
+        for k in ('total','planned','unplanned','Priority0','Priority1','Priority2'):
+            out['summary'][k] += payload['summary'][k]
     return out
 
 
