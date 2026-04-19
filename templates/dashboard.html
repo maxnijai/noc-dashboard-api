@@ -421,17 +421,20 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rt-meta-note { font-size:11px; color:var(--text3); }
 .tv-mode .content { padding:14px; }
 .tv-mode .rt-region-card { min-height:calc(100vh - 180px); }
-.rt-smart-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:0 16px 16px; }
+.rt-smart-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; padding:0 16px 16px; }
 .rt-smart-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px; min-height:148px; }
 .rt-smart-card.plan { border-left:4px solid var(--amber); }
 .rt-smart-card.travelwait { border-left:4px solid var(--blue); }
+.rt-smart-card.off { border-left:4px solid var(--text3); }
 .rt-smart-title { font-size:12px; font-weight:800; margin-bottom:6px; }
 .rt-smart-title.plan { color:var(--amber); }
 .rt-smart-title.travelwait { color:var(--blue); }
+.rt-smart-title.off { color:var(--text2); }
 .rt-smart-count { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums; }
 .rt-smart-sub { font-size:11px; color:var(--text2); margin-top:4px; }
 .rt-smart-list { margin-top:8px; max-height:92px; overflow:auto; display:flex; flex-wrap:wrap; gap:6px; }
 .rt-smart-chip { font-size:11px; padding:3px 8px; border-radius:99px; background:var(--bg4); color:var(--text2); border:1px solid var(--border); white-space:nowrap; }
+.rt-smart-chip.off { opacity:.82; }
 .rt-insight-box { margin:0 16px 16px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015)); padding:12px 14px; }
 .rt-insight-title { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; font-weight:700; }
 .rt-insight-line { font-size:12px; color:var(--text2); line-height:1.5; }
@@ -2446,6 +2449,7 @@ function renderRealtime(){
     const donePct   = plannedTickets ? Math.min(100, (rtSafe(s.done_tickets) / plannedTickets) * 100) : 0;
     const plannedWait = a.planned_not_departed || [];
     const travelWait = a.travel_not_started || [];
+    const offTeams = a.off_teams || [];
     const insights = a.insight || [];
     if(note) note.textContent = `${rtFmtDate(dateVal)} · ${rtSafe(s.planned_teams)} ทีม · ${plannedTickets} ticket`;
     if(!target) return;
@@ -2472,6 +2476,7 @@ function renderRealtime(){
         <div class="rt-kpi"><div class="lb">Travel</div><div class="vl">${rtSafe(s.travel_teams)}</div><div class="sb">${rtSafe(s.travel_tickets)} ticket</div></div>
         <div class="rt-kpi"><div class="lb">Start Repair</div><div class="vl">${rtSafe(s.start_teams)}</div><div class="sb">${rtSafe(s.start_tickets)} ticket</div></div>
         <div class="rt-kpi"><div class="lb">Completed</div><div class="vl">${rtSafe(s.done_teams)}</div><div class="sb">${rtSafe(s.done_tickets)} งาน</div></div>
+        <div class="rt-kpi"><div class="lb">Day Off Team</div><div class="vl">${rtSafe(s.off_teams)}</div><div class="sb">ไม่มี Ticket ในแผน</div></div>
       </div>
       <div class="rt-step-wrap">
         <div class="rt-step-bar">
@@ -2481,6 +2486,12 @@ function renderRealtime(){
         </div>
       </div>
       <div class="rt-smart-grid">
+        <div class="rt-smart-card off">
+          <div class="rt-smart-title off">ทีมหยุด</div>
+          <div class="rt-smart-count">${rtSafe(s.off_teams)}</div>
+          <div class="rt-smart-sub">Team ID ที่ไม่มี Ticket ในวันนั้น</div>
+          <div class="rt-smart-list">${offTeams.length ? offTeams.slice(0, 12).map(t => `<span class="rt-smart-chip off">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีมหยุด</span>'}</div>
+        </div>
         <div class="rt-smart-card plan">
           <div class="rt-smart-title plan">มี Plan แล้วยังไม่เดินทาง</div>
           <div class="rt-smart-count">${rtSafe(s.planned_not_departed_teams)}</div>
