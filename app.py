@@ -1042,6 +1042,7 @@ def build_realtime_monitoring():
 
             team_id = _rt_get(row, C['team_id']) or f'NO_TEAM_{row_idx}'
             ticket_raw = _rt_get(row, C['ticket'])
+            has_ticket_plan = bool(str(ticket_raw or '').strip())
             ticket_key = dedupe_ticket_key(ticket_raw, row_idx)
             dedupe_key = f'{team_id}::{ticket_key}'
             province = _rt_get(row, C['province'])
@@ -1064,21 +1065,9 @@ def build_realtime_monitoring():
                 'start_tickets': set(),
                 'done_teams': set(),
                 'done_tickets': set(),
+                'off_teams': set(),
                 'team_map': {}
             })
-            bucket['planned_tickets'].add(dedupe_key)
-            bucket['planned_teams'].add(team_id)
-            if is_active:
-                bucket['active_teams'].add(team_id)
-            if is_travel:
-                bucket['travel_teams'].add(team_id)
-                bucket['travel_tickets'].add(dedupe_key)
-            if is_start:
-                bucket['start_teams'].add(team_id)
-                bucket['start_tickets'].add(dedupe_key)
-            if is_done:
-                bucket['done_teams'].add(team_id)
-                bucket['done_tickets'].add(dedupe_key)
 
             tb = bucket['team_map'].setdefault(team_id, {
                 'team_id': team_id,
@@ -1091,17 +1080,38 @@ def build_realtime_monitoring():
                 'done_tickets': set(),
                 'que_set': set(),
                 'latest_status': '',
+                'has_ticket_plan': False,
+                'off_rows': 0,
             })
-            tb['planned_tickets'].add(dedupe_key)
             if que:
                 tb['que_set'].add(que)
             if status_val:
                 tb['latest_status'] = status_val
+
+            if not has_ticket_plan:
+                tb['off_rows'] += 1
+                if not tb['has_ticket_plan']:
+                    bucket['off_teams'].add(team_id)
+                continue
+
+            tb['has_ticket_plan'] = True
+            bucket['off_teams'].discard(team_id)
+            bucket['planned_tickets'].add(dedupe_key)
+            bucket['planned_teams'].add(team_id)
+            tb['planned_tickets'].add(dedupe_key)
+            if is_active:
+                bucket['active_teams'].add(team_id)
             if is_travel:
+                bucket['travel_teams'].add(team_id)
+                bucket['travel_tickets'].add(dedupe_key)
                 tb['travel_tickets'].add(dedupe_key)
             if is_start:
+                bucket['start_teams'].add(team_id)
+                bucket['start_tickets'].add(dedupe_key)
                 tb['start_tickets'].add(dedupe_key)
             if is_done:
+                bucket['done_teams'].add(team_id)
+                bucket['done_tickets'].add(dedupe_key)
                 tb['done_tickets'].add(dedupe_key)
 
     out = {
@@ -1120,7 +1130,25 @@ def build_realtime_monitoring():
             teams = []
             planned_not_departed = []
             travel_not_started = []
+            off_teams = []
             for team_id, tb in b['team_map'].items():
+                if not tb.get('has_ticket_plan'):
+                    row = {
+                        'team_id': team_id,
+                        'region': region,
+                        'province': tb['province'],
+                        'type_team': tb['type_team'],
+                        'planned_tickets': 0,
+                        'travel_tickets': 0,
+                        'start_tickets': 0,
+                        'done_tickets': 0,
+                        'que_count': len(tb['que_set']),
+                        'latest_status': tb['latest_status'] or 'หยุด',
+                        'stage': 'off',
+                    }
+                    teams.append(row)
+                    off_teams.append(row)
+                    continue
                 stage = 'planned'
                 if tb['travel_tickets']:
                     stage = 'travel'
@@ -1146,7 +1174,7 @@ def build_realtime_monitoring():
                     planned_not_departed.append(row)
                 elif stage == 'travel':
                     travel_not_started.append(row)
-            teams.sort(key=lambda x: (-x['done_tickets'], -x['start_tickets'], -x['travel_tickets'], -x['planned_tickets'], x['team_id']))
+            teams.sort(key=lambda x: (0 if x['stage'] != 'off' else 1, -x['done_tickets'], -x['start_tickets'], -x['travel_tickets'], -x['planned_tickets'], x['team_id']))
             planned_not_departed.sort(key=lambda x: (-x['planned_tickets'], x['team_id']))
             travel_not_started.sort(key=lambda x: (-x['travel_tickets'], -x['planned_tickets'], x['team_id']))
             planned_teams_n = len(b['planned_teams'])
@@ -1155,6 +1183,8 @@ def build_realtime_monitoring():
             plan_stall_pct = round((planned_not_departed_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
             travel_stall_pct = round((travel_not_started_n / planned_teams_n) * 100, 1) if planned_teams_n else 0.0
             insight = []
+            if off_teams:
+                insight.append(f"ทีมหยุด {len(off_teams)} ทีม (ไม่มี Ticket ในแผนของวันนั้น)")
             if planned_not_departed_n:
                 insight.append(f"ยังไม่ออกเดินทาง {planned_not_departed_n} ทีม ({plan_stall_pct:.0f}% ของทีมตามแผน)")
             if travel_not_started_n:
@@ -1176,10 +1206,12 @@ def build_realtime_monitoring():
                     'travel_not_started_teams': travel_not_started_n,
                     'plan_stall_pct': plan_stall_pct,
                     'travel_stall_pct': travel_stall_pct,
+                    'off_teams': len(off_teams),
                 },
                 'alerts': {
                     'planned_not_departed': planned_not_departed,
                     'travel_not_started': travel_not_started,
+                    'off_teams': off_teams,
                     'insight': insight,
                 },
                 'teams': teams
