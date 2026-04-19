@@ -422,8 +422,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rt-achieve-pill.good { color:var(--green); background:rgba(63,185,80,.12); border-color:rgba(63,185,80,.28); }
 .rt-achieve-pill.warn { color:var(--amber); background:rgba(227,179,65,.12); border-color:rgba(227,179,65,.28); }
 .rt-achieve-pill.bad { color:var(--red); background:rgba(248,81,73,.12); border-color:rgba(248,81,73,.28); }
-.table-rt tr.province-sep td { border-top: 2px solid var(--border2); padding-top: 14px; }
-.table-rt td.province-cell { color: var(--text); min-width: 120px; }
 .rt-meta-note { font-size:11px; color:var(--text3); }
 .tv-mode .content { padding:14px; }
 .tv-mode .rt-region-card { min-height:calc(100vh - 180px); }
@@ -448,7 +446,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rt-insight-line { font-size:12px; color:var(--text2); line-height:1.5; }
 .rt-insight-line.warn { color:var(--amber); }
 .rt-insight-line.info { color:var(--blue); }
-.rt-table-wrap.pro { max-height:320px; }
+.rt-table-wrap.pro { max-height:none; overflow:visible; }
+.table-rt tr.province-sep td { border-top: 2px solid var(--border2); padding-top: 14px; }
+.table-rt td.province-cell { font-weight:800; white-space:nowrap; color: var(--text); }
 @media (max-width: 1200px){ .realtime-split { grid-template-columns:1fr; } .rt-smart-grid{grid-template-columns:1fr;} }
 
 </style>
@@ -2487,8 +2487,8 @@ function renderRealtime(){
           const ach = Number.isFinite(t._achieve) ? t._achieve : 0;
           const achCls = ach >= 80 ? 'good' : (ach >= 50 ? 'warn' : 'bad');
           html += `
-      <tr class="${provIdx > 0 && idx === 0 ? 'province-sep' : ''}">
-        <td class="province-cell" style="font-weight:${idx===0?'800':'600'};white-space:nowrap;">${idx===0 ? prov : ''}</td>
+      <tr class="${provIdx>0 && idx===0 ? 'province-sep' : ''}">
+        <td class="province-cell">${prov}</td>
         <td style="font-weight:700;white-space:nowrap;">${t.team_id || '-'}</td>
         <td>${t.type_team || '-'}</td>
         <td><span class="rt-stage-pill ${rtStageClass(t.stage)}">${rtStageLabel(t.stage)}</span></td>
