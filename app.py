@@ -1296,32 +1296,3 @@ def start():
 start()
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT',5000)))
-
-
-# ==== REALTIME MAP ADDON ====
-def build_realtime_map(rows):
-    team_latest = {}
-    for row in rows:
-        team = row.get('Team ID')
-        coord_raw = row.get('Update พิกัด')
-        if not team or not coord_raw:
-            continue
-        coord = parse_coord(coord_raw)
-        if not coord:
-            continue
-        dt_travel = parse_dt(row.get('เวลาเดินทาง'))
-        dt_start  = parse_dt(row.get('เวลาเริ่มซ่อม'))
-        dt_linkup = parse_dt(row.get('Link Up'))
-        ts = dt_travel or dt_start or dt_linkup
-        if not ts:
-            continue
-        prev = team_latest.get(team)
-        if not prev or ts > prev['ts']:
-            team_latest[team] = {
-                'team': team,
-                'lat': coord[0],
-                'lon': coord[1],
-                'type': row.get('Type Team'),
-                'prov': row.get('Province')
-            }
-    return list(team_latest.values())
