@@ -421,6 +421,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .rt-meta-note { font-size:11px; color:var(--text3); }
 .tv-mode .content { padding:14px; }
 .tv-mode .rt-region-card { min-height:calc(100vh - 180px); }
+.rt-smart-chip.cm { border-color: rgba(63,185,80,.35); color: var(--green); background: rgba(63,185,80,.08); }
+.rt-smart-chip.ofc { border-color: rgba(227,179,65,.35); color: var(--amber); background: rgba(227,179,65,.08); }
 .rt-smart-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; padding:0 16px 16px; }
 .rt-smart-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:12px; min-height:148px; }
 .rt-smart-card.plan { border-left:4px solid var(--amber); }
@@ -2450,6 +2452,8 @@ function renderRealtime(){
     const plannedWait = a.planned_not_departed || [];
     const travelWait = a.travel_not_started || [];
     const offTeams = a.off_teams || [];
+    const offTeamsCM = a.off_teams_cm || [];
+    const offTeamsOFC = a.off_teams_ofc || [];
     const insights = a.insight || [];
     if(note) note.textContent = `${rtFmtDate(dateVal)} · ${rtSafe(s.planned_teams)} ทีม · ${plannedTickets} ticket`;
     if(!target) return;
@@ -2476,7 +2480,7 @@ function renderRealtime(){
         <div class="rt-kpi"><div class="lb">Travel</div><div class="vl">${rtSafe(s.travel_teams)}</div><div class="sb">${rtSafe(s.travel_tickets)} ticket</div></div>
         <div class="rt-kpi"><div class="lb">Start Repair</div><div class="vl">${rtSafe(s.start_teams)}</div><div class="sb">${rtSafe(s.start_tickets)} ticket</div></div>
         <div class="rt-kpi"><div class="lb">Completed</div><div class="vl">${rtSafe(s.done_teams)}</div><div class="sb">${rtSafe(s.done_tickets)} งาน</div></div>
-        <div class="rt-kpi"><div class="lb">Day Off Team</div><div class="vl">${rtSafe(s.off_teams)}</div><div class="sb">ไม่มี Ticket ในแผน</div></div>
+        <div class="rt-kpi"><div class="lb">Day Off Team</div><div class="vl">${rtSafe(s.off_teams)}</div><div class="sb">CM ${rtSafe(s.off_teams_cm)} · OFC ${rtSafe(s.off_teams_ofc)}</div></div>
       </div>
       <div class="rt-step-wrap">
         <div class="rt-step-bar">
@@ -2489,8 +2493,11 @@ function renderRealtime(){
         <div class="rt-smart-card off">
           <div class="rt-smart-title off">ทีมหยุด</div>
           <div class="rt-smart-count">${rtSafe(s.off_teams)}</div>
-          <div class="rt-smart-sub">Team ID ที่ไม่มี Ticket ในวันนั้น</div>
-          <div class="rt-smart-list">${offTeams.length ? offTeams.slice(0, 12).map(t => `<span class="rt-smart-chip off">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีมหยุด</span>'}</div>
+          <div class="rt-smart-sub">CM ${rtSafe(s.off_teams_cm)} · OFC ${rtSafe(s.off_teams_ofc)} · ไม่มี Ticket ในวันนั้น</div>
+          <div class="rt-smart-sub" style="margin-top:8px;color:var(--text3);">CM</div>
+          <div class="rt-smart-list">${offTeamsCM.length ? offTeamsCM.slice(0, 10).map(t => `<span class="rt-smart-chip off cm">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีม CM หยุด</span>'}</div>
+          <div class="rt-smart-sub" style="margin-top:10px;color:var(--text3);">OFC</div>
+          <div class="rt-smart-list">${offTeamsOFC.length ? offTeamsOFC.slice(0, 10).map(t => `<span class="rt-smart-chip off ofc">${t.team_id}</span>`).join('') : '<span class="rt-meta-note">ไม่มีทีม OFC หยุด</span>'}</div>
         </div>
         <div class="rt-smart-card plan">
           <div class="rt-smart-title plan">มี Plan แล้วยังไม่เดินทาง</div>
