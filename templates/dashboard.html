@@ -453,7 +453,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 
 /* Focus Priority */
-.fp-split { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.fp-split { display:grid; grid-template-columns:1fr; gap:14px; }
 .fp-region-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
 .fp-region-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); }
 .fp-region-head.nor1 { border-left:4px solid var(--blue); }
@@ -466,7 +466,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-kpi .vl.p0 { color:var(--green); } .fp-kpi .vl.p1 { color:var(--red); } .fp-kpi .vl.p2 { color:var(--amber); }
 .fp-kpi .sb { font-size:11px; color:var(--text2); margin-top:6px; }
 .fp-table-wrap { margin:0 16px 16px; border:1px solid var(--border); border-radius:12px; overflow:auto; max-height:70vh; }
-.table-fp { width:100%; border-collapse:collapse; min-width:1650px; }
+.table-fp { width:100%; border-collapse:collapse; min-width:1750px; }
 .table-fp th { position:sticky; top:0; background:var(--bg3); z-index:2; font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--text3); padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
 .table-fp td { padding:8px 10px; font-size:12px; border-bottom:1px solid var(--border); vertical-align:top; }
 .table-fp tr:hover td { background:var(--bg3); }
@@ -804,7 +804,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <div>
             <div class="chart-title" style="margin-bottom:4px;">Focus Priority</div>
-            <div class="rt-meta-note">ดึงจาก Bookmark 3 ชุดใน master sheet แล้ว match กับ Ticket ที่วางแผนในชีต NOR1 / NOR2</div>
+            <div class="rt-meta-note">แยก 3 Bookmark ออกจากกัน · รวมทุก region ไว้หน้าเดียว · Priority คิดจาก ref minus Target date</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span class="rt-meta-note" id="fp-meta">-</span>
@@ -812,22 +812,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
         </div>
       </div>
-      <div class="fp-split">
-        <div class="fp-region-card">
-          <div class="fp-region-head nor1">
-            <div><div class="fp-region-title">NOR1</div><div class="rt-meta-note">Focus ticket ที่ต้องจับตา</div></div>
-            <div class="rt-meta-note" id="fp-nor1-note">-</div>
-          </div>
-          <div id="fp-nor1-body"></div>
-        </div>
-        <div class="fp-region-card">
-          <div class="fp-region-head nor2">
-            <div><div class="fp-region-title">NOR2</div><div class="rt-meta-note">Focus ticket ที่ต้องจับตา</div></div>
-            <div class="rt-meta-note" id="fp-nor2-note">-</div>
-          </div>
-          <div id="fp-nor2-body"></div>
-        </div>
+      <div class="full-card" style="margin-bottom:14px;">
+        <div id="fp-summary-body"></div>
       </div>
+      <div class="fp-split" id="fp-bookmark-wrap"></div>
     </div>
   </div>
 
@@ -2686,7 +2674,7 @@ async function fetchFocusPriority(force){
     if(meta) meta.textContent = `อัปเดตล่าสุด ${j.generated_at || '-'} · ref ${j.reference_cutoff || '-'}`;
     renderFocusPriority();
   }catch(e){
-    ['fp-nor1-body','fp-nor2-body'].forEach(id=>{
+    ['fp-summary-body','fp-bookmark-wrap'].forEach(id=>{
       const el = document.getElementById(id);
       if(el) el.innerHTML = `<div class="summary-empty">โหลด Focus Priority ไม่สำเร็จ<br>${e.message}</div>`;
     });
@@ -2699,61 +2687,85 @@ function fpBadgeClass(pr){ return pr==='Priority0' ? 'p0' : pr==='Priority1' ? '
 function fpHoursClass(v){ return v > 24 ? 'good' : v < 0 ? 'bad' : 'warn'; }
 function renderFocusPriority(){
   if(!FOCUS_RAW) return;
-  ['NOR1','NOR2'].forEach(region => {
-    const target = document.getElementById('fp-' + region.toLowerCase() + '-body');
-    const note = document.getElementById('fp-' + region.toLowerCase() + '-note');
-    const payload = (FOCUS_RAW.regions || {})[region] || {summary:{}, priorities:{}};
+  const sum = FOCUS_RAW.summary || {};
+  const sumEl = document.getElementById('fp-summary-body');
+  if(sumEl){
+    sumEl.innerHTML = `
+      <div class="fp-kpi-grid">
+        <div class="fp-kpi"><div class="lb">Total</div><div class="vl">${fpNum(sum.total)}</div><div class="sb">ticket focus ทั้งหมด</div></div>
+        <div class="fp-kpi"><div class="lb">Priority0</div><div class="vl p0">${fpNum(sum.Priority0)}</div><div class="sb">Estimate - Target &gt; 24 hr</div></div>
+        <div class="fp-kpi"><div class="lb">Priority1</div><div class="vl p1">${fpNum(sum.Priority1)}</div><div class="sb">Estimate - Target 0 ถึง 24 hr</div></div>
+        <div class="fp-kpi"><div class="lb">Priority2</div><div class="vl p2">${fpNum(sum.Priority2)}</div><div class="sb">Estimate - Target ติดลบ</div></div>
+        <div class="fp-kpi"><div class="lb">Plan Match</div><div class="vl">${fpNum(sum.planned)}</div><div class="sb">ยังไม่ match ${fpNum(sum.unplanned)}</div></div>
+      </div>`;
+  }
+
+  const wrap = document.getElementById('fp-bookmark-wrap');
+  if(!wrap) return;
+  const order = FOCUS_RAW.bookmark_order || Object.keys(FOCUS_RAW.bookmarks || {});
+  wrap.innerHTML = order.map((bm, idx) => {
+    const payload = (FOCUS_RAW.bookmarks || {})[bm] || {summary:{}, priorities:{}};
     const s = payload.summary || {};
-    if(note) note.textContent = `${fpNum(s.total)} ticket · วางแผนแล้ว ${fpNum(s.planned)} · ยังไม่เจอแผน ${fpNum(s.unplanned)}`;
-    if(!target) return;
-    const priorities = ['Priority0','Priority1','Priority2'];
-    let rows = '';
-    priorities.forEach((pr, idx) => {
+    const rowsParts = [];
+    ['Priority0','Priority1','Priority2'].forEach((pr, prIdx) => {
       const arr = (payload.priorities || {})[pr] || [];
-      rows += `<tr class="fp-group-row ${idx>0?'fp-priority-sep':''}"><td colspan="16"><span class="fp-badge ${fpBadgeClass(pr)}">${pr}</span> <span class="fp-muted" style="margin-left:8px;">${arr.length} ticket</span></td></tr>`;
+      rowsParts.push(`<tr class="fp-group-row ${prIdx>0?'fp-priority-sep':''}"><td colspan="17"><span class="fp-badge ${fpBadgeClass(pr)}">${pr}</span> <span class="fp-muted" style="margin-left:8px;">${arr.length} ticket</span></td></tr>`);
       if(!arr.length){
-        rows += '<tr><td colspan="16" class="summary-empty">ไม่พบข้อมูล</td></tr>';
+        rowsParts.push('<tr><td colspan="17" class="summary-empty">ไม่พบข้อมูล</td></tr>');
         return;
       }
+      let lastGroup = null;
       arr.forEach(r => {
-        rows += `
-        <tr class="${r.plan_found ? 'fp-row-planned' : ''}">
-          <td><span class="fp-badge ${fpBadgeClass(r.priority_bucket)}">${r.priority_bucket}</span></td>
-          <td>${r.plan_found ? '<span class="fp-plan-yes">Planned</span>' : '<span class="fp-plan-no">No Plan</span>'}</td>
-          <td>${r.bookmark || '-'}</td>
-          <td>${r.priority_src || '-'}</td>
-          <td style="white-space:nowrap;">${r.ciname || '-'}</td>
-          <td style="min-width:320px;">${r.subject || '-'}</td>
-          <td>${r.que || '-'}</td>
-          <td style="font-weight:700;white-space:nowrap;">${r.team_id || '-'}</td>
-          <td style="white-space:nowrap;">${r.go_time || r.go || '-'}</td>
-          <td style="white-space:nowrap;">${r.start_time || r.start || '-'}</td>
-          <td style="white-space:nowrap;">${r.done_time || r.done || '-'}</td>
-          <td style="white-space:nowrap;">${r.hold_time || r.hold || '-'}</td>
-          <td>${r.status_sccd || '-'}</td>
-          <td style="white-space:nowrap;font-weight:700;">${r.ticketid || '-'}</td>
-          <td class="fp-penalty">${r.penalty || '-'}</td>
-          <td style="min-width:180px;">${r.log_update || r.inoc_name || '-'}</td>
-        </tr>`;
+        const group = r.trueownergroup || '-';
+        if(group !== lastGroup){
+          rowsParts.push(`<tr class="fp-owner-row"><td colspan="17"><span class="fp-owner-label">${group}</span></td></tr>`);
+          lastGroup = group;
+        }
+        rowsParts.push(`
+          <tr class="${r.plan_found ? 'fp-row-planned' : ''}">
+            <td style="white-space:nowrap;font-weight:700;">${r.ticketid || '-'}</td>
+            <td><span class="fp-badge ${fpBadgeClass(r.priority_bucket)}">${r.priority_bucket}</span></td>
+            <td>${r.plan_found ? '<span class="fp-plan-yes">Planned</span>' : '<span class="fp-plan-no">No Plan</span>'}</td>
+            <td style="white-space:nowrap;">${r.trueownergroup || '-'}</td>
+            <td>${r.priority_src || '-'}</td>
+            <td>${r.bookmark || '-'}</td>
+            <td style="white-space:nowrap;">${r.ciname || '-'}</td>
+            <td style="min-width:320px;">${r.subject || '-'}</td>
+            <td>${r.que || '-'}</td>
+            <td style="font-weight:700;white-space:nowrap;">${r.team_id || '-'}</td>
+            <td style="white-space:nowrap;">${r.go_time || r.go || '-'}</td>
+            <td style="white-space:nowrap;">${r.start_time || r.start || '-'}</td>
+            <td style="white-space:nowrap;">${r.done_time || r.done || '-'}</td>
+            <td style="white-space:nowrap;">${r.hold_time || r.hold || '-'}</td>
+            <td>${r.status_sccd || '-'}</td>
+            <td class="fp-penalty">${r.penalty || '-'}</td>
+            <td style="min-width:180px;">${r.log_update || r.inoc_name || '-'}</td>
+          </tr>`);
       });
     });
-    target.innerHTML = `
-      <div class="fp-kpi-grid">
-        <div class="fp-kpi"><div class="lb">Total</div><div class="vl">${fpNum(s.total)}</div><div class="sb">ticket focus ทั้งหมด</div></div>
-        <div class="fp-kpi"><div class="lb">Priority0</div><div class="vl p0">${fpNum(s.Priority0)}</div><div class="sb">มากกว่า 24 hr จาก ref</div></div>
-        <div class="fp-kpi"><div class="lb">Priority1</div><div class="vl p1">${fpNum(s.Priority1)}</div><div class="sb">ต่ำกว่า 24 hr และเกิน SLA แล้ว</div></div>
-        <div class="fp-kpi"><div class="lb">Priority2</div><div class="vl p2">${fpNum(s.Priority2)}</div><div class="sb">ต่ำกว่า 24 hr แต่ยังไม่เกิน SLA</div></div>
-        <div class="fp-kpi"><div class="lb">Plan Match</div><div class="vl">${fpNum(s.planned)}</div><div class="sb">ยังไม่ match ${fpNum(s.unplanned)}</div></div>
-      </div>
-      <div class="fp-table-wrap">
-        <table class="table-fp">
-          <thead>
-            <tr><th>Priority</th><th>Plan</th><th>Bookmark</th><th>Src</th><th>CI Name</th><th>Subject</th><th>Que</th><th>Team ID</th><th>Go</th><th>Start</th><th>Done</th><th>Hold</th><th>Status SCCD</th><th>Ticket ID</th><th>Penalty</th><th>Log Update / INOC</th></tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+    return `
+      <div class="fp-region-card">
+        <div class="fp-region-head ${idx===0?'nor1':idx===1?'nor2':'nor1'}">
+          <div><div class="fp-region-title">${bm}</div><div class="rt-meta-note">รวมทุก region และแยกตาม TRUEOWNERGROUP</div></div>
+          <div class="rt-meta-note">${fpNum(s.total)} ticket · วางแผนแล้ว ${fpNum(s.planned)} · ยังไม่เจอแผน ${fpNum(s.unplanned)}</div>
+        </div>
+        <div class="fp-kpi-grid">
+          <div class="fp-kpi"><div class="lb">Total</div><div class="vl">${fpNum(s.total)}</div><div class="sb">ticket focus ทั้งหมด</div></div>
+          <div class="fp-kpi"><div class="lb">Priority0</div><div class="vl p0">${fpNum(s.Priority0)}</div><div class="sb">Estimate - Target &gt; 24 hr</div></div>
+          <div class="fp-kpi"><div class="lb">Priority1</div><div class="vl p1">${fpNum(s.Priority1)}</div><div class="sb">Estimate - Target 0 ถึง 24 hr</div></div>
+          <div class="fp-kpi"><div class="lb">Priority2</div><div class="vl p2">${fpNum(s.Priority2)}</div><div class="sb">Estimate - Target ติดลบ</div></div>
+          <div class="fp-kpi"><div class="lb">Plan Match</div><div class="vl">${fpNum(s.planned)}</div><div class="sb">ยังไม่ match ${fpNum(s.unplanned)}</div></div>
+        </div>
+        <div class="fp-table-wrap">
+          <table class="table-fp">
+            <thead>
+              <tr><th>Ticket ID</th><th>Priority</th><th>Plan</th><th>TRUEOWNERGROUP</th><th>Src</th><th>Bookmark</th><th>CI Name</th><th>Subject</th><th>Que</th><th>Team ID</th><th>Go</th><th>Start</th><th>Done</th><th>Hold</th><th>Status SCCD</th><th>Penalty</th><th>Log Update / INOC</th></tr>
+            </thead>
+            <tbody>${rowsParts.join('')}</tbody>
+          </table>
+        </div>
       </div>`;
-  });
+  }).join('');
 }
 
 function showPage(id) {
