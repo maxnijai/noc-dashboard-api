@@ -2807,6 +2807,7 @@ function isFocusPlannedRow(r){
 
 
 
+
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
   if (!mount) return;
@@ -2831,6 +2832,35 @@ function renderFocusProvinceSummary(){
   function pctTd(plan,total){
     const p = pct(plan,total);
     return `<td class="num pct-cell ${pctClass(p)}">${p.toFixed(1)}%</td>`;
+  }
+  function blankTd(){
+    return '<td></td>';
+  }
+  function sumRows(items){
+    return items.reduce((a,r)=>{
+      a.total += r.total;
+      a.total_plan += r.total_plan;
+      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
+      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
+      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
+      return a;
+    }, {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
+  }
+  function renderMetricCells(obj){
+    return `
+      <td class="num">${obj.total}</td>
+      <td class="num">${obj.total_plan}</td>
+      ${pctTd(obj.total_plan,obj.total)}
+      <td class="num">${obj.p0_total}</td>
+      <td class="num">${obj.p0_plan}</td>
+      ${pctTd(obj.p0_plan,obj.p0_total)}
+      <td class="num">${obj.p1_total}</td>
+      <td class="num">${obj.p1_plan}</td>
+      ${pctTd(obj.p1_plan,obj.p1_total)}
+      <td class="num">${obj.p2_total}</td>
+      <td class="num">${obj.p2_plan}</td>
+      ${pctTd(obj.p2_plan,obj.p2_total)}
+    `;
   }
 
   const byBookmarkProvince = {};
@@ -2878,18 +2908,16 @@ function renderFocusProvinceSummary(){
     grouped[r.bookmark][r.region].push(r);
   });
 
-  function sumRows(items){
-    return items.reduce((a,r)=>{
-      a.total += r.total;
-      a.total_plan += r.total_plan;
-      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
-      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
-      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
-      return a;
-    }, {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
-  }
+  const bookmarkOrder = [
+    '3. All NW Incident NSA1-2',
+    '4.FBB with SA1-4',
+    '7.MB with SA1-4'
+  ];
+  const orderedBookmarks = bookmarkOrder.filter(bm => grouped[bm]).concat(
+    Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
+  );
 
-  let grand = {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0};
+  let grandAll = {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0};
 
   let html = '<table class="table-fp-prov"><thead><tr>' +
     '<th>Bookmark</th>' +
@@ -2903,86 +2931,65 @@ function renderFocusProvinceSummary(){
     '<th>P2</th><th>P2 Plan</th><th>%P2</th>' +
     '</tr></thead><tbody>';
 
-  Object.keys(grouped).forEach(bm => {
+  orderedBookmarks.forEach(bm => {
+    const bmRegions = grouped[bm] || {};
+    const regionOrder = ['NOR1','NOR2'].filter(r => bmRegions[r]).concat(
+      Object.keys(bmRegions).filter(r => !['NOR1','NOR2'].includes(r)).sort((a,b)=>a.localeCompare(b))
+    );
+
+    const bmAllRows = regionOrder.flatMap(rg => bmRegions[rg] || []);
+    const bmTotal = sumRows(bmAllRows);
+
+    grandAll.total += bmTotal.total;
+    grandAll.total_plan += bmTotal.total_plan;
+    grandAll.p0_total += bmTotal.p0_total; grandAll.p0_plan += bmTotal.p0_plan;
+    grandAll.p1_total += bmTotal.p1_total; grandAll.p1_plan += bmTotal.p1_plan;
+    grandAll.p2_total += bmTotal.p2_total; grandAll.p2_plan += bmTotal.p2_plan;
+
+    html += `<tr class="grand-row">
+      <td><b>${bm}</b></td>
+      <td><b>NOR1+NOR2</b></td>
+      <td><b>Grand Total</b></td>
+      ${renderMetricCells(bmTotal)}
+    </tr>`;
 
     let bookmarkPrinted = false;
 
-    Object.keys(grouped[bm]).forEach(region => {
-
-      const items = grouped[bm][region].sort((a,b)=>a.province.localeCompare(b.province));
+    regionOrder.forEach(region => {
+      const items = (bmRegions[region] || []).sort((a,b)=>a.province.localeCompare(b.province));
       const sum = sumRows(items);
-
-      grand.total += sum.total;
-      grand.total_plan += sum.total_plan;
-      grand.p0_total += sum.p0_total; grand.p0_plan += sum.p0_plan;
-      grand.p1_total += sum.p1_total; grand.p1_plan += sum.p1_plan;
-      grand.p2_total += sum.p2_total; grand.p2_plan += sum.p2_plan;
 
       html += `<tr class="group-row">
         <td>${!bookmarkPrinted ? bm : ''}</td>
         <td><b>${region}</b></td>
         <td>รวม ${region}</td>
-        <td class="num">${sum.total}</td>
-        <td class="num">${sum.total_plan}</td>
-        ${pctTd(sum.total_plan,sum.total)}
-        <td class="num">${sum.p0_total}</td>
-        <td class="num">${sum.p0_plan}</td>
-        ${pctTd(sum.p0_plan,sum.p0_total)}
-        <td class="num">${sum.p1_total}</td>
-        <td class="num">${sum.p1_plan}</td>
-        ${pctTd(sum.p1_plan,sum.p1_total)}
-        <td class="num">${sum.p2_total}</td>
-        <td class="num">${sum.p2_plan}</td>
-        ${pctTd(sum.p2_plan,sum.p2_total)}
+        ${renderMetricCells(sum)}
       </tr>`;
 
       bookmarkPrinted = true;
 
-      items.forEach(r=>{
+      items.forEach(r => {
         html += `<tr>
-          <td></td>
-          <td></td>
+          ${blankTd()}
+          ${blankTd()}
           <td>${r.province}</td>
-          <td class="num">${r.total}</td>
-          <td class="num">${r.total_plan}</td>
-          ${pctTd(r.total_plan,r.total)}
-          <td class="num">${r.p0_total}</td>
-          <td class="num">${r.p0_plan}</td>
-          ${pctTd(r.p0_plan,r.p0_total)}
-          <td class="num">${r.p1_total}</td>
-          <td class="num">${r.p1_plan}</td>
-          ${pctTd(r.p1_plan,r.p1_total)}
-          <td class="num">${r.p2_total}</td>
-          <td class="num">${r.p2_plan}</td>
-          ${pctTd(r.p2_plan,r.p2_total)}
+          ${renderMetricCells(r)}
         </tr>`;
       });
-
     });
-
   });
 
-  html = html.replace('</tbody>', `<tr class="grand-row">
-      <td><b>Grand Total</b></td>
-      <td><b>NOR1+NOR2</b></td>
-      <td><b>รวมทั้งหมด</b></td>
-      <td class="num">${grand.total}</td>
-      <td class="num">${grand.total_plan}</td>
-      ${pctTd(grand.total_plan,grand.total)}
-      <td class="num">${grand.p0_total}</td>
-      <td class="num">${grand.p0_plan}</td>
-      ${pctTd(grand.p0_plan,grand.p0_total)}
-      <td class="num">${grand.p1_total}</td>
-      <td class="num">${grand.p1_plan}</td>
-      ${pctTd(grand.p1_plan,grand.p1_total)}
-      <td class="num">${grand.p2_total}</td>
-      <td class="num">${grand.p2_plan}</td>
-      ${pctTd(grand.p2_plan,grand.p2_total)}
-    </tr></tbody>`);
+  html += `<tr class="grand-row">
+    <td><b>ทุก Bookmark</b></td>
+    <td><b>NOR1+NOR2</b></td>
+    <td><b>Grand Total ทั้งหมด</b></td>
+    ${renderMetricCells(grandAll)}
+  </tr>`;
 
-  html += '</table>';
+  html += '</tbody></table>';
   mount.innerHTML = html;
 }
+
 
 
 
