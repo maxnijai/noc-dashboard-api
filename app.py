@@ -1094,6 +1094,8 @@ def build_focus_priority():
         'inoc_name': _fp_fc(col, 'INOC Name', 'INOCNAME'),
         'priority_src': _fp_fc(col, 'Priority'),
         'trueownergroup': _fp_fc(col, 'TRUEOWNERGROUP', 'TrueOwnerGroup', 'TRUE OWNER GROUP'),
+        'latitude': _fp_fc(col, 'LATITUDE', 'Latitude', 'LAT'),
+        'longitude': _fp_fc(col, 'LONGITUDE', 'Longitude', 'LON', 'LONG'),
     }
 
     plan_maps = {r: _fp_load_plan_sheet(gc, r) for r in ('NOR1', 'NOR2')}
@@ -1141,6 +1143,21 @@ def build_focus_priority():
         else:
             pr = 'Priority2'
 
+        lat_raw = _fp_get(row, C['latitude'])
+        lon_raw = _fp_get(row, C['longitude'])
+        try:
+            lat_val = float(str(lat_raw).replace(',', '').strip()) if str(lat_raw).strip() else None
+        except Exception:
+            lat_val = None
+        try:
+            lon_val = float(str(lon_raw).replace(',', '').strip()) if str(lon_raw).strip() else None
+        except Exception:
+            lon_val = None
+        if lat_val is not None and not (-90 <= lat_val <= 90):
+            lat_val = None
+        if lon_val is not None and not (-180 <= lon_val <= 180):
+            lon_val = None
+
         plan_found = plan is not None
         rec = {
             'row_no': idx,
@@ -1156,6 +1173,8 @@ def build_focus_priority():
             'hours_vs_cutoff': diff_hours,
             'summary_hours': diff_hours,
             'plan_found': plan_found,
+            'latitude': lat_val,
+            'longitude': lon_val,
             'que': plan.get('que', '') if plan else '',
             'team_id': plan.get('team_id', '') if plan else '',
             'go': plan.get('go', '') if plan else '',
