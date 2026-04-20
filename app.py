@@ -197,6 +197,15 @@ def dedupe_ticket_key(ticket_value, row_index=None):
         return s
     return f'ROW_{row_index if row_index is not None else "X"}'
 
+
+def productivity_event_key(team_id, dt_travel=None, dt_date=None, row_index=None):
+    """ทีมเดียวกัน + เวลาเดินทางเดียวกัน + วันเดียวกัน = นับ Productivity 1 งาน"""
+    if not team_id or dt_travel is None:
+        return f'NOPROD_{row_index if row_index is not None else "X"}'
+    day_key = to_by_date(dt_date or dt_travel)
+    travel_key = dt_travel.strftime('%H:%M')
+    return f'{team_id}|{day_key}|{travel_key}'
+
 def is_real_active_team_row(status_value, dt_travel=None, dt_start=None):
     status = str(status_value or '').strip()
     if dt_travel is not None or dt_start is not None:
@@ -295,6 +304,7 @@ def build_data():
         # แต่นับเฉพาะ row ที่ year valid
         tkt_val   = g(row,'ticket')
         ticket_key = dedupe_ticket_key(tkt_val, row_idx)
+        prod_event_key = productivity_event_key(team_id, dt_travel, dt_linkup or dt_travel or dt_start or dt_hold, row_idx)
         is_ticket = tkt_val.startswith('TT') or tkt_val.startswith('INC')
 
         # เก็บ Update พิกัด สำหรับ homeCoords
@@ -342,6 +352,7 @@ def build_data():
                     'logs': [], 'hr': [], 'c1': [],
                     'que_rows': {}, 'que_hours': {},
                     'days_set': set(),
+                    'prod_p1_keys': set(), 'prod_p2_keys': set(),
                 }
             return bucket_map[bucket_key]
 
@@ -368,9 +379,11 @@ def build_data():
                     sb['non'] += 1
                     non_key = que_val or 'Non-Ticket'
                     sb['sw'][non_key] = sb['sw'].get(non_key, 0) + 1
-                if has_prod:
+                if has_prod and prod_event_key not in sb['prod_p1_keys']:
+                    sb['prod_p1_keys'].add(prod_event_key)
                     sb['done_p1'] += 1
-                if has_prod:
+                if has_prod and prod_event_key not in sb['prod_p2_keys']:
+                    sb['prod_p2_keys'].add(prod_event_key)
                     sb['done_p2'] += 1
                 if has_hold:
                     sb['hold'] += 1
@@ -413,10 +426,10 @@ def build_data():
                 if prev is None or checkin_dt < prev['dt']:
                     tm['day_first_coord'][date_str] = {'dt': checkin_dt, 'coord': coord}
             if has_prod:
-                tm['pdt1_keys'].setdefault(date_str, set()).add(ticket_key)
+                tm['pdt1_keys'].setdefault(date_str, set()).add(prod_event_key)
                 tm['pdt1_dates'][date_str] = len(tm['pdt1_keys'][date_str])
             if has_prod:
-                tm['pdt2_keys'].setdefault(date_str, set()).add(ticket_key)
+                tm['pdt2_keys'].setdefault(date_str, set()).add(prod_event_key)
                 tm['pdt2_dates'][date_str] = len(tm['pdt2_keys'][date_str])
             if month_str:
                 if month_str not in tm['monthly']:
@@ -432,10 +445,10 @@ def build_data():
                     prev = mm['last'].get(date_str)
                     if prev is None or last_ts > prev: mm['last'][date_str] = last_ts
                 if has_prod:
-                    mm['p1keys'].setdefault(date_str, set()).add(ticket_key)
+                    mm['p1keys'].setdefault(date_str, set()).add(prod_event_key)
                     mm['p1d'][date_str] = len(mm['p1keys'][date_str])
                 if has_prod:
-                    mm['p2keys'].setdefault(date_str, set()).add(ticket_key)
+                    mm['p2keys'].setdefault(date_str, set()).add(prod_event_key)
                     mm['p2d'][date_str] = len(mm['p2keys'][date_str])
 
         # trend รายวัน/รายสัปดาห์ จากวันที่ในคอลัมน์ Plan
@@ -449,10 +462,10 @@ def build_data():
             if team_id not in plan_daily[day_key]:
                 plan_daily[day_key][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set()}
             if has_prod:
-                plan_daily[day_key][team_id]['p1keys'].add(ticket_key)
+                plan_daily[day_key][team_id]['p1keys'].add(prod_event_key)
                 plan_daily[day_key][team_id]['p1'] = len(plan_daily[day_key][team_id]['p1keys'])
             if has_prod:
-                plan_daily[day_key][team_id]['p2keys'].add(ticket_key)
+                plan_daily[day_key][team_id]['p2keys'].add(prod_event_key)
                 plan_daily[day_key][team_id]['p2'] = len(plan_daily[day_key][team_id]['p2keys'])
 
             if team_id not in team_plan_daily:
@@ -460,10 +473,10 @@ def build_data():
             if plan_date not in team_plan_daily[team_id]:
                 team_plan_daily[team_id][plan_date] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'm': plan_month, 'reg': reg, 'type': type_team}
             if has_prod:
-                team_plan_daily[team_id][plan_date]['p1keys'].add(ticket_key)
+                team_plan_daily[team_id][plan_date]['p1keys'].add(prod_event_key)
                 team_plan_daily[team_id][plan_date]['p1'] = len(team_plan_daily[team_id][plan_date]['p1keys'])
             if has_prod:
-                team_plan_daily[team_id][plan_date]['p2keys'].add(ticket_key)
+                team_plan_daily[team_id][plan_date]['p2keys'].add(prod_event_key)
                 team_plan_daily[team_id][plan_date]['p2'] = len(team_plan_daily[team_id][plan_date]['p2keys'])
 
             # รายสัปดาห์: ISO week ตามปฏิทินสากล
@@ -475,10 +488,10 @@ def build_data():
                 plan_weekly[wk_key]['teams'][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'dates': set()}
             plan_weekly[wk_key]['teams'][team_id]['dates'].add(plan_date)
             if has_prod:
-                plan_weekly[wk_key]['teams'][team_id]['p1keys'].add(ticket_key)
+                plan_weekly[wk_key]['teams'][team_id]['p1keys'].add(prod_event_key)
                 plan_weekly[wk_key]['teams'][team_id]['p1'] = len(plan_weekly[wk_key]['teams'][team_id]['p1keys'])
             if has_prod:
-                plan_weekly[wk_key]['teams'][team_id]['p2keys'].add(ticket_key)
+                plan_weekly[wk_key]['teams'][team_id]['p2keys'].add(prod_event_key)
                 plan_weekly[wk_key]['teams'][team_id]['p2'] = len(plan_weekly[wk_key]['teams'][team_id]['p2keys'])
 
             if team_id not in team_plan_weekly:
@@ -513,10 +526,10 @@ def build_data():
             if is_real_active_team_row(status_val, dt_travel, dt_start):
                 daily_team_stats[plan_date][team_id]['is_active'] = True
             if has_prod:
-                daily_team_stats[plan_date][team_id]['p1keys'].add(ticket_key)
+                daily_team_stats[plan_date][team_id]['p1keys'].add(prod_event_key)
                 daily_team_stats[plan_date][team_id]['p1'] = len(daily_team_stats[plan_date][team_id]['p1keys'])
             if has_prod:
-                daily_team_stats[plan_date][team_id]['p2keys'].add(ticket_key)
+                daily_team_stats[plan_date][team_id]['p2keys'].add(prod_event_key)
                 daily_team_stats[plan_date][team_id]['p2'] = len(daily_team_stats[plan_date][team_id]['p2keys'])
 
         # drill down รายวันให้ยึดวันจาก Plan เป็นหลัก เพื่อให้ตรงกับ Summary
@@ -532,10 +545,10 @@ def build_data():
             row_p1 = 0
             row_p2 = 0
             if has_prod and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p1']:
-                drill_seen_keys[team_id][drill_date_str]['p1'].add(ticket_key)
+                drill_seen_keys[team_id][drill_date_str]['p1'].add(prod_event_key)
                 row_p1 = 1
             if has_prod and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p2']:
-                drill_seen_keys[team_id][drill_date_str]['p2'].add(ticket_key)
+                drill_seen_keys[team_id][drill_date_str]['p2'].add(prod_event_key)
                 row_p2 = 1
             if len(drill[team_id][drill_date_str]) < 50:
                 drill[team_id][drill_date_str].append([
@@ -1345,7 +1358,7 @@ def build_realtime_monitoring():
                 'start_teams': set(),
                 'start_tickets': set(),
                 'done_teams': set(),
-                'done_tickets': set(),
+                'done_tickets': set(), 'done_events': set(),
                 'off_teams': set(),
                 'team_map': {}
             })
@@ -1358,7 +1371,7 @@ def build_realtime_monitoring():
                 'planned_tickets': set(),
                 'travel_tickets': set(),
                 'start_tickets': set(),
-                'done_tickets': set(),
+                'done_tickets': set(), 'done_events': set(),
                 'que_set': set(),
                 'latest_status': '',
                 'has_ticket_plan': False,
@@ -1391,9 +1404,10 @@ def build_realtime_monitoring():
                 bucket['start_tickets'].add(dedupe_key)
                 tb['start_tickets'].add(dedupe_key)
             if is_productive_done:
+                rt_prod_key = productivity_event_key(team_id, dt_travel, dt_linkup or dt_travel or dt_start or dt_hold, row_idx)
                 bucket['done_teams'].add(team_id)
-                bucket['done_tickets'].add(dedupe_key)
-                tb['done_tickets'].add(dedupe_key)
+                bucket['done_events'].add(rt_prod_key)
+                tb['done_events'].add(rt_prod_key)
 
     out = {
         'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -1451,7 +1465,7 @@ def build_realtime_monitoring():
                     'planned_tickets': len(tb['planned_tickets']),
                     'travel_tickets': len(tb['travel_tickets']),
                     'start_tickets': len(tb['start_tickets']),
-                    'done_tickets': len(tb['done_tickets']),
+                    'done_tickets': len(tb.get('done_events', set())),
                     'que_count': len(tb['que_set']),
                     'latest_status': tb['latest_status'],
                     'stage': stage,
