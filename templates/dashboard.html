@@ -2792,16 +2792,10 @@ function ensureFocusMap(){
   return FP_MAP;
 }
 
+
 function isFocusPlannedRow(r){
-  const vals = [
-    r.plan_status, r.plan, r.plan_match, r.is_planned, r.planned,
-    r.planmatched, r.matched
-  ];
-  return vals.some(v => {
-    if (typeof v === 'boolean') return v;
-    const s = String(v ?? '').trim().toLowerCase();
-    return ['planned','plan','match','matched','yes','y','true','1'].includes(s);
-  });
+  const team = String(r.team_id || r.teamid || '').trim();
+  return team && team !== '-' && team.toLowerCase() !== 'none';
 }
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
@@ -2812,15 +2806,15 @@ function renderFocusProvinceSummary(){
     return;
   }
 
-  const byProv = {};
+  const byBookmark = {};
   rows.forEach(r => {
-    const prov = (r.trueownergroup || '-').trim() || '-';
     const bm = r.bookmark || '-';
-    const key = prov + '||' + bm;
-    if (!byProv[key]) {
-      byProv[key] = {
-        province: prov,
+    const prov = (r.trueownergroup || '-').trim() || '-';
+    const key = bm + '||' + prov;
+    if (!byBookmark[key]) {
+      byBookmark[key] = {
         bookmark: bm,
+        province: prov,
         total: 0,
         p0: 0,
         p1: 0,
@@ -2828,7 +2822,7 @@ function renderFocusProvinceSummary(){
         planned: 0
       };
     }
-    const g = byProv[key];
+    const g = byBookmark[key];
     g.total += 1;
     if (r.priority_bucket === 'Priority0') g.p0 += 1;
     else if (r.priority_bucket === 'Priority1') g.p1 += 1;
@@ -2836,13 +2830,21 @@ function renderFocusProvinceSummary(){
     if (isFocusPlannedRow(r)) g.planned += 1;
   });
 
+  const bookmarkOrder = [
+    '3. All NW Incident NSA1-2',
+    '4.FBB with SA1-4',
+    '7.MB with SA1-4'
+  ];
+
   const grouped = {};
-  Object.values(byProv)
-    .sort((a,b) => a.province.localeCompare(b.province) || a.bookmark.localeCompare(b.bookmark))
-    .forEach(r => {
-      if (!grouped[r.province]) grouped[r.province] = [];
-      grouped[r.province].push(r);
-    });
+  Object.values(byBookmark).forEach(r => {
+    if (!grouped[r.bookmark]) grouped[r.bookmark] = [];
+    grouped[r.bookmark].push(r);
+  });
+
+  Object.keys(grouped).forEach(bm => {
+    grouped[bm].sort((a,b) => a.province.localeCompare(b.province));
+  });
 
   function pctClass(p){
     if (p >= 80) return 'fp-pct-good';
@@ -2851,8 +2853,8 @@ function renderFocusProvinceSummary(){
   }
 
   let html = '<table class="table-fp-prov"><thead><tr>' +
-    '<th>TRUEOWNERGROUP</th>' +
     '<th>Bookmark</th>' +
+    '<th>TRUEOWNERGROUP</th>' +
     '<th>Total</th>' +
     '<th>Priority0</th>' +
     '<th>Priority1</th>' +
@@ -2862,20 +2864,26 @@ function renderFocusProvinceSummary(){
     '<th>% Plan</th>' +
     '</tr></thead><tbody>';
 
-  Object.keys(grouped).forEach(prov => {
-    const items = grouped[prov];
+  const ordered = bookmarkOrder.filter(bm => grouped[bm]).concat(
+    Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
+  );
+
+  ordered.forEach(bm => {
+    const items = grouped[bm] || [];
     const sub = items.reduce((a,r) => {
       a.total += r.total; a.p0 += r.p0; a.p1 += r.p1; a.p2 += r.p2; a.planned += r.planned; return a;
     }, {total:0,p0:0,p1:0,p2:0,planned:0});
     const subNoPlan = sub.total - sub.planned;
     const subPct = sub.total ? (sub.planned * 100 / sub.total) : 0;
-    html += `<tr class="group-row"><td>${prov}</td><td>รวม</td><td class="num">${sub.total}</td><td class="num">${sub.p0}</td><td class="num">${sub.p1}</td><td class="num">${sub.p2}</td><td class="num">${sub.planned}</td><td class="num">${subNoPlan}</td><td class="num pct ${pctClass(subPct)}">${subPct.toFixed(1)}%</td></tr>`;
+
+    html += `<tr class="group-row"><td>${bm}</td><td>รวมทั้งหมด</td><td class="num">${sub.total}</td><td class="num">${sub.p0}</td><td class="num">${sub.p1}</td><td class="num">${sub.p2}</td><td class="num">${sub.planned}</td><td class="num">${subNoPlan}</td><td class="num pct ${pctClass(subPct)}">${subPct.toFixed(1)}%</td></tr>`;
+
     items.forEach(r => {
       const noPlan = r.total - r.planned;
       const pct = r.total ? (r.planned * 100 / r.total) : 0;
       html += `<tr>
+        <td>${bm}</td>
         <td>${r.province}</td>
-        <td>${r.bookmark}</td>
         <td class="num">${r.total}</td>
         <td class="num">${r.p0}</td>
         <td class="num">${r.p1}</td>
@@ -2890,6 +2898,7 @@ function renderFocusProvinceSummary(){
   html += '</tbody></table>';
   mount.innerHTML = html;
 }
+
 
 function renderFocusMap(){
   const map = ensureFocusMap();
