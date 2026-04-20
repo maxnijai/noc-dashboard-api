@@ -463,7 +463,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-kpi { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
 .fp-kpi .lb { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
 .fp-kpi .vl { font-size:24px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
-.fp-kpi .vl.p0 { color:var(--green); } .fp-kpi .vl.p1 { color:var(--red); } .fp-kpi .vl.p2 { color:var(--amber); }
+.fp-kpi .vl.p0 { color:#ff0000; } .fp-kpi .vl.p1 { color:#ff9900; } .fp-kpi .vl.p2 { color:#99ff99; }
 .fp-kpi .sb { font-size:11px; color:var(--text2); margin-top:6px; }
 .fp-table-wrap { margin:0 16px 16px; border:1px solid var(--border); border-radius:12px; overflow:auto; max-height:70vh; }
 .table-fp { width:100%; border-collapse:collapse; min-width:1750px; }
@@ -475,9 +475,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-group-row td { background:var(--bg4); color:var(--text); font-size:12px; font-weight:800; letter-spacing:.2px; position:sticky; top:31px; z-index:1; }
 .fp-badge { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid var(--border); white-space:nowrap; }
 .fp-badge::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
-.fp-badge.p0 { color:var(--green); background:rgba(63,185,80,.1); border-color:rgba(63,185,80,.25); }
-.fp-badge.p1 { color:var(--red); background:rgba(248,81,73,.1); border-color:rgba(248,81,73,.25); }
-.fp-badge.p2 { color:var(--amber); background:rgba(227,179,65,.1); border-color:rgba(227,179,65,.25); }
+.fp-badge.p0 { color:#ff0000; background:rgba(255,0,0,.08); border-color:rgba(255,0,0,.28); }
+.fp-badge.p1 { color:#ff9900; background:rgba(255,153,0,.10); border-color:rgba(255,153,0,.28); }
+.fp-badge.p2 { color:#99ff99; background:rgba(153,255,153,.10); border-color:rgba(153,255,153,.24); }
 .fp-plan-yes, .fp-plan-no { display:inline-flex; align-items:center; justify-content:center; min-width:76px; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid var(--border); }
 .fp-plan-yes { color:var(--green); background:rgba(63,185,80,.1); border-color:rgba(63,185,80,.25); }
 .fp-plan-no { color:var(--red); background:rgba(248,81,73,.1); border-color:rgba(248,81,73,.25); }
@@ -485,6 +485,26 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-hours.good { color:var(--green); } .fp-hours.warn { color:var(--amber); } .fp-hours.bad { color:var(--red); }
 .fp-muted { color:var(--text3); }
 @media (max-width: 1280px){ .fp-split { grid-template-columns:1fr; } .fp-kpi-grid { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+
+
+/* Focus Priority Map */
+.fp-map-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:14px; }
+.fp-map-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 8px; }
+.fp-map-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.fp-map-wrap { position:relative; padding:0 16px 12px; }
+#fp-map { width:100%; height:420px; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--bg3); }
+.fp-map-card.fullscreen { position:fixed; inset:10px; z-index:5000; margin:0; }
+.fp-map-card.fullscreen #fp-map { height:calc(100vh - 120px); }
+.fp-map-legend { display:flex; gap:14px; align-items:center; flex-wrap:wrap; padding:0 16px 14px; color:var(--text2); font-size:12px; }
+.fp-map-legend-item { display:flex; align-items:center; gap:6px; }
+.fp-map-dot { width:11px; height:11px; border-radius:50%; display:inline-block; }
+.fp-map-btn { padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg3); color:var(--text); cursor:pointer; font-size:12px; }
+.fp-map-btn:hover { border-color:var(--border2); }
+.fp-tooltip { font-size:12px; line-height:1.45; }
+.fp-tooltip b { color:var(--text); }
+.fp-popup { font-size:12px; line-height:1.5; min-width:220px; }
+.fp-popup .lb { color:var(--text3); font-size:10px; text-transform:uppercase; letter-spacing:.4px; }
+.fp-popup .val { color:var(--text); font-weight:600; margin-bottom:6px; word-break:break-word; }
 
 </style>
 </head>
@@ -815,6 +835,28 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="full-card" style="margin-bottom:14px;">
         <div id="fp-summary-body"></div>
       </div>
+
+      <div class="fp-map-card" id="fp-map-card">
+        <div class="fp-map-head">
+          <div>
+            <div class="chart-title" style="margin-bottom:4px;">Focus Priority Map</div>
+            <div class="rt-meta-note">ชี้หรือกดที่หมุดเพื่อดู Ticket ID, Bookmark, CI Name, TRUEOWNERGROUP, Team ID / Que</div>
+          </div>
+          <div class="fp-map-actions">
+            <button class="fp-map-btn" id="fp-map-fit-btn" onclick="fitFocusMap()">Fit All</button>
+            <button class="fp-map-btn" id="fp-map-full-btn" onclick="toggleFocusMapFullscreen()">ขยายเต็มจอ</button>
+          </div>
+        </div>
+        <div class="fp-map-wrap">
+          <div id="fp-map"></div>
+        </div>
+        <div class="fp-map-legend">
+          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#ff0000;"></span>Priority 0</span>
+          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#ff9900;"></span>Priority 1</span>
+          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#99ff99;"></span>Priority 2</span>
+        </div>
+      </div>
+
       <div class="fp-split" id="fp-bookmark-wrap"></div>
     </div>
   </div>
@@ -2661,6 +2703,127 @@ function rotateRealtimeDate(){
   renderRealtime();
 }
 
+
+let FP_MAP = null;
+let FP_MAP_LAYER = null;
+
+function getColorByPriority(p){
+  if (p === 'Priority0') return '#ff0000';
+  if (p === 'Priority1') return '#ff9900';
+  return '#99ff99';
+}
+function getPriorityClass(p){
+  if (p === 'Priority0') return 'p0';
+  if (p === 'Priority1') return 'p1';
+  return 'p2';
+}
+function flattenFocusRows(){
+  const out = [];
+  const bookmarks = (FOCUS_RAW && FOCUS_RAW.bookmarks) || {};
+  Object.keys(bookmarks).forEach(bm => {
+    const payload = bookmarks[bm] || {};
+    const priorities = payload.priorities || {};
+    ['Priority0','Priority1','Priority2'].forEach(pr => {
+      (priorities[pr] || []).forEach(r => {
+        const lat = Number(r.latitude ?? r.lat ?? r.LATITUDE);
+        const lon = Number(r.longitude ?? r.lon ?? r.lng ?? r.LONGITUDE);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          out.push({
+            ...r,
+            bookmark: r.bookmark || bm,
+            priority_bucket: r.priority_bucket || pr,
+            latitude: lat,
+            longitude: lon
+          });
+        }
+      });
+    });
+  });
+  return out;
+}
+function focusPopupHtml(r){
+  return `
+    <div class="fp-popup">
+      <div class="lb">Ticket ID</div><div class="val">${r.ticketid || '-'}</div>
+      <div class="lb">Bookmark</div><div class="val">${r.bookmark || '-'}</div>
+      <div class="lb">CI Name</div><div class="val">${r.ciname || '-'}</div>
+      <div class="lb">TRUEOWNERGROUP</div><div class="val">${r.trueownergroup || '-'}</div>
+      <div class="lb">Team ID / Que</div><div class="val">${(r.team_id || '-') + ' / ' + (r.que || '-')}</div>
+    </div>`;
+}
+function ensureFocusMap(){
+  const el = document.getElementById('fp-map');
+  if (!el || typeof L === 'undefined') return null;
+  if (!FP_MAP) {
+    FP_MAP = L.map(el, { zoomControl:true, preferCanvas:true }).setView([17.2, 99.7], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(FP_MAP);
+    FP_MAP_LAYER = L.layerGroup().addTo(FP_MAP);
+  }
+  return FP_MAP;
+}
+function renderFocusMap(){
+  const map = ensureFocusMap();
+  if (!map || !FP_MAP_LAYER) return;
+  FP_MAP_LAYER.clearLayers();
+  const rows = flattenFocusRows();
+  const bounds = [];
+  rows.forEach(r => {
+    const color = getColorByPriority(r.priority_bucket);
+    const marker = L.circleMarker([r.latitude, r.longitude], {
+      radius: 7,
+      weight: 1.5,
+      color,
+      fillColor: color,
+      fillOpacity: 0.88
+    });
+    const popupHtml = focusPopupHtml(r);
+    marker.bindTooltip(popupHtml, {sticky:true, direction:'top', className:'fp-tooltip'});
+    marker.bindPopup(popupHtml);
+    marker.addTo(FP_MAP_LAYER);
+    bounds.push([r.latitude, r.longitude]);
+  });
+  setTimeout(() => {
+    map.invalidateSize();
+    if (bounds.length) map.fitBounds(bounds, {padding:[24,24]});
+  }, 80);
+}
+function fitFocusMap(){
+  const map = ensureFocusMap();
+  if (!map || !FP_MAP_LAYER) return;
+  const pts = [];
+  FP_MAP_LAYER.eachLayer(layer => {
+    if (layer.getLatLng) {
+      const ll = layer.getLatLng();
+      pts.push([ll.lat, ll.lng]);
+    }
+  });
+  map.invalidateSize();
+  if (pts.length) map.fitBounds(pts, {padding:[24,24]});
+}
+function toggleFocusMapFullscreen(){
+  const card = document.getElementById('fp-map-card');
+  if (!card) return;
+  card.classList.toggle('fullscreen');
+  const btn = document.getElementById('fp-map-full-btn');
+  if (btn) btn.textContent = card.classList.contains('fullscreen') ? 'ย่อกลับ' : 'ขยายเต็มจอ';
+  setTimeout(() => {
+    if (FP_MAP) {
+      FP_MAP.invalidateSize();
+      fitFocusMap();
+    }
+  }, 120);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const card = document.getElementById('fp-map-card');
+    if (card && card.classList.contains('fullscreen')) toggleFocusMapFullscreen();
+  }
+});
+
+
 async function fetchFocusPriority(force){
   if(focusLoading) return;
   focusLoading = true;
@@ -2703,6 +2866,7 @@ function renderFocusPriority(){
   const wrap = document.getElementById('fp-bookmark-wrap');
   if(!wrap) return;
   const order = FOCUS_RAW.bookmark_order || Object.keys(FOCUS_RAW.bookmarks || {});
+  renderFocusMap();
   wrap.innerHTML = order.map((bm, idx) => {
     const payload = (FOCUS_RAW.bookmarks || {})[bm] || {summary:{}, priorities:{}};
     const s = payload.summary || {};
@@ -2782,7 +2946,7 @@ function showPage(id) {
   if (id==='overview') { setTimeout(()=>{ renderTrend(); renderStatusChart(getFilteredTeams()); },50); }
   if (id==='summary')  { setTimeout(()=>renderSummary(),50); }
   if (id==='realtime') { setTimeout(()=>fetchRealtime(false),50); }
-  if (id==='focuspriority') { setTimeout(()=>fetchFocusPriority(false),50); }
+  if (id==='focuspriority') { setTimeout(()=>{ fetchFocusPriority(false); if (FP_MAP) { FP_MAP.invalidateSize(); setTimeout(fitFocusMap, 120); } },50); }
   if (id==='heatmap')  { setTimeout(()=>renderHeatmap(),50); }
   if (id==='boundary') { initBoundaryMap(); }
 }
