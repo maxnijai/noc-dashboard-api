@@ -856,7 +856,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="fp-prov-card">
         <div class="fp-prov-head">
           <div class="chart-title" style="margin-bottom:4px;">Focus Priority จังหวัดสรุปตาม Bookmark</div>
-          <div class="rt-meta-note">สรุปแต่ละ TRUEOWNERGROUP ว่ามีทั้งหมดเท่าไร แยก Priority0/1/2, วางแผนแล้วเท่าไร และ % Plan Match</div>
+          <div class="rt-meta-note">เรียงตาม Bookmark > Region > TRUEOWNERGROUP พร้อมสรุป Total, P0/P1/P2, Plan และ %Plan แยกแต่ละ Priority</div>
         </div>
         <div class="fp-prov-wrap">
           <div id="fp-province-summary"></div>
@@ -2797,6 +2797,7 @@ function isFocusPlannedRow(r){
   const team = String(r.team_id || r.teamid || '').trim();
   return team && team !== '-' && team.toLowerCase() !== 'none';
 }
+
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
   if (!mount) return;
@@ -2806,28 +2807,43 @@ function renderFocusProvinceSummary(){
     return;
   }
 
-  const byBookmark = {};
+  function detectRegion(owner){
+    const s = String(owner || '').toUpperCase();
+    if (s.includes('NOR1')) return 'NOR1';
+    if (s.includes('NOR2')) return 'NOR2';
+    return '-';
+  }
+
+  const byBookmarkProvince = {};
   rows.forEach(r => {
     const bm = r.bookmark || '-';
     const prov = (r.trueownergroup || '-').trim() || '-';
-    const key = bm + '||' + prov;
-    if (!byBookmark[key]) {
-      byBookmark[key] = {
+    const region = detectRegion(prov);
+    const key = bm + '||' + region + '||' + prov;
+    if (!byBookmarkProvince[key]) {
+      byBookmarkProvince[key] = {
         bookmark: bm,
+        region,
         province: prov,
         total: 0,
-        p0: 0,
-        p1: 0,
-        p2: 0,
-        planned: 0
+        p0_total: 0, p0_plan: 0,
+        p1_total: 0, p1_plan: 0,
+        p2_total: 0, p2_plan: 0,
       };
     }
-    const g = byBookmark[key];
+    const g = byBookmarkProvince[key];
     g.total += 1;
-    if (r.priority_bucket === 'Priority0') g.p0 += 1;
-    else if (r.priority_bucket === 'Priority1') g.p1 += 1;
-    else g.p2 += 1;
-    if (isFocusPlannedRow(r)) g.planned += 1;
+
+    if (r.priority_bucket === 'Priority0') {
+      g.p0_total += 1;
+      if (isFocusPlannedRow(r)) g.p0_plan += 1;
+    } else if (r.priority_bucket === 'Priority1') {
+      g.p1_total += 1;
+      if (isFocusPlannedRow(r)) g.p1_plan += 1;
+    } else {
+      g.p2_total += 1;
+      if (isFocusPlannedRow(r)) g.p2_plan += 1;
+    }
   });
 
   const bookmarkOrder = [
@@ -2837,13 +2853,16 @@ function renderFocusProvinceSummary(){
   ];
 
   const grouped = {};
-  Object.values(byBookmark).forEach(r => {
-    if (!grouped[r.bookmark]) grouped[r.bookmark] = [];
-    grouped[r.bookmark].push(r);
+  Object.values(byBookmarkProvince).forEach(r => {
+    if (!grouped[r.bookmark]) grouped[r.bookmark] = {};
+    if (!grouped[r.bookmark][r.region]) grouped[r.bookmark][r.region] = [];
+    grouped[r.bookmark][r.region].push(r);
   });
 
   Object.keys(grouped).forEach(bm => {
-    grouped[bm].sort((a,b) => a.province.localeCompare(b.province));
+    Object.keys(grouped[bm]).forEach(region => {
+      grouped[bm][region].sort((a,b) => a.province.localeCompare(b.province));
+    });
   });
 
   function pctClass(p){
@@ -2851,53 +2870,94 @@ function renderFocusProvinceSummary(){
     if (p >= 50) return 'fp-pct-mid';
     return 'fp-pct-low';
   }
+  function pct(plan, total){
+    return total ? (plan * 100 / total) : 0;
+  }
+  function sumRows(items){
+    return items.reduce((a,r) => {
+      a.total += r.total;
+      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
+      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
+      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
+      return a;
+    }, {total:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
+  }
 
   let html = '<table class="table-fp-prov"><thead><tr>' +
     '<th>Bookmark</th>' +
+    '<th>Region</th>' +
     '<th>TRUEOWNERGROUP</th>' +
     '<th>Total</th>' +
-    '<th>Priority0</th>' +
-    '<th>Priority1</th>' +
-    '<th>Priority2</th>' +
-    '<th>Planned</th>' +
-    '<th>No Plan</th>' +
-    '<th>% Plan</th>' +
+    '<th>P0</th>' +
+    '<th>P0 Plan</th>' +
+    '<th>%Plan P0</th>' +
+    '<th>P1</th>' +
+    '<th>P1 Plan</th>' +
+    '<th>%Plan P1</th>' +
+    '<th>P2</th>' +
+    '<th>P2 Plan</th>' +
+    '<th>%Plan P2</th>' +
     '</tr></thead><tbody>';
 
-  const ordered = bookmarkOrder.filter(bm => grouped[bm]).concat(
+  const orderedBookmarks = bookmarkOrder.filter(bm => grouped[bm]).concat(
     Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
   );
 
-  ordered.forEach(bm => {
-    const items = grouped[bm] || [];
-    const sub = items.reduce((a,r) => {
-      a.total += r.total; a.p0 += r.p0; a.p1 += r.p1; a.p2 += r.p2; a.planned += r.planned; return a;
-    }, {total:0,p0:0,p1:0,p2:0,planned:0});
-    const subNoPlan = sub.total - sub.planned;
-    const subPct = sub.total ? (sub.planned * 100 / sub.total) : 0;
+  orderedBookmarks.forEach(bm => {
+    const bmRegions = grouped[bm] || {};
+    const regionOrder = ['NOR1', 'NOR2'].filter(r => bmRegions[r]).concat(
+      Object.keys(bmRegions).filter(r => !['NOR1','NOR2'].includes(r)).sort((a,b)=>a.localeCompare(b))
+    );
 
-    html += `<tr class="group-row"><td>${bm}</td><td>รวมทั้งหมด</td><td class="num">${sub.total}</td><td class="num">${sub.p0}</td><td class="num">${sub.p1}</td><td class="num">${sub.p2}</td><td class="num">${sub.planned}</td><td class="num">${subNoPlan}</td><td class="num pct ${pctClass(subPct)}">${subPct.toFixed(1)}%</td></tr>`;
+    let firstBookmarkRow = true;
+    regionOrder.forEach(region => {
+      const items = bmRegions[region] || [];
+      const sub = sumRows(items);
+      const regionLabelCell = `<td>${region}</td>`;
+      const bookmarkCell = firstBookmarkRow
+        ? `<td rowspan="${items.length + regionOrder.reduce((acc, rg) => acc + 1, 0)}">${bm}</td>`
+        : '';
+      firstBookmarkRow = false;
 
-    items.forEach(r => {
-      const noPlan = r.total - r.planned;
-      const pct = r.total ? (r.planned * 100 / r.total) : 0;
-      html += `<tr>
-        <td>${bm}</td>
-        <td>${r.province}</td>
-        <td class="num">${r.total}</td>
-        <td class="num">${r.p0}</td>
-        <td class="num">${r.p1}</td>
-        <td class="num">${r.p2}</td>
-        <td class="num">${r.planned}</td>
-        <td class="num">${noPlan}</td>
-        <td class="num pct ${pctClass(pct)}">${pct.toFixed(1)}%</td>
+      html += `<tr class="group-row">
+        ${bookmarkCell}
+        ${regionLabelCell}
+        <td>รวม ${region}</td>
+        <td class="num">${sub.total}</td>
+        <td class="num">${sub.p0_total}</td>
+        <td class="num">${sub.p0_plan}</td>
+        <td class="num pct ${pctClass(pct(sub.p0_plan, sub.p0_total))}">${pct(sub.p0_plan, sub.p0_total).toFixed(1)}%</td>
+        <td class="num">${sub.p1_total}</td>
+        <td class="num">${sub.p1_plan}</td>
+        <td class="num pct ${pctClass(pct(sub.p1_plan, sub.p1_total))}">${pct(sub.p1_plan, sub.p1_total).toFixed(1)}%</td>
+        <td class="num">${sub.p2_total}</td>
+        <td class="num">${sub.p2_plan}</td>
+        <td class="num pct ${pctClass(pct(sub.p2_plan, sub.p2_total))}">${pct(sub.p2_plan, sub.p2_total).toFixed(1)}%</td>
       </tr>`;
+
+      items.forEach(r => {
+        html += `<tr>
+          <td>${region}</td>
+          <td>${r.province}</td>
+          <td class="num">${r.total}</td>
+          <td class="num">${r.p0_total}</td>
+          <td class="num">${r.p0_plan}</td>
+          <td class="num pct ${pctClass(pct(r.p0_plan, r.p0_total))}">${pct(r.p0_plan, r.p0_total).toFixed(1)}%</td>
+          <td class="num">${r.p1_total}</td>
+          <td class="num">${r.p1_plan}</td>
+          <td class="num pct ${pctClass(pct(r.p1_plan, r.p1_total))}">${pct(r.p1_plan, r.p1_total).toFixed(1)}%</td>
+          <td class="num">${r.p2_total}</td>
+          <td class="num">${r.p2_plan}</td>
+          <td class="num pct ${pctClass(pct(r.p2_plan, r.p2_total))}">${pct(r.p2_plan, r.p2_total).toFixed(1)}%</td>
+        </tr>`;
+      });
     });
   });
 
   html += '</tbody></table>';
   mount.innerHTML = html;
 }
+
 
 
 function renderFocusMap(){
