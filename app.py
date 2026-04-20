@@ -279,6 +279,7 @@ def build_data():
 
         has_lu   = dt_linkup is not None
         has_hold = dt_hold   is not None
+        has_prod = (dt_travel is not None) and ((dt_start is not None) or (dt_linkup is not None))
 
         # date จาก Link Up ?? เวลาเดินทาง
         dt_date   = dt_linkup or dt_travel
@@ -367,9 +368,9 @@ def build_data():
                     sb['non'] += 1
                     non_key = que_val or 'Non-Ticket'
                     sb['sw'][non_key] = sb['sw'].get(non_key, 0) + 1
-                if has_lu:
+                if has_prod:
                     sb['done_p1'] += 1
-                if has_lu or has_hold:
+                if has_prod:
                     sb['done_p2'] += 1
                 if has_hold:
                     sb['hold'] += 1
@@ -411,10 +412,10 @@ def build_data():
                 prev = tm['day_first_coord'].get(date_str)
                 if prev is None or checkin_dt < prev['dt']:
                     tm['day_first_coord'][date_str] = {'dt': checkin_dt, 'coord': coord}
-            if has_lu:
+            if has_prod:
                 tm['pdt1_keys'].setdefault(date_str, set()).add(ticket_key)
                 tm['pdt1_dates'][date_str] = len(tm['pdt1_keys'][date_str])
-            if has_lu or has_hold:
+            if has_prod:
                 tm['pdt2_keys'].setdefault(date_str, set()).add(ticket_key)
                 tm['pdt2_dates'][date_str] = len(tm['pdt2_keys'][date_str])
             if month_str:
@@ -430,10 +431,10 @@ def build_data():
                 if last_ts:
                     prev = mm['last'].get(date_str)
                     if prev is None or last_ts > prev: mm['last'][date_str] = last_ts
-                if has_lu:
+                if has_prod:
                     mm['p1keys'].setdefault(date_str, set()).add(ticket_key)
                     mm['p1d'][date_str] = len(mm['p1keys'][date_str])
-                if has_lu or has_hold:
+                if has_prod:
                     mm['p2keys'].setdefault(date_str, set()).add(ticket_key)
                     mm['p2d'][date_str] = len(mm['p2keys'][date_str])
 
@@ -447,10 +448,10 @@ def build_data():
                 plan_daily[day_key] = {}
             if team_id not in plan_daily[day_key]:
                 plan_daily[day_key][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set()}
-            if has_lu:
+            if has_prod:
                 plan_daily[day_key][team_id]['p1keys'].add(ticket_key)
                 plan_daily[day_key][team_id]['p1'] = len(plan_daily[day_key][team_id]['p1keys'])
-            if has_lu or has_hold:
+            if has_prod:
                 plan_daily[day_key][team_id]['p2keys'].add(ticket_key)
                 plan_daily[day_key][team_id]['p2'] = len(plan_daily[day_key][team_id]['p2keys'])
 
@@ -458,10 +459,10 @@ def build_data():
                 team_plan_daily[team_id] = {}
             if plan_date not in team_plan_daily[team_id]:
                 team_plan_daily[team_id][plan_date] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'm': plan_month, 'reg': reg, 'type': type_team}
-            if has_lu:
+            if has_prod:
                 team_plan_daily[team_id][plan_date]['p1keys'].add(ticket_key)
                 team_plan_daily[team_id][plan_date]['p1'] = len(team_plan_daily[team_id][plan_date]['p1keys'])
-            if has_lu or has_hold:
+            if has_prod:
                 team_plan_daily[team_id][plan_date]['p2keys'].add(ticket_key)
                 team_plan_daily[team_id][plan_date]['p2'] = len(team_plan_daily[team_id][plan_date]['p2keys'])
 
@@ -473,10 +474,10 @@ def build_data():
             if team_id not in plan_weekly[wk_key]['teams']:
                 plan_weekly[wk_key]['teams'][team_id] = {'p1': 0, 'p2': 0, 'p1keys': set(), 'p2keys': set(), 'dates': set()}
             plan_weekly[wk_key]['teams'][team_id]['dates'].add(plan_date)
-            if has_lu:
+            if has_prod:
                 plan_weekly[wk_key]['teams'][team_id]['p1keys'].add(ticket_key)
                 plan_weekly[wk_key]['teams'][team_id]['p1'] = len(plan_weekly[wk_key]['teams'][team_id]['p1keys'])
-            if has_lu or has_hold:
+            if has_prod:
                 plan_weekly[wk_key]['teams'][team_id]['p2keys'].add(ticket_key)
                 plan_weekly[wk_key]['teams'][team_id]['p2'] = len(plan_weekly[wk_key]['teams'][team_id]['p2keys'])
 
@@ -511,10 +512,10 @@ def build_data():
             daily_team_stats[plan_date][team_id]['rows'] += 1
             if is_real_active_team_row(status_val, dt_travel, dt_start):
                 daily_team_stats[plan_date][team_id]['is_active'] = True
-            if has_lu:
+            if has_prod:
                 daily_team_stats[plan_date][team_id]['p1keys'].add(ticket_key)
                 daily_team_stats[plan_date][team_id]['p1'] = len(daily_team_stats[plan_date][team_id]['p1keys'])
-            if has_lu or has_hold:
+            if has_prod:
                 daily_team_stats[plan_date][team_id]['p2keys'].add(ticket_key)
                 daily_team_stats[plan_date][team_id]['p2'] = len(daily_team_stats[plan_date][team_id]['p2keys'])
 
@@ -530,10 +531,10 @@ def build_data():
             drill_seen_keys.setdefault(team_id, {}).setdefault(drill_date_str, {'p1': set(), 'p2': set()})
             row_p1 = 0
             row_p2 = 0
-            if has_lu and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p1']:
+            if has_prod and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p1']:
                 drill_seen_keys[team_id][drill_date_str]['p1'].add(ticket_key)
                 row_p1 = 1
-            if (has_lu or has_hold) and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p2']:
+            if has_prod and ticket_key not in drill_seen_keys[team_id][drill_date_str]['p2']:
                 drill_seen_keys[team_id][drill_date_str]['p2'].add(ticket_key)
                 row_p2 = 1
             if len(drill[team_id][drill_date_str]) < 50:
@@ -1264,8 +1265,9 @@ def _rt_stage_flags(status_value, dt_travel=None, dt_start=None, dt_hold=None, d
     is_travel = (dt_travel is not None) or ('เดินทาง' in status) or ('travel' in status_l)
     is_start = (dt_start is not None) or ('เริ่มซ่อม' in status) or ('start' in status_l) or ('repair' in status_l)
     is_done = (dt_linkup is not None) or (dt_hold is not None) or ('link up' in status_l) or ('แล้วเสร็จ' in status) or ('เสร็จ' in status) or ('hold' in status_l)
+    is_productive_done = (dt_travel is not None) and ((dt_start is not None) or (dt_linkup is not None))
     is_active = is_real_active_team_row(status, dt_travel, dt_start)
-    return is_travel, is_start, is_done, is_active
+    return is_travel, is_start, is_done, is_productive_done, is_active
 
 
 def build_realtime_monitoring():
@@ -1332,7 +1334,7 @@ def build_realtime_monitoring():
             dt_start = parse_dt(_rt_get(row, C['start']))
             dt_hold = parse_dt(_rt_get(row, C['hold']))
             dt_linkup = parse_dt(_rt_get(row, C['linkup']))
-            is_travel, is_start, is_done, is_active = _rt_stage_flags(status_val, dt_travel, dt_start, dt_hold, dt_linkup)
+            is_travel, is_start, is_done, is_productive_done, is_active = _rt_stage_flags(status_val, dt_travel, dt_start, dt_hold, dt_linkup)
 
             bucket = regions.setdefault(region, {'by_date': {}})['by_date'].setdefault(plan_date, {
                 'planned_tickets': set(),
@@ -1388,7 +1390,7 @@ def build_realtime_monitoring():
                 bucket['start_teams'].add(team_id)
                 bucket['start_tickets'].add(dedupe_key)
                 tb['start_tickets'].add(dedupe_key)
-            if is_done:
+            if is_productive_done:
                 bucket['done_teams'].add(team_id)
                 bucket['done_tickets'].add(dedupe_key)
                 tb['done_tickets'].add(dedupe_key)
