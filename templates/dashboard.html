@@ -522,6 +522,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-pct-mid { color:#ffcc66; }
 .fp-pct-low { color:#ff8a80; }
 
+
+.table-fp-prov .pct-cell { font-weight:800; border-radius:8px; }
+.table-fp-prov .pct-good { background: rgba(153,255,153,.12); color:#99ff99; }
+.table-fp-prov .pct-mid { background: rgba(255,153,0,.10); color:#ffcc66; }
+.table-fp-prov .pct-low { background: rgba(255,0,0,.10); color:#ff8a80; }
+.table-fp-prov .grand-row td { background: linear-gradient(180deg, rgba(88,166,255,.12), rgba(88,166,255,.04)); font-weight:800; }
+
 </style>
 </head>
 <body>
@@ -2799,6 +2806,7 @@ function isFocusPlannedRow(r){
 }
 
 
+
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
   if (!mount) return;
@@ -2814,6 +2822,16 @@ function renderFocusProvinceSummary(){
     if (s.includes('NOR2')) return 'NOR2';
     return '-';
   }
+  function pct(plan,total){ return total ? (plan*100/total) : 0; }
+  function pctClass(v){
+    if (v >= 80) return 'pct-good';
+    if (v >= 50) return 'pct-mid';
+    return 'pct-low';
+  }
+  function pctTd(plan,total){
+    const p = pct(plan,total);
+    return `<td class="num pct-cell ${pctClass(p)}">${p.toFixed(1)}%</td>`;
+  }
 
   const byBookmarkProvince = {};
   rows.forEach(r => {
@@ -2828,6 +2846,7 @@ function renderFocusProvinceSummary(){
         region,
         province: prov,
         total: 0,
+        total_plan: 0,
         p0_total: 0, p0_plan: 0,
         p1_total: 0, p1_plan: 0,
         p2_total: 0, p2_plan: 0,
@@ -2837,15 +2856,18 @@ function renderFocusProvinceSummary(){
     const g = byBookmarkProvince[key];
     g.total++;
 
+    const planned = isFocusPlannedRow(r);
+    if (planned) g.total_plan++;
+
     if (r.priority_bucket === 'Priority0'){
       g.p0_total++;
-      if (isFocusPlannedRow(r)) g.p0_plan++;
+      if (planned) g.p0_plan++;
     } else if (r.priority_bucket === 'Priority1'){
       g.p1_total++;
-      if (isFocusPlannedRow(r)) g.p1_plan++;
+      if (planned) g.p1_plan++;
     } else {
       g.p2_total++;
-      if (isFocusPlannedRow(r)) g.p2_plan++;
+      if (planned) g.p2_plan++;
     }
   });
 
@@ -2856,13 +2878,26 @@ function renderFocusProvinceSummary(){
     grouped[r.bookmark][r.region].push(r);
   });
 
-  function pct(plan,total){ return total ? (plan*100/total) : 0; }
+  function sumRows(items){
+    return items.reduce((a,r)=>{
+      a.total += r.total;
+      a.total_plan += r.total_plan;
+      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
+      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
+      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
+      return a;
+    }, {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
+  }
+
+  let grand = {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0};
 
   let html = '<table class="table-fp-prov"><thead><tr>' +
     '<th>Bookmark</th>' +
     '<th>Region</th>' +
     '<th>TRUEOWNERGROUP</th>' +
     '<th>Total</th>' +
+    '<th>Total Plan</th>' +
+    '<th>%Total Plan</th>' +
     '<th>P0</th><th>P0 Plan</th><th>%P0</th>' +
     '<th>P1</th><th>P1 Plan</th><th>%P1</th>' +
     '<th>P2</th><th>P2 Plan</th><th>%P2</th>' +
@@ -2875,30 +2910,30 @@ function renderFocusProvinceSummary(){
     Object.keys(grouped[bm]).forEach(region => {
 
       const items = grouped[bm][region].sort((a,b)=>a.province.localeCompare(b.province));
+      const sum = sumRows(items);
 
-      // summary region
-      const sum = items.reduce((a,r)=>{
-        a.total+=r.total;
-        a.p0_total+=r.p0_total; a.p0_plan+=r.p0_plan;
-        a.p1_total+=r.p1_total; a.p1_plan+=r.p1_plan;
-        a.p2_total+=r.p2_total; a.p2_plan+=r.p2_plan;
-        return a;
-      },{total:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
+      grand.total += sum.total;
+      grand.total_plan += sum.total_plan;
+      grand.p0_total += sum.p0_total; grand.p0_plan += sum.p0_plan;
+      grand.p1_total += sum.p1_total; grand.p1_plan += sum.p1_plan;
+      grand.p2_total += sum.p2_total; grand.p2_plan += sum.p2_plan;
 
       html += `<tr class="group-row">
         <td>${!bookmarkPrinted ? bm : ''}</td>
         <td><b>${region}</b></td>
         <td>รวม ${region}</td>
         <td class="num">${sum.total}</td>
+        <td class="num">${sum.total_plan}</td>
+        ${pctTd(sum.total_plan,sum.total)}
         <td class="num">${sum.p0_total}</td>
         <td class="num">${sum.p0_plan}</td>
-        <td class="num">${pct(sum.p0_plan,sum.p0_total).toFixed(1)}%</td>
+        ${pctTd(sum.p0_plan,sum.p0_total)}
         <td class="num">${sum.p1_total}</td>
         <td class="num">${sum.p1_plan}</td>
-        <td class="num">${pct(sum.p1_plan,sum.p1_total).toFixed(1)}%</td>
+        ${pctTd(sum.p1_plan,sum.p1_total)}
         <td class="num">${sum.p2_total}</td>
         <td class="num">${sum.p2_plan}</td>
-        <td class="num">${pct(sum.p2_plan,sum.p2_total).toFixed(1)}%</td>
+        ${pctTd(sum.p2_plan,sum.p2_total)}
       </tr>`;
 
       bookmarkPrinted = true;
@@ -2909,15 +2944,17 @@ function renderFocusProvinceSummary(){
           <td></td>
           <td>${r.province}</td>
           <td class="num">${r.total}</td>
+          <td class="num">${r.total_plan}</td>
+          ${pctTd(r.total_plan,r.total)}
           <td class="num">${r.p0_total}</td>
           <td class="num">${r.p0_plan}</td>
-          <td class="num">${pct(r.p0_plan,r.p0_total).toFixed(1)}%</td>
+          ${pctTd(r.p0_plan,r.p0_total)}
           <td class="num">${r.p1_total}</td>
           <td class="num">${r.p1_plan}</td>
-          <td class="num">${pct(r.p1_plan,r.p1_total).toFixed(1)}%</td>
+          ${pctTd(r.p1_plan,r.p1_total)}
           <td class="num">${r.p2_total}</td>
           <td class="num">${r.p2_plan}</td>
-          <td class="num">${pct(r.p2_plan,r.p2_total).toFixed(1)}%</td>
+          ${pctTd(r.p2_plan,r.p2_total)}
         </tr>`;
       });
 
@@ -2925,9 +2962,28 @@ function renderFocusProvinceSummary(){
 
   });
 
-  html += '</tbody></table>';
+  html = html.replace('</tbody>', `<tr class="grand-row">
+      <td><b>Grand Total</b></td>
+      <td><b>NOR1+NOR2</b></td>
+      <td><b>รวมทั้งหมด</b></td>
+      <td class="num">${grand.total}</td>
+      <td class="num">${grand.total_plan}</td>
+      ${pctTd(grand.total_plan,grand.total)}
+      <td class="num">${grand.p0_total}</td>
+      <td class="num">${grand.p0_plan}</td>
+      ${pctTd(grand.p0_plan,grand.p0_total)}
+      <td class="num">${grand.p1_total}</td>
+      <td class="num">${grand.p1_plan}</td>
+      ${pctTd(grand.p1_plan,grand.p1_total)}
+      <td class="num">${grand.p2_total}</td>
+      <td class="num">${grand.p2_plan}</td>
+      ${pctTd(grand.p2_plan,grand.p2_total)}
+    </tr></tbody>`);
+
+  html += '</table>';
   mount.innerHTML = html;
 }
+
 
 
 
