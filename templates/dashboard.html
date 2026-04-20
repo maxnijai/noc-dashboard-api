@@ -2798,6 +2798,7 @@ function isFocusPlannedRow(r){
   return team && team !== '-' && team.toLowerCase() !== 'none';
 }
 
+
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
   if (!mount) return;
@@ -2820,6 +2821,7 @@ function renderFocusProvinceSummary(){
     const prov = (r.trueownergroup || '-').trim() || '-';
     const region = detectRegion(prov);
     const key = bm + '||' + region + '||' + prov;
+
     if (!byBookmarkProvince[key]) {
       byBookmarkProvince[key] = {
         bookmark: bm,
@@ -2831,26 +2833,21 @@ function renderFocusProvinceSummary(){
         p2_total: 0, p2_plan: 0,
       };
     }
-    const g = byBookmarkProvince[key];
-    g.total += 1;
 
-    if (r.priority_bucket === 'Priority0') {
-      g.p0_total += 1;
-      if (isFocusPlannedRow(r)) g.p0_plan += 1;
-    } else if (r.priority_bucket === 'Priority1') {
-      g.p1_total += 1;
-      if (isFocusPlannedRow(r)) g.p1_plan += 1;
+    const g = byBookmarkProvince[key];
+    g.total++;
+
+    if (r.priority_bucket === 'Priority0'){
+      g.p0_total++;
+      if (isFocusPlannedRow(r)) g.p0_plan++;
+    } else if (r.priority_bucket === 'Priority1'){
+      g.p1_total++;
+      if (isFocusPlannedRow(r)) g.p1_plan++;
     } else {
-      g.p2_total += 1;
-      if (isFocusPlannedRow(r)) g.p2_plan += 1;
+      g.p2_total++;
+      if (isFocusPlannedRow(r)) g.p2_plan++;
     }
   });
-
-  const bookmarkOrder = [
-    '3. All NW Incident NSA1-2',
-    '4.FBB with SA1-4',
-    '7.MB with SA1-4'
-  ];
 
   const grouped = {};
   Object.values(byBookmarkProvince).forEach(r => {
@@ -2859,104 +2856,79 @@ function renderFocusProvinceSummary(){
     grouped[r.bookmark][r.region].push(r);
   });
 
-  Object.keys(grouped).forEach(bm => {
-    Object.keys(grouped[bm]).forEach(region => {
-      grouped[bm][region].sort((a,b) => a.province.localeCompare(b.province));
-    });
-  });
-
-  function pctClass(p){
-    if (p >= 80) return 'fp-pct-good';
-    if (p >= 50) return 'fp-pct-mid';
-    return 'fp-pct-low';
-  }
-  function pct(plan, total){
-    return total ? (plan * 100 / total) : 0;
-  }
-  function sumRows(items){
-    return items.reduce((a,r) => {
-      a.total += r.total;
-      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
-      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
-      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
-      return a;
-    }, {total:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
-  }
+  function pct(plan,total){ return total ? (plan*100/total) : 0; }
 
   let html = '<table class="table-fp-prov"><thead><tr>' +
     '<th>Bookmark</th>' +
     '<th>Region</th>' +
     '<th>TRUEOWNERGROUP</th>' +
     '<th>Total</th>' +
-    '<th>P0</th>' +
-    '<th>P0 Plan</th>' +
-    '<th>%Plan P0</th>' +
-    '<th>P1</th>' +
-    '<th>P1 Plan</th>' +
-    '<th>%Plan P1</th>' +
-    '<th>P2</th>' +
-    '<th>P2 Plan</th>' +
-    '<th>%Plan P2</th>' +
+    '<th>P0</th><th>P0 Plan</th><th>%P0</th>' +
+    '<th>P1</th><th>P1 Plan</th><th>%P1</th>' +
+    '<th>P2</th><th>P2 Plan</th><th>%P2</th>' +
     '</tr></thead><tbody>';
 
-  const orderedBookmarks = bookmarkOrder.filter(bm => grouped[bm]).concat(
-    Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
-  );
+  Object.keys(grouped).forEach(bm => {
 
-  orderedBookmarks.forEach(bm => {
-    const bmRegions = grouped[bm] || {};
-    const regionOrder = ['NOR1', 'NOR2'].filter(r => bmRegions[r]).concat(
-      Object.keys(bmRegions).filter(r => !['NOR1','NOR2'].includes(r)).sort((a,b)=>a.localeCompare(b))
-    );
+    let bookmarkPrinted = false;
 
-    let firstBookmarkRow = true;
-    regionOrder.forEach(region => {
-      const items = bmRegions[region] || [];
-      const sub = sumRows(items);
-      const regionLabelCell = `<td>${region}</td>`;
-      const bookmarkCell = firstBookmarkRow
-        ? `<td rowspan="${items.length + regionOrder.reduce((acc, rg) => acc + 1, 0)}">${bm}</td>`
-        : '';
-      firstBookmarkRow = false;
+    Object.keys(grouped[bm]).forEach(region => {
+
+      const items = grouped[bm][region].sort((a,b)=>a.province.localeCompare(b.province));
+
+      // summary region
+      const sum = items.reduce((a,r)=>{
+        a.total+=r.total;
+        a.p0_total+=r.p0_total; a.p0_plan+=r.p0_plan;
+        a.p1_total+=r.p1_total; a.p1_plan+=r.p1_plan;
+        a.p2_total+=r.p2_total; a.p2_plan+=r.p2_plan;
+        return a;
+      },{total:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
 
       html += `<tr class="group-row">
-        ${bookmarkCell}
-        ${regionLabelCell}
+        <td>${!bookmarkPrinted ? bm : ''}</td>
+        <td><b>${region}</b></td>
         <td>รวม ${region}</td>
-        <td class="num">${sub.total}</td>
-        <td class="num">${sub.p0_total}</td>
-        <td class="num">${sub.p0_plan}</td>
-        <td class="num pct ${pctClass(pct(sub.p0_plan, sub.p0_total))}">${pct(sub.p0_plan, sub.p0_total).toFixed(1)}%</td>
-        <td class="num">${sub.p1_total}</td>
-        <td class="num">${sub.p1_plan}</td>
-        <td class="num pct ${pctClass(pct(sub.p1_plan, sub.p1_total))}">${pct(sub.p1_plan, sub.p1_total).toFixed(1)}%</td>
-        <td class="num">${sub.p2_total}</td>
-        <td class="num">${sub.p2_plan}</td>
-        <td class="num pct ${pctClass(pct(sub.p2_plan, sub.p2_total))}">${pct(sub.p2_plan, sub.p2_total).toFixed(1)}%</td>
+        <td class="num">${sum.total}</td>
+        <td class="num">${sum.p0_total}</td>
+        <td class="num">${sum.p0_plan}</td>
+        <td class="num">${pct(sum.p0_plan,sum.p0_total).toFixed(1)}%</td>
+        <td class="num">${sum.p1_total}</td>
+        <td class="num">${sum.p1_plan}</td>
+        <td class="num">${pct(sum.p1_plan,sum.p1_total).toFixed(1)}%</td>
+        <td class="num">${sum.p2_total}</td>
+        <td class="num">${sum.p2_plan}</td>
+        <td class="num">${pct(sum.p2_plan,sum.p2_total).toFixed(1)}%</td>
       </tr>`;
 
-      items.forEach(r => {
+      bookmarkPrinted = true;
+
+      items.forEach(r=>{
         html += `<tr>
-          <td>${region}</td>
+          <td></td>
+          <td></td>
           <td>${r.province}</td>
           <td class="num">${r.total}</td>
           <td class="num">${r.p0_total}</td>
           <td class="num">${r.p0_plan}</td>
-          <td class="num pct ${pctClass(pct(r.p0_plan, r.p0_total))}">${pct(r.p0_plan, r.p0_total).toFixed(1)}%</td>
+          <td class="num">${pct(r.p0_plan,r.p0_total).toFixed(1)}%</td>
           <td class="num">${r.p1_total}</td>
           <td class="num">${r.p1_plan}</td>
-          <td class="num pct ${pctClass(pct(r.p1_plan, r.p1_total))}">${pct(r.p1_plan, r.p1_total).toFixed(1)}%</td>
+          <td class="num">${pct(r.p1_plan,r.p1_total).toFixed(1)}%</td>
           <td class="num">${r.p2_total}</td>
           <td class="num">${r.p2_plan}</td>
-          <td class="num pct ${pctClass(pct(r.p2_plan, r.p2_total))}">${pct(r.p2_plan, r.p2_total).toFixed(1)}%</td>
+          <td class="num">${pct(r.p2_plan,r.p2_total).toFixed(1)}%</td>
         </tr>`;
       });
+
     });
+
   });
 
   html += '</tbody></table>';
   mount.innerHTML = html;
 }
+
 
 
 
