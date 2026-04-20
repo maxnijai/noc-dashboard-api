@@ -815,6 +815,15 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="full-card" style="margin-bottom:14px;">
         <div id="fp-summary-body"></div>
       </div>
+      <div class="full-card" id="fp-map-wrap">
+        <div class="chart-title" style="margin-bottom:10px;">Focus Priority Map</div>
+        <div id="fp-map"></div>
+        <div class="fp-map-legend">
+          <span class="fp-map-chip"><span class="fp-map-dot" style="background:#f85149;"></span>Priority 0</span>
+          <span class="fp-map-chip"><span class="fp-map-dot" style="background:#e3b341;"></span>Priority 1</span>
+          <span class="fp-map-chip"><span class="fp-map-dot" style="background:#7ee787;"></span>Priority 2</span>
+        </div>
+      </div>
       <div class="fp-split" id="fp-bookmark-wrap"></div>
     </div>
   </div>
@@ -2661,6 +2670,82 @@ function rotateRealtimeDate(){
   renderRealtime();
 }
 
+let fpMap = null;
+let fpMapLayer = null;
+
+function fpPriorityColor(pr){
+  if(pr === 'Priority0') return '#f85149';
+  if(pr === 'Priority1') return '#e3b341';
+  return '#7ee787';
+}
+function fpEscapeHtml(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function renderFocusMap(){
+  const mapEl = document.getElementById('fp-map');
+  if(!mapEl || !FOCUS_RAW) return;
+  const points = [];
+  const order = FOCUS_RAW.bookmark_order || Object.keys(FOCUS_RAW.bookmarks || {});
+  order.forEach(bm => {
+    const payload = (FOCUS_RAW.bookmarks || {})[bm] || {};
+    ['Priority0','Priority1','Priority2'].forEach(pr => {
+      ((payload.priorities || {})[pr] || []).forEach(r => {
+        const lat = Number(r.latitude);
+        const lon = Number(r.longitude);
+        if(Number.isFinite(lat) && Number.isFinite(lon)) points.push({...r, bookmark_name: bm, lat, lon});
+      });
+    });
+  });
+
+  if(!fpMap){
+    fpMap = L.map('fp-map', {zoomControl:true});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:''}).addTo(fpMap);
+  }
+  if(fpMapLayer){ fpMapLayer.clearLayers(); }
+  fpMapLayer = L.layerGroup().addTo(fpMap);
+
+  if(!points.length){
+    fpMap.setView([16.2, 100.2], 6);
+    setTimeout(()=>fpMap.invalidateSize(), 50);
+    return;
+  }
+
+  const bounds = [];
+  points.forEach(r => {
+    const color = fpPriorityColor(r.priority_bucket);
+    const marker = L.circleMarker([r.lat, r.lon], {
+      radius: 7,
+      color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: 0.85
+    });
+    const popupHtml = `
+      <div class="fp-popup">
+        <div><b>${fpEscapeHtml(r.ticketid || '-')}</b></div>
+        <div>${fpEscapeHtml(r.priority_bucket || '-')} · ${fpEscapeHtml(r.bookmark_name || '-')}</div>
+        <div>${fpEscapeHtml(r.ciname || '-')}</div>
+        <div>${fpEscapeHtml(r.trueownergroup || '-')}</div>
+        <div>Team: ${fpEscapeHtml(r.team_id || '-')} · Que: ${fpEscapeHtml(r.que || '-')}</div>
+      </div>`;
+    marker.bindPopup(popupHtml);
+    marker.bindTooltip(`${fpEscapeHtml(r.ticketid || '-')}`, {direction:'top', offset:[0,-8]});
+    marker.addTo(fpMapLayer);
+    bounds.push([r.lat, r.lon]);
+  });
+  if(bounds.length === 1){
+    fpMap.setView(bounds[0], 10);
+  }else{
+    fpMap.fitBounds(bounds, {padding:[20,20]});
+  }
+  setTimeout(()=>fpMap.invalidateSize(), 50);
+}
+
 async function fetchFocusPriority(force){
   if(focusLoading) return;
   focusLoading = true;
@@ -2673,6 +2758,7 @@ async function fetchFocusPriority(force){
     const meta = document.getElementById('fp-meta');
     if(meta) meta.textContent = `อัปเดตล่าสุด ${j.generated_at || '-'} · ref ${j.reference_cutoff || '-'}`;
     renderFocusPriority();
+    renderFocusMap();
   }catch(e){
     ['fp-summary-body','fp-bookmark-wrap'].forEach(id=>{
       const el = document.getElementById(id);
@@ -2782,7 +2868,7 @@ function showPage(id) {
   if (id==='overview') { setTimeout(()=>{ renderTrend(); renderStatusChart(getFilteredTeams()); },50); }
   if (id==='summary')  { setTimeout(()=>renderSummary(),50); }
   if (id==='realtime') { setTimeout(()=>fetchRealtime(false),50); }
-  if (id==='focuspriority') { setTimeout(()=>fetchFocusPriority(false),50); }
+  if (id==='focuspriority') { setTimeout(()=>{ fetchFocusPriority(false); if(fpMap) fpMap.invalidateSize(); },50); }
   if (id==='heatmap')  { setTimeout(()=>renderHeatmap(),50); }
   if (id==='boundary') { initBoundaryMap(); }
 }
