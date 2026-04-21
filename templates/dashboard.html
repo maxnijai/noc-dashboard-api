@@ -585,7 +585,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .table-fire-detail tr:hover td{background:var(--bg3);}
 .fire-marker{font-size:18px;line-height:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));}
 .fire-marker.mapped{color:#ff4d4f;}
-.fire-marker.unmapped{color:#9ca3af;}
 .fire-bookmark-title{font-size:16px!important;font-weight:900!important;}
 .table-fp .th-p0,.table-fp .th-p0 *{color:#ff4d4f!important;font-size:12px!important;font-weight:900!important;}
 .table-fp .th-p1,.table-fp .th-p1 *{color:#ff9900!important;font-size:12px!important;font-weight:900!important;}
@@ -993,7 +992,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div class="fire-head">
             <div>
               <div class="chart-title" style="margin-bottom:4px;">Fireburn Map</div>
-              <div class="rt-meta-note">หมุดไฟสีแดง = mapping เจอแผน · สีเทา = ยังไม่เจอแผน</div>
+              <div class="rt-meta-note">หมุดไฟ = จุดพิกัดจากคอลัมน์จุดซ่อมที่1 · กันพังเมื่อพิกัดผิด</div>
             </div>
             <div class="fire-controls">
               <button class="btn" onclick="fitFireMap()">Fit All</button>
@@ -1017,6 +1016,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div class="chart-wrap" style="height:340px;"><canvas id="chart-fire-week"></canvas></div>
       </div>
 
+      <div class="fire-chart-card">
+        <div class="chart-title">Fireburn Debug Data</div>
+        <div id="fire-debug"></div>
+      </div>
+
       <div class="fire-detail-wrap">
         <div class="chart-title">Detail Data</div>
         <div style="overflow:auto;max-height:520px;">
@@ -1024,7 +1028,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <thead>
               <tr>
                 <th>Ticket ID</th><th>Wk Create</th><th>Region</th><th>Province</th>
-                <th>Section</th><th>Team ID</th><th>Type OFC</th><th>Mapped</th><th>Subject</th><th>Point 1</th>
+                <th>Section</th><th>Team ID</th><th>Type OFC</th><th>Coord Status</th><th>Subject</th><th>Point 1</th>
               </tr>
             </thead>
             <tbody id="fire-detail-body"></tbody>
@@ -3162,15 +3166,16 @@ function fillFireProvinceSelect(){
   sel.innerHTML = '<option value="">ทุกจังหวัด</option>' + provinces.map(p => `<option value="${p}">${p}</option>`).join('');
   if(provinces.includes(old)) sel.value = old;
 }
-function fireIcon(mapped){
+function fireIcon(){
   return L.divIcon({
     className: '',
-    html: `<div class="fire-marker ${mapped ? 'mapped' : 'unmapped'}">🔥</div>`,
+    html: `<div class="fire-marker mapped">🔥</div>`,
     iconSize: [20,20],
     iconAnchor: [10,10],
     popupAnchor: [0,-8]
   });
 }
+
 function fireFilteredRows(){
   const prov = document.getElementById('fire-prov')?.value || '';
   const rows = (FIRE_RAW?.detail_rows || []);
@@ -3185,7 +3190,7 @@ function renderFireMap(){
   const bounds = [];
   rows.forEach(r => {
     if(!Number.isFinite(Number(r.latitude)) || !Number.isFinite(Number(r.longitude))) return;
-    const marker = L.marker([Number(r.latitude), Number(r.longitude)], {icon: fireIcon(!!r.mapped)});
+    const marker = L.marker([Number(r.latitude), Number(r.longitude)], {icon: fireIcon()});
     const popup = `
       <div style="font-size:12px;line-height:1.5;">
         <div><b>${fireEsc(r.ticket_id || '-')}</b></div>
@@ -3194,7 +3199,6 @@ function renderFireMap(){
         <div>Wk Create: ${fireEsc(r.wk_create || '-')}</div>
         <div>Section: ${fireEsc(r.section || '-')}</div>
         <div>Team: ${fireEsc(r.team_id || '-')}</div>
-        <div>Mapped: ${r.mapped ? 'Yes' : 'No'}</div>
       </div>`;
     marker.bindPopup(popup);
     marker.bindTooltip(popup, {sticky:true});
@@ -3206,6 +3210,7 @@ function renderFireMap(){
     if(bounds.length) map.fitBounds(bounds, {padding:[20,20]});
   }, 80);
 }
+
 function fitFireMap(){
   if(!FIRE_MAP || !FIRE_LAYER) return;
   const pts = [];
@@ -3252,12 +3257,13 @@ function renderFireDetail(){
       <td>${fireEsc(r.section || '-')}</td>
       <td>${fireEsc(r.team_id || '-')}</td>
       <td>${fireEsc(r.type_ofc || '-')}</td>
-      <td>${r.mapped ? '<span class="fp-plan-yes">Mapped</span>' : '<span class="fp-plan-no">Unmapped</span>'}</td>
+      <td>${r.has_coord ? '<span class="fp-plan-yes">Valid</span>' : '<span class="fp-plan-no">Invalid/Missing</span>'}</td>
       <td>${fireEsc(r.subject || '-')}</td>
       <td>${fireEsc(r.coord_raw || '-')}</td>
     </tr>
   `).join('') || `<tr><td colspan="10" class="summary-empty">ไม่พบข้อมูล</td></tr>`;
 }
+
 function renderFireWeeklyChart(){
   const cv = document.getElementById('chart-fire-week');
   if(!cv || !window.Chart || !FIRE_RAW) return;
@@ -3296,19 +3302,49 @@ function renderFireWeeklyChart(){
 function renderFireKpis(){
   const mount = document.getElementById('fire-kpis');
   if(!mount || !FIRE_RAW) return;
-  const prov = document.getElementById('fire-prov')?.value || '';
   const rows = fireFilteredRows();
   const total = rows.length;
-  const mapped = rows.filter(r => r.mapped).length;
-  const unmapped = total - mapped;
-  const withCoords = (FIRE_RAW.points || []).filter(r => !prov || (r.province || '') === prov).length;
+  const withCoords = rows.filter(r => r.has_coord).length;
+  const withoutCoords = Math.max(total - withCoords, 0);
+  const invalidCoords = Number(FIRE_RAW?.debug?.invalid_coords || 0);
   mount.innerHTML = `
     <div class="fire-kpi"><div class="lb">Total Ticket</div><div class="vl">${total.toLocaleString()}</div></div>
-    <div class="fire-kpi"><div class="lb">Mapped</div><div class="vl" style="color:#ff4d4f;">${mapped.toLocaleString()}</div></div>
-    <div class="fire-kpi"><div class="lb">Unmapped</div><div class="vl" style="color:#9ca3af;">${unmapped.toLocaleString()}</div></div>
-    <div class="fire-kpi"><div class="lb">With Coord</div><div class="vl" style="color:#f59e0b;">${withCoords.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">With Coord</div><div class="vl" style="color:#f85149;">${withCoords.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">Without Coord</div><div class="vl" style="color:#9ca3af;">${withoutCoords.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">Invalid Coord Debug</div><div class="vl" style="color:#f59e0b;">${invalidCoords.toLocaleString()}</div></div>
   `;
 }
+
+function renderFireDebug(){
+  const box = document.getElementById('fire-debug');
+  if(!box || !FIRE_RAW) return;
+  const dbg = FIRE_RAW.debug || {};
+  const insight = (FIRE_RAW.insight || []).map(x => `<span class="mini-tag">${fireEsc(x)}</span>`).join('');
+  const samples = (dbg.error_samples || []).map(e => `
+    <tr>
+      <td>${fireEsc(e.row || '-')}</td>
+      <td>${fireEsc(e.type || '-')}</td>
+      <td>${fireEsc(e.raw || '-')}</td>
+      <td>${fireEsc(e.cleaned || '-')}</td>
+    </tr>
+  `).join('');
+  box.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px;">
+      <div class="fire-kpi"><div class="lb">Total Rows</div><div class="vl">${Number(dbg.total_rows || 0).toLocaleString()}</div></div>
+      <div class="fire-kpi"><div class="lb">Valid Coord</div><div class="vl" style="color:#3fb950;">${Number(dbg.valid_coords || 0).toLocaleString()}</div></div>
+      <div class="fire-kpi"><div class="lb">Invalid Coord</div><div class="vl" style="color:#f85149;">${Number(dbg.invalid_coords || 0).toLocaleString()}</div></div>
+      <div class="fire-kpi"><div class="lb">Error Samples</div><div class="vl" style="color:#f59e0b;">${Number((dbg.error_samples || []).length).toLocaleString()}</div></div>
+    </div>
+    <div style="margin-bottom:10px;">${insight || '<span class="mini-tag">ไม่พบ insight เพิ่มเติม</span>'}</div>
+    <div style="overflow:auto;max-height:260px;">
+      <table class="table-fire-summary" style="min-width:700px;">
+        <thead><tr><th>Row</th><th>Error Type</th><th>Raw</th><th>Cleaned</th></tr></thead>
+        <tbody>${samples || '<tr><td colspan="4" class="summary-empty">ไม่พบ coordinate error sample</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderFireburn(){
   if(!FIRE_RAW) return;
   fillFireProvinceSelect();
@@ -3316,6 +3352,7 @@ function renderFireburn(){
   renderFireSummary();
   renderFireMap();
   renderFireWeeklyChart();
+  renderFireDebug();
   renderFireDetail();
 }
 async function fetchFireburn2026(force){
@@ -3323,13 +3360,15 @@ async function fetchFireburn2026(force){
     const r = await fetch('/api/fireburn-2026?ts=' + Date.now(), {cache:'no-store'});
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
-    if(j.error) throw new Error(j.error);
     FIRE_RAW = j;
     renderFireburn();
+    if(j.error) console.warn('Fireburn API returned error payload:', j.message || j.error);
   }catch(err){
     console.error(err);
     const body = document.getElementById('fire-detail-body');
     if(body) body.innerHTML = `<tr><td colspan="10" class="summary-empty">โหลดข้อมูลไม่สำเร็จ: ${fireEsc(err.message || err)}</td></tr>`;
+    const dbg = document.getElementById('fire-debug');
+    if(dbg) dbg.innerHTML = `<div class="summary-empty">Fireburn load failed: ${fireEsc(err.message || err)}</div>`;
   }
 }
 
