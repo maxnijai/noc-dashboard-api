@@ -3336,6 +3336,14 @@ function renderFireDebug(){
       <div class="fire-kpi"><div class="lb">Error Samples</div><div class="vl" style="color:#f59e0b;">${Number((dbg.error_samples || []).length).toLocaleString()}</div></div>
     </div>
     <div style="margin-bottom:10px;">${insight || '<span class="mini-tag">ไม่พบ insight เพิ่มเติม</span>'}</div>
+    <div style="margin-bottom:10px;">
+      <div class="sum-label">Detected Headers</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${(dbg.headers || []).map(h => `<span class="mini-tag">${fireEsc(h)}</span>`).join('') || '<span class="mini-tag">ไม่พบ header</span>'}</div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="sum-label">Index Map</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${Object.entries(dbg.index_map || {}).map(([k,v]) => `<span class="mini-tag">${fireEsc(k)}:${fireEsc(v)}</span>`).join('') || '<span class="mini-tag">ไม่พบ index map</span>'}</div>
+    </div>
     <div style="overflow:auto;max-height:260px;">
       <table class="table-fire-summary" style="min-width:700px;">
         <thead><tr><th>Row</th><th>Error Type</th><th>Raw</th><th>Cleaned</th></tr></thead>
@@ -3362,7 +3370,13 @@ async function fetchFireburn2026(force){
     const j = await r.json();
     FIRE_RAW = j;
     renderFireburn();
-    if(j.error) console.warn('Fireburn API returned error payload:', j.message || j.error);
+    if(j.error) {
+      console.warn('Fireburn API returned error payload:', j.message || j.error);
+      const body = document.getElementById('fire-detail-body');
+      if(body && (!j.detail_rows || !j.detail_rows.length)) {
+        body.innerHTML = `<tr><td colspan="10" class="summary-empty">Fireburn API warning: ${fireEsc(j.message || j.error || 'unknown')}</td></tr>`;
+      }
+    }
   }catch(err){
     console.error(err);
     const body = document.getElementById('fire-detail-body');
