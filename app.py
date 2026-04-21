@@ -55,10 +55,36 @@ def get_client():
 
 BOUNDARY_SHEET = 'team_boudary'
 
-def parse_coord(v):
-    if not v: return None
-    m = re.match(r'([-\d.]+),\s*([-\d.]+)', str(v).strip())
-    return (float(m.group(1)), float(m.group(2))) if m else None
+def parse_coord(v, row_idx=None, debug_list=None):
+    if not v:
+        return None
+    raw = str(v).strip()
+    if not raw or raw.lower() == 'nan':
+        return None
+
+    cleaned = raw.replace('\u200b', '').replace(' ', '')
+    cleaned = cleaned.replace(';', ',').replace('|', ',')
+    cleaned = re.sub(r'\.{2,}', '.', cleaned)
+    cleaned = re.sub(r',+', ',', cleaned)
+    cleaned = cleaned.strip(', ')
+
+    m = re.match(r'^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$', cleaned)
+    if not m:
+        if debug_list is not None:
+            debug_list.append({'row': row_idx, 'raw': raw, 'cleaned': cleaned, 'type': 'format_error'})
+        return None
+    try:
+        lat = float(m.group(1))
+        lon = float(m.group(2))
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            if debug_list is not None:
+                debug_list.append({'row': row_idx, 'raw': raw, 'cleaned': cleaned, 'type': 'out_of_range'})
+            return None
+        return (lat, lon)
+    except Exception as e:
+        if debug_list is not None:
+            debug_list.append({'row': row_idx, 'raw': raw, 'cleaned': cleaned, 'type': 'convert_error', 'error': str(e)})
+        return None
 
 def haversine(lat1,lon1,lat2,lon2):
     R=6371; dlat=math.radians(lat2-lat1); dlon=math.radians(lon2-lon1)
@@ -1547,15 +1573,20 @@ def _row_get_by_idx(row, idx, default=''):
     return default
 
 def build_fireburn_2026():
-    """Fireburn NOR 2026 from separate GGS source."""
+    """Fireburn NOR 2026 from separate GGS source. Robust against dirty coordinates."""
     gc = get_client()
     ws = gc.open_by_key(FIREBURN_SHEET_ID).worksheet(FIREBURN_SHEET_NAME)
     rows = ws.get_all_values()
     if not rows:
-        return {'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [], 'stats': {'total': 0, 'mapped': 0, 'unmapped': 0}}
+        return {
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [],
+            'stats': {'total': 0, 'with_coords': 0, 'without_coords': 0},
+            'debug': {'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': []},
+            'insight': []
+        }
 
     headers = [str(h).strip() for h in rows[0]]
-    # fallback by user instruction: E = Wk Create, T = จุดซ่อมที่1
     idx_ticket = _find_col_idx(headers, 'Ticket ID', 'Ticket', 'TICKETID')
     idx_region = _find_col_idx(headers, 'Region', 'REGION')
     idx_province = _find_col_idx(headers, 'Province', 'PROVINCE')
@@ -1576,6 +1607,9 @@ def build_fireburn_2026():
     summary = {}
     weekly = {}
     detail_rows = []
+    debug_coords = []
+    valid_coords = 0
+    invalid_coords = 0
 
     for i, row in enumerate(rows[1:], start=2):
         ticket_id = _row_get_by_idx(row, idx_ticket, f'ROW_{i}')
@@ -1589,22 +1623,18 @@ def build_fireburn_2026():
         wk_create = _row_get_by_idx(row, idx_wk_create)
         point1_raw = _row_get_by_idx(row, idx_point1)
 
-        coord = parse_coord(point1_raw)
-        mapped = bool((team_id and team_id.lower() != 'null') or (section and section.lower() != 'null'))
-
         province_norm = province.strip() if province else ''
         region_norm = region.strip() if region else ('NOR1' if province_norm in NOR1 else ('NOR2' if province_norm in PROV_MAP.values() else ''))
 
-        # keep only NOR region rows when possible
         is_nor = region_norm in ('NOR1', 'NOR2') or province_norm in PROV_MAP.values()
-        # keep only 2026-ish week keys if provided, else keep NOR rows with coordinates
         wk_ok = (wk_create.startswith('26') or wk_create.startswith('WK26') or wk_create.startswith('Wk26') or wk_create.startswith('2569')) if wk_create else True
-
         if not is_nor or not wk_ok:
             continue
 
+        coord = parse_coord(point1_raw, i, debug_coords)
+
         rec = {
-            'ticket_id': ticket_id,
+            'ticket_id': ticket_id or '-',
             'region': region_norm or '-',
             'province': province_norm or '-',
             'section': section or '-',
@@ -1613,17 +1643,16 @@ def build_fireburn_2026():
             'subject': subject or '-',
             'subproject': subproject or '-',
             'wk_create': wk_create or '-',
-            'mapped': mapped,
-            'coord_raw': point1_raw or '-'
+            'coord_raw': point1_raw or '-',
+            'has_coord': bool(coord)
         }
         detail_rows.append(rec)
 
         if coord:
-            points.append({
-                **rec,
-                'latitude': coord[0],
-                'longitude': coord[1]
-            })
+            valid_coords += 1
+            points.append({**rec, 'latitude': coord[0], 'longitude': coord[1]})
+        else:
+            invalid_coords += 1
 
         pkey = (region_norm or '-', province_norm or '-')
         summary[pkey] = summary.get(pkey, 0) + 1
@@ -1637,19 +1666,32 @@ def build_fireburn_2026():
         {'region': k[0], 'province': k[1], 'record_count': v}
         for k, v in sorted(summary.items(), key=lambda kv: (kv[0][0], -kv[1], kv[0][1]))
     ]
-    weekly_rows = []
+
     def _wk_sort_key(s):
-        m = re.search(r'(\d+)$', str(s))
+        s = str(s or '')
+        m = re.search(r'(\d+)$', s)
         return int(m.group(1)) if m else 9999
+
+    weekly_rows = []
     for wk in sorted(weekly.keys(), key=_wk_sort_key):
         pc = weekly[wk]
-        weekly_rows.append({
-            'week': wk,
-            'total': sum(pc.values()),
-            'province_counts': pc
-        })
+        weekly_rows.append({'week': wk, 'total': sum(pc.values()), 'province_counts': pc})
 
     provinces = sorted({r['province'] for r in summary_rows if r['province'] and r['province'] != '-'})
+
+    err_type_counts = {}
+    for e in debug_coords:
+        err_type_counts[e['type']] = err_type_counts.get(e['type'], 0) + 1
+
+    insight = []
+    if invalid_coords:
+        insight.append(f'พบพิกัดใช้ไม่ได้ {invalid_coords} รายการ')
+    if err_type_counts.get('format_error'):
+        insight.append(f'รูปแบบพิกัดผิด {err_type_counts.get("format_error")} รายการ')
+    if err_type_counts.get('out_of_range'):
+        insight.append(f'พิกัดเกินช่วง lat/lon {err_type_counts.get("out_of_range")} รายการ')
+    if valid_coords:
+        insight.append(f'พิกัดใช้งานได้ {valid_coords} รายการ')
 
     return {
         'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -1660,12 +1702,17 @@ def build_fireburn_2026():
         'provinces': provinces,
         'stats': {
             'total': len(detail_rows),
-            'mapped': sum(1 for r in detail_rows if r['mapped']),
-            'unmapped': sum(1 for r in detail_rows if not r['mapped']),
-            'with_coords': len(points)
-        }
+            'with_coords': len(points),
+            'without_coords': max(len(detail_rows) - len(points), 0)
+        },
+        'debug': {
+            'total_rows': len(detail_rows),
+            'valid_coords': valid_coords,
+            'invalid_coords': invalid_coords,
+            'error_samples': debug_coords[:50]
+        },
+        'insight': insight
     }
-
 
 @app.route('/api/fireburn-2026')
 def api_fireburn_2026():
@@ -1673,7 +1720,15 @@ def api_fireburn_2026():
         return jsonify(build_fireburn_2026())
     except Exception as e:
         log.exception('api_fireburn_2026 failed')
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': 'fireburn_failed',
+            'message': str(e),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [],
+            'stats': {'total': 0, 'with_coords': 0, 'without_coords': 0},
+            'debug': {'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': []},
+            'insight': ['Fireburn API fail: ' + str(e)]
+        }), 200
 
 @app.route('/api/focus-priority')
 def api_focus_priority():
