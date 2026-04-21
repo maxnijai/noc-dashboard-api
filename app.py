@@ -13,6 +13,8 @@ OFC_BASE      = 2
 REBUILD_HOURS = 6
 EXCLUDE       = {'PS_CMI_ofc_011','PS_CMI_ofc_012'}
 VALID_YEAR    = '2569'   # กรองเฉพาะปี พ.ศ. นี้
+FIREBURN_SHEET_ID = '1UV54tO8-COcW6GN3oSfbm1POu0V09UrkAdcs9lp1Dqw'
+FIREBURN_SHEET_NAME = 'Data'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 log = logging.getLogger(__name__)
@@ -1526,6 +1528,152 @@ def build_realtime_monitoring():
 
 
 
+
+
+
+def _find_col_idx(headers, *names):
+    norm_headers = [' '.join(str(h or '').split()).strip().lower() for h in headers]
+    for name in names:
+        name_n = ' '.join(str(name or '').split()).strip().lower()
+        if name_n in norm_headers:
+            return norm_headers.index(name_n)
+    return None
+
+def _row_get_by_idx(row, idx, default=''):
+    if idx is None:
+        return default
+    if 0 <= idx < len(row):
+        return str(row[idx]).strip()
+    return default
+
+def build_fireburn_2026():
+    """Fireburn NOR 2026 from separate GGS source."""
+    gc = get_client()
+    ws = gc.open_by_key(FIREBURN_SHEET_ID).worksheet(FIREBURN_SHEET_NAME)
+    rows = ws.get_all_values()
+    if not rows:
+        return {'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [], 'stats': {'total': 0, 'mapped': 0, 'unmapped': 0}}
+
+    headers = [str(h).strip() for h in rows[0]]
+    # fallback by user instruction: E = Wk Create, T = จุดซ่อมที่1
+    idx_ticket = _find_col_idx(headers, 'Ticket ID', 'Ticket', 'TICKETID')
+    idx_region = _find_col_idx(headers, 'Region', 'REGION')
+    idx_province = _find_col_idx(headers, 'Province', 'PROVINCE')
+    idx_section = _find_col_idx(headers, 'Section', 'SECTION')
+    idx_team_id = _find_col_idx(headers, 'Team ID', 'TEAM ID')
+    idx_type_ofc = _find_col_idx(headers, 'Type ชนิด OFC', 'Type OFC', 'TYPE ชนิด OFC', 'TYPE OFC', 'Type')
+    idx_subject = _find_col_idx(headers, 'Subject', 'SUBJECT')
+    idx_subproject = _find_col_idx(headers, 'Subproject', 'Sub Project', 'Sub Project ')
+    idx_wk_create = _find_col_idx(headers, 'Wk Create', 'WK Create', 'WK CREATE')
+    idx_point1 = _find_col_idx(headers, 'จุดซ่อมที่1', 'จุดซ่อมจุดที่ 1', 'พิกัดจุดซ่อมจุดที่ 1', 'Repair Point 1')
+
+    if idx_wk_create is None:
+        idx_wk_create = 4
+    if idx_point1 is None:
+        idx_point1 = 19
+
+    points = []
+    summary = {}
+    weekly = {}
+    detail_rows = []
+
+    for i, row in enumerate(rows[1:], start=2):
+        ticket_id = _row_get_by_idx(row, idx_ticket, f'ROW_{i}')
+        region = _row_get_by_idx(row, idx_region)
+        province = _row_get_by_idx(row, idx_province)
+        section = _row_get_by_idx(row, idx_section)
+        team_id = _row_get_by_idx(row, idx_team_id)
+        type_ofc = _row_get_by_idx(row, idx_type_ofc)
+        subject = _row_get_by_idx(row, idx_subject)
+        subproject = _row_get_by_idx(row, idx_subproject)
+        wk_create = _row_get_by_idx(row, idx_wk_create)
+        point1_raw = _row_get_by_idx(row, idx_point1)
+
+        coord = parse_coord(point1_raw)
+        mapped = bool((team_id and team_id.lower() != 'null') or (section and section.lower() != 'null'))
+
+        province_norm = province.strip() if province else ''
+        region_norm = region.strip() if region else ('NOR1' if province_norm in NOR1 else ('NOR2' if province_norm in PROV_MAP.values() else ''))
+
+        # keep only NOR region rows when possible
+        is_nor = region_norm in ('NOR1', 'NOR2') or province_norm in PROV_MAP.values()
+        # keep only 2026-ish week keys if provided, else keep NOR rows with coordinates
+        wk_ok = (wk_create.startswith('26') or wk_create.startswith('WK26') or wk_create.startswith('Wk26') or wk_create.startswith('2569')) if wk_create else True
+
+        if not is_nor or not wk_ok:
+            continue
+
+        rec = {
+            'ticket_id': ticket_id,
+            'region': region_norm or '-',
+            'province': province_norm or '-',
+            'section': section or '-',
+            'team_id': team_id or '-',
+            'type_ofc': type_ofc or '-',
+            'subject': subject or '-',
+            'subproject': subproject or '-',
+            'wk_create': wk_create or '-',
+            'mapped': mapped,
+            'coord_raw': point1_raw or '-'
+        }
+        detail_rows.append(rec)
+
+        if coord:
+            points.append({
+                **rec,
+                'latitude': coord[0],
+                'longitude': coord[1]
+            })
+
+        pkey = (region_norm or '-', province_norm or '-')
+        summary[pkey] = summary.get(pkey, 0) + 1
+
+        wk_key = wk_create or '-'
+        if wk_key not in weekly:
+            weekly[wk_key] = {}
+        weekly[wk_key][province_norm or '-'] = weekly[wk_key].get(province_norm or '-', 0) + 1
+
+    summary_rows = [
+        {'region': k[0], 'province': k[1], 'record_count': v}
+        for k, v in sorted(summary.items(), key=lambda kv: (kv[0][0], -kv[1], kv[0][1]))
+    ]
+    weekly_rows = []
+    def _wk_sort_key(s):
+        m = re.search(r'(\d+)$', str(s))
+        return int(m.group(1)) if m else 9999
+    for wk in sorted(weekly.keys(), key=_wk_sort_key):
+        pc = weekly[wk]
+        weekly_rows.append({
+            'week': wk,
+            'total': sum(pc.values()),
+            'province_counts': pc
+        })
+
+    provinces = sorted({r['province'] for r in summary_rows if r['province'] and r['province'] != '-'})
+
+    return {
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'points': points,
+        'weekly': weekly_rows,
+        'summary_by_province': summary_rows,
+        'detail_rows': detail_rows,
+        'provinces': provinces,
+        'stats': {
+            'total': len(detail_rows),
+            'mapped': sum(1 for r in detail_rows if r['mapped']),
+            'unmapped': sum(1 for r in detail_rows if not r['mapped']),
+            'with_coords': len(points)
+        }
+    }
+
+
+@app.route('/api/fireburn-2026')
+def api_fireburn_2026():
+    try:
+        return jsonify(build_fireburn_2026())
+    except Exception as e:
+        log.exception('api_fireburn_2026 failed')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/focus-priority')
 def api_focus_priority():
