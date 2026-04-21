@@ -1572,31 +1572,92 @@ def _row_get_by_idx(row, idx, default=''):
         return str(row[idx]).strip()
     return default
 
+
+def _infer_fireburn_region_province(region_value='', province_value='', section_value='', team_value='', subject_value=''):
+    # Infer NOR region and province/group robustly from multiple columns.
+    region_raw = str(region_value or '').strip()
+    province_raw = str(province_value or '').strip()
+    section_raw = str(section_value or '').strip()
+    team_raw = str(team_value or '').strip()
+    subject_raw = str(subject_value or '').strip()
+
+    joined = ' | '.join([region_raw, province_raw, section_raw, team_raw, subject_raw]).upper()
+
+    region_norm = ''
+    if 'NOR1' in joined:
+        region_norm = 'NOR1'
+    elif 'NOR2' in joined:
+        region_norm = 'NOR2'
+
+    province_label = province_raw or section_raw or '-'
+
+    province_code = ''
+    if province_raw in PROV_MAP:
+        province_code = PROV_MAP.get(province_raw, '')
+    elif section_raw in PROV_MAP:
+        province_code = PROV_MAP.get(section_raw, '')
+    else:
+        for k, v in PROV_MAP.items():
+            if k in joined:
+                province_code = v
+                if not province_raw:
+                    province_label = k
+                break
+
+    if not province_code:
+        for code in PROV_MAP.values():
+            if re.search(rf'(?<![A-Z]){re.escape(code)}(?![A-Z])', joined):
+                province_code = code
+                break
+
+    if not region_norm and province_code:
+        region_norm = 'NOR1' if province_code in NOR1 else 'NOR2'
+
+    is_nor = bool(region_norm in ('NOR1', 'NOR2') or province_code)
+    return region_norm or '-', province_label or '-', is_nor, province_code or ''
+
+def _fireburn_debug_payload(updated_at, headers=None, detail_rows=None, points=None, summary_rows=None, weekly_rows=None, provinces=None, debug=None, insight=None, error=None):
+    return {
+        'updated_at': updated_at,
+        'points': points or [],
+        'weekly': weekly_rows or [],
+        'summary_by_province': summary_rows or [],
+        'detail_rows': detail_rows or [],
+        'provinces': provinces or [],
+        'stats': {
+            'total': len(detail_rows or []),
+            'with_coords': len(points or []),
+            'without_coords': max(len(detail_rows or []) - len(points or []), 0)
+        },
+        'debug': debug or {'total_rows': len(detail_rows or []), 'valid_coords': len(points or []), 'invalid_coords': 0, 'error_samples': [], 'headers': []},
+        'insight': insight or [],
+        'error': error
+    }
+
+
 def build_fireburn_2026():
-    """Fireburn NOR 2026 from separate GGS source. Robust against dirty coordinates."""
+    """Fireburn NOR 2026 from separate GGS source. Robust against dirty coordinates and weak column naming."""
+    updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     gc = get_client()
     ws = gc.open_by_key(FIREBURN_SHEET_ID).worksheet(FIREBURN_SHEET_NAME)
     rows = ws.get_all_values()
+
     if not rows:
-        return {
-            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [],
-            'stats': {'total': 0, 'with_coords': 0, 'without_coords': 0},
-            'debug': {'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': []},
-            'insight': []
-        }
+        return _fireburn_debug_payload(updated_at, headers=[], detail_rows=[], points=[], summary_rows=[], weekly_rows=[], provinces=[],
+            debug={'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': [], 'headers': []},
+            insight=['ไม่พบข้อมูลในชีต Data'])
 
     headers = [str(h).strip() for h in rows[0]]
     idx_ticket = _find_col_idx(headers, 'Ticket ID', 'Ticket', 'TICKETID')
     idx_region = _find_col_idx(headers, 'Region', 'REGION')
-    idx_province = _find_col_idx(headers, 'Province', 'PROVINCE')
+    idx_province = _find_col_idx(headers, 'Province', 'PROVINCE', 'Trueownergroup', 'TRUEOWNERGROUP')
     idx_section = _find_col_idx(headers, 'Section', 'SECTION')
     idx_team_id = _find_col_idx(headers, 'Team ID', 'TEAM ID')
     idx_type_ofc = _find_col_idx(headers, 'Type ชนิด OFC', 'Type OFC', 'TYPE ชนิด OFC', 'TYPE OFC', 'Type')
     idx_subject = _find_col_idx(headers, 'Subject', 'SUBJECT')
-    idx_subproject = _find_col_idx(headers, 'Subproject', 'Sub Project', 'Sub Project ')
-    idx_wk_create = _find_col_idx(headers, 'Wk Create', 'WK Create', 'WK CREATE')
-    idx_point1 = _find_col_idx(headers, 'จุดซ่อมที่1', 'จุดซ่อมจุดที่ 1', 'พิกัดจุดซ่อมจุดที่ 1', 'Repair Point 1')
+    idx_subproject = _find_col_idx(headers, 'Subproject', 'Sub Project', 'Sub Project ', 'Bookmark')
+    idx_wk_create = _find_col_idx(headers, 'Wk Create', 'WK Create', 'WK CREATE', 'Wk')
+    idx_point1 = _find_col_idx(headers, 'จุดซ่อมที่1', 'จุดซ่อมที่ 1', 'จุดซ่อมจุดที่ 1', 'พิกัดจุดซ่อมจุดที่ 1', 'Repair Point 1')
 
     if idx_wk_create is None:
         idx_wk_create = 4
@@ -1613,8 +1674,8 @@ def build_fireburn_2026():
 
     for i, row in enumerate(rows[1:], start=2):
         ticket_id = _row_get_by_idx(row, idx_ticket, f'ROW_{i}')
-        region = _row_get_by_idx(row, idx_region)
-        province = _row_get_by_idx(row, idx_province)
+        region_raw = _row_get_by_idx(row, idx_region)
+        province_raw = _row_get_by_idx(row, idx_province)
         section = _row_get_by_idx(row, idx_section)
         team_id = _row_get_by_idx(row, idx_team_id)
         type_ofc = _row_get_by_idx(row, idx_type_ofc)
@@ -1623,20 +1684,22 @@ def build_fireburn_2026():
         wk_create = _row_get_by_idx(row, idx_wk_create)
         point1_raw = _row_get_by_idx(row, idx_point1)
 
-        province_norm = province.strip() if province else ''
-        region_norm = region.strip() if region else ('NOR1' if province_norm in NOR1 else ('NOR2' if province_norm in PROV_MAP.values() else ''))
+        region_norm, province_label, is_nor, province_code = _infer_fireburn_region_province(
+            region_raw, province_raw, section, team_id, subject
+        )
 
-        is_nor = region_norm in ('NOR1', 'NOR2') or province_norm in PROV_MAP.values()
-        wk_ok = (wk_create.startswith('26') or wk_create.startswith('WK26') or wk_create.startswith('Wk26') or wk_create.startswith('2569')) if wk_create else True
-        if not is_nor or not wk_ok:
-            continue
-
-        coord = parse_coord(point1_raw, i, debug_coords)
+        if not is_nor:
+            # fallback: keep row anyway if it has coord or week, so page does not go blank
+            if not str(point1_raw or '').strip() and not str(wk_create or '').strip():
+                continue
+            region_norm = region_norm or '-'
+            province_label = province_label or province_raw or '-'
 
         rec = {
             'ticket_id': ticket_id or '-',
             'region': region_norm or '-',
-            'province': province_norm or '-',
+            'province': province_label or '-',
+            'province_code': province_code or '-',
             'section': section or '-',
             'team_id': team_id or '-',
             'type_ofc': type_ofc or '-',
@@ -1644,31 +1707,35 @@ def build_fireburn_2026():
             'subproject': subproject or '-',
             'wk_create': wk_create or '-',
             'coord_raw': point1_raw or '-',
-            'has_coord': bool(coord)
+            'has_coord': False,
+            'row_no': i
         }
         detail_rows.append(rec)
 
+        coord = parse_coord(point1_raw, i, debug_coords)
         if coord:
             valid_coords += 1
+            rec['has_coord'] = True
             points.append({**rec, 'latitude': coord[0], 'longitude': coord[1]})
         else:
-            invalid_coords += 1
+            if str(point1_raw or '').strip():
+                invalid_coords += 1
 
-        pkey = (region_norm or '-', province_norm or '-')
+        pkey = (region_norm or '-', province_label or '-')
         summary[pkey] = summary.get(pkey, 0) + 1
 
-        wk_key = wk_create or '-'
+        wk_key = (wk_create or '-').strip() or '-'
         if wk_key not in weekly:
             weekly[wk_key] = {}
-        weekly[wk_key][province_norm or '-'] = weekly[wk_key].get(province_norm or '-', 0) + 1
+        weekly[wk_key][province_label or '-'] = weekly[wk_key].get(province_label or '-', 0) + 1
 
     summary_rows = [
         {'region': k[0], 'province': k[1], 'record_count': v}
-        for k, v in sorted(summary.items(), key=lambda kv: (kv[0][0], -kv[1], kv[0][1]))
+        for k, v in sorted(summary.items(), key=lambda kv: (str(kv[0][0]), -kv[1], str(kv[0][1])))
     ]
 
     def _wk_sort_key(s):
-        s = str(s or '')
+        s = str(s or '').strip()
         m = re.search(r'(\d+)$', s)
         return int(m.group(1)) if m else 9999
 
@@ -1681,38 +1748,37 @@ def build_fireburn_2026():
 
     err_type_counts = {}
     for e in debug_coords:
-        err_type_counts[e['type']] = err_type_counts.get(e['type'], 0) + 1
+        t = e.get('type', 'unknown')
+        err_type_counts[t] = err_type_counts.get(t, 0) + 1
 
-    insight = []
-    if invalid_coords:
-        insight.append(f'พบพิกัดใช้ไม่ได้ {invalid_coords} รายการ')
-    if err_type_counts.get('format_error'):
-        insight.append(f'รูปแบบพิกัดผิด {err_type_counts.get("format_error")} รายการ')
-    if err_type_counts.get('out_of_range'):
-        insight.append(f'พิกัดเกินช่วง lat/lon {err_type_counts.get("out_of_range")} รายการ')
+    insight = [f'อ่านข้อมูลได้ {len(detail_rows)} แถว']
     if valid_coords:
         insight.append(f'พิกัดใช้งานได้ {valid_coords} รายการ')
+    if invalid_coords:
+        insight.append(f'พิกัดใช้ไม่ได้หรือรูปแบบผิด {invalid_coords} รายการ')
+    if err_type_counts.get('format_error'):
+        insight.append(f'format พิกัดผิด {err_type_counts.get("format_error")} รายการ')
+    if err_type_counts.get('out_of_range'):
+        insight.append(f'lat/lon เกินช่วง {err_type_counts.get("out_of_range")} รายการ')
+    if not provinces:
+        insight.append('ไม่พบจังหวัดที่อ่านได้จากฟิลด์ Province/Section แต่ยังแสดงข้อมูลดิบในตาราง')
 
-    return {
-        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'points': points,
-        'weekly': weekly_rows,
-        'summary_by_province': summary_rows,
-        'detail_rows': detail_rows,
-        'provinces': provinces,
-        'stats': {
-            'total': len(detail_rows),
-            'with_coords': len(points),
-            'without_coords': max(len(detail_rows) - len(points), 0)
-        },
-        'debug': {
+    return _fireburn_debug_payload(
+        updated_at, headers=headers, detail_rows=detail_rows, points=points, summary_rows=summary_rows, weekly_rows=weekly_rows, provinces=provinces,
+        debug={
             'total_rows': len(detail_rows),
             'valid_coords': valid_coords,
             'invalid_coords': invalid_coords,
-            'error_samples': debug_coords[:50]
+            'error_samples': debug_coords[:50],
+            'headers': headers,
+            'index_map': {
+                'ticket': idx_ticket, 'region': idx_region, 'province': idx_province, 'section': idx_section,
+                'team_id': idx_team_id, 'type_ofc': idx_type_ofc, 'subject': idx_subject,
+                'subproject': idx_subproject, 'wk_create': idx_wk_create, 'point1': idx_point1
+            }
         },
-        'insight': insight
-    }
+        insight=insight
+    )
 
 @app.route('/api/fireburn-2026')
 def api_fireburn_2026():
@@ -1720,15 +1786,13 @@ def api_fireburn_2026():
         return jsonify(build_fireburn_2026())
     except Exception as e:
         log.exception('api_fireburn_2026 failed')
-        return jsonify({
-            'error': 'fireburn_failed',
-            'message': str(e),
-            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'points': [], 'weekly': [], 'summary_by_province': [], 'detail_rows': [], 'provinces': [],
-            'stats': {'total': 0, 'with_coords': 0, 'without_coords': 0},
-            'debug': {'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': []},
-            'insight': ['Fireburn API fail: ' + str(e)]
-        }), 200
+        return jsonify(_fireburn_debug_payload(
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            headers=[],
+            debug={'total_rows': 0, 'valid_coords': 0, 'invalid_coords': 0, 'error_samples': [{'row': '-', 'raw': '-', 'cleaned': '-', 'type': 'api_error', 'error': str(e)}], 'headers': []},
+            insight=['Fireburn API ล้ม แต่ระบบกันพังไว้แล้ว'],
+            error='fireburn_failed'
+        )), 200
 
 @app.route('/api/focus-priority')
 def api_focus_priority():
