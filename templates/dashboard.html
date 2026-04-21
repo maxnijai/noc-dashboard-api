@@ -453,7 +453,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 
 /* Focus Priority */
-.fp-split { display:grid; grid-template-columns:1fr; gap:14px; }
+.fp-split { display:grid; grid-template-columns:1fr; gap:18px; }
 .fp-region-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
 .fp-region-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); }
 .fp-region-head.nor1 { border-left:4px solid var(--blue); }
@@ -528,6 +528,34 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .table-fp-prov .pct-mid { background: rgba(255,153,0,.10); color:#ffcc66; }
 .table-fp-prov .pct-low { background: rgba(255,0,0,.10); color:#ff8a80; }
 .table-fp-prov .grand-row td { background: linear-gradient(180deg, rgba(88,166,255,.12), rgba(88,166,255,.04)); font-weight:800; }
+
+
+/* Focus Priority requested enhancements */
+.fp-region-title { font-size:24px; font-weight:900; letter-spacing:.2px; }
+.table-fp th.p0h, .table-fp-prov th.p0h { color:#ff4d4f; font-weight:800; }
+.table-fp th.p1h, .table-fp-prov th.p1h { color:#ff9900; font-weight:800; }
+.table-fp th.p2h, .table-fp-prov th.p2h { color:#99ff99; font-weight:800; }
+.fp-prov-bookmark-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:14px; }
+.fp-prov-bookmark-head { padding:14px 16px 8px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); }
+.fp-map-select { min-width:220px; padding:6px 10px; border-radius:8px; }
+.fp-map-shape { display:inline-block; width:12px; height:12px; }
+.fp-map-shape.circle { border-radius:50%; }
+.fp-map-shape.square { border-radius:2px; }
+.fp-map-shape.triangle { width:0; height:0; border-left:7px solid transparent; border-right:7px solid transparent; border-bottom:12px solid #fff; background:transparent; }
+.fp-legend-stack { display:flex; align-items:center; gap:6px; }
+.fp-marker-wrap{display:flex;align-items:center;justify-content:center;}
+.fp-marker { width:18px; height:18px; opacity:.98; }
+.fp-marker.circle { border-radius:50%; }
+.fp-marker.square { border-radius:2px; }
+.fp-marker.triangle { width:0; height:0; border-left:9px solid transparent; border-right:9px solid transparent; border-bottom:16px solid #fff; background:transparent; }
+.fp-marker.gray.circle,.fp-marker.gray.square { background:#9aa4b2 !important; border:2px solid rgba(0,0,0,.35); }
+.fp-marker.gray.triangle { border-bottom-color:#9aa4b2 !important; }
+.fp-marker.p0.circle,.fp-marker.p0.square { background:#ff0000; border:2px solid rgba(0,0,0,.35); }
+.fp-marker.p1.circle,.fp-marker.p1.square { background:#ff9900; border:2px solid rgba(0,0,0,.35); }
+.fp-marker.p2.circle,.fp-marker.p2.square { background:#99ff99; border:2px solid rgba(0,0,0,.35); }
+.fp-marker.p0.triangle { border-bottom-color:#ff0000; }
+.fp-marker.p1.triangle { border-bottom-color:#ff9900; }
+.fp-marker.p2.triangle { border-bottom-color:#99ff99; }
 
 </style>
 </head>
@@ -877,6 +905,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <div class="rt-meta-note">ชี้หรือกดที่หมุดเพื่อดู Ticket ID, Bookmark, CI Name, TRUEOWNERGROUP, Team ID / Que</div>
           </div>
           <div class="fp-map-actions">
+            <select id="fp-map-province-filter" class="fp-map-select" onchange="setFocusMapProvinceFilter(this.value)">
+              <option value="">ทุกจังหวัด</option>
+            </select>
             <button class="fp-map-btn" id="fp-map-fit-btn" onclick="fitFocusMap()">Fit All</button>
             <button class="fp-map-btn" id="fp-map-full-btn" onclick="toggleFocusMapFullscreen()">ขยายเต็มจอ</button>
           </div>
@@ -885,9 +916,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div id="fp-map"></div>
         </div>
         <div class="fp-map-legend">
-          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#ff0000;"></span>Priority 0</span>
-          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#ff9900;"></span>Priority 1</span>
-          <span class="fp-map-legend-item"><span class="fp-map-dot" style="background:#99ff99;"></span>Priority 2</span>
+          <span class="fp-map-legend-item"><span class="fp-legend-stack"><span class="fp-map-shape triangle" style="border-bottom-color:#ff0000"></span> P0 มีแผน</span></span>
+          <span class="fp-map-legend-item"><span class="fp-legend-stack"><span class="fp-map-shape square" style="background:#ff9900"></span> P1 มีแผน</span></span>
+          <span class="fp-map-legend-item"><span class="fp-legend-stack"><span class="fp-map-shape circle" style="background:#99ff99"></span> P2 มีแผน</span></span>
+          <span class="fp-map-legend-item"><span class="fp-legend-stack"><span class="fp-map-shape circle" style="background:#9aa4b2"></span> ไม่เจอแผน = สีเทา</span></span>
         </div>
       </div>
 
@@ -2738,8 +2770,10 @@ function rotateRealtimeDate(){
 }
 
 
+
 let FP_MAP = null;
 let FP_MAP_LAYER = null;
+let FP_MAP_PROVINCE_FILTER = '';
 
 function getColorByPriority(p){
   if (p === 'Priority0') return '#ff0000';
@@ -2750,6 +2784,11 @@ function getPriorityClass(p){
   if (p === 'Priority0') return 'p0';
   if (p === 'Priority1') return 'p1';
   return 'p2';
+}
+function getMarkerShape(p){
+  if (p === 'Priority0') return 'triangle';
+  if (p === 'Priority1') return 'square';
+  return 'circle';
 }
 function flattenFocusRows(){
   const out = [];
@@ -2798,16 +2837,21 @@ function ensureFocusMap(){
   }
   return FP_MAP;
 }
-
-
 function isFocusPlannedRow(r){
   const team = String(r.team_id || r.teamid || '').trim();
   return team && team !== '-' && team.toLowerCase() !== 'none';
 }
-
-
-
-
+function detectFocusRegion(owner){
+  const s = String(owner || '').toUpperCase();
+  if (s.includes('NOR1')) return 'NOR1';
+  if (s.includes('NOR2')) return 'NOR2';
+  return '-';
+}
+function pctClass(v){
+  if (v >= 80) return 'pct-good';
+  if (v >= 50) return 'pct-mid';
+  return 'pct-low';
+}
 function renderFocusProvinceSummary(){
   const mount = document.getElementById('fp-province-summary');
   if (!mount) return;
@@ -2816,38 +2860,43 @@ function renderFocusProvinceSummary(){
     mount.innerHTML = '<div class="summary-empty">ไม่พบข้อมูลสรุปจังหวัด</div>';
     return;
   }
-
-  function detectRegion(owner){
-    const s = String(owner || '').toUpperCase();
-    if (s.includes('NOR1')) return 'NOR1';
-    if (s.includes('NOR2')) return 'NOR2';
-    return '-';
-  }
-  function pct(plan,total){ return total ? (plan*100/total) : 0; }
-  function pctClass(v){
-    if (v >= 80) return 'pct-good';
-    if (v >= 50) return 'pct-mid';
-    return 'pct-low';
-  }
-  function pctTd(plan,total){
-    const p = pct(plan,total);
-    return `<td class="num pct-cell ${pctClass(p)}">${p.toFixed(1)}%</td>`;
-  }
-  function blankTd(){
-    return '<td></td>';
-  }
-  function sumRows(items){
-    return items.reduce((a,r)=>{
-      a.total += r.total;
-      a.total_plan += r.total_plan;
-      a.p0_total += r.p0_total; a.p0_plan += r.p0_plan;
-      a.p1_total += r.p1_total; a.p1_plan += r.p1_plan;
-      a.p2_total += r.p2_total; a.p2_plan += r.p2_plan;
-      return a;
-    }, {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
-  }
-  function renderMetricCells(obj){
-    return `
+  const byBookmarkProvince = {};
+  rows.forEach(r => {
+    const bm = r.bookmark || '-';
+    const prov = (r.trueownergroup || '-').trim() || '-';
+    const region = detectFocusRegion(prov);
+    const key = bm + '||' + region + '||' + prov;
+    if (!byBookmarkProvince[key]) {
+      byBookmarkProvince[key] = {
+        bookmark: bm, region, province: prov,
+        total: 0, total_plan: 0,
+        p0_total: 0, p0_plan: 0,
+        p1_total: 0, p1_plan: 0,
+        p2_total: 0, p2_plan: 0,
+      };
+    }
+    const g = byBookmarkProvince[key];
+    g.total++;
+    const planned = isFocusPlannedRow(r);
+    if (planned) g.total_plan++;
+    if (r.priority_bucket === 'Priority0'){ g.p0_total++; if (planned) g.p0_plan++; }
+    else if (r.priority_bucket === 'Priority1'){ g.p1_total++; if (planned) g.p1_plan++; }
+    else { g.p2_total++; if (planned) g.p2_plan++; }
+  });
+  const grouped = {};
+  Object.values(byBookmarkProvince).forEach(r => {
+    if (!grouped[r.bookmark]) grouped[r.bookmark] = {};
+    if (!grouped[r.bookmark][r.region]) grouped[r.bookmark][r.region] = [];
+    grouped[r.bookmark][r.region].push(r);
+  });
+  const bookmarkOrder = ['3. All NW Incident NSA1-2','4.FBB with SA1-4','7.MB with SA1-4'];
+  const orderedBookmarks = bookmarkOrder.filter(bm => grouped[bm]).concat(
+    Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
+  );
+  const pct = (plan,total) => total ? (plan*100/total) : 0;
+  const pctTd = (plan,total) => { const p = pct(plan,total); return `<td class="num pct-cell ${pctClass(p)}">${p.toFixed(1)}%</td>`; };
+  const sumRows = (items) => items.reduce((a,r)=>{ a.total+=r.total; a.total_plan+=r.total_plan; a.p0_total+=r.p0_total; a.p0_plan+=r.p0_plan; a.p1_total+=r.p1_total; a.p1_plan+=r.p1_plan; a.p2_total+=r.p2_total; a.p2_plan+=r.p2_plan; return a; }, {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0});
+  const renderMetricCells = (obj) => `
       <td class="num">${obj.total}</td>
       <td class="num">${obj.total_plan}</td>
       ${pctTd(obj.total_plan,obj.total)}
@@ -2860,156 +2909,74 @@ function renderFocusProvinceSummary(){
       <td class="num">${obj.p2_total}</td>
       <td class="num">${obj.p2_plan}</td>
       ${pctTd(obj.p2_plan,obj.p2_total)}
-    `;
-  }
-
-  const byBookmarkProvince = {};
-  rows.forEach(r => {
-    const bm = r.bookmark || '-';
-    const prov = (r.trueownergroup || '-').trim() || '-';
-    const region = detectRegion(prov);
-    const key = bm + '||' + region + '||' + prov;
-
-    if (!byBookmarkProvince[key]) {
-      byBookmarkProvince[key] = {
-        bookmark: bm,
-        region,
-        province: prov,
-        total: 0,
-        total_plan: 0,
-        p0_total: 0, p0_plan: 0,
-        p1_total: 0, p1_plan: 0,
-        p2_total: 0, p2_plan: 0,
-      };
-    }
-
-    const g = byBookmarkProvince[key];
-    g.total++;
-
-    const planned = isFocusPlannedRow(r);
-    if (planned) g.total_plan++;
-
-    if (r.priority_bucket === 'Priority0'){
-      g.p0_total++;
-      if (planned) g.p0_plan++;
-    } else if (r.priority_bucket === 'Priority1'){
-      g.p1_total++;
-      if (planned) g.p1_plan++;
-    } else {
-      g.p2_total++;
-      if (planned) g.p2_plan++;
-    }
-  });
-
-  const grouped = {};
-  Object.values(byBookmarkProvince).forEach(r => {
-    if (!grouped[r.bookmark]) grouped[r.bookmark] = {};
-    if (!grouped[r.bookmark][r.region]) grouped[r.bookmark][r.region] = [];
-    grouped[r.bookmark][r.region].push(r);
-  });
-
-  const bookmarkOrder = [
-    '3. All NW Incident NSA1-2',
-    '4.FBB with SA1-4',
-    '7.MB with SA1-4'
-  ];
-  const orderedBookmarks = bookmarkOrder.filter(bm => grouped[bm]).concat(
-    Object.keys(grouped).filter(bm => !bookmarkOrder.includes(bm)).sort((a,b)=>a.localeCompare(b))
-  );
-
-  let grandAll = {total:0,total_plan:0,p0_total:0,p0_plan:0,p1_total:0,p1_plan:0,p2_total:0,p2_plan:0};
-
-  let html = '<table class="table-fp-prov"><thead><tr>' +
-    '<th>Bookmark</th>' +
-    '<th>Region</th>' +
-    '<th>TRUEOWNERGROUP</th>' +
-    '<th>Total</th>' +
-    '<th>Total Plan</th>' +
-    '<th>%Total Plan</th>' +
-    '<th>P0</th><th>P0 Plan</th><th>%P0</th>' +
-    '<th>P1</th><th>P1 Plan</th><th>%P1</th>' +
-    '<th>P2</th><th>P2 Plan</th><th>%P2</th>' +
-    '</tr></thead><tbody>';
-
+  `;
+  let html = '';
   orderedBookmarks.forEach(bm => {
     const bmRegions = grouped[bm] || {};
     const regionOrder = ['NOR1','NOR2'].filter(r => bmRegions[r]).concat(
       Object.keys(bmRegions).filter(r => !['NOR1','NOR2'].includes(r)).sort((a,b)=>a.localeCompare(b))
     );
-
     const bmAllRows = regionOrder.flatMap(rg => bmRegions[rg] || []);
     const bmTotal = sumRows(bmAllRows);
-
-    grandAll.total += bmTotal.total;
-    grandAll.total_plan += bmTotal.total_plan;
-    grandAll.p0_total += bmTotal.p0_total; grandAll.p0_plan += bmTotal.p0_plan;
-    grandAll.p1_total += bmTotal.p1_total; grandAll.p1_plan += bmTotal.p1_plan;
-    grandAll.p2_total += bmTotal.p2_total; grandAll.p2_plan += bmTotal.p2_plan;
-
-    html += `<tr class="grand-row">
-      <td><b>${bm}</b></td>
-      <td><b>NOR1+NOR2</b></td>
-      <td><b>Grand Total</b></td>
-      ${renderMetricCells(bmTotal)}
-    </tr>`;
-
-    let bookmarkPrinted = false;
-
+    let block = `<div class="fp-prov-bookmark-card">
+      <div class="fp-prov-bookmark-head">
+        <div class="fp-region-title">${bm}</div>
+        <div class="rt-meta-note">สรุปแยก Region > TRUEOWNERGROUP พร้อม Total, Plan และ %Plan แยก P0/P1/P2</div>
+      </div>
+      <div class="fp-prov-wrap">
+      <table class="table-fp-prov"><thead><tr>
+      <th>Region</th><th>TRUEOWNERGROUP</th><th>Total</th><th>Total Plan</th><th>%Total Plan</th>
+      <th class="p0h">P0</th><th class="p0h">P0 Plan</th><th class="p0h">%P0</th>
+      <th class="p1h">P1</th><th class="p1h">P1 Plan</th><th class="p1h">%P1</th>
+      <th class="p2h">P2</th><th class="p2h">P2 Plan</th><th class="p2h">%P2</th>
+      </tr></thead><tbody>`;
+    block += `<tr class="grand-row"><td><b>NOR1+NOR2</b></td><td><b>Grand Total</b></td>${renderMetricCells(bmTotal)}</tr>`;
     regionOrder.forEach(region => {
       const items = (bmRegions[region] || []).sort((a,b)=>a.province.localeCompare(b.province));
       const sum = sumRows(items);
-
-      html += `<tr class="group-row">
-        <td>${!bookmarkPrinted ? bm : ''}</td>
-        <td><b>${region}</b></td>
-        <td>รวม ${region}</td>
-        ${renderMetricCells(sum)}
-      </tr>`;
-
-      bookmarkPrinted = true;
-
-      items.forEach(r => {
-        html += `<tr>
-          ${blankTd()}
-          ${blankTd()}
-          <td>${r.province}</td>
-          ${renderMetricCells(r)}
-        </tr>`;
-      });
+      block += `<tr class="group-row"><td><b>${region}</b></td><td>รวม ${region}</td>${renderMetricCells(sum)}</tr>`;
+      items.forEach(r => { block += `<tr><td></td><td>${r.province}</td>${renderMetricCells(r)}</tr>`; });
     });
+    block += `</tbody></table></div></div>`;
+    html += block;
   });
-
-  html += `<tr class="grand-row">
-    <td><b>ทุก Bookmark</b></td>
-    <td><b>NOR1+NOR2</b></td>
-    <td><b>Grand Total ทั้งหมด</b></td>
-    ${renderMetricCells(grandAll)}
-  </tr>`;
-
-  html += '</tbody></table>';
   mount.innerHTML = html;
 }
-
-
-
-
-
-
+function populateFocusProvinceFilter(){
+  const sel = document.getElementById('fp-map-province-filter');
+  if (!sel) return;
+  const rows = flattenFocusRows();
+  const provinces = Array.from(new Set(rows.map(r => String(r.trueownergroup || '').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  const current = FP_MAP_PROVINCE_FILTER || '';
+  sel.innerHTML = '<option value="">ทุกจังหวัด</option>' + provinces.map(p=>`<option value="${p}">${p}</option>`).join('');
+  sel.value = current;
+}
+function setFocusMapProvinceFilter(v){
+  FP_MAP_PROVINCE_FILTER = v || '';
+  renderFocusMap();
+}
+function focusMarkerIcon(r){
+  const planned = isFocusPlannedRow(r);
+  const shape = getMarkerShape(r.priority_bucket);
+  const cls = planned ? getPriorityClass(r.priority_bucket) : 'gray';
+  return L.divIcon({
+    className: 'fp-marker-wrap',
+    html: `<div class="fp-marker ${shape} ${cls}"></div>`,
+    iconSize: [18,18],
+    iconAnchor: [9,9],
+    popupAnchor: [0,-10]
+  });
+}
 function renderFocusMap(){
   const map = ensureFocusMap();
   if (!map || !FP_MAP_LAYER) return;
   FP_MAP_LAYER.clearLayers();
-  const rows = flattenFocusRows();
+  populateFocusProvinceFilter();
+  let rows = flattenFocusRows();
+  if (FP_MAP_PROVINCE_FILTER) rows = rows.filter(r => String(r.trueownergroup || '').trim() === FP_MAP_PROVINCE_FILTER);
   const bounds = [];
   rows.forEach(r => {
-    const color = getColorByPriority(r.priority_bucket);
-    const marker = L.circleMarker([r.latitude, r.longitude], {
-      radius: 7,
-      weight: 1.5,
-      color,
-      fillColor: color,
-      fillOpacity: 0.88
-    });
+    const marker = L.marker([r.latitude, r.longitude], {icon: focusMarkerIcon(r)});
     const popupHtml = focusPopupHtml(r);
     marker.bindTooltip(popupHtml, {sticky:true, direction:'top', className:'fp-tooltip'});
     marker.bindPopup(popupHtml);
@@ -3021,6 +2988,7 @@ function renderFocusMap(){
     if (bounds.length) map.fitBounds(bounds, {padding:[24,24]});
   }, 80);
 }
+
 function fitFocusMap(){
   const map = ensureFocusMap();
   if (!map || !FP_MAP_LAYER) return;
@@ -3142,7 +3110,7 @@ function renderFocusPriority(){
     return `
       <div class="fp-region-card">
         <div class="fp-region-head ${idx===0?'nor1':idx===1?'nor2':'nor1'}">
-          <div><div class="fp-region-title">${bm}</div><div class="rt-meta-note">รวมทุก region และแยกตาม TRUEOWNERGROUP</div></div>
+          <div><div class="fp-region-title">${bm}</div><div class="rt-meta-note">แยกเป็น Bookmark ชัดเจน · รวม NOR1+NOR2 / แยก NOR1 / NOR2 / TRUEOWNERGROUP</div></div>
           <div class="rt-meta-note">${fpNum(s.total)} ticket · วางแผนแล้ว ${fpNum(s.planned)} · ยังไม่เจอแผน ${fpNum(s.unplanned)}</div>
         </div>
         <div class="fp-kpi-grid">
