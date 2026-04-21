@@ -557,6 +557,41 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-marker.p1.triangle { border-bottom-color:#ff9900; }
 .fp-marker.p2.triangle { border-bottom-color:#99ff99; }
 
+
+/* Fireburn NOR 2026 */
+.fire-grid-top{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,.8fr);gap:14px;margin-bottom:16px;}
+.fire-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.fire-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));}
+.fire-title{font-size:22px;font-weight:900;letter-spacing:.2px;}
+.fire-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.fire-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.fire-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.fire-kpi .lb{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.fire-kpi .vl{font-size:28px;font-weight:800;line-height:1; font-variant-numeric:tabular-nums;}
+#fire-map{height:620px;border:1px solid var(--border);border-radius:12px;background:var(--bg3);}
+.fire-map-wrap{padding:0 16px 16px;}
+.fire-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.fire-select{min-width:160px;}
+.fire-summary-wrap{padding:0 16px 16px;max-height:620px;overflow:auto;}
+.table-fire-summary{width:100%;border-collapse:collapse;}
+.table-fire-summary th{position:sticky;top:0;background:var(--bg3);z-index:1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border);}
+.table-fire-summary td{padding:8px 10px;font-size:12px;border-bottom:1px solid var(--border);}
+.table-fire-summary tr:hover td{background:var(--bg3);}
+.fire-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;}
+.fire-detail-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.table-fire-detail{width:100%;border-collapse:collapse;min-width:1100px;}
+.table-fire-detail th{position:sticky;top:0;background:var(--bg3);z-index:1;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.table-fire-detail td{padding:8px 10px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:top;}
+.table-fire-detail tr:hover td{background:var(--bg3);}
+.fire-marker{font-size:18px;line-height:18px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));}
+.fire-marker.mapped{color:#ff4d4f;}
+.fire-marker.unmapped{color:#9ca3af;}
+.fire-bookmark-title{font-size:16px!important;font-weight:900!important;}
+.table-fp .th-p0,.table-fp .th-p0 *{color:#ff4d4f!important;font-size:12px!important;font-weight:900!important;}
+.table-fp .th-p1,.table-fp .th-p1 *{color:#ff9900!important;font-size:12px!important;font-weight:900!important;}
+.table-fp .th-p2,.table-fp .th-p2 *{color:#99ff99!important;font-size:12px!important;font-weight:900!important;}
+@media (max-width:1200px){.fire-grid-top{grid-template-columns:1fr}.fire-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
 </style>
 </head>
 <body>
@@ -590,6 +625,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2zm0 5h12v2H2zm0 5h12v2H2zM3 1h2v4H3zm4 5h2v4H7zm4 5h2v4h-2z"/></svg>
     Focus Priority
   </div>
+  <div class="nav-item" onclick="showPage('fireburn')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8.5 1c.3 1.4-.1 2.3-.9 3.3-.8 1-1.4 2-1.2 3.2.2 1.1 1.1 1.8 2.2 1.8 1.9 0 3.2-1.7 2.8-3.5 1.5 1.1 2.6 2.8 2.6 4.8A5 5 0 1 1 4 8.4c0-1.9.9-3.5 2.2-4.8.1 1.3.8 2 1.6 2 .6 0 1.2-.3 1.6-.9.5-.7.7-1.7.1-3.7z"/></svg>
+    Fireburn NOR 2026
+  </div>
+
   <div class="nav-item" onclick="showPage('ranking')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 11h3v4H1zm5-5h3v9H6zm5-5h3v14h-3z"/></svg>
     Ranking
@@ -926,6 +966,74 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="fp-split" id="fp-bookmark-wrap"></div>
     </div>
   </div>
+
+  
+  <!-- PAGE: FIREBURN -->
+  <div class="page" id="page-fireburn">
+    <div class="content">
+      <div class="fire-card" style="margin-bottom:16px;">
+        <div class="fire-head">
+          <div>
+            <div class="fire-title">Fireburn NOR 2026 🔥</div>
+            <div class="fire-sub">ใช้พิกัดจากคอลัมน์จุดซ่อมที่1 และ trend จาก Wk Create · Source: GGS / Data</div>
+          </div>
+          <div class="fire-controls">
+            <select id="fire-prov" class="fire-select" onchange="renderFireburn()">
+              <option value="">ทุกจังหวัด</option>
+            </select>
+            <button class="btn" onclick="fetchFireburn2026(true)">Refresh Fireburn</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fire-kpis" id="fire-kpis"></div>
+
+      <div class="fire-grid-top">
+        <div class="fire-card">
+          <div class="fire-head">
+            <div>
+              <div class="chart-title" style="margin-bottom:4px;">Fireburn Map</div>
+              <div class="rt-meta-note">หมุดไฟสีแดง = mapping เจอแผน · สีเทา = ยังไม่เจอแผน</div>
+            </div>
+            <div class="fire-controls">
+              <button class="btn" onclick="fitFireMap()">Fit All</button>
+            </div>
+          </div>
+          <div class="fire-map-wrap"><div id="fire-map"></div></div>
+        </div>
+        <div class="fire-card">
+          <div class="fire-head">
+            <div>
+              <div class="chart-title" style="margin-bottom:4px;">Summary Province</div>
+              <div class="rt-meta-note">สรุปจำนวน Ticket รายจังหวัด</div>
+            </div>
+          </div>
+          <div class="fire-summary-wrap" id="fire-summary"></div>
+        </div>
+      </div>
+
+      <div class="fire-chart-card">
+        <div class="chart-title">Trend ราย Week (Stack by Province)</div>
+        <div class="chart-wrap" style="height:340px;"><canvas id="chart-fire-week"></canvas></div>
+      </div>
+
+      <div class="fire-detail-wrap">
+        <div class="chart-title">Detail Data</div>
+        <div style="overflow:auto;max-height:520px;">
+          <table class="table-fire-detail">
+            <thead>
+              <tr>
+                <th>Ticket ID</th><th>Wk Create</th><th>Region</th><th>Province</th>
+                <th>Section</th><th>Team ID</th><th>Type OFC</th><th>Mapped</th><th>Subject</th><th>Point 1</th>
+              </tr>
+            </thead>
+            <tbody id="fire-detail-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- PAGE: RANKING -->
   <div class="page" id="page-ranking">
@@ -2920,7 +3028,7 @@ function renderFocusProvinceSummary(){
     const bmTotal = sumRows(bmAllRows);
     let block = `<div class="fp-prov-bookmark-card">
       <div class="fp-prov-bookmark-head">
-        <div class="fp-region-title">${bm}</div>
+        <div class="fp-region-title fire-bookmark-title">${bm}</div>
         <div class="rt-meta-note">สรุปแยก Region > TRUEOWNERGROUP พร้อม Total, Plan และ %Plan แยก P0/P1/P2</div>
       </div>
       <div class="fp-prov-wrap">
@@ -3023,6 +3131,209 @@ document.addEventListener('keydown', (e) => {
 });
 
 
+
+let FIRE_RAW = null;
+let FIRE_MAP = null;
+let FIRE_LAYER = null;
+let FIRE_WEEK_CHART = null;
+
+function ensureFireMap(){
+  const el = document.getElementById('fire-map');
+  if(!el || typeof L === 'undefined') return null;
+  if(!FIRE_MAP){
+    FIRE_MAP = L.map(el, {zoomControl:true, preferCanvas:true}).setView([17.1, 99.7], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(FIRE_MAP);
+    FIRE_LAYER = L.layerGroup().addTo(FIRE_MAP);
+  }
+  return FIRE_MAP;
+}
+function fireEsc(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function fillFireProvinceSelect(){
+  const sel = document.getElementById('fire-prov');
+  if(!sel || !FIRE_RAW) return;
+  const old = sel.value || '';
+  const provinces = Array.from(new Set((FIRE_RAW.provinces || []).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">ทุกจังหวัด</option>' + provinces.map(p => `<option value="${p}">${p}</option>`).join('');
+  if(provinces.includes(old)) sel.value = old;
+}
+function fireIcon(mapped){
+  return L.divIcon({
+    className: '',
+    html: `<div class="fire-marker ${mapped ? 'mapped' : 'unmapped'}">🔥</div>`,
+    iconSize: [20,20],
+    iconAnchor: [10,10],
+    popupAnchor: [0,-8]
+  });
+}
+function fireFilteredRows(){
+  const prov = document.getElementById('fire-prov')?.value || '';
+  const rows = (FIRE_RAW?.detail_rows || []);
+  return prov ? rows.filter(r => (r.province || '') === prov) : rows;
+}
+function renderFireMap(){
+  const map = ensureFireMap();
+  if(!map || !FIRE_LAYER) return;
+  FIRE_LAYER.clearLayers();
+  const prov = document.getElementById('fire-prov')?.value || '';
+  const rows = (FIRE_RAW?.points || []).filter(r => !prov || (r.province || '') === prov);
+  const bounds = [];
+  rows.forEach(r => {
+    if(!Number.isFinite(Number(r.latitude)) || !Number.isFinite(Number(r.longitude))) return;
+    const marker = L.marker([Number(r.latitude), Number(r.longitude)], {icon: fireIcon(!!r.mapped)});
+    const popup = `
+      <div style="font-size:12px;line-height:1.5;">
+        <div><b>${fireEsc(r.ticket_id || '-')}</b></div>
+        <div>Province: ${fireEsc(r.province || '-')}</div>
+        <div>Region: ${fireEsc(r.region || '-')}</div>
+        <div>Wk Create: ${fireEsc(r.wk_create || '-')}</div>
+        <div>Section: ${fireEsc(r.section || '-')}</div>
+        <div>Team: ${fireEsc(r.team_id || '-')}</div>
+        <div>Mapped: ${r.mapped ? 'Yes' : 'No'}</div>
+      </div>`;
+    marker.bindPopup(popup);
+    marker.bindTooltip(popup, {sticky:true});
+    marker.addTo(FIRE_LAYER);
+    bounds.push([Number(r.latitude), Number(r.longitude)]);
+  });
+  setTimeout(()=>{
+    map.invalidateSize();
+    if(bounds.length) map.fitBounds(bounds, {padding:[20,20]});
+  }, 80);
+}
+function fitFireMap(){
+  if(!FIRE_MAP || !FIRE_LAYER) return;
+  const pts = [];
+  FIRE_LAYER.eachLayer(layer => {
+    if(layer.getLatLng){
+      const ll = layer.getLatLng();
+      pts.push([ll.lat, ll.lng]);
+    }
+  });
+  FIRE_MAP.invalidateSize();
+  if(pts.length) FIRE_MAP.fitBounds(pts, {padding:[20,20]});
+}
+function renderFireSummary(){
+  const mount = document.getElementById('fire-summary');
+  if(!mount || !FIRE_RAW) return;
+  const prov = document.getElementById('fire-prov')?.value || '';
+  const rows = (FIRE_RAW.summary_by_province || []).filter(r => !prov || (r.province || '') === prov);
+  const body = rows.map(r => `
+    <tr>
+      <td>${fireEsc(r.region || '-')}</td>
+      <td>${fireEsc(r.province || '-')}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:800;">${Number(r.record_count || 0).toLocaleString()}</td>
+    </tr>`).join('');
+  const total = rows.reduce((s,r)=>s + Number(r.record_count || 0), 0);
+  mount.innerHTML = `
+    <table class="table-fire-summary">
+      <thead><tr><th>Region</th><th>Province</th><th>Record Count</th></tr></thead>
+      <tbody>
+        ${body || '<tr><td colspan="3" class="summary-empty">ไม่พบข้อมูล</td></tr>'}
+        <tr><td colspan="2"><b>รวมทั้งหมด</b></td><td style="text-align:right;font-weight:900;">${total.toLocaleString()}</td></tr>
+      </tbody>
+    </table>`;
+}
+function renderFireDetail(){
+  const body = document.getElementById('fire-detail-body');
+  if(!body || !FIRE_RAW) return;
+  const rows = fireFilteredRows();
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>${fireEsc(r.ticket_id || '-')}</td>
+      <td>${fireEsc(r.wk_create || '-')}</td>
+      <td>${fireEsc(r.region || '-')}</td>
+      <td>${fireEsc(r.province || '-')}</td>
+      <td>${fireEsc(r.section || '-')}</td>
+      <td>${fireEsc(r.team_id || '-')}</td>
+      <td>${fireEsc(r.type_ofc || '-')}</td>
+      <td>${r.mapped ? '<span class="fp-plan-yes">Mapped</span>' : '<span class="fp-plan-no">Unmapped</span>'}</td>
+      <td>${fireEsc(r.subject || '-')}</td>
+      <td>${fireEsc(r.coord_raw || '-')}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="10" class="summary-empty">ไม่พบข้อมูล</td></tr>`;
+}
+function renderFireWeeklyChart(){
+  const cv = document.getElementById('chart-fire-week');
+  if(!cv || !window.Chart || !FIRE_RAW) return;
+  if(FIRE_WEEK_CHART){ FIRE_WEEK_CHART.destroy(); FIRE_WEEK_CHART = null; }
+  const prov = document.getElementById('fire-prov')?.value || '';
+  const weeks = FIRE_RAW.weekly || [];
+  const labels = weeks.map(w => w.week || '-');
+  const provinceSet = new Set();
+  weeks.forEach(w => Object.keys(w.province_counts || {}).forEach(p => {
+    if(!prov || p === prov) provinceSet.add(p);
+  }));
+  const provinces = Array.from(provinceSet).sort((a,b)=>a.localeCompare(b));
+  const palette = ['#f59e0b','#06b6d4','#6366f1','#84cc16','#eab308','#60a5fa','#c084fc','#f472b6','#fca5a5','#a3a3a3','#34d399','#fb7185','#22c55e','#f97316'];
+  const datasets = provinces.map((p, idx) => ({
+    label: p,
+    data: weeks.map(w => Number((w.province_counts || {})[p] || 0)),
+    backgroundColor: palette[idx % palette.length],
+    borderWidth: 0,
+    stack: 'fire'
+  }));
+  FIRE_WEEK_CHART = new Chart(cv.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { color: '#8b949e', boxWidth: 12 } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#8b949e' }, grid: { color: 'rgba(255,255,255,.06)' } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: '#8b949e' }, grid: { color: 'rgba(255,255,255,.06)' } }
+      }
+    }
+  });
+}
+function renderFireKpis(){
+  const mount = document.getElementById('fire-kpis');
+  if(!mount || !FIRE_RAW) return;
+  const prov = document.getElementById('fire-prov')?.value || '';
+  const rows = fireFilteredRows();
+  const total = rows.length;
+  const mapped = rows.filter(r => r.mapped).length;
+  const unmapped = total - mapped;
+  const withCoords = (FIRE_RAW.points || []).filter(r => !prov || (r.province || '') === prov).length;
+  mount.innerHTML = `
+    <div class="fire-kpi"><div class="lb">Total Ticket</div><div class="vl">${total.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">Mapped</div><div class="vl" style="color:#ff4d4f;">${mapped.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">Unmapped</div><div class="vl" style="color:#9ca3af;">${unmapped.toLocaleString()}</div></div>
+    <div class="fire-kpi"><div class="lb">With Coord</div><div class="vl" style="color:#f59e0b;">${withCoords.toLocaleString()}</div></div>
+  `;
+}
+function renderFireburn(){
+  if(!FIRE_RAW) return;
+  fillFireProvinceSelect();
+  renderFireKpis();
+  renderFireSummary();
+  renderFireMap();
+  renderFireWeeklyChart();
+  renderFireDetail();
+}
+async function fetchFireburn2026(force){
+  try{
+    const r = await fetch('/api/fireburn-2026?ts=' + Date.now(), {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if(j.error) throw new Error(j.error);
+    FIRE_RAW = j;
+    renderFireburn();
+  }catch(err){
+    console.error(err);
+    const body = document.getElementById('fire-detail-body');
+    if(body) body.innerHTML = `<tr><td colspan="10" class="summary-empty">โหลดข้อมูลไม่สำเร็จ: ${fireEsc(err.message || err)}</td></tr>`;
+  }
+}
+
+
 async function fetchFocusPriority(force){
   if(focusLoading) return;
   focusLoading = true;
@@ -3110,7 +3421,7 @@ function renderFocusPriority(){
     return `
       <div class="fp-region-card">
         <div class="fp-region-head ${idx===0?'nor1':idx===1?'nor2':'nor1'}">
-          <div><div class="fp-region-title">${bm}</div><div class="rt-meta-note">แยกเป็น Bookmark ชัดเจน · รวม NOR1+NOR2 / แยก NOR1 / NOR2 / TRUEOWNERGROUP</div></div>
+          <div><div class="fp-region-title fire-bookmark-title">${bm}</div><div class="rt-meta-note">แยกเป็น Bookmark ชัดเจน · รวม NOR1+NOR2 / แยก NOR1 / NOR2 / TRUEOWNERGROUP</div></div>
           <div class="rt-meta-note">${fpNum(s.total)} ticket · วางแผนแล้ว ${fpNum(s.planned)} · ยังไม่เจอแผน ${fpNum(s.unplanned)}</div>
         </div>
         <div class="fp-kpi-grid">
@@ -3137,7 +3448,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['overview','summary','realtime','focuspriority','ranking','heatmap','team','analysis','boundary','drill'][i]===id);
+    el.classList.toggle('active', ['overview','summary','realtime','focuspriority','fireburn','ranking','heatmap','team','analysis','boundary','drill'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3147,6 +3458,7 @@ function showPage(id) {
   if (id==='summary')  { setTimeout(()=>renderSummary(),50); }
   if (id==='realtime') { setTimeout(()=>fetchRealtime(false),50); }
   if (id==='focuspriority') { setTimeout(()=>{ fetchFocusPriority(false); if (FP_MAP) { FP_MAP.invalidateSize(); setTimeout(fitFocusMap, 120); } },50); }
+  if (id==='fireburn') { setTimeout(()=>{ fetchFireburn2026(false); if (FIRE_MAP) { FIRE_MAP.invalidateSize(); setTimeout(fitFireMap, 120); } }, 50); }
   if (id==='heatmap')  { setTimeout(()=>renderHeatmap(),50); }
   if (id==='boundary') { initBoundaryMap(); }
 }
