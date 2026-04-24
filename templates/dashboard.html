@@ -538,6 +538,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .fp-prov-bookmark-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:14px; }
 .fp-prov-bookmark-head { padding:14px 16px 8px; border-bottom:1px solid var(--border); background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); }
 .fp-map-select { min-width:220px; padding:6px 10px; border-radius:8px; }
+.fp-map-priority-select { min-width:150px; padding:6px 10px; border-radius:8px; }
 .fp-map-shape { display:inline-block; width:12px; height:12px; }
 .fp-map-shape.circle { border-radius:50%; }
 .fp-map-shape.square { border-radius:2px; }
@@ -946,6 +947,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div class="fp-map-actions">
             <select id="fp-map-province-filter" class="fp-map-select" onchange="setFocusMapProvinceFilter(this.value)">
               <option value="">ทุกจังหวัด</option>
+            </select>
+            <select id="fp-map-priority-filter" class="fp-map-priority-select" onchange="setFocusMapPriorityFilter(this.value)">
+              <option value="">ทุก Priority</option>
+              <option value="Priority0">Priority0 เท่านั้น</option>
+              <option value="Priority1">Priority1 เท่านั้น</option>
+              <option value="Priority2">Priority2 เท่านั้น</option>
             </select>
             <button class="fp-map-btn" id="fp-map-fit-btn" onclick="fitFocusMap()">Fit All</button>
             <button class="fp-map-btn" id="fp-map-full-btn" onclick="toggleFocusMapFullscreen()">ขยายเต็มจอ</button>
@@ -2886,6 +2893,7 @@ function rotateRealtimeDate(){
 let FP_MAP = null;
 let FP_MAP_LAYER = null;
 let FP_MAP_PROVINCE_FILTER = '';
+let FP_MAP_PRIORITY_FILTER = '';
 
 function getColorByPriority(p){
   if (p === 'Priority0') return '#ff0000';
@@ -3062,9 +3070,15 @@ function populateFocusProvinceFilter(){
   const current = FP_MAP_PROVINCE_FILTER || '';
   sel.innerHTML = '<option value="">ทุกจังหวัด</option>' + provinces.map(p=>`<option value="${p}">${p}</option>`).join('');
   sel.value = current;
+  const ps = document.getElementById('fp-map-priority-filter');
+  if (ps) ps.value = FP_MAP_PRIORITY_FILTER || '';
 }
 function setFocusMapProvinceFilter(v){
   FP_MAP_PROVINCE_FILTER = v || '';
+  renderFocusMap();
+}
+function setFocusMapPriorityFilter(v){
+  FP_MAP_PRIORITY_FILTER = v || '';
   renderFocusMap();
 }
 function focusMarkerIcon(r){
@@ -3086,6 +3100,7 @@ function renderFocusMap(){
   populateFocusProvinceFilter();
   let rows = flattenFocusRows();
   if (FP_MAP_PROVINCE_FILTER) rows = rows.filter(r => String(r.trueownergroup || '').trim() === FP_MAP_PROVINCE_FILTER);
+  if (FP_MAP_PRIORITY_FILTER) rows = rows.filter(r => String(r.priority_bucket || '').trim() === FP_MAP_PRIORITY_FILTER);
   const bounds = [];
   rows.forEach(r => {
     const marker = L.marker([r.latitude, r.longitude], {icon: focusMarkerIcon(r)});
