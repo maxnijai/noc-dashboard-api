@@ -50,7 +50,7 @@ THAI_MONTHS = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','
 def get_client():
     info  = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
     creds = Credentials.from_service_account_info(
-        info, scopes=['https://www.googleapis.com/auth/spreadsheets'])
+        info, scopes=['https://www.googleapis.com/auth/spreadsheets.readonly'])
     return gspread.authorize(creds)
 
 BOUNDARY_SHEET = 'team_boudary'
@@ -1850,14 +1850,6 @@ def index():
 
     return '<h3>NOC Dashboard API</h3><p>ไม่พบไฟล์ dashboard.html</p><p>วางไฟล์ไว้ที่ <code>templates/dashboard.html</code> หรือข้างๆ <code>app.py</code></p><p><a href="/api/status">/api/status</a></p>', 404
 
-
-
-# Register BBTEC Smart Defense routes
-try:
-    from smart_defense import register_smart_defense
-    register_smart_defense(app, get_client, log)
-except Exception as e:
-    log.exception('register_smart_defense failed')
 
 @app.after_request
 def add_no_cache_headers(resp):
