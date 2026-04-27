@@ -10,6 +10,34 @@ AUDIT_SHEET = os.environ.get('SMART_DEFENSE_AUDIT_SHEET', 'SD_AUDIT_LOG')
 SECRET = os.environ.get('SMART_DEFENSE_SECRET', 'bbtec-smart-defense-change-me')
 TOKEN_HOURS = int(os.environ.get('SMART_DEFENSE_TOKEN_HOURS', '12'))
 
+# Quota-safe cache settings: reduce Google Sheets read calls
+CACHE_TTL_USERS = int(os.environ.get('SMART_DEFENSE_CACHE_USERS_SEC', '300'))
+CACHE_TTL_TICKETS = int(os.environ.get('SMART_DEFENSE_CACHE_TICKETS_SEC', '120'))
+CACHE_TTL_AUDIT = int(os.environ.get('SMART_DEFENSE_CACHE_AUDIT_SEC', '60'))
+AUDIT_LOGIN = os.environ.get('SMART_DEFENSE_AUDIT_LOGIN', 'FALSE').upper() == 'TRUE'
+_SD_CACHE = {
+    'users': {'ts': 0, 'data': None},
+    'tickets': {'ts': 0, 'data': None},
+    'audit_ready': {'ts': 0, 'data': None},
+}
+
+def _cache_valid(name, ttl):
+    c = _SD_CACHE.get(name) or {}
+    return c.get('data') is not None and (time.time() - c.get('ts', 0)) < ttl
+
+def _cache_get(name, ttl):
+    return _SD_CACHE[name]['data'] if _cache_valid(name, ttl) else None
+
+def _cache_set(name, data):
+    _SD_CACHE[name] = {'ts': time.time(), 'data': data}
+
+def _cache_clear(name=None):
+    if name:
+        _SD_CACHE[name] = {'ts': 0, 'data': None}
+    else:
+        for k in list(_SD_CACHE):
+            _SD_CACHE[k] = {'ts': 0, 'data': None}
+
 NOR1 = {'CMI','CRI','LPG','LPN','MHS','NAN','PHE','PYO'}
 NOR2 = {'KPP','PCB','PCT','PSN','SKT','TAK','UTR'}
 OWNER_PROV = {
@@ -131,14 +159,26 @@ def get_or_create_ws(get_client, name, headers, rows=1000, cols=30):
         ws = sh.add_worksheet(title=name, rows=rows, cols=cols)
         ws.update('1:1', [headers])
         return ws
-    vals = ws.get_all_values()
-    if not vals:
+    # Quota-safe: read only header row, not the whole sheet.
+    try:
+        first = ws.row_values(1)
+    except Exception:
+        first = []
+    if not first:
         ws.update('1:1', [headers])
     return ws
 
-def ensure_headers(ws):
-    vals = ws.get_all_values()
-    headers = vals[0] if vals else ['TICKETID']
+def ensure_headers(ws, vals=None):
+    # vals can be the result of one ws.get_all_values() call.
+    # This avoids an extra Google read every /tickets or /summary call.
+    if vals and len(vals) > 0:
+        headers = vals[0]
+    else:
+        try:
+            headers = ws.row_values(1)
+        except Exception:
+            headers = []
+    headers = headers or ['TICKETID']
     cur = list(headers)
     changed = False
     for h in CONTROL:
@@ -150,11 +190,28 @@ def ensure_headers(ws):
     return cur
 
 def ensure_audit_sheet(get_client):
+    # Quota-safe: cache that the audit sheet/header is already ready.
+    if _cache_get('audit_ready', CACHE_TTL_AUDIT):
+        return open_ws(get_client, AUDIT_SHEET)
     ws = get_or_create_ws(get_client, AUDIT_SHEET, AUDIT_HEADERS, rows=5000, cols=len(AUDIT_HEADERS) + 2)
-    vals = ws.get_all_values()
-    if not vals or vals[0] != AUDIT_HEADERS:
+    try:
+        first = ws.row_values(1)
+    except Exception:
+        first = []
+    if first != AUDIT_HEADERS:
         ws.update('1:1', [AUDIT_HEADERS])
+    _cache_set('audit_ready', True)
     return ws
+
+def load_users(get_client, force=False):
+    if not force:
+        cached = _cache_get('users', CACHE_TTL_USERS)
+        if cached is not None:
+            return cached
+    ws = open_ws(get_client, USER_SHEET, True)
+    records = ws.get_all_records()
+    _cache_set('users', records)
+    return records
 
 def row_obj(row, idx, colmap):
     def v(h):
@@ -242,13 +299,23 @@ def can_action(user, action, row):
         return g == 'BBTEC' and ('BBTEC_MANAGER' in r or 'REGIONAL' in r)
     return False
 
-def get_rows(get_client):
+def get_rows(get_client, force=False):
+    # For read-only endpoints, serve from cache to avoid Sheets 429 quota.
+    # For write actions, call get_rows(..., force=True) to read the latest row state.
+    if not force:
+        cached = _cache_get('tickets', CACHE_TTL_TICKETS)
+        if cached is not None:
+            headers, m, data = cached
+            return None, headers, m, data
+
     ws = open_ws(get_client, TICKET_SHEET)
-    headers = ensure_headers(ws)
-    vals = ws.get_all_values()
+    vals = ws.get_all_values()  # only one full-sheet read here
+    headers = ensure_headers(ws, vals)
     m = hmap(headers)
-    rows = [row_obj(row, i, m) for i, row in enumerate(vals[1:], 2)]
-    return ws, headers, m, [r for r in rows if r.get('ticketid')]
+    rows = [row_obj(row, i, m) for i, row in enumerate(vals[1:], 2)] if vals else []
+    data = [r for r in rows if r.get('ticketid')]
+    _cache_set('tickets', (headers, m, data))
+    return ws, headers, m, data
 
 def update_cells(ws, headers, row_num, updates):
     m = hmap(headers)
@@ -313,8 +380,8 @@ def register_smart_defense(app, get_client, log):
         if not u or not p:
             return jsonify({'ok': False, 'error': 'missing_user_or_password'}), 400
         try:
-            ws = open_ws(get_client, USER_SHEET, True)
-            for r in ws.get_all_records():
+            records = load_users(get_client)
+            for r in records:
                 if str(r.get('User', '')).strip().lower() == u.lower() and str(r.get('Active', 'TRUE')).upper() != 'FALSE':
                     if str(r.get('Pass', '')).strip() != p:
                         return jsonify({'ok': False, 'error': 'invalid_password'}), 401
@@ -329,7 +396,8 @@ def register_smart_defense(app, get_client, log):
                         'iat': int(time.time()),
                         'exp': int(time.time() + TOKEN_HOURS * 3600)
                     }
-                    append_audit(get_client, payload, 'login', {}, {}, {}, 'user_login_success')
+                    if AUDIT_LOGIN:
+                        append_audit(get_client, payload, 'login', {}, {}, {}, 'user_login_success')
                     return jsonify({'ok': True, 'token': sign(payload), 'user': payload})
             return jsonify({'ok': False, 'error': 'user_not_found'}), 401
         except Exception as e:
@@ -386,7 +454,7 @@ def register_smart_defense(app, get_client, log):
         if row_num < 2 or not action:
             return jsonify({'ok': False, 'error': 'missing_row_or_action'}), 400
         try:
-            ws, headers, _, data = get_rows(get_client)
+            ws, headers, _, data = get_rows(get_client, force=True)
             cur = next((x for x in data if x['row'] == row_num), None)
             if not cur:
                 return jsonify({'ok': False, 'error': 'row_not_found'}), 404
@@ -467,6 +535,7 @@ def register_smart_defense(app, get_client, log):
                 return jsonify({'ok': False, 'error': 'unknown_action'}), 400
 
             update_cells(ws, headers, row_num, upd)
+            _cache_clear('tickets')
             append_audit(get_client, user, action, cur, public_before_after(cur), upd, audit_remark)
             return jsonify({'ok': True, 'row': row_num, 'action': action, 'updates': upd})
         except Exception as e:
@@ -552,6 +621,32 @@ def register_smart_defense(app, get_client, log):
             log.exception('sd lock status failed')
             return jsonify({'ok': False, 'error': str(e)}), 500
 
+    @app.route('/api/smart-defense/cache-status')
+    def sd_cache_status():
+        user, err = auth()
+        if err: return err
+        return jsonify({'ok': True, 'cache': {
+            'users_cached': _SD_CACHE['users'].get('data') is not None,
+            'tickets_cached': _SD_CACHE['tickets'].get('data') is not None,
+            'audit_ready_cached': _SD_CACHE['audit_ready'].get('data') is not None,
+            'users_age_sec': round(time.time() - _SD_CACHE['users'].get('ts', 0), 1) if _SD_CACHE['users'].get('data') is not None else None,
+            'tickets_age_sec': round(time.time() - _SD_CACHE['tickets'].get('ts', 0), 1) if _SD_CACHE['tickets'].get('data') is not None else None,
+            'audit_ready_age_sec': round(time.time() - _SD_CACHE['audit_ready'].get('ts', 0), 1) if _SD_CACHE['audit_ready'].get('data') is not None else None,
+            'ttl_users_sec': CACHE_TTL_USERS,
+            'ttl_tickets_sec': CACHE_TTL_TICKETS,
+            'ttl_audit_sec': CACHE_TTL_AUDIT
+        }, 'updated_at': now()})
+
+    @app.route('/api/smart-defense/clear-cache', methods=['POST'])
+    def sd_clear_cache():
+        user, err = auth()
+        if err: return err
+        r = role(user)
+        if not ('REGIONAL' in r or 'MANAGER' in r or user.get('user','').lower() == 'admin'):
+            return jsonify({'ok': False, 'error': 'permission_denied'}), 403
+        _cache_clear()
+        return jsonify({'ok': True, 'message': 'smart defense cache cleared', 'updated_at': now()})
+
     @app.route('/api/smart-defense/setup-users', methods=['POST'])
     def sd_setup_users():
         expected = os.environ.get('SMART_DEFENSE_SETUP_KEY')
@@ -573,6 +668,8 @@ def register_smart_defense(app, get_client, log):
             ]
             ws.update('A1:J' + str(len(rows)), rows)
             ensure_audit_sheet(get_client)
+            _cache_clear('users')
+            _cache_clear('audit_ready')
             return jsonify({'ok': True, 'sheet': USER_SHEET, 'audit_sheet': AUDIT_SHEET, 'message': 'USER_ACCOUNT template and audit sheet created'})
         except Exception as e:
             log.exception('sd setup users failed')
