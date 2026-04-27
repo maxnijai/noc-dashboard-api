@@ -592,38 +592,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .table-fp .th-p2,.table-fp .th-p2 *{color:#99ff99!important;font-size:12px!important;font-weight:900!important;}
 @media (max-width:1200px){.fire-grid-top{grid-template-columns:1fr}.fire-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
-
-/* ================= BBTEC SMART DEFENSE ================= */
-.sd-login-overlay{position:fixed;inset:0;background:radial-gradient(circle at top left,rgba(88,166,255,.18),rgba(0,0,0,.82));z-index:9000;display:flex;align-items:center;justify-content:center;padding:24px}
-.sd-login-card{width:min(440px,94vw);background:linear-gradient(180deg,#111a27,#0d1117);border:1px solid rgba(88,166,255,.26);border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:24px}
-.sd-login-title{font-size:28px;font-weight:900;letter-spacing:.2px}.sd-login-title span{color:#3fb950}.sd-login-sub{color:var(--text2);margin:6px 0 18px;font-size:13px}
-.sd-login-input{width:100%;margin:8px 0;padding:12px 14px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:12px;font-family:inherit}
-.sd-login-btn{width:100%;margin-top:12px;padding:12px;border:none;border-radius:12px;background:linear-gradient(90deg,#238636,#3fb950);color:white;font-weight:900;cursor:pointer}
-.sd-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.sd-hero{background:linear-gradient(120deg,#07192d,#0d1117 55%,#102316);border:1px solid var(--border);border-radius:18px;padding:18px;display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px}
-.sd-hero h2{font-size:26px;margin:0}.sd-hero h2 span{color:#3fb950}.sd-hero p{color:var(--text2);margin-top:6px}
-.sd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
-.sd-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px}.sd-kpi .lb{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}.sd-kpi .vl{font-size:26px;font-weight:900;margin-top:6px}.sd-kpi .sub{font-size:11px;color:var(--text2);margin-top:4px}
-.sd-flow{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:10px;margin-bottom:14px}.sd-step{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:12px;min-height:116px;position:relative}.sd-step:after{content:'→';position:absolute;right:-13px;top:40%;font-size:22px;color:var(--blue)}.sd-step:last-child:after{content:''}.sd-step .no{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--bg4);font-weight:900;margin-right:8px}.sd-step h3{font-size:14px;margin:0 0 8px}.sd-step p{font-size:12px;color:var(--text2);line-height:1.45}.sd-step.s1{border-color:rgba(227,179,65,.35)}.sd-step.s2{border-color:rgba(88,166,255,.38)}.sd-step.s3{border-color:rgba(63,185,80,.35)}.sd-step.s4{border-color:rgba(188,140,255,.35)}.sd-step.s5{border-color:rgba(57,211,83,.35)}
-.sd-panel{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:14px}.sd-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sd-controls input,.sd-controls select{height:34px}.sd-table-wrap{overflow:auto;max-height:58vh;border:1px solid var(--border);border-radius:14px}.sd-table{width:100%;border-collapse:collapse;min-width:1500px}.sd-table th{position:sticky;top:0;background:var(--bg3);z-index:1;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:9px;border-bottom:1px solid var(--border)}.sd-table td{padding:8px 9px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:top}.sd-table tr:hover td{background:var(--bg3)}
-.sd-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid var(--border)}.sd-pill.step1{color:#e3b341;background:rgba(227,179,65,.10)}.sd-pill.step2{color:#58a6ff;background:rgba(88,166,255,.10)}.sd-pill.step3{color:#3fb950;background:rgba(63,185,80,.10)}.sd-pill.step4{color:#bc8cff;background:rgba(188,140,255,.10)}.sd-pill.step5{color:#39d353;background:rgba(57,211,83,.10)}.sd-btn{padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg4);color:var(--text);cursor:pointer;font-size:11px;font-weight:700}.sd-btn:hover{border-color:var(--blue)}.sd-btn.green{background:#238636;color:white}.sd-btn.blue{background:#1f6feb;color:white}.sd-btn.red{background:#da3633;color:white}.sd-btn.orange{background:#bc4c00;color:white}.sd-btn:disabled{opacity:.4;cursor:not-allowed}.sd-money{font-weight:900;color:#ffb4a8}.sd-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:center;justify-content:center;padding:20px}.sd-modal.show{display:flex}.sd-modal-card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;max-width:760px;width:100%;max-height:86vh;overflow:auto}.sd-modal-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg3)}.sd-form{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.sd-form label{font-size:11px;color:var(--text3)}.sd-form input,.sd-form select,.sd-form textarea{width:100%;margin-top:5px;padding:9px 10px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px;font-family:inherit}.sd-form .full{grid-column:1/-1}@media(max-width:1100px){.sd-flow{grid-template-columns:1fr}.sd-step:after{display:none}.sd-form{grid-template-columns:1fr}}
-
 </style>
 </head>
 <body>
-
-<div class="sd-login-overlay" id="sd-login" style="display:none">
-  <div class="sd-login-card">
-    <div class="sd-login-title">BBTEC <span>Smart Defense</span></div>
-    <div class="sd-login-sub">Login เพื่อเข้าใช้งานระบบ Defend ค่าปรับ</div>
-    <input class="sd-login-input" id="sd-login-user" placeholder="User">
-    <input class="sd-login-input" id="sd-login-pass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')sdLogin()">
-    <button class="sd-login-btn" onclick="sdLogin()">LOGIN</button>
-    <div id="sd-login-msg" style="margin-top:12px;color:var(--red);font-size:12px"></div>
-    <div style="font-size:11px;color:var(--text3);margin-top:14px;line-height:1.5">User/Password แนะนำให้จัดการใน Google Sheet: <b>USER_ACCOUNT</b><br>คอลัมน์: User, Pass, Name, Group, Role, Region, Province, Systems, Active</div>
-  </div>
-</div>
-
 
 <div class="shell">
 
@@ -635,13 +606,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:13px;font-weight:600;">Intelligent Productivity</span>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:3px;">NOR1 · NOR2 · 2569</div>
-  </div>
-
-
-  <div class="nav-section">Smart Defense</div>
-  <div class="nav-item" onclick="showPage('smartdefense')">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0l6 2v4c0 4-2.5 7.5-6 10C4.5 13.5 2 10 2 6V2l6-2zm3.7 5.3L7.2 9.8 5.1 7.7 4 8.8l3.2 3.2 5.6-5.6-1.1-1.1z"/></svg>
-    BBTEC Smart Defense
   </div>
 
   <div class="nav-section">หน้าหลัก</div>
@@ -1258,58 +1222,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="prov-tabs" id="b-prov-tabs" style="margin-bottom:14px;"></div>
       <div class="boundary-stats" id="b-stats"></div>
       <div class="boundary-grid" id="boundary-grid"></div>
-    </div>
-  </div>
-
-
-  <!-- PAGE: BBTEC SMART DEFENSE -->
-  <div class="page" id="page-smartdefense">
-    <div class="content">
-      <div class="sd-hero">
-        <div>
-          <h2>BBTEC <span>Smart Defense</span></h2>
-          <p>ระบบบริหารจัดการและป้องกันค่าปรับแบบครบวงจร: Review → FSO Decision → Defend → Final → Manager Approve</p>
-        </div>
-        <div class="sd-controls">
-          <button class="sd-btn blue" onclick="sdLoad()">Reload</button>
-          <button class="sd-btn" onclick="sdLogout()">Logout</button>
-        </div>
-      </div>
-      <div class="sd-flow">
-        <div class="sd-step s1"><h3><span class="no">1</span>Engineer / Site Sup</h3><p>แก้ไข Group Problem, Sub Problem, Accident, Link รูป/ชี้แจง แล้วกดยืนยันเพื่อล็อก Step1</p></div>
-        <div class="sd-step s2"><h3><span class="no">2</span>FSO Review</h3><p>พิจารณา “ปรับ / ไม่ปรับ”, ลงชื่อผู้อนุมัติ, วันที่ และ Remark FSO</p></div>
-        <div class="sd-step s3"><h3><span class="no">3</span>Defend Process</h3><p>หาก FSO ปรับ สามารถขอ Defend ได้สูงสุด 2 ครั้ง หรือกดยอมรับเพื่อปิดผล</p></div>
-        <div class="sd-step s4"><h3><span class="no">4</span>Final Result</h3><p>สรุปผล ไม่ปรับ/ยอมรับ หรือ ปรับ และล็อกข้อมูลไม่ให้แก้ไข</p></div>
-        <div class="sd-step s5"><h3><span class="no">5</span>Manager Approve</h3><p>BBTEC Manager NOR1/NOR2 อนุมัติขั้นสุดท้ายตามพื้นที่รับผิดชอบ</p></div>
-      </div>
-      <div class="sd-kpis" id="sd-kpis"></div>
-      <div class="sd-panel">
-        <div class="sd-topbar">
-          <div>
-            <div class="section-title" style="margin-bottom:4px;">Penalty Ticket Workflow</div>
-            <div id="sd-user-info" style="font-size:12px;color:var(--text2);">ยังไม่ได้ Login</div>
-          </div>
-          <div class="sd-controls">
-            <input id="sd-q" placeholder="ค้นหา Ticket / Subject / Province" onkeydown="if(event.key==='Enter')sdLoad()">
-            <select id="sd-step-filter" onchange="sdLoad()"><option value="">ทุก Step</option><option value="1">Step1</option><option value="2">Step2</option><option value="3">Step3 Defend</option><option value="4">Step4 Final</option><option value="5">Step5 Approved</option></select>
-            <button class="sd-btn blue" onclick="sdLoad()">Search</button>
-          </div>
-        </div>
-        <div class="sd-table-wrap"><table class="sd-table"><thead><tr>
-          <th>Step</th><th>Ticket</th><th>Region</th><th>Province</th><th>Severity</th><th>Creation</th><th>Target</th><th>Subject</th><th>Penalty</th><th>Problem</th><th>FSO</th><th>Defend</th><th>Last Update</th><th>Action</th>
-        </tr></thead><tbody id="sd-tbody"><tr><td colspan="14">Loading...</td></tr></tbody></table></div>
-      </div>
-      <div class="sd-panel">
-        <div class="section-title">Summary by Region / Province</div>
-        <div class="sd-table-wrap" style="max-height:260px"><table class="sd-table" style="min-width:900px"><thead><tr><th>Type</th><th>Key</th><th>Total</th><th>Step1 Done</th><th>%Actual</th><th>FSO ปรับ</th><th>FSO ไม่ปรับ</th><th>Defend</th><th>Final</th><th>Approved</th><th>Amount</th></tr></thead><tbody id="sd-summary"><tr><td colspan="11">Loading...</td></tr></tbody></table></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sd-modal" id="sd-modal">
-    <div class="sd-modal-card">
-      <div class="sd-modal-head"><b id="sd-modal-title">Edit</b><button class="sd-btn" onclick="sdCloseModal()">×</button></div>
-      <div id="sd-modal-body"></div>
     </div>
   </div>
 
@@ -4313,82 +4225,5 @@ function renderPivot(ft) {
 
 </script>
 <div id="loading-overlay" style="position:fixed;inset:0;background:rgba(13,17,23,.95);display:flex;align-items:center;justify-content:center;z-index:9999;"><div style="text-align:center;"><div style="font-size:16px;color:#e6edf3;margin-bottom:8px;">⏳ กำลังโหลดข้อมูล...</div><div style="font-size:12px;color:#8b949e;">กำลังดึงข้อมูลจาก Google Sheet</div></div></div>
-
-<script>
-let SD_ROWS=[]; let SD_USER=null; let SD_TOKEN=localStorage.getItem('sd_token')||'';
-function sdMoney(v){return Number(v||0).toLocaleString('th-TH',{maximumFractionDigits:0})}
-function sdEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function sdStepPill(r){const s=String(r.sd_step||'1'); const labels={1:'STEP1 Review',2:'STEP2 FSO',3:'STEP3 Defend',4:'STEP4 Final',5:'STEP5 Approved'}; return `<span class="sd-pill step${s}">${labels[s]||'STEP'+s}</span>`}
-async function sdApi(path,opt={}){
-  const token = (localStorage.getItem('sd_token') || SD_TOKEN || '').trim();
-  SD_TOKEN = token;
-  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers || {});
-  if (token) opt.headers.Authorization = 'Bearer ' + token;
-  const r = await fetch(path, opt);
-  const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
-  if (r.status === 401) {
-    localStorage.removeItem('sd_token');
-    SD_TOKEN=''; SD_USER=null;
-    sdShowLogin();
-    throw new Error('unauthorized: กรุณา Login ใหม่อีกครั้ง');
-  }
-  if (!j.ok && j.error) throw new Error(j.error);
-  return j;
-}
-function sdShowLogin(){document.getElementById('sd-login').style.display='flex'} function sdHideLogin(){document.getElementById('sd-login').style.display='none'}
-async function sdLogin(){
-  const user=document.getElementById('sd-login-user').value.trim();
-  const pass=document.getElementById('sd-login-pass').value;
-  const msg=document.getElementById('sd-login-msg');
-  msg.textContent='';
-  try{
-    localStorage.removeItem('sd_token'); SD_TOKEN=''; SD_USER=null;
-    const r = await fetch('/api/smart-defense/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user,pass})});
-    const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
-    if(!r.ok || !j.ok) throw new Error(j.error || ('HTTP '+r.status));
-    SD_TOKEN = j.token || j.access_token || '';
-    if(!SD_TOKEN) throw new Error('login_success_but_no_token');
-    SD_USER = j.user || null;
-    localStorage.setItem('sd_token', SD_TOKEN);
-    sdHideLogin();
-    await sdLoad(true);
-  }catch(e){msg.textContent='Login ไม่สำเร็จ: '+e.message}
-}
-function sdLogout(){
-  localStorage.removeItem('sd_token'); SD_TOKEN=''; SD_USER=null; SD_ROWS=[];
-  try{sdRenderKpis({total_amount:0}); document.getElementById('sd-tbody').innerHTML='<tr><td colspan="14">กรุณา Login</td></tr>';}catch(_e){}
-  sdShowLogin();
-}
-async function sdLoad(force=false){
-  SD_TOKEN = (localStorage.getItem('sd_token') || SD_TOKEN || '').trim();
-  if(!SD_TOKEN){sdShowLogin(); return;}
-  try{
-    const q=encodeURIComponent(document.getElementById('sd-q')?.value||'');
-    let step=(document.getElementById('sd-step-filter')?.value||'');
-    if(step==='all' || step==='ALL' || step==='ทุก Step') step='';
-    step=encodeURIComponent(step);
-    const j=await sdApi(`/api/smart-defense/tickets?q=${q}&step=${step}`);
-    SD_ROWS=j.rows||[]; SD_USER=j.user;
-    document.getElementById('sd-user-info').innerHTML=`User: <b>${sdEsc(SD_USER.name||SD_USER.user)}</b> · Role: <b>${sdEsc(SD_USER.role)}</b> · Region: <b>${sdEsc(SD_USER.region)}</b> · Province: <b>${sdEsc(SD_USER.province)}</b> · Updated ${sdEsc(j.updated_at)}`;
-    sdRenderRows(); sdRenderKpis(j); sdLoadSummary();
-  }catch(e){
-    document.getElementById('sd-tbody').innerHTML=`<tr><td colspan="14" style="color:var(--red)">Error: ${sdEsc(e.message)}</td></tr>`;
-  }
-}
-function sdRenderKpis(j){const total=SD_ROWS.length, amount=j.total_amount||0, step1=SD_ROWS.filter(r=>['2','3','4','5'].includes(String(r.sd_step))).length, fsoP=SD_ROWS.filter(r=>r.fso_decision==='ปรับ').length, fsoN=SD_ROWS.filter(r=>r.fso_decision==='ไม่ปรับ').length, defend=SD_ROWS.filter(r=>Number(r.defend_count)>0).length, approved=SD_ROWS.filter(r=>String(r.sd_step)==='5').length; document.getElementById('sd-kpis').innerHTML=[['Total Ticket',total,'ทั้งหมดตามสิทธิ์'],['Penalty Amount',sdMoney(amount)+' บาท','ยอดค่าปรับรวม'],['Engineer Reviewed',step1, total?Math.round(step1/total*100)+'% Actual':'0%'],['FSO ปรับ / ไม่ปรับ',`${fsoP} / ${fsoN}`,'Decision'],['Defend',defend,'ขอ Defend แล้ว'],['Approved',approved,'Manager approve']].map(x=>`<div class="sd-kpi"><div class="lb">${x[0]}</div><div class="vl">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('')}
-function sdRenderRows(){const tb=document.getElementById('sd-tbody'); if(!SD_ROWS.length){tb.innerHTML='<tr><td colspan="14">ไม่พบข้อมูล</td></tr>'; return;} tb.innerHTML=SD_ROWS.map(r=>`<tr><td>${sdStepPill(r)}</td><td class="mono">${sdEsc(r.ticketid)}</td><td>${sdEsc(r.region)}</td><td>${sdEsc(r.province)}</td><td>${sdEsc(r.severity)}</td><td>${sdEsc(r.creationdate)}</td><td>${sdEsc(r.targetfinish)}</td><td style="max-width:360px">${sdEsc(r.subject)}</td><td class="sd-money">${sdMoney(r.penalty)}</td><td>${sdEsc(r.group_problem||'-')}<br><span style="color:var(--text3)">${sdEsc(r.sub_problem||'')}</span></td><td>${sdEsc(r.fso_decision||'-')}<br><span style="color:var(--text3)">${sdEsc(r.fso_approve||'')}</span></td><td>${r.defend_count||0}/2</td><td>${sdEsc(r.last_update||'-')}<br><span style="color:var(--text3)">${sdEsc(r.last_user||'')}</span></td><td>${sdActions(r)}</td></tr>`).join('')}
-function sdActions(r){let p=r.permissions||{}; return `<button class="sd-btn orange" ${p.step1?'':'disabled'} onclick="sdOpenStep1(${r.row})">Step1</button> <button class="sd-btn blue" ${p.step2?'':'disabled'} onclick="sdOpenStep2(${r.row})">FSO</button> <button class="sd-btn green" ${p.defend?'':'disabled'} onclick="sdDo(${r.row},'defend')">Defend</button> <button class="sd-btn" ${p.accept?'':'disabled'} onclick="sdDo(${r.row},'accept')">Accept</button> <button class="sd-btn green" ${p.manager?'':'disabled'} onclick="sdDo(${r.row},'manager_approve')">Approve</button>`}
-function sdFind(row){return SD_ROWS.find(x=>x.row===row)}
-function sdOpenStep1(row){const r=sdFind(row); document.getElementById('sd-modal-title').textContent='Step1 Engineer Review - '+r.ticketid; document.getElementById('sd-modal-body').innerHTML=`<div class="sd-form"><label>Group Problem<input id="sd-f-group" value="${sdEsc(r.group_problem)}"></label><label>Sub Problem<input id="sd-f-sub" value="${sdEsc(r.sub_problem)}"></label><label>Accident<input id="sd-f-acc" value="${sdEsc(r.accident)}"></label><label>Overdue Detail / Link รูป<input id="sd-f-over" value="${sdEsc(r.overdue_link)}"></label><label class="full">แนบ LINK ชี้แจง<input id="sd-f-exp" value="${sdEsc(r.explain_link)}"></label><div class="full" style="display:flex;gap:8px;justify-content:flex-end"><button class="sd-btn" onclick="sdCloseModal()">Cancel</button><button class="sd-btn blue" onclick="sdSaveStep1(${row},false)">Save</button><button class="sd-btn green" onclick="sdSaveStep1(${row},true)">Confirm & Lock</button></div></div>`; document.getElementById('sd-modal').classList.add('show')}
-async function sdSaveStep1(row,confirm){await sdDo(row,confirm?'step1_confirm':'step1_save',{group_problem:sdv('sd-f-group'),sub_problem:sdv('sd-f-sub'),accident:sdv('sd-f-acc'),overdue_link:sdv('sd-f-over'),explain_link:sdv('sd-f-exp')});}
-function sdOpenStep2(row){const r=sdFind(row); document.getElementById('sd-modal-title').textContent='Step2 FSO Review - '+r.ticketid; document.getElementById('sd-modal-body').innerHTML=`<div class="sd-form"><label>FSO พิจารณา<select id="sd-f-decision"><option value="">เลือก</option><option ${r.fso_decision==='ปรับ'?'selected':''}>ปรับ</option><option ${r.fso_decision==='ไม่ปรับ'?'selected':''}>ไม่ปรับ</option></select></label><label>FSO Approve<input id="sd-f-approve" value="${sdEsc(r.fso_approve)}"></label><label>วันที่ FSO อนุมัติ<input id="sd-f-date" type="date" value="${sdEsc(r.fso_date)}"></label><label class="full">Remark FSO<textarea id="sd-f-remark" rows="3">${sdEsc(r.remark_fso)}</textarea></label><div class="full" style="display:flex;gap:8px;justify-content:flex-end"><button class="sd-btn" onclick="sdCloseModal()">Cancel</button><button class="sd-btn green" onclick="sdSaveStep2(${row})">Confirm FSO</button></div></div>`; document.getElementById('sd-modal').classList.add('show')}
-async function sdSaveStep2(row){await sdDo(row,'step2_confirm',{fso_decision:sdv('sd-f-decision'),fso_approve:sdv('sd-f-approve'),fso_date:sdv('sd-f-date'),remark_fso:sdv('sd-f-remark')});}
-function sdv(id){return document.getElementById(id)?.value||''}
-async function sdDo(row,action,fields={}){try{await sdApi('/api/smart-defense/action',{method:'POST',body:JSON.stringify({row,action,fields})}); sdCloseModal(); await sdLoad();}catch(e){alert('ทำรายการไม่สำเร็จ: '+e.message)}}
-function sdCloseModal(){document.getElementById('sd-modal').classList.remove('show')}
-async function sdLoadSummary(){try{const j=await sdApi('/api/smart-defense/summary'); const rows=j.rows||[]; document.getElementById('sd-summary').innerHTML=rows.map(r=>`<tr><td>${sdEsc(r.type)}</td><td>${sdEsc(r.key)}</td><td>${r.total}</td><td>${r.step1_done}</td><td>${r.actual_pct}%</td><td>${r.fso_penalty}</td><td>${r.fso_no_penalty}</td><td>${r.defend}</td><td>${r.final}</td><td>${r.approved}</td><td class="sd-money">${sdMoney(r.amount)}</td></tr>`).join('')||'<tr><td colspan="11">ไม่มีข้อมูล</td></tr>'}catch(e){document.getElementById('sd-summary').innerHTML=`<tr><td colspan="11" style="color:var(--red)">${sdEsc(e.message)}</td></tr>`}}
-(function(){const old=window.showPage; window.showPage=function(id){ if(old) old(id); if(id==='smartdefense'){ document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',(el.getAttribute('onclick')||'').includes("smartdefense"))); setTimeout(sdLoad,80);} }; /* keep token; validation happens on first API call */})();
-</script>
-
 </body>
 </html>
