@@ -4319,11 +4319,62 @@ let SD_ROWS=[]; let SD_USER=null; let SD_TOKEN=localStorage.getItem('sd_token')|
 function sdMoney(v){return Number(v||0).toLocaleString('th-TH',{maximumFractionDigits:0})}
 function sdEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function sdStepPill(r){const s=String(r.sd_step||'1'); const labels={1:'STEP1 Review',2:'STEP2 FSO',3:'STEP3 Defend',4:'STEP4 Final',5:'STEP5 Approved'}; return `<span class="sd-pill step${s}">${labels[s]||'STEP'+s}</span>`}
-async function sdApi(path,opt={}){opt.headers=Object.assign({'Content-Type':'application/json'},opt.headers||{}); if(SD_TOKEN)opt.headers.Authorization='Bearer '+SD_TOKEN; const r=await fetch(path,opt); const j=await r.json().catch(()=>({ok:false,error:'bad_json'})); if(r.status===401){sdShowLogin();} if(!j.ok && j.error) throw new Error(j.error); return j}
+async function sdApi(path,opt={}){
+  const token = (localStorage.getItem('sd_token') || SD_TOKEN || '').trim();
+  SD_TOKEN = token;
+  opt.headers = Object.assign({'Content-Type':'application/json'}, opt.headers || {});
+  if (token) opt.headers.Authorization = 'Bearer ' + token;
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
+  if (r.status === 401) {
+    localStorage.removeItem('sd_token');
+    SD_TOKEN=''; SD_USER=null;
+    sdShowLogin();
+    throw new Error('unauthorized: กรุณา Login ใหม่อีกครั้ง');
+  }
+  if (!j.ok && j.error) throw new Error(j.error);
+  return j;
+}
 function sdShowLogin(){document.getElementById('sd-login').style.display='flex'} function sdHideLogin(){document.getElementById('sd-login').style.display='none'}
-async function sdLogin(){const user=document.getElementById('sd-login-user').value.trim(); const pass=document.getElementById('sd-login-pass').value; const msg=document.getElementById('sd-login-msg'); msg.textContent=''; try{const j=await sdApi('/api/smart-defense/login',{method:'POST',body:JSON.stringify({user,pass})}); SD_TOKEN=j.token; SD_USER=j.user; localStorage.setItem('sd_token',SD_TOKEN); sdHideLogin(); sdLoad();}catch(e){msg.textContent='Login ไม่สำเร็จ: '+e.message}}
-function sdLogout(){localStorage.removeItem('sd_token'); SD_TOKEN=''; SD_USER=null; sdShowLogin()}
-async function sdLoad(){ if(!SD_TOKEN){sdShowLogin(); return;} try{const q=encodeURIComponent(document.getElementById('sd-q')?.value||''); const step=encodeURIComponent(document.getElementById('sd-step-filter')?.value||''); const j=await sdApi(`/api/smart-defense/tickets?q=${q}&step=${step}`); SD_ROWS=j.rows||[]; SD_USER=j.user; document.getElementById('sd-user-info').innerHTML=`User: <b>${sdEsc(SD_USER.name||SD_USER.user)}</b> · Role: <b>${sdEsc(SD_USER.role)}</b> · Region: <b>${sdEsc(SD_USER.region)}</b> · Province: <b>${sdEsc(SD_USER.province)}</b> · Updated ${sdEsc(j.updated_at)}`; sdRenderRows(); sdRenderKpis(j); sdLoadSummary(); }catch(e){document.getElementById('sd-tbody').innerHTML=`<tr><td colspan="14" style="color:var(--red)">Error: ${sdEsc(e.message)}</td></tr>`;}}
+async function sdLogin(){
+  const user=document.getElementById('sd-login-user').value.trim();
+  const pass=document.getElementById('sd-login-pass').value;
+  const msg=document.getElementById('sd-login-msg');
+  msg.textContent='';
+  try{
+    localStorage.removeItem('sd_token'); SD_TOKEN=''; SD_USER=null;
+    const r = await fetch('/api/smart-defense/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user,pass})});
+    const j = await r.json().catch(()=>({ok:false,error:'bad_json'}));
+    if(!r.ok || !j.ok) throw new Error(j.error || ('HTTP '+r.status));
+    SD_TOKEN = j.token || j.access_token || '';
+    if(!SD_TOKEN) throw new Error('login_success_but_no_token');
+    SD_USER = j.user || null;
+    localStorage.setItem('sd_token', SD_TOKEN);
+    sdHideLogin();
+    await sdLoad(true);
+  }catch(e){msg.textContent='Login ไม่สำเร็จ: '+e.message}
+}
+function sdLogout(){
+  localStorage.removeItem('sd_token'); SD_TOKEN=''; SD_USER=null; SD_ROWS=[];
+  try{sdRenderKpis({total_amount:0}); document.getElementById('sd-tbody').innerHTML='<tr><td colspan="14">กรุณา Login</td></tr>';}catch(_e){}
+  sdShowLogin();
+}
+async function sdLoad(force=false){
+  SD_TOKEN = (localStorage.getItem('sd_token') || SD_TOKEN || '').trim();
+  if(!SD_TOKEN){sdShowLogin(); return;}
+  try{
+    const q=encodeURIComponent(document.getElementById('sd-q')?.value||'');
+    let step=(document.getElementById('sd-step-filter')?.value||'');
+    if(step==='all' || step==='ALL' || step==='ทุก Step') step='';
+    step=encodeURIComponent(step);
+    const j=await sdApi(`/api/smart-defense/tickets?q=${q}&step=${step}`);
+    SD_ROWS=j.rows||[]; SD_USER=j.user;
+    document.getElementById('sd-user-info').innerHTML=`User: <b>${sdEsc(SD_USER.name||SD_USER.user)}</b> · Role: <b>${sdEsc(SD_USER.role)}</b> · Region: <b>${sdEsc(SD_USER.region)}</b> · Province: <b>${sdEsc(SD_USER.province)}</b> · Updated ${sdEsc(j.updated_at)}`;
+    sdRenderRows(); sdRenderKpis(j); sdLoadSummary();
+  }catch(e){
+    document.getElementById('sd-tbody').innerHTML=`<tr><td colspan="14" style="color:var(--red)">Error: ${sdEsc(e.message)}</td></tr>`;
+  }
+}
 function sdRenderKpis(j){const total=SD_ROWS.length, amount=j.total_amount||0, step1=SD_ROWS.filter(r=>['2','3','4','5'].includes(String(r.sd_step))).length, fsoP=SD_ROWS.filter(r=>r.fso_decision==='ปรับ').length, fsoN=SD_ROWS.filter(r=>r.fso_decision==='ไม่ปรับ').length, defend=SD_ROWS.filter(r=>Number(r.defend_count)>0).length, approved=SD_ROWS.filter(r=>String(r.sd_step)==='5').length; document.getElementById('sd-kpis').innerHTML=[['Total Ticket',total,'ทั้งหมดตามสิทธิ์'],['Penalty Amount',sdMoney(amount)+' บาท','ยอดค่าปรับรวม'],['Engineer Reviewed',step1, total?Math.round(step1/total*100)+'% Actual':'0%'],['FSO ปรับ / ไม่ปรับ',`${fsoP} / ${fsoN}`,'Decision'],['Defend',defend,'ขอ Defend แล้ว'],['Approved',approved,'Manager approve']].map(x=>`<div class="sd-kpi"><div class="lb">${x[0]}</div><div class="vl">${x[1]}</div><div class="sub">${x[2]}</div></div>`).join('')}
 function sdRenderRows(){const tb=document.getElementById('sd-tbody'); if(!SD_ROWS.length){tb.innerHTML='<tr><td colspan="14">ไม่พบข้อมูล</td></tr>'; return;} tb.innerHTML=SD_ROWS.map(r=>`<tr><td>${sdStepPill(r)}</td><td class="mono">${sdEsc(r.ticketid)}</td><td>${sdEsc(r.region)}</td><td>${sdEsc(r.province)}</td><td>${sdEsc(r.severity)}</td><td>${sdEsc(r.creationdate)}</td><td>${sdEsc(r.targetfinish)}</td><td style="max-width:360px">${sdEsc(r.subject)}</td><td class="sd-money">${sdMoney(r.penalty)}</td><td>${sdEsc(r.group_problem||'-')}<br><span style="color:var(--text3)">${sdEsc(r.sub_problem||'')}</span></td><td>${sdEsc(r.fso_decision||'-')}<br><span style="color:var(--text3)">${sdEsc(r.fso_approve||'')}</span></td><td>${r.defend_count||0}/2</td><td>${sdEsc(r.last_update||'-')}<br><span style="color:var(--text3)">${sdEsc(r.last_user||'')}</span></td><td>${sdActions(r)}</td></tr>`).join('')}
 function sdActions(r){let p=r.permissions||{}; return `<button class="sd-btn orange" ${p.step1?'':'disabled'} onclick="sdOpenStep1(${r.row})">Step1</button> <button class="sd-btn blue" ${p.step2?'':'disabled'} onclick="sdOpenStep2(${r.row})">FSO</button> <button class="sd-btn green" ${p.defend?'':'disabled'} onclick="sdDo(${r.row},'defend')">Defend</button> <button class="sd-btn" ${p.accept?'':'disabled'} onclick="sdDo(${r.row},'accept')">Accept</button> <button class="sd-btn green" ${p.manager?'':'disabled'} onclick="sdDo(${r.row},'manager_approve')">Approve</button>`}
