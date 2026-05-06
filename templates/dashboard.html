@@ -3105,27 +3105,37 @@ function focusMarkerIcon(r){
 function teamMarkerIcon(t){
   const type = String(t.type_team || '').toUpperCase();
   const color = type === 'CM' ? '#3fb950' : type === 'OFC' ? '#e3b341' : '#58a6ff';
+  const shadow = type === 'CM' ? 'rgba(63,185,80,0.6)' : type === 'OFC' ? 'rgba(227,179,65,0.6)' : 'rgba(88,166,255,0.6)';
+  // SVG รูปรถยนต์
+  const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 20" width="28" height="18">
+    <rect x="2" y="7" width="28" height="10" rx="3" fill="${color}" stroke="#fff" stroke-width="1.2"/>
+    <path d="M6 7 L9 2 L23 2 L26 7Z" fill="${color}" stroke="#fff" stroke-width="1"/>
+    <circle cx="8" cy="17" r="3" fill="#1a1a2e" stroke="#fff" stroke-width="1.2"/>
+    <circle cx="24" cy="17" r="3" fill="#1a1a2e" stroke="#fff" stroke-width="1.2"/>
+    <rect x="4" y="8" width="5" height="3" rx="1" fill="rgba(255,255,255,0.3)"/>
+    <rect x="13" y="8" width="6" height="3" rx="1" fill="rgba(255,255,255,0.3)"/>
+    <rect x="23" y="8" width="5" height="3" rx="1" fill="rgba(255,255,255,0.3)"/>
+  </svg>`;
+  const label = t.team_id || '';
   return L.divIcon({
     className: 'team-marker-wrap',
-    html: `<div style="
-      background:${color};
-      border:2px solid #fff;
-      border-radius:50%;
-      width:14px;height:14px;
-      box-shadow:0 0 6px ${color}aa;
-      display:flex;align-items:center;justify-content:center;
-    "></div>
+    html: `<div style="position:relative;display:inline-block;filter:drop-shadow(0 2px 6px ${shadow});">
+      ${carSvg}
+    </div>
     <div style="
-      position:absolute;top:16px;left:50%;transform:translateX(-50%);
-      background:rgba(13,17,23,0.88);
-      color:#e6edf3;font-size:9px;font-weight:700;
-      padding:1px 4px;border-radius:3px;white-space:nowrap;
-      border:1px solid ${color}55;
+      position:absolute;top:20px;left:50%;transform:translateX(-50%);
+      background:rgba(8,10,14,0.95);
+      color:${color};font-size:10px;font-weight:800;
+      padding:2px 6px;border-radius:4px;white-space:nowrap;
+      border:1.5px solid ${color};
+      letter-spacing:0.3px;
+      text-shadow:none;
+      box-shadow:0 2px 8px rgba(0,0,0,0.6);
       pointer-events:none;
-    ">${t.team_id || ''}</div>`,
-    iconSize: [14,14],
-    iconAnchor: [7,7],
-    popupAnchor: [0,-10]
+    ">${label}</div>`,
+    iconSize: [28,18],
+    iconAnchor: [14,9],
+    popupAnchor: [0,-12]
   });
 }
 function renderTeamLayer(){
