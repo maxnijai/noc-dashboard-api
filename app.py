@@ -1794,6 +1794,95 @@ def api_fireburn_2026():
             error='fireburn_failed'
         )), 200
 
+MAXMA_SHEET_ID = '1t8DErfQLBRXkoaorDFMdAxtLZf-RA_hzQ-xFQI6EgBo'
+MAXMA_SHEET_NAME = 'ชีต1'
+
+def build_team_locations():
+    """ดึงพิกัดทีมล่าสุด (เวลาเดินทางล่าสุดต่อทีม) จาก MAXMA Sheet"""
+    try:
+        gc = get_client()
+        ws = gc.open_by_key(MAXMA_SHEET_ID).worksheet(MAXMA_SHEET_NAME)
+        rows = ws.get_all_values()
+        if not rows:
+            return {'teams': [], 'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+        headers = [h.strip() for h in rows[0]]
+        col = {h: i for i, h in enumerate(headers) if h}
+
+        def g(row, name):
+            i = col.get(name)
+            return str(row[i]).strip() if i is not None and i < len(row) else ''
+
+        # หา column Update พิกัด และ เวลาเดินทาง
+        pikat_col = col.get('Update พิกัด')
+        travel_col = col.get('เวลาเดินทาง')
+        team_col = col.get('Team ID')
+        type_col = col.get('Type Team')
+        que_col = col.get('Que')
+        verify_col = col.get('Team Verify')
+
+        if pikat_col is None or travel_col is None or team_col is None:
+            log.warning(f'Missing columns. Found: {list(col.keys())[:20]}')
+            return {'teams': [], 'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+        # หา row ที่มีเวลาเดินทางล่าสุดต่อทีม
+        team_latest = {}
+        for row_idx, row in enumerate(rows[1:], start=2):
+            team_id = g(row, 'Team ID')
+            if not team_id:
+                continue
+            travel_raw = g(row, 'เวลาเดินทาง')
+            pikat_raw = row[pikat_col].strip() if pikat_col < len(row) else ''
+            if not travel_raw or not pikat_raw:
+                continue
+            dt_travel = parse_dt(travel_raw)
+            if not dt_travel:
+                continue
+            coord = parse_coord(pikat_raw)
+            if not coord:
+                continue
+            if team_id not in team_latest or dt_travel > team_latest[team_id]['dt']:
+                team_latest[team_id] = {
+                    'dt': dt_travel,
+                    'lat': coord[0],
+                    'lon': coord[1],
+                    'team_id': team_id,
+                    'type_team': row[type_col].strip() if type_col is not None and type_col < len(row) else '',
+                    'que': row[que_col].strip() if que_col is not None and que_col < len(row) else '',
+                    'team_verify': row[verify_col].strip() if verify_col is not None and verify_col < len(row) else '',
+                    'travel_time': travel_raw,
+                }
+
+        teams = []
+        for team_id, d in team_latest.items():
+            teams.append({
+                'team_id': d['team_id'],
+                'type_team': d['type_team'],
+                'que': d['que'],
+                'team_verify': d['team_verify'],
+                'travel_time': d['travel_time'],
+                'latitude': d['lat'],
+                'longitude': d['lon'],
+            })
+
+        log.info(f'Team locations: {len(teams)} teams')
+        return {
+            'teams': teams,
+            'total': len(teams),
+            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+    except Exception as e:
+        log.error(f'build_team_locations error: {e}')
+        return {'teams': [], 'error': str(e), 'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+@app.route('/api/team-locations')
+def api_team_locations():
+    try:
+        return jsonify(build_team_locations())
+    except Exception as e:
+        log.exception('api_team_locations error')
+        return jsonify({'error': str(e), 'teams': []}), 500
+
 @app.route('/api/focus-priority')
 def api_focus_priority():
     try:
