@@ -1,0 +1,324 @@
+<!--
+  pending_trend_tab.html
+  =======================
+  Drop-in addition for templates/dashboard.html.
+
+  1. Add a nav button next to the existing tabs (โ€œSummaryโ€, โ€œRealtime monitoringโ€, ...):
+       <button class="tab-btn" data-tab="pending-trend">Pending Ticket Trend</button>
+
+  2. Add the container below wherever the other tab-content <div>s live.
+
+  3. Add the <script> block at the bottom, after Chart.js is loaded (it already is,
+     inline, ~line 1247 of the current file).
+
+  Design notes:
+   - 5 (severity_group, bookmark_filter) combinations x 3 charts = 15 charts:
+       SA / ALL   -> charts 1,2,3
+       SA / FBB   -> charts 4,5,6
+       SA / MB    -> charts 7,8,9
+       NSA12/ALL  -> charts 10,11,12
+       NSA34/ALL  -> charts 13,14,15
+   - Chart "1/4/7/10/13" = combo: stacked bar (6 aging colors) + blue Total line +
+     gold Actual-Pending-Over-SLA line, matching the reference screenshot exactly.
+   - Chart "2/5/8/11/14" = one line per TRUEOWNERGROUP, legend click toggles visibility
+     (Chart.js does this natively for line datasets - no extra code needed).
+   - Chart "3/6/9/12/15" = single line, sum of aging groups 1+2+3+4 per day
+     (same numbers as the gold line in chart 1, shown standalone).
+   - Summary table sits directly under each stack chart, one column per date.
+-->
+
+<div id="tab-pending-trend" class="tab-content" style="display:none;">
+
+  <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:#eef2f7; border-radius:8px; margin-bottom:16px;">
+    <label>ช่วงเวลา:
+      <select id="pt-period">
+        <option value="7d">7 วัน</option>
+        <option value="14d" selected>14 วัน</option>
+        <option value="21d">21 วัน</option>
+        <option value="1m">1 เดือน</option>
+      </select>
+    </label>
+    <label>TRUEOWNERGROUP (จังหวัด):
+      <select id="pt-trueowner">
+        <option value="">ทั้งหมด</option>
+        <!-- populated dynamically from the response's trueowner_series keys -->
+      </select>
+    </label>
+    <label>Aging Group:
+      <select id="pt-aging" multiple size="1" title="เลือกเพื่อกรอง (ค้าง Ctrl/Cmd เพื่อเลือกหลายรายการ)">
+        <option value="">ทั้งหมด</option>
+      </select>
+    </label>
+    <button id="pt-reload" class="btn-secondary">Refresh</button>
+    <span id="pt-status" style="color:#888; font-size:12px;"></span>
+  </div>
+
+  <!-- One block per (group, filter) combo; generated statically here, filled by JS -->
+  <template id="pt-group-template">
+    <section class="pt-group-block" style="margin-bottom:32px;">
+      <h3 class="pt-group-title"></h3>
+
+      <div class="pt-chart-wrap" style="margin-bottom:8px;">
+        <canvas class="pt-chart-stack" height="90"></canvas>
+      </div>
+
+      <div class="pt-table-wrap" style="overflow-x:auto; margin-bottom:20px;">
+        <table class="pt-summary-table" style="border-collapse:collapse; font-size:12px; min-width:600px;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="pt-chart-wrap">
+          <div style="font-size:13px; font-weight:600; margin-bottom:4px;">เส้นราย TRUEOWNERGROUP</div>
+          <canvas class="pt-chart-owner" height="140"></canvas>
+        </div>
+        <div class="pt-chart-wrap">
+          <div style="font-size:13px; font-weight:600; margin-bottom:4px;">Over 24 hr. Trend (รวม Aging 1-4)</div>
+          <canvas class="pt-chart-over24" height="140"></canvas>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <div id="pt-groups-container"></div>
+
+</div>
+
+<script>
+(function () {
+  const PT_GROUP_ORDER = [
+    ["SA", "ALL"], ["SA", "FBB"], ["SA", "MB"],
+    ["NSA12", "ALL"],
+    ["NSA34", "ALL"],
+  ];
+
+  let ptCharts = {};   // keyed by "GROUP_FILTER_kind" -> Chart.js instance
+  let ptLastData = null;
+
+  function ptFmtDate(d) {
+    // 'YYYY-MM-DD' -> 'D MMM' (Thai-ish short form, keeps it locale-neutral)
+    const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const [y, m, day] = d.split('-').map(Number);
+    return `${day} ${months[m]}`;
+  }
+
+  async function ptFetchData() {
+    const period = document.getElementById('pt-period').value;
+    const trueowner = document.getElementById('pt-trueowner').value;
+    const statusEl = document.getElementById('pt-status');
+    statusEl.textContent = 'กำลังโหลด...';
+
+    const params = new URLSearchParams({ period });
+    if (trueowner) params.set('trueowner', trueowner);
+
+    const res = await fetch(`/api/pending-trend?${params.toString()}`);
+    if (!res.ok) {
+      statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ';
+      throw new Error(`API error ${res.status}`);
+    }
+    const data = await res.json();
+    statusEl.textContent = `อัปเดตล่าสุด: ${data.dates[data.dates.length - 1] || '-'}`;
+    ptLastData = data;
+    return data;
+  }
+
+  function ptPopulateOwnerFilter(data) {
+    const sel = document.getElementById('pt-trueowner');
+    if (sel.dataset.populated) return; // only build once per session
+    const owners = new Set();
+    Object.values(data.groups).forEach(g =>
+      Object.values(g.filters).forEach(f =>
+        Object.keys(f.trueowner_series).forEach(o => owners.add(o))));
+    [...owners].sort().forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o; opt.textContent = o;
+      sel.appendChild(opt);
+    });
+    sel.dataset.populated = '1';
+  }
+
+  function ptGetSelectedAgingKeys() {
+    const sel = document.getElementById('pt-aging');
+    const vals = [...sel.selectedOptions].map(o => o.value).filter(Boolean);
+    return vals.length ? vals : null; // null = no filter (show all)
+  }
+
+  function ptBuildStackChart(canvas, dates, filterData, agingFilterKeys) {
+    const order = filterData.aging_order;
+    const colors = filterData.aging_colors;
+    const keys = agingFilterKeys || order;
+
+    const datasets = order
+      .filter(k => keys.includes(k))
+      .map(k => ({
+        type: 'bar',
+        label: k,
+        data: filterData.aging_series[k],
+        backgroundColor: colors[k],
+        stack: 'aging',
+        order: 2,
+      }));
+
+    datasets.push({
+      type: 'line', label: 'Total Pending /day', data: filterData.total_series,
+      borderColor: '#3B6FD4', backgroundColor: '#3B6FD4', yAxisID: 'y',
+      tension: 0.3, pointRadius: 3, order: 0, borderWidth: 2,
+    });
+    datasets.push({
+      type: 'line', label: 'Actual Pending Over SLA', data: filterData.over_sla_series,
+      borderColor: '#D4A93B', backgroundColor: '#D4A93B', yAxisID: 'y',
+      tension: 0.3, pointRadius: 3, order: 1, borderWidth: 2,
+    });
+
+    return new Chart(canvas, {
+      data: { labels: dates.map(ptFmtDate), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+        plugins: { legend: { position: 'top' } },
+      },
+    });
+  }
+
+  function ptBuildOwnerLineChart(canvas, dates, filterData) {
+    const owners = Object.keys(filterData.trueowner_series).sort();
+    const palette = ['#4E79A7','#F28E2B','#E15759','#76B7B2','#59A14F','#EDC948','#B07AA1','#FF9DA7','#9C755F','#BAB0AC'];
+    const datasets = owners.map((o, i) => ({
+      label: o,
+      data: filterData.trueowner_series[o],
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length],
+      tension: 0.25, pointRadius: 1, borderWidth: 1.5, fill: false,
+    }));
+    return new Chart(canvas, {
+      type: 'line',
+      data: { labels: dates.map(ptFmtDate), datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } },
+        },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function ptBuildOver24Chart(canvas, dates, filterData) {
+    return new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: dates.map(ptFmtDate),
+        datasets: [{
+          label: 'Over 24 hr. (Aging 1-4 รวม)',
+          data: filterData.over_sla_series,
+          borderColor: '#D4A93B', backgroundColor: 'rgba(212,169,59,0.15)',
+          tension: 0.3, pointRadius: 3, borderWidth: 2, fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function ptBuildSummaryTable(tableEl, dates, filterData) {
+    const thead = tableEl.querySelector('thead');
+    const tbody = tableEl.querySelector('tbody');
+    thead.innerHTML = ''; tbody.innerHTML = '';
+
+    const headRow = document.createElement('tr');
+    headRow.innerHTML = '<th style="text-align:left; padding:4px 8px;">Flag Group</th>' +
+      dates.map(d => `<th style="padding:4px 8px;">${ptFmtDate(d)}</th>`).join('');
+    thead.appendChild(headRow);
+
+    filterData.aging_order.forEach(k => {
+      const row = document.createElement('tr');
+      row.style.background = filterData.aging_colors[k] + '55';
+      row.innerHTML = `<td style="padding:4px 8px; font-weight:600;">${k}</td>` +
+        filterData.aging_series[k].map(v => `<td style="padding:4px 8px; text-align:center;">${v || ''}</td>`).join('');
+      tbody.appendChild(row);
+    });
+
+    const totalRow = document.createElement('tr');
+    totalRow.innerHTML = '<td style="padding:4px 8px; font-weight:700;">Total Pending /day</td>' +
+      filterData.total_series.map(v => `<td style="padding:4px 8px; text-align:center; font-weight:700;">${v}</td>`).join('');
+    tbody.appendChild(totalRow);
+
+    const overRow = document.createElement('tr');
+    overRow.style.background = '#f3e6ff';
+    overRow.innerHTML = '<td style="padding:4px 8px; font-weight:700; color:#7a4fb5;">Actual Pending Over SLA</td>' +
+      filterData.over_sla_series.map(v => `<td style="padding:4px 8px; text-align:center; color:#7a4fb5; font-weight:700;">${v}</td>`).join('');
+    tbody.appendChild(overRow);
+  }
+
+  function ptDestroyExistingCharts() {
+    Object.values(ptCharts).forEach(c => c && c.destroy());
+    ptCharts = {};
+  }
+
+  function ptRenderAll(data) {
+    ptPopulateOwnerFilter(data);
+    const container = document.getElementById('pt-groups-container');
+    container.innerHTML = '';
+    ptDestroyExistingCharts();
+
+    const template = document.getElementById('pt-group-template');
+    const agingFilterKeys = ptGetSelectedAgingKeys();
+
+    PT_GROUP_ORDER.forEach(([groupKey, filterKey]) => {
+      const group = data.groups[groupKey];
+      const filterData = group.filters[filterKey];
+      if (!filterData) return;
+
+      const node = template.content.cloneNode(true);
+      const titleEl = node.querySelector('.pt-group-title');
+      titleEl.textContent = `${group.label}${filterKey !== 'ALL' ? ' — ' + filterData.label : ''} — Flag Group`;
+
+      const stackCanvas = node.querySelector('.pt-chart-stack');
+      const ownerCanvas = node.querySelector('.pt-chart-owner');
+      const overCanvas = node.querySelector('.pt-chart-over24');
+      const tableEl = node.querySelector('.pt-summary-table');
+
+      container.appendChild(node);
+
+      const key = `${groupKey}_${filterKey}`;
+      ptCharts[key + '_stack'] = ptBuildStackChart(stackCanvas, data.dates, filterData, agingFilterKeys);
+      ptCharts[key + '_owner'] = ptBuildOwnerLineChart(ownerCanvas, data.dates, filterData);
+      ptCharts[key + '_over24'] = ptBuildOver24Chart(overCanvas, data.dates, filterData);
+      ptBuildSummaryTable(tableEl, data.dates, filterData);
+    });
+  }
+
+  async function ptReload() {
+    try {
+      const data = await ptFetchData();
+      ptRenderAll(data);
+    } catch (e) {
+      console.error('Pending Trend load failed', e);
+    }
+  }
+
+  document.getElementById('pt-reload').addEventListener('click', ptReload);
+  document.getElementById('pt-period').addEventListener('change', ptReload);
+  document.getElementById('pt-trueowner').addEventListener('change', ptReload);
+  document.getElementById('pt-aging').addEventListener('change', () => {
+    if (ptLastData) ptRenderAll(ptLastData); // re-render from cached data, no re-fetch needed
+  });
+
+  // Hook into your existing tab-switch logic so this loads lazily on first view:
+  // when the "pending-trend" tab button is clicked and #tab-pending-trend becomes
+  // visible for the first time, call ptReload() once.
+  window.initPendingTrendTab = function () {
+    if (!ptLastData) ptReload();
+  };
+})();
+</script>
