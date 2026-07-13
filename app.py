@@ -1,10 +1,16 @@
 import os, json, logging, threading, time, re, math
-from datetime import datetime, timedelta
-from flask import Flask, jsonify, render_template, send_from_directory
+from datetime import datetime, timedelta, date
+from flask import Flask, jsonify, render_template, send_from_directory, request
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
+
+from pending_trend import (
+    run_nightly_job,
+    build_api_response,
+    get_drive_and_sheets_clients,
+)
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -1925,6 +1931,30 @@ def api_rebuild():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     return jsonify({'status':'rebuilding'})
 
+@app.route('/api/pending-trend')
+def api_pending_trend():
+    period = request.args.get('period', '14d')
+    trueowner = request.args.get('trueowner') or None
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_api_response(gs_client, SHEET_ID, period=period, trueowner_filter=trueowner)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("pending-trend API failed")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/pending-trend/rebuild', methods=['POST'])
+def api_pending_trend_rebuild():
+    """Manual trigger - runs the nightly job immediately (for backfill / on-demand refresh)."""
+    for_date_str = request.args.get('date')
+    for_date = datetime.strptime(for_date_str, '%Y-%m-%d').date() if for_date_str else None
+    try:
+        ok = run_nightly_job(SHEET_ID, for_date=for_date)
+        return jsonify({'status': 'done' if ok else 'no_snapshot_found'})
+    except Exception as e:
+        log.exception("pending-trend manual rebuild failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/')
 @app.route('/dashboard')
 @app.route('/dashboard.html')
@@ -1952,6 +1982,11 @@ def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
+    s.add_job(
+        lambda: run_nightly_job(SHEET_ID),
+        'cron', hour=1, minute=35, id='pending_trend_nightly',
+        misfire_grace_time=3600,
+    )
     s.start()
 
 start()
