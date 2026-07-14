@@ -1967,6 +1967,7 @@ def _run_pending_trend_backfill(days, for_date):
                     _pending_trend_job_status['results'] = list(results)
                 if not ok:
                     break  # no more backups this far back, stop walking
+                time.sleep(1.5)  # breathing room between days for the shared gunicorn worker
         else:
             ok = run_nightly_job(SHEET_ID, for_date=for_date)
             d = for_date or date.today()

@@ -30,6 +30,7 @@ Integration notes for app.py:
 import os
 import io
 import json
+import time
 import logging
 from datetime import datetime, timedelta, time as dtime
 
@@ -166,13 +167,18 @@ def find_nightly_file(drive_service, target_date):
 
 def download_xlsx_as_rows(drive_service, file_id):
     """Download an xlsx from Drive and return a list of dict rows (header-keyed),
-    using openpyxl in read-only/streaming mode to keep memory reasonable for ~5MB files."""
+    using openpyxl in read-only/streaming mode to keep memory reasonable for ~5MB files.
+    Periodically sleeps for a beat during the download and row-parse loops so a single
+    gunicorn worker doesn't hold the GIL continuously for tens of seconds straight -
+    without this, health checks / other requests can starve badly enough that the
+    platform decides the process is unresponsive and restarts it mid-job."""
     request = drive_service.files().get_media(fileId=file_id)
     buf = io.BytesIO()
     downloader = MediaIoBaseDownload(buf, request)
     done = False
     while not done:
         _, done = downloader.next_chunk()
+        time.sleep(0.01)  # yield between chunks
     buf.seek(0)
 
     wb = openpyxl.load_workbook(buf, read_only=True, data_only=True)
@@ -190,6 +196,8 @@ def download_xlsx_as_rows(drive_service, file_id):
         if r is None or all(v is None for v in r):
             continue
         rows.append({name: r[i] if i < len(r) else None for name, i in idx.items()})
+        if len(rows) % 4000 == 0:
+            time.sleep(0.02)  # yield periodically during the row-parse loop
     wb.close()
     return rows
 
@@ -222,7 +230,7 @@ def compute_daily_aggregate(rows):
         filter_keys = ["ALL"] + (["FBB", "MB"] if group_key in GROUPS_WITH_BOOKMARK_SPLIT else [])
         result[group_key] = {fk: _empty_bucket() for fk in filter_keys}
 
-        for r in filtered:
+        for row_idx, r in enumerate(filtered):
             sev = str(r.get("SEVERITY", "")).strip()
             if sev not in sev_values:
                 continue
@@ -232,6 +240,9 @@ def compute_daily_aggregate(rows):
             owner = str(r.get("TRUEOWNERGROUP", "")).strip() or "UNKNOWN"
             bookmark = str(r.get("Bookmark", "")).strip()
             region = str(r.get("Region", "")).strip()
+
+            if row_idx % 8000 == 0:
+                time.sleep(0.02)  # yield periodically - this loop runs once per severity group
 
             targets = ["ALL"]
             if group_key in GROUPS_WITH_BOOKMARK_SPLIT:
