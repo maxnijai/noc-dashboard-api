@@ -700,6 +700,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <!-- PAGE: OVERVIEW -->
   <div class="page active" id="page-pendingtrend">
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+      <label>Region:
+        <span id="pt-region-group" style="display:inline-flex; gap:8px; margin-left:4px;">
+          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOE1" checked> NOE1</label>
+          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOE" checked> NOE</label>
+          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOR1" checked> NOR1</label>
+          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOR2" checked> NOR2</label>
+        </span>
+      </label>
       <label>ช่วงเวลา:
         <select id="pt-period">
           <option value="7d">7 วัน</option>
@@ -725,8 +733,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <template id="pt-group-template">
       <section class="pt-group-block" style="margin-bottom:32px;">
         <h3 class="pt-group-title"></h3>
-        <div class="pt-chart-wrap" style="margin-bottom:8px;">
-          <canvas class="pt-chart-stack" height="90"></canvas>
+        <div class="pt-chart-wrap" style="position:relative; height:340px; margin-bottom:8px;">
+          <canvas class="pt-chart-stack"></canvas>
         </div>
         <div class="pt-table-wrap" style="overflow-x:auto; margin-bottom:20px;">
           <table class="pt-summary-table" style="border-collapse:collapse; font-size:12px; min-width:600px;">
@@ -735,13 +743,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </table>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-          <div class="pt-chart-wrap">
+          <div>
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">เส้นราย TRUEOWNERGROUP</div>
-            <canvas class="pt-chart-owner" height="140"></canvas>
+            <div class="pt-chart-wrap" style="position:relative; height:300px;">
+              <canvas class="pt-chart-owner"></canvas>
+            </div>
           </div>
-          <div class="pt-chart-wrap">
+          <div>
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">Over 24 hr. Trend (รวม Aging 1-4)</div>
-            <canvas class="pt-chart-over24" height="140"></canvas>
+            <div class="pt-chart-wrap" style="position:relative; height:300px;">
+              <canvas class="pt-chart-over24"></canvas>
+            </div>
           </div>
         </div>
       </section>
@@ -3846,11 +3858,13 @@ function renderPivot(ft) {
   async function ptFetchData() {
     const period = document.getElementById('pt-period').value;
     const trueowner = document.getElementById('pt-trueowner').value;
+    const regions = [...document.querySelectorAll('.pt-region-cb:checked')].map(cb => cb.value);
     const statusEl = document.getElementById('pt-status');
     statusEl.textContent = 'กำลังโหลด...';
 
     const params = new URLSearchParams({ period });
     if (trueowner) params.set('trueowner', trueowner);
+    if (regions.length) params.set('region', regions.join(','));
 
     const res = await fetch(`/api/pending-trend?${params.toString()}`);
     if (!res.ok) {
@@ -4040,6 +4054,7 @@ function renderPivot(ft) {
   document.getElementById('pt-reload').addEventListener('click', ptReload);
   document.getElementById('pt-period').addEventListener('change', ptReload);
   document.getElementById('pt-trueowner').addEventListener('change', ptReload);
+  document.querySelectorAll('.pt-region-cb').forEach(cb => cb.addEventListener('change', ptReload));
   document.getElementById('pt-aging').addEventListener('change', () => {
     if (ptLastData) ptRenderAll(ptLastData);
   });

@@ -1935,9 +1935,11 @@ def api_rebuild():
 def api_pending_trend():
     period = request.args.get('period', '14d')
     trueowner = request.args.get('trueowner') or None
+    region_param = request.args.get('region') or None
+    region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        data = build_api_response(gs_client, SHEET_ID, period=period, trueowner_filter=trueowner)
+        data = build_api_response(gs_client, SHEET_ID, period=period, trueowner_filter=trueowner, region_filter=region_filter)
         return jsonify(data)
     except Exception as e:
         log.exception("pending-trend API failed")

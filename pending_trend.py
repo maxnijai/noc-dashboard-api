@@ -201,7 +201,9 @@ def download_xlsx_as_rows(drive_service, file_id):
 def _empty_bucket():
     return {
         "aging_counts": {k: 0 for k in AGING_ORDER},
-        "trueowner_counts": {},   # {TRUEOWNERGROUP: total_count}
+        "trueowner_counts": {},     # {TRUEOWNERGROUP: total_count}
+        "trueowner_region": {},     # {TRUEOWNERGROUP: region} - lets the frontend filter chart 2 by region
+        "region_breakdown": {},     # {region: {aging_counts, total, actual_over_sla}} - lets charts 1/3 be filtered by region
         "total": 0,
         "actual_over_sla": 0,     # sum of aging groups 1-4
     }
@@ -229,6 +231,7 @@ def compute_daily_aggregate(rows):
                 continue
             owner = str(r.get("TRUEOWNERGROUP", "")).strip() or "UNKNOWN"
             bookmark = str(r.get("Bookmark", "")).strip()
+            region = str(r.get("Region", "")).strip()
 
             targets = ["ALL"]
             if group_key in GROUPS_WITH_BOOKMARK_SPLIT:
@@ -241,9 +244,18 @@ def compute_daily_aggregate(rows):
                 bucket = result[group_key][fk]
                 bucket["aging_counts"][aging] += 1
                 bucket["trueowner_counts"][owner] = bucket["trueowner_counts"].get(owner, 0) + 1
+                bucket["trueowner_region"][owner] = region
                 bucket["total"] += 1
                 if aging in OVER_24H_AGING_KEYS:
                     bucket["actual_over_sla"] += 1
+
+                rb = bucket["region_breakdown"].setdefault(
+                    region, {"aging_counts": {k: 0 for k in AGING_ORDER}, "total": 0, "actual_over_sla": 0}
+                )
+                rb["aging_counts"][aging] += 1
+                rb["total"] += 1
+                if aging in OVER_24H_AGING_KEYS:
+                    rb["actual_over_sla"] += 1
 
     return result
 
@@ -331,19 +343,22 @@ def run_nightly_job(spreadsheet_id, for_date=None):
 PERIOD_DAYS = {"7d": 7, "14d": 14, "21d": 21, "1m": 30}
 
 
-def build_api_response(gs_client, spreadsheet_id, period="14d", trueowner_filter=None):
+def build_api_response(gs_client, spreadsheet_id, period="14d", trueowner_filter=None, region_filter=None):
     """
-    trueowner_filter: optional single TRUEOWNERGROUP string. When set, chart 2's
-    per-province line series is narrowed to that one province (the UI can just
-    pre-select/highlight it instead of re-querying, but this keeps payload small
-    on low-power devices). Charts 1/3 (region-wide stack + over-SLA line) are
-    always region-wide totals, matching the reference image's design.
+    trueowner_filter: optional single TRUEOWNERGROUP string - narrows chart 2's
+    per-province line series to that one province.
+    region_filter: optional list of region strings (subset of ALLOWED_REGIONS).
+    When provided, charts 1/3 (stack + over-SLA) and the summary table are
+    recomputed from the stored per-region breakdown instead of the full
+    4-region total, and chart 2's province lines are limited to provinces
+    that belong to one of the selected regions. None/empty = all 4 regions
+    combined (original behaviour).
     """
     days = PERIOD_DAYS.get(period, 14)
     rows = load_trend_range(gs_client, spreadsheet_id, days=days)
 
     dates = [r["date"] for r in rows]
-    response = {"dates": dates, "period": period, "groups": {}}
+    response = {"dates": dates, "period": period, "regions": sorted(ALLOWED_REGIONS), "groups": {}}
 
     for group_key, group_def in SEVERITY_GROUPS.items():
         filter_keys = ["ALL"] + (["FBB", "MB"] if group_key in GROUPS_WITH_BOOKMARK_SPLIT else [])
@@ -364,13 +379,34 @@ def build_api_response(gs_client, spreadsheet_id, period="14d", trueowner_filter
                     over_sla_series.append(0)
                     continue
 
-                for k in AGING_ORDER:
-                    aging_series[k].append(bucket["aging_counts"].get(k, 0))
-                total_series.append(bucket["total"])
-                over_sla_series.append(bucket["actual_over_sla"])
+                if region_filter:
+                    day_aging = {k: 0 for k in AGING_ORDER}
+                    day_total = 0
+                    day_over_sla = 0
+                    region_breakdown = bucket.get("region_breakdown", {})
+                    for reg in region_filter:
+                        rb = region_breakdown.get(reg)
+                        if not rb:
+                            continue
+                        for k in AGING_ORDER:
+                            day_aging[k] += rb["aging_counts"].get(k, 0)
+                        day_total += rb["total"]
+                        day_over_sla += rb["actual_over_sla"]
+                    for k in AGING_ORDER:
+                        aging_series[k].append(day_aging[k])
+                    total_series.append(day_total)
+                    over_sla_series.append(day_over_sla)
+                else:
+                    for k in AGING_ORDER:
+                        aging_series[k].append(bucket["aging_counts"].get(k, 0))
+                    total_series.append(bucket["total"])
+                    over_sla_series.append(bucket["actual_over_sla"])
 
+                owner_region = bucket.get("trueowner_region", {})
                 for owner, cnt in bucket["trueowner_counts"].items():
                     if trueowner_filter and owner != trueowner_filter:
+                        continue
+                    if region_filter and owner_region.get(owner) not in region_filter:
                         continue
                     trueowner_series.setdefault(owner, [0] * len(dates))
                     trueowner_series[owner][day_idx] = cnt
