@@ -1943,17 +1943,16 @@ def api_pending_trend():
         log.exception("pending-trend API failed")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/pending-trend/rebuild', methods=['GET', 'POST'])
-def api_pending_trend_rebuild():
-    """Manual trigger - runs the nightly job for one date, or backfills N days at once.
-    Usage:
-      /api/pending-trend/rebuild?date=2026-07-13        -> single date
-      /api/pending-trend/rebuild?days=14                -> walks backward from today,
-                                                             stops early once no more
-                                                             snapshots are found in Drive
-    GET is allowed (not just POST) so it can be triggered directly from a browser URL bar."""
-    for_date_str = request.args.get('date')
-    days = request.args.get('days', type=int)
+_pending_trend_job_status = {'running': False, 'results': [], 'started_at': None, 'finished_at': None, 'error': None}
+_pending_trend_job_lock = threading.Lock()
+
+def _run_pending_trend_backfill(days, for_date):
+    global _pending_trend_job_status
+    with _pending_trend_job_lock:
+        _pending_trend_job_status = {
+            'running': True, 'results': [], 'started_at': datetime.now().isoformat(),
+            'finished_at': None, 'error': None,
+        }
     try:
         if days:
             results = []
@@ -1962,16 +1961,47 @@ def api_pending_trend_rebuild():
                 d = today - timedelta(days=i)
                 ok = run_nightly_job(SHEET_ID, for_date=d)
                 results.append({'date': d.isoformat(), 'ok': ok})
+                with _pending_trend_job_lock:
+                    _pending_trend_job_status['results'] = list(results)
                 if not ok:
                     break  # no more backups this far back, stop walking
-            return jsonify({'status': 'done', 'results': results})
         else:
-            for_date = datetime.strptime(for_date_str, '%Y-%m-%d').date() if for_date_str else None
             ok = run_nightly_job(SHEET_ID, for_date=for_date)
-            return jsonify({'status': 'done' if ok else 'no_snapshot_found'})
+            d = for_date or date.today()
+            with _pending_trend_job_lock:
+                _pending_trend_job_status['results'] = [{'date': d.isoformat(), 'ok': ok}]
     except Exception as e:
-        log.exception("pending-trend manual rebuild failed")
-        return jsonify({'error': str(e)}), 500
+        log.exception("pending-trend backfill failed")
+        with _pending_trend_job_lock:
+            _pending_trend_job_status['error'] = str(e)
+    finally:
+        with _pending_trend_job_lock:
+            _pending_trend_job_status['running'] = False
+            _pending_trend_job_status['finished_at'] = datetime.now().isoformat()
+
+@app.route('/api/pending-trend/rebuild', methods=['GET', 'POST'])
+def api_pending_trend_rebuild():
+    """Kicks off backfill in a background thread and returns immediately - the
+    Drive download + xlsx parse for several days can take minutes, and running
+    it synchronously inside the request would block the single gunicorn worker
+    and risk hitting the 120s timeout in Procfile.
+    Usage:
+      /api/pending-trend/rebuild?date=2026-07-13   -> single date
+      /api/pending-trend/rebuild?days=14           -> walks backward from today
+    Check progress with GET /api/pending-trend/rebuild/status"""
+    if _pending_trend_job_status['running']:
+        return jsonify({'status': 'already_running', 'progress': _pending_trend_job_status}), 409
+
+    for_date_str = request.args.get('date')
+    days = request.args.get('days', type=int)
+    for_date = datetime.strptime(for_date_str, '%Y-%m-%d').date() if for_date_str else None
+
+    threading.Thread(target=_run_pending_trend_backfill, args=(days, for_date), daemon=True).start()
+    return jsonify({'status': 'started', 'check_status_at': '/api/pending-trend/rebuild/status'})
+
+@app.route('/api/pending-trend/rebuild/status')
+def api_pending_trend_rebuild_status():
+    return jsonify(_pending_trend_job_status)
 
 @app.route('/')
 @app.route('/dashboard')
