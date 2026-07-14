@@ -133,13 +133,12 @@ def _parse_ts_from_filename(name):
         return None
 
 
-def find_nightly_file(drive_service, target_date):
+def find_closest_file(drive_service, target_dt, window_minutes):
     """Return (file_id, matched_datetime, filename) for the backup file whose
-    filename timestamp is closest to TARGET_TIME on target_date. Returns None
-    if nothing is found within the search window."""
-    target_dt = datetime.combine(target_date, TARGET_TIME)
-    window_start = target_dt - timedelta(hours=SNAPSHOT_SEARCH_WINDOW_HOURS)
-    window_end = target_dt + timedelta(hours=SNAPSHOT_SEARCH_WINDOW_HOURS)
+    filename timestamp is closest to target_dt, searching +/- window_minutes.
+    Returns None if nothing is found within the window."""
+    window_start = target_dt - timedelta(minutes=window_minutes)
+    window_end = target_dt + timedelta(minutes=window_minutes)
 
     query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{FILE_PREFIX}'"
     resp = drive_service.files().list(
@@ -160,9 +159,15 @@ def find_nightly_file(drive_service, target_date):
             best, best_delta = f, delta
 
     if best is None:
-        log.warning("No Pending ticket snapshot found near %s for %s", TARGET_TIME, target_date)
+        log.warning("No Pending ticket snapshot found near %s (+/- %s min)", target_dt, window_minutes)
         return None
     return best["id"], _parse_ts_from_filename(best["name"]), best["name"]
+
+
+def find_nightly_file(drive_service, target_date):
+    """Return the backup file closest to TARGET_TIME (01:15) on target_date."""
+    target_dt = datetime.combine(target_date, TARGET_TIME)
+    return find_closest_file(drive_service, target_dt, window_minutes=SNAPSHOT_SEARCH_WINDOW_HOURS * 60)
 
 
 def download_xlsx_as_rows(drive_service, file_id):
@@ -272,40 +277,43 @@ def compute_daily_aggregate(rows):
 
 
 # ---------------------------------------------------------------------------
-# Persistence (Google Sheet: one row per date, one JSON blob column)
+# Persistence (Google Sheet: one row per key [date or hour], one JSON blob column)
 # ---------------------------------------------------------------------------
 
-def _ensure_sheet_tab(spreadsheet):
+HOURLY_TREND_SHEET = "PendingTrendHourly"
+
+def _ensure_sheet_tab_named(spreadsheet, sheet_name):
     try:
-        return spreadsheet.worksheet(PENDING_TREND_SHEET)
+        return spreadsheet.worksheet(sheet_name)
     except gspread.exceptions.WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(title=PENDING_TREND_SHEET, rows=1000, cols=3)
-        ws.append_row(["date", "source_file", "data_json"])
+        ws = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=3)
+        ws.append_row(["key", "source_file", "data_json"])
         return ws
 
 
-def save_daily_aggregate(gs_client, spreadsheet_id, date_str, source_file, aggregate):
+def save_aggregate(gs_client, spreadsheet_id, key_str, source_file, aggregate, sheet_name):
     sh = gs_client.open_by_key(spreadsheet_id)
-    ws = _ensure_sheet_tab(sh)
+    ws = _ensure_sheet_tab_named(sh, sheet_name)
 
-    existing = ws.col_values(1)  # date column
+    existing = ws.col_values(1)  # key column
     payload = json.dumps(aggregate, ensure_ascii=False, separators=(",", ":"))
 
-    if date_str in existing:
-        row_idx = existing.index(date_str) + 1
-        ws.update(f"A{row_idx}:C{row_idx}", [[date_str, source_file, payload]])
-        log.info("Updated PendingTrendDaily row for %s", date_str)
+    if key_str in existing:
+        row_idx = existing.index(key_str) + 1
+        ws.update(f"A{row_idx}:C{row_idx}", [[key_str, source_file, payload]])
+        log.info("Updated %s row for %s", sheet_name, key_str)
     else:
-        ws.append_row([date_str, source_file, payload])
-        log.info("Appended PendingTrendDaily row for %s", date_str)
+        ws.append_row([key_str, source_file, payload])
+        log.info("Appended %s row for %s", sheet_name, key_str)
 
 
-def load_trend_range(gs_client, spreadsheet_id, days=14):
-    """Return list of {date, data} dicts for the most recent `days` calendar dates
-    that have a saved aggregate, oldest first."""
+def load_range_named(gs_client, spreadsheet_id, sheet_name, n):
+    """Return list of {date, data} dicts for the most recent `n` keys that have
+    a saved aggregate, oldest first. Keeps the 'date' field name for backward
+    compatibility with build_api_response even when the key is actually an hour."""
     sh = gs_client.open_by_key(spreadsheet_id)
     try:
-        ws = sh.worksheet(PENDING_TREND_SHEET)
+        ws = sh.worksheet(sheet_name)
     except gspread.exceptions.WorksheetNotFound:
         return []
 
@@ -320,11 +328,19 @@ def load_trend_range(gs_client, spreadsheet_id, days=14):
             continue
 
     parsed.sort(key=lambda x: x["date"])
-    return parsed[-days:]
+    return parsed[-n:]
+
+
+def save_daily_aggregate(gs_client, spreadsheet_id, date_str, source_file, aggregate):
+    save_aggregate(gs_client, spreadsheet_id, date_str, source_file, aggregate, PENDING_TREND_SHEET)
+
+
+def load_trend_range(gs_client, spreadsheet_id, days=14):
+    return load_range_named(gs_client, spreadsheet_id, PENDING_TREND_SHEET, days)
 
 
 # ---------------------------------------------------------------------------
-# Nightly job entrypoint (wire this into APScheduler in app.py)
+# Nightly (daily) + hourly job entrypoints (wire into APScheduler in app.py)
 # ---------------------------------------------------------------------------
 
 def run_nightly_job(spreadsheet_id, for_date=None):
@@ -347,11 +363,107 @@ def run_nightly_job(spreadsheet_id, for_date=None):
     return True
 
 
+def run_hourly_job(spreadsheet_id, for_hour=None):
+    """for_hour defaults to the current hour (truncated to :00). Finds the backup
+    file closest to that hour (+/- 20 min) and stores its aggregate keyed by an
+    ISO 'YYYY-MM-DDTHH:00' string in the PendingTrendHourly sheet. Call this once
+    per hour via APScheduler, or repeatedly for backfill via the rebuild endpoint."""
+    for_hour = for_hour or datetime.now().replace(minute=0, second=0, microsecond=0)
+    drive_service, gs_client = get_drive_and_sheets_clients()
+
+    found = find_closest_file(drive_service, for_hour, window_minutes=20)
+    if found is None:
+        log.error("run_hourly_job: no snapshot available near %s, skipping", for_hour)
+        return False
+
+    file_id, matched_dt, filename = found
+    log.info("Using snapshot %s (matched %s) for hour %s", filename, matched_dt, for_hour)
+
+    rows = download_xlsx_as_rows(drive_service, file_id)
+    aggregate = compute_daily_aggregate(rows)  # same generic aggregator works for any snapshot
+    key_str = for_hour.strftime("%Y-%m-%dT%H:00")
+    save_aggregate(gs_client, spreadsheet_id, key_str, filename, aggregate, HOURLY_TREND_SHEET)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # API response shaping (consumed directly by the frontend Chart.js code)
 # ---------------------------------------------------------------------------
 
 PERIOD_DAYS = {"7d": 7, "14d": 14, "21d": 21, "1m": 30}
+
+
+def _build_response_from_rows(rows, label_key="dates", extra_meta=None, trueowner_filter=None, region_filter=None):
+    """Core response shaper - works identically for daily rows (label = date string)
+    and hourly rows (label = 'YYYY-MM-DDTHH:00' string); the frontend just formats
+    the label differently depending on which endpoint it called."""
+    labels = [r["date"] for r in rows]
+    response = {label_key: labels, "regions": sorted(ALLOWED_REGIONS), "groups": {}}
+    if extra_meta:
+        response.update(extra_meta)
+
+    for group_key, group_def in SEVERITY_GROUPS.items():
+        filter_keys = ["ALL"] + (["FBB", "MB"] if group_key in GROUPS_WITH_BOOKMARK_SPLIT else [])
+        response["groups"][group_key] = {"label": group_def["label"], "filters": {}}
+
+        for fk in filter_keys:
+            aging_series = {k: [] for k in AGING_ORDER}
+            total_series = []
+            over_sla_series = []
+            trueowner_series = {}   # {owner: [count per label, aligned to `labels`]}
+
+            for idx, r in enumerate(rows):
+                bucket = r["data"].get(group_key, {}).get(fk)
+                if bucket is None:
+                    for k in AGING_ORDER:
+                        aging_series[k].append(0)
+                    total_series.append(0)
+                    over_sla_series.append(0)
+                    continue
+
+                if region_filter:
+                    row_aging = {k: 0 for k in AGING_ORDER}
+                    row_total = 0
+                    row_over_sla = 0
+                    region_breakdown = bucket.get("region_breakdown", {})
+                    for reg in region_filter:
+                        rb = region_breakdown.get(reg)
+                        if not rb:
+                            continue
+                        for k in AGING_ORDER:
+                            row_aging[k] += rb["aging_counts"].get(k, 0)
+                        row_total += rb["total"]
+                        row_over_sla += rb["actual_over_sla"]
+                    for k in AGING_ORDER:
+                        aging_series[k].append(row_aging[k])
+                    total_series.append(row_total)
+                    over_sla_series.append(row_over_sla)
+                else:
+                    for k in AGING_ORDER:
+                        aging_series[k].append(bucket["aging_counts"].get(k, 0))
+                    total_series.append(bucket["total"])
+                    over_sla_series.append(bucket["actual_over_sla"])
+
+                owner_region = bucket.get("trueowner_region", {})
+                for owner, cnt in bucket["trueowner_counts"].items():
+                    if trueowner_filter and owner != trueowner_filter:
+                        continue
+                    if region_filter and owner_region.get(owner) not in region_filter:
+                        continue
+                    trueowner_series.setdefault(owner, [0] * len(labels))
+                    trueowner_series[owner][idx] = cnt
+
+            response["groups"][group_key]["filters"][fk] = {
+                "label": BOOKMARK_FILTERS[fk]["label"],
+                "aging_series": aging_series,          # stack chart + summary table
+                "aging_order": AGING_ORDER,
+                "aging_colors": AGING_COLORS,
+                "total_series": total_series,          # blue "Total Pending /day" line
+                "over_sla_series": over_sla_series,    # gold "Actual Pending Over SLA" line
+                "trueowner_series": trueowner_series,  # chart 2: multi-line by province
+            }
+
+    return response
 
 
 def build_api_response(gs_client, spreadsheet_id, period="14d", trueowner_filter=None, region_filter=None):
@@ -367,78 +479,24 @@ def build_api_response(gs_client, spreadsheet_id, period="14d", trueowner_filter
     """
     days = PERIOD_DAYS.get(period, 14)
     rows = load_trend_range(gs_client, spreadsheet_id, days=days)
+    return _build_response_from_rows(
+        rows, label_key="dates", extra_meta={"period": period},
+        trueowner_filter=trueowner_filter, region_filter=region_filter,
+    )
 
-    dates = [r["date"] for r in rows]
-    response = {"dates": dates, "period": period, "regions": sorted(ALLOWED_REGIONS), "groups": {}}
 
-    for group_key, group_def in SEVERITY_GROUPS.items():
-        filter_keys = ["ALL"] + (["FBB", "MB"] if group_key in GROUPS_WITH_BOOKMARK_SPLIT else [])
-        response["groups"][group_key] = {"label": group_def["label"], "filters": {}}
-
-        for fk in filter_keys:
-            aging_series = {k: [] for k in AGING_ORDER}
-            total_series = []
-            over_sla_series = []
-            trueowner_series = {}   # {owner: [count per day, aligned to `dates`]}
-
-            for day_idx, r in enumerate(rows):
-                bucket = r["data"].get(group_key, {}).get(fk)
-                if bucket is None:
-                    for k in AGING_ORDER:
-                        aging_series[k].append(0)
-                    total_series.append(0)
-                    over_sla_series.append(0)
-                    continue
-
-                if region_filter:
-                    day_aging = {k: 0 for k in AGING_ORDER}
-                    day_total = 0
-                    day_over_sla = 0
-                    region_breakdown = bucket.get("region_breakdown", {})
-                    for reg in region_filter:
-                        rb = region_breakdown.get(reg)
-                        if not rb:
-                            continue
-                        for k in AGING_ORDER:
-                            day_aging[k] += rb["aging_counts"].get(k, 0)
-                        day_total += rb["total"]
-                        day_over_sla += rb["actual_over_sla"]
-                    for k in AGING_ORDER:
-                        aging_series[k].append(day_aging[k])
-                    total_series.append(day_total)
-                    over_sla_series.append(day_over_sla)
-                else:
-                    for k in AGING_ORDER:
-                        aging_series[k].append(bucket["aging_counts"].get(k, 0))
-                    total_series.append(bucket["total"])
-                    over_sla_series.append(bucket["actual_over_sla"])
-
-                owner_region = bucket.get("trueowner_region", {})
-                for owner, cnt in bucket["trueowner_counts"].items():
-                    if trueowner_filter and owner != trueowner_filter:
-                        continue
-                    if region_filter and owner_region.get(owner) not in region_filter:
-                        continue
-                    trueowner_series.setdefault(owner, [0] * len(dates))
-                    trueowner_series[owner][day_idx] = cnt
-
-            response["groups"][group_key]["filters"][fk] = {
-                "label": BOOKMARK_FILTERS[fk]["label"],
-                "aging_series": aging_series,          # stack chart + summary table
-                "aging_order": AGING_ORDER,
-                "aging_colors": AGING_COLORS,
-                "total_series": total_series,          # blue "Total Pending /day" line
-                "over_sla_series": over_sla_series,    # gold "Actual Pending Over SLA" line
-                "trueowner_series": trueowner_series,  # chart 2: multi-line by province
-            }
-
-    return response
+def build_hourly_api_response(gs_client, spreadsheet_id, hours=24, trueowner_filter=None, region_filter=None):
+    """Same shape as build_api_response, but each entry in `dates` is an
+    'YYYY-MM-DDTHH:00' hour key instead of a day, sourced from PendingTrendHourly."""
+    rows = load_range_named(gs_client, spreadsheet_id, HOURLY_TREND_SHEET, hours)
+    return _build_response_from_rows(
+        rows, label_key="dates", extra_meta={"hours": hours},
+        trueowner_filter=trueowner_filter, region_filter=region_filter,
+    )
 
 
 # Example APScheduler wiring for app.py:
 #
-#   from pending_trend import run_nightly_job
-#   scheduler.add_job(
-#       lambda: run_nightly_job(SHEET_ID),
-#       'cron', hour=1, minute=35, id='pending_trend_nightly'
-#   )
+#   from pending_trend import run_nightly_job, run_hourly_job
+#   scheduler.add_job(lambda: run_nightly_job(SHEET_ID), 'cron', hour=1, minute=35, id='pending_trend_nightly')
+#   scheduler.add_job(lambda: run_hourly_job(SHEET_ID), 'cron', minute=35, id='pending_trend_hourly')

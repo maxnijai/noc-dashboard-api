@@ -8,7 +8,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from pending_trend import (
     run_nightly_job,
+    run_hourly_job,
     build_api_response,
+    build_hourly_api_response,
     get_drive_and_sheets_clients,
 )
 
@@ -2006,6 +2008,68 @@ def api_pending_trend_rebuild():
 def api_pending_trend_rebuild_status():
     return jsonify(_pending_trend_job_status)
 
+@app.route('/api/pending-trend-hourly')
+def api_pending_trend_hourly():
+    hours = request.args.get('hours', default=24, type=int)
+    trueowner = request.args.get('trueowner') or None
+    region_param = request.args.get('region') or None
+    region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_hourly_api_response(gs_client, SHEET_ID, hours=hours, trueowner_filter=trueowner, region_filter=region_filter)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("pending-trend-hourly API failed")
+        return jsonify({"error": str(e)}), 500
+
+_pending_trend_hourly_job_status = {'running': False, 'results': [], 'started_at': None, 'finished_at': None, 'error': None}
+_pending_trend_hourly_job_lock = threading.Lock()
+
+def _run_pending_trend_hourly_backfill(hours):
+    global _pending_trend_hourly_job_status
+    with _pending_trend_hourly_job_lock:
+        _pending_trend_hourly_job_status = {
+            'running': True, 'results': [], 'started_at': datetime.now().isoformat(),
+            'finished_at': None, 'error': None,
+        }
+    try:
+        results = []
+        now_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+        for i in range(hours):
+            h = now_hour - timedelta(hours=i)
+            ok = run_hourly_job(SHEET_ID, for_hour=h)
+            results.append({'hour': h.strftime('%Y-%m-%dT%H:00'), 'ok': ok})
+            with _pending_trend_hourly_job_lock:
+                _pending_trend_hourly_job_status['results'] = list(results)
+            if not ok:
+                break  # no more backups this far back, stop walking
+            time.sleep(1.5)  # breathing room between hours for the shared gunicorn worker
+    except Exception as e:
+        log.exception("pending-trend-hourly backfill failed")
+        with _pending_trend_hourly_job_lock:
+            _pending_trend_hourly_job_status['error'] = str(e)
+    finally:
+        with _pending_trend_hourly_job_lock:
+            _pending_trend_hourly_job_status['running'] = False
+            _pending_trend_hourly_job_status['finished_at'] = datetime.now().isoformat()
+
+@app.route('/api/pending-trend-hourly/rebuild', methods=['GET', 'POST'])
+def api_pending_trend_hourly_rebuild():
+    """Backfills the last N hours (default 24), one hourly snapshot per API call
+    to Drive, running in a background thread just like the daily version.
+    Usage: /api/pending-trend-hourly/rebuild?hours=24
+    Check progress with GET /api/pending-trend-hourly/rebuild/status"""
+    if _pending_trend_hourly_job_status['running']:
+        return jsonify({'status': 'already_running', 'progress': _pending_trend_hourly_job_status}), 409
+
+    hours = request.args.get('hours', default=24, type=int)
+    threading.Thread(target=_run_pending_trend_hourly_backfill, args=(hours,), daemon=True).start()
+    return jsonify({'status': 'started', 'check_status_at': '/api/pending-trend-hourly/rebuild/status'})
+
+@app.route('/api/pending-trend-hourly/rebuild/status')
+def api_pending_trend_hourly_rebuild_status():
+    return jsonify(_pending_trend_hourly_job_status)
+
 @app.route('/')
 @app.route('/dashboard')
 @app.route('/dashboard.html')
@@ -2037,6 +2101,11 @@ def start():
         lambda: run_nightly_job(SHEET_ID),
         'cron', hour=1, minute=35, id='pending_trend_nightly',
         misfire_grace_time=3600,
+    )
+    s.add_job(
+        lambda: run_hourly_job(SHEET_ID),
+        'cron', minute=35, id='pending_trend_hourly',
+        misfire_grace_time=1200,
     )
     s.start()
 
