@@ -72,6 +72,8 @@ select, .btn { font-family: inherit; font-size: 12px; background: var(--bg3); co
 select:focus, .btn:hover { border-color: var(--border2); }
 .btn-active { background: var(--bg4); border-color: var(--blue); color: var(--blue); }
 .rm-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
+#rm-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 
 /* Content */
 .content { padding: 20px; flex: 1; }
@@ -655,7 +657,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>Region:
         <span id="pt-region-group" style="display:inline-flex; gap:8px; margin-left:4px;">
           <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOE1" checked> NOE1</label>
-          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOE" checked> NOE</label>
+          <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOE2" checked> NOE2</label>
           <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOR1" checked> NOR1</label>
           <label style="font-weight:400;"><input type="checkbox" class="pt-region-cb" value="NOR2" checked> NOR2</label>
         </span>
@@ -719,7 +721,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>Region:
         <span style="display:inline-flex; gap:8px; margin-left:4px;">
           <label style="font-weight:400;"><input type="checkbox" class="pth-region-cb" value="NOE1" checked> NOE1</label>
-          <label style="font-weight:400;"><input type="checkbox" class="pth-region-cb" value="NOE" checked> NOE</label>
+          <label style="font-weight:400;"><input type="checkbox" class="pth-region-cb" value="NOE2" checked> NOE2</label>
           <label style="font-weight:400;"><input type="checkbox" class="pth-region-cb" value="NOR1" checked> NOR1</label>
           <label style="font-weight:400;"><input type="checkbox" class="pth-region-cb" value="NOR2" checked> NOR2</label>
         </span>
@@ -783,7 +785,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>Region:
         <span style="display:inline-flex; gap:8px; margin-left:4px;">
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOE1" checked> NOE1</label>
-          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOE" checked> NOE</label>
+          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOE2" checked> NOE2</label>
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR1" checked> NOR1</label>
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR2" checked> NOR2</label>
         </span>
@@ -817,7 +819,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">แผนที่ตำแหน่ง Ticket (Priority)</div>
-    <div id="rm-map" style="height:360px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:8px;"></div>
+    <div id="rm-map-wrap" style="position:relative;">
+      <button id="rm-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+      <div id="rm-map" style="height:360px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:8px;"></div>
+    </div>
     <div style="display:flex; gap:16px; margin-bottom:20px; font-size:12px; color:var(--text3);">
       <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E24B4A; margin-right:4px;"></span>P0 (เกิน SLA &gt; 24 ชม.)</span>
       <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#EF9F27; margin-right:4px;"></span>P1 (เกิน SLA &lt; 24 ชม.)</span>
@@ -4246,6 +4251,23 @@ function renderPivot(ft) {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+
+    const wrap = document.getElementById('rm-map-wrap');
+    const expandBtn = document.getElementById('rm-map-expand');
+    expandBtn.addEventListener('click', () => {
+      const isFull = wrap.classList.toggle('rm-map-fullscreen');
+      expandBtn.textContent = isFull ? '✕' : '⛶';
+      expandBtn.title = isFull ? 'ปิดโหมดเต็มจอ' : 'ขยายเต็มจอ';
+      setTimeout(() => map.invalidateSize(), 100);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && wrap.classList.contains('rm-map-fullscreen')) {
+        wrap.classList.remove('rm-map-fullscreen');
+        expandBtn.textContent = '⛶';
+        expandBtn.title = 'ขยายเต็มจอ';
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+    });
   }
 
   function renderMap(points) {
