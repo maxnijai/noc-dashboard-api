@@ -71,6 +71,7 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 select, .btn { font-family: inherit; font-size: 12px; background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); padding: 5px 10px; cursor: pointer; outline: none; }
 select:focus, .btn:hover { border-color: var(--border2); }
 .btn-active { background: var(--bg4); border-color: var(--blue); color: var(--blue); }
+.rm-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
 
 /* Content */
 .content { padding: 20px; flex: 1; }
@@ -617,6 +618,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a1 1 0 011 1v3.586l2.207 2.207a1 1 0 01-1.414 1.414l-2.5-2.5A1 1 0 017 8V4a1 1 0 011-1zm0-3a8 8 0 100 16A8 8 0 008 0z"/></svg>
     Pending Trend (รายชั่วโมง)
   </div>
+  <div class="nav-item" onclick="showPage('realtimemonitor')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3"/><path d="M8 0a1 1 0 011 1v1.06a6.002 6.002 0 015 5H15a1 1 0 010 2h-1.06a6.002 6.002 0 01-5 5V15a1 1 0 01-2 0v-1.06a6.002 6.002 0 01-5-5H1a1 1 0 010-2h1.06a6.002 6.002 0 015-5V1a1 1 0 011-1z" opacity=".35"/></svg>
+    Realtime Monitoring
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -764,6 +769,68 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </template>
 
     <div id="pth-groups-container"></div>
+  </div>
+
+  <div class="page" id="page-realtimemonitor">
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;" id="rm-view-tabs">
+      <button class="btn-secondary rm-view-btn" data-view="FBB">4.FBB with SA1-4</button>
+      <button class="btn-secondary rm-view-btn" data-view="NW_NSA12">3. All NW Incident NSA1-2</button>
+      <button class="btn-secondary rm-view-btn" data-view="MB">7.MB with SA1-4</button>
+      <button class="btn-secondary rm-view-btn" data-view="NSA34">NSA3 / NSA4</button>
+    </div>
+
+    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+      <label>Region:
+        <span style="display:inline-flex; gap:8px; margin-left:4px;">
+          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOE1" checked> NOE1</label>
+          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOE" checked> NOE</label>
+          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR1" checked> NOR1</label>
+          <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR2" checked> NOR2</label>
+        </span>
+      </label>
+      <label>TRUEOWNERGROUP:
+        <select id="rm-trueowner"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>Aging_Flag_Group:
+        <select id="rm-aging"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>DISTRICT:
+        <select id="rm-district"><option value="">ทั้งหมด</option></select>
+      </label>
+      <button id="rm-reload" class="btn-secondary">Refresh</button>
+      <span id="rm-status" style="color:var(--text3); font-size:12px;"></span>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:8px;" id="rm-region-title">Region</div>
+    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
+      <canvas id="rm-chart-region"></canvas>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:8px;">TRUEOWNERGROUP</div>
+    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
+      <canvas id="rm-chart-trueowner"></canvas>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:8px;">DISTRICT</div>
+    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
+      <canvas id="rm-chart-district"></canvas>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:8px;">แผนที่ตำแหน่ง Ticket (Priority)</div>
+    <div id="rm-map" style="height:360px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:8px;"></div>
+    <div style="display:flex; gap:16px; margin-bottom:20px; font-size:12px; color:var(--text3);">
+      <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#E24B4A; margin-right:4px;"></span>P0 (เกิน SLA &gt; 24 ชม.)</span>
+      <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#EF9F27; margin-right:4px;"></span>P1 (เกิน SLA &lt; 24 ชม.)</span>
+      <span><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#639922; margin-right:4px;"></span>P2 (ยังไม่ถึง TARGETFINISH)</span>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:8px;">Detail (<span id="rm-detail-count">0</span> tickets)</div>
+    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+      <table id="rm-detail-table" style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
 
@@ -3144,7 +3211,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly'][i]===id);
+    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly','realtimemonitor'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3152,6 +3219,7 @@ function showPage(id) {
   // Re-render charts when switching to that page (canvas needs visible parent)
   if (id==='pendingtrend') { setTimeout(()=>{ if (window.initPendingTrendTab) window.initPendingTrendTab(); },50); }
   if (id==='pendingtrendhourly') { setTimeout(()=>{ if (window.initPendingTrendHourlyTab) window.initPendingTrendHourlyTab(); },50); }
+  if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
 }
 
 // ===================== TREND CHART =====================
@@ -4098,6 +4166,188 @@ function renderPivot(ft) {
 
   window.initPendingTrendTab = function () { dailyController.initIfNeeded(); };
   window.initPendingTrendHourlyTab = function () { hourlyController.initIfNeeded(); };
+})();
+</script>
+
+<script>
+// ===================== REALTIME MONITORING =====================
+(function () {
+  let currentView = 'FBB';
+  let charts = { region: null, trueowner: null, district: null };
+  let map = null;
+  let markerLayer = null;
+  let lastInsertTime = null;
+  let pollTimer = null;
+  let loaded = false;
+
+  const DETAIL_COLS = [
+    ['Over_SLA_Day', 'Over_SLA_Day'], ['TICKETID', 'TICKETID'], ['AGING', 'AGING'],
+    ['CREATIONDATE', 'CREATIONDATE'], ['TARGETFINISH', 'TARGETFINISH'],
+    ['Aging_Flag_Group', 'Aging_Flag_Group'], ['SEVERITY', 'SEVERITY'], ['SUBJECT', 'SUBJECT'],
+    ['CINAME', 'CINAME'], ['CATEGORIES', 'CATEGORIES'], ['Region', 'Region'],
+    ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['DISTRICT', 'DISTRICT'], ['Subimpact', 'Subimpact'],
+  ];
+
+  function populateSelectOnce(sel, values) {
+    if (sel.dataset.populated) return;
+    values.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.dataset.populated = '1';
+  }
+
+  async function fetchData() {
+    const regions = [...document.querySelectorAll('.rm-region-cb:checked')].map(cb => cb.value);
+    const trueowner = document.getElementById('rm-trueowner').value;
+    const aging = document.getElementById('rm-aging').value;
+    const district = document.getElementById('rm-district').value;
+    const statusEl = document.getElementById('rm-status');
+    statusEl.textContent = 'กำลังโหลด...';
+
+    const params = new URLSearchParams({ view: currentView });
+    if (regions.length) params.set('region', regions.join(','));
+    if (trueowner) params.set('trueowner', trueowner);
+    if (aging) params.set('aging', aging);
+    if (district) params.set('district', district);
+
+    const res = await fetch(`/api/realtime-monitor?${params.toString()}`);
+    if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
+    const data = await res.json();
+    statusEl.textContent = `${data.total} tickets — insert_time: ${data.insert_time || '-'}`;
+    lastInsertTime = data.insert_time;
+    return data;
+  }
+
+  function buildBarChart(canvasId, breakdown, agingOrder, agingColors) {
+    const ctx = document.getElementById(canvasId);
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const labels = breakdown.map(b => b.category);
+    const datasets = agingOrder.map(k => ({
+      label: k, backgroundColor: agingColors[k], stack: 'aging',
+      data: breakdown.map(b => b.aging_counts[k] || 0),
+    }));
+    charts[canvasId] = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { x: { stacked: true, ticks: { autoSkip: false, maxRotation: 60, minRotation: 0, font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } },
+        plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
+      },
+    });
+  }
+
+  function ensureMap() {
+    if (map) return;
+    map = L.map('rm-map', { zoomControl: true, preferCanvas: true }).setView([17.2, 99.7], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+  }
+
+  function renderMap(points) {
+    ensureMap();
+    markerLayer.clearLayers();
+    const colors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
+    points.forEach(p => {
+      L.circleMarker([p.lat, p.lon], {
+        radius: 6, color: colors[p.priority] || '#8b949e', fillColor: colors[p.priority] || '#8b949e',
+        fillOpacity: 0.85, weight: 1,
+      }).bindPopup(`<b>${p.ticketid || ''}</b><br>${p.subject || ''}<br>${p.trueowner || ''} / ${p.district || ''}`)
+        .addTo(markerLayer);
+    });
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+
+  function renderDetailTable(rows, truncated, total) {
+    const table = document.getElementById('rm-detail-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    const headRow = document.createElement('tr');
+    headRow.style.background = 'var(--bg3)';
+    headRow.innerHTML = '<th style="padding:6px 8px; text-align:left;">Priority</th>' +
+      DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left;">${label}</th>`).join('');
+    thead.appendChild(headRow);
+
+    const pColors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.style.borderTop = '1px solid var(--border)';
+      const pColor = pColors[r.priority] || '#8b949e';
+      tr.innerHTML = `<td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${pColor};margin-right:4px;"></span>${r.priority || '-'}</td>` +
+        DETAIL_COLS.map(([, key]) => `<td style="padding:6px 8px;">${r[key] != null ? r[key] : ''}</td>`).join('');
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('rm-detail-count').textContent = truncated ? `${total} (แสดง ${rows.length} รายการเร่งด่วนสุด)` : total;
+  }
+
+  function renderAll(data) {
+    populateSelectOnce(document.getElementById('rm-trueowner'), data.filter_options.trueowners);
+    populateSelectOnce(document.getElementById('rm-district'), data.filter_options.districts);
+    const agingSel = document.getElementById('rm-aging');
+    if (!agingSel.dataset.populated) { populateSelectOnce(agingSel, data.aging_order); }
+
+    buildBarChart('rm-chart-region', data.breakdown_region, data.aging_order, data.aging_colors);
+    buildBarChart('rm-chart-trueowner', data.breakdown_trueowner, data.aging_order, data.aging_colors);
+    buildBarChart('rm-chart-district', data.breakdown_district, data.aging_order, data.aging_colors);
+    renderMap(data.map_points);
+    renderDetailTable(data.detail_rows, data.detail_truncated, data.total);
+  }
+
+  async function reload() {
+    try {
+      const data = await fetchData();
+      renderAll(data);
+      loaded = true;
+    } catch (e) {
+      console.error('Realtime monitor load failed', e);
+    }
+  }
+
+  async function pollInsertTime() {
+    try {
+      const res = await fetch('/api/realtime-monitor/insert-time');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.insert_time && data.insert_time !== lastInsertTime) {
+        reload();
+      }
+    } catch (e) { /* silent - poll again next tick */ }
+  }
+
+  document.querySelectorAll('.rm-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentView = btn.dataset.view;
+      document.querySelectorAll('.rm-view-btn').forEach(b => b.classList.toggle('active', b === btn));
+      // Reset dependent filters/dropdowns since they're scoped per-view
+      ['rm-trueowner', 'rm-district', 'rm-aging'].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">ทั้งหมด</option>';
+        delete sel.dataset.populated;
+      });
+      reload();
+    });
+  });
+  // Default active view button
+  document.querySelector('.rm-view-btn[data-view="FBB"]').classList.add('active');
+
+  document.getElementById('rm-reload').addEventListener('click', reload);
+  document.getElementById('rm-trueowner').addEventListener('change', reload);
+  document.getElementById('rm-aging').addEventListener('change', reload);
+  document.getElementById('rm-district').addEventListener('change', reload);
+  document.querySelectorAll('.rm-region-cb').forEach(cb => cb.addEventListener('change', reload));
+
+  window.initRealtimeMonitorTab = function () {
+    if (!loaded) reload();
+    if (!pollTimer) pollTimer = setInterval(pollInsertTime, 30000);
+  };
 })();
 </script>
 

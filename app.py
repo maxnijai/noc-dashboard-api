@@ -14,6 +14,11 @@ from pending_trend import (
     get_drive_and_sheets_clients,
     bangkok_now,
 )
+from realtime_monitor import (
+    build_realtime_response,
+    get_insert_time,
+    BOOKMARK_VIEWS,
+)
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2078,6 +2083,37 @@ def api_pending_trend_hourly_rebuild():
 @app.route('/api/pending-trend-hourly/rebuild/status')
 def api_pending_trend_hourly_rebuild_status():
     return jsonify(_pending_trend_hourly_job_status)
+
+@app.route('/api/realtime-monitor')
+def api_realtime_monitor():
+    view = request.args.get('view', default='FBB')
+    if view not in BOOKMARK_VIEWS:
+        return jsonify({'error': f'Unknown view {view!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
+    region_param = request.args.get('region') or None
+    region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
+    trueowner = request.args.get('trueowner') or None
+    aging_param = request.args.get('aging') or None
+    aging_filter = [a.strip() for a in aging_param.split(',') if a.strip()] if aging_param else None
+    district = request.args.get('district') or None
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_realtime_response(
+            gs_client, view_key=view, region_filter=region_filter,
+            trueowner_filter=trueowner, aging_filter=aging_filter, district_filter=district,
+        )
+        return jsonify(data)
+    except Exception as e:
+        log.exception("realtime-monitor API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/realtime-monitor/insert-time')
+def api_realtime_monitor_insert_time():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify({'insert_time': get_insert_time(gs_client)})
+    except Exception as e:
+        log.exception("realtime-monitor insert-time check failed")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 @app.route('/dashboard')
