@@ -33,6 +33,7 @@ import json
 import time
 import logging
 from datetime import datetime, timedelta, time as dtime
+from zoneinfo import ZoneInfo
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -45,6 +46,19 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
+
+BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
+
+def bangkok_now():
+    """Naive datetime representing the current moment in Thai local time.
+    Railway's container clock runs in UTC, but the Drive backup filenames and
+    all the 'today'/'this hour' reasoning in this module are inherently in
+    Thai wall-clock time - using plain datetime.now() here would be off by
+    the UTC offset (7 hours) and silently misidentify which file/day/hour is
+    'now'. Returned as a naive datetime (tzinfo stripped) so it compares
+    cleanly against the naive datetimes parsed from filenames."""
+    return datetime.now(BANGKOK_TZ).replace(tzinfo=None)
+
 
 DRIVE_FOLDER_ID = "188bv1FhdU2A64wjJjkntkKFIGZG18nMJ"   # "Sheet_Backups"
 FILE_PREFIX = "Pending ticket_"
@@ -346,7 +360,7 @@ def load_trend_range(gs_client, spreadsheet_id, days=14):
 def run_nightly_job(spreadsheet_id, for_date=None):
     """for_date defaults to 'today' in whatever timezone the scheduler is running in.
     Call this once per night, e.g. via APScheduler cron trigger at 01:35."""
-    for_date = for_date or datetime.now().date()
+    for_date = for_date or bangkok_now().date()
     drive_service, gs_client = get_drive_and_sheets_clients()
 
     found = find_nightly_file(drive_service, for_date)
@@ -370,7 +384,7 @@ def run_hourly_job(spreadsheet_id, for_hour=None):
     (same pattern as the nightly job) - searching around :00 would miss them
     entirely. Stores the aggregate keyed by 'YYYY-MM-DDTHH:00' in PendingTrendHourly.
     Call this once per hour via APScheduler, or repeatedly for backfill."""
-    for_hour = for_hour or datetime.now().replace(minute=0, second=0, microsecond=0)
+    for_hour = for_hour or bangkok_now().replace(minute=0, second=0, microsecond=0)
     search_target = for_hour.replace(minute=29)
     drive_service, gs_client = get_drive_and_sheets_clients()
 

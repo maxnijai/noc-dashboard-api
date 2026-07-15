@@ -12,6 +12,7 @@ from pending_trend import (
     build_api_response,
     build_hourly_api_response,
     get_drive_and_sheets_clients,
+    bangkok_now,
 )
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -1960,7 +1961,7 @@ def _run_pending_trend_backfill(days, for_date):
     try:
         if days:
             results = []
-            today = date.today()
+            today = bangkok_now().date()
             for i in range(days):
                 d = today - timedelta(days=i)
                 ok = run_nightly_job(SHEET_ID, for_date=d)
@@ -1972,7 +1973,7 @@ def _run_pending_trend_backfill(days, for_date):
                 time.sleep(1.5)  # breathing room between days for the shared gunicorn worker
         else:
             ok = run_nightly_job(SHEET_ID, for_date=for_date)
-            d = for_date or date.today()
+            d = for_date or bangkok_now().date()
             with _pending_trend_job_lock:
                 _pending_trend_job_status['results'] = [{'date': d.isoformat(), 'ok': ok}]
     except Exception as e:
@@ -2037,7 +2038,7 @@ def _run_pending_trend_hourly_backfill(hours):
         # Start from the LAST FULLY COMPLETED hour, not the current (still-forming)
         # one - the current hour's backup file typically doesn't exist yet until
         # ~:29 past, so requesting it always "fails" and used to abort the whole walk.
-        now_hour = datetime.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+        now_hour = bangkok_now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
         consecutive_misses = 0
         for i in range(hours):
             h = now_hour - timedelta(hours=i)
@@ -2107,12 +2108,12 @@ def start():
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
     s.add_job(
         lambda: run_nightly_job(SHEET_ID),
-        'cron', hour=1, minute=35, id='pending_trend_nightly',
+        'cron', hour=1, minute=35, timezone='Asia/Bangkok', id='pending_trend_nightly',
         misfire_grace_time=3600,
     )
     s.add_job(
         lambda: run_hourly_job(SHEET_ID),
-        'cron', minute=35, id='pending_trend_hourly',
+        'cron', minute=35, timezone='Asia/Bangkok', id='pending_trend_hourly',
         misfire_grace_time=1200,
     )
     s.start()
