@@ -2034,15 +2034,23 @@ def _run_pending_trend_hourly_backfill(hours):
         }
     try:
         results = []
-        now_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+        # Start from the LAST FULLY COMPLETED hour, not the current (still-forming)
+        # one - the current hour's backup file typically doesn't exist yet until
+        # ~:29 past, so requesting it always "fails" and used to abort the whole walk.
+        now_hour = datetime.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
+        consecutive_misses = 0
         for i in range(hours):
             h = now_hour - timedelta(hours=i)
             ok = run_hourly_job(SHEET_ID, for_hour=h)
             results.append({'hour': h.strftime('%Y-%m-%dT%H:00'), 'ok': ok})
             with _pending_trend_hourly_job_lock:
                 _pending_trend_hourly_job_status['results'] = list(results)
-            if not ok:
-                break  # no more backups this far back, stop walking
+            if ok:
+                consecutive_misses = 0
+            else:
+                consecutive_misses += 1
+                if consecutive_misses >= 3:
+                    break  # likely hit the real edge of available history, stop walking
             time.sleep(1.5)  # breathing room between hours for the shared gunicorn worker
     except Exception as e:
         log.exception("pending-trend-hourly backfill failed")

@@ -364,20 +364,23 @@ def run_nightly_job(spreadsheet_id, for_date=None):
 
 
 def run_hourly_job(spreadsheet_id, for_hour=None):
-    """for_hour defaults to the current hour (truncated to :00). Finds the backup
-    file closest to that hour (+/- 20 min) and stores its aggregate keyed by an
-    ISO 'YYYY-MM-DDTHH:00' string in the PendingTrendHourly sheet. Call this once
-    per hour via APScheduler, or repeatedly for backfill via the rebuild endpoint."""
+    """for_hour defaults to the current hour (truncated to :00) and identifies which
+    hourly BUCKET to store the result under. The actual Drive search target is
+    for_hour + 29 min, because backup files are created near :29 past each hour
+    (same pattern as the nightly job) - searching around :00 would miss them
+    entirely. Stores the aggregate keyed by 'YYYY-MM-DDTHH:00' in PendingTrendHourly.
+    Call this once per hour via APScheduler, or repeatedly for backfill."""
     for_hour = for_hour or datetime.now().replace(minute=0, second=0, microsecond=0)
+    search_target = for_hour.replace(minute=29)
     drive_service, gs_client = get_drive_and_sheets_clients()
 
-    found = find_closest_file(drive_service, for_hour, window_minutes=20)
+    found = find_closest_file(drive_service, search_target, window_minutes=25)
     if found is None:
-        log.error("run_hourly_job: no snapshot available near %s, skipping", for_hour)
+        log.error("run_hourly_job: no snapshot available near %s, skipping", search_target)
         return False
 
     file_id, matched_dt, filename = found
-    log.info("Using snapshot %s (matched %s) for hour %s", filename, matched_dt, for_hour)
+    log.info("Using snapshot %s (matched %s) for hour bucket %s", filename, matched_dt, for_hour)
 
     rows = download_xlsx_as_rows(drive_service, file_id)
     aggregate = compute_daily_aggregate(rows)  # same generic aggregator works for any snapshot
