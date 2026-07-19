@@ -239,17 +239,16 @@ def _empty_bucket():
 
 
 def compute_repeat_ticket_counts(rows):
-    """Per BOOKMARK_VIEWS group, collect the set of distinct TICKETIDs seen for
+    """Per BOOKMARK_VIEWS group, collect one row per distinct TICKETID seen for
     each CINAME in this single snapshot (region-filtered, deduped within the
-    snapshot). Stored as a list of ticket IDs per CINAME rather than a count,
-    because "repeat ticket count" is ultimately a GLOBAL distinct-TICKETID
-    count across the whole selected date range (see build_repeat_ticket_response) -
-    a ticket pending across 10 days must only count once for that CINAME, not 10.
-    Returns:
-    {view_key: {"cin_tickets": {cin: [ticket_id, ...]}, "cin_trueowner": {cin: last_seen_trueowner}}}
+    snapshot). Returned as a FLAT list rather than a nested dict, because a
+    single day's worth of tickets across all 4 views turned out to be far
+    more than fits in one 50,000-character Sheets cell as JSON - many small
+    rows in a dedicated sheet has no such limit. Returns:
+    [{"view": view_key, "ciname": cin, "ticket_id": id, "trueowner": owner}, ...]
     """
     filtered = [r for r in rows if str(r.get("Region", "")).strip() in ALLOWED_REGIONS]
-    result = {vk: {"cin_tickets": {}, "cin_trueowner": {}} for vk in BOOKMARK_VIEWS}
+    out = []
     seen_ticket_ids = {vk: set() for vk in BOOKMARK_VIEWS}
 
     for row_idx, r in enumerate(filtered):
@@ -266,14 +265,9 @@ def compute_repeat_ticket_counts(rows):
                     if ticket_id in seen_ticket_ids[vk]:
                         continue  # already recorded this ticket for this snapshot
                     seen_ticket_ids[vk].add(ticket_id)
-                bucket = result[vk]
-                bucket["cin_tickets"].setdefault(cin, [])
-                if ticket_id:
-                    bucket["cin_tickets"][cin].append(ticket_id)
-                if owner:
-                    bucket["cin_trueowner"][cin] = owner
+                out.append({"view": vk, "ciname": cin, "ticket_id": ticket_id, "trueowner": owner})
 
-    return result
+    return out
 
 
 def compute_daily_aggregate(rows):
@@ -335,7 +329,6 @@ def compute_daily_aggregate(rows):
 # ---------------------------------------------------------------------------
 
 HOURLY_TREND_SHEET = "PendingTrendHourly"
-REPEAT_TICKET_SHEET = "PendingTrendRepeatDaily"
 
 def _ensure_sheet_tab_named(spreadsheet, sheet_name):
     try:
@@ -393,6 +386,65 @@ def load_range_named(gs_client, spreadsheet_id, sheet_name, n):
     return parsed[-n:]
 
 
+REPEAT_TICKET_DETAIL_SHEET = "PendingTrendRepeatDetail"
+
+
+def _ensure_repeat_detail_tab(spreadsheet):
+    try:
+        return spreadsheet.worksheet(REPEAT_TICKET_DETAIL_SHEET)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = spreadsheet.add_worksheet(title=REPEAT_TICKET_DETAIL_SHEET, rows=1000, cols=5)
+        ws.append_row(["date", "view", "ciname", "ticket_id", "trueowner"])
+        return ws
+
+
+def save_repeat_ticket_detail(gs_client, spreadsheet_id, date_str, detail_rows):
+    """detail_rows: flat list from compute_repeat_ticket_counts(). Appends one
+    small row per ticket - no JSON blob, no per-cell size limit to worry about.
+    Always appends (doesn't overwrite same-date rows) - re-running backfill for
+    a date that was already saved may create duplicate rows, but that's
+    harmless here since build_repeat_ticket_response dedupes by TICKETID at
+    read time anyway."""
+    sh = gs_client.open_by_key(spreadsheet_id)
+    ws = _ensure_repeat_detail_tab(sh)
+    if not detail_rows:
+        return
+    rows = [[date_str, d["view"], d["ciname"], d["ticket_id"], d["trueowner"]] for d in detail_rows]
+    ws.append_rows(rows, value_input_option="RAW")
+    log.info("Appended %d repeat-ticket detail rows for %s", len(rows), date_str)
+
+
+def load_repeat_ticket_detail(gs_client, spreadsheet_id, view_key, since_date_str):
+    """Reads the whole detail sheet and filters to rows for view_key with
+    date >= since_date_str (ISO date strings sort correctly as plain strings).
+    Returns {"ticket_sets": {cin: set(ticket_id,...)}, "trueowner_of": {cin: owner},
+    "dates_seen": set(date_str,...)}."""
+    sh = gs_client.open_by_key(spreadsheet_id)
+    try:
+        ws = sh.worksheet(REPEAT_TICKET_DETAIL_SHEET)
+    except gspread.exceptions.WorksheetNotFound:
+        return {"ticket_sets": {}, "trueowner_of": {}, "dates_seen": set()}
+
+    records = ws.get_all_values()[1:]  # skip header
+    ticket_sets = {}
+    trueowner_of = {}
+    dates_seen = set()
+
+    for row in records:
+        if len(row) < 5:
+            continue
+        date_str, view, cin, ticket_id, owner = row[0], row[1], row[2], row[3], row[4]
+        if not date_str or date_str < since_date_str or view != view_key:
+            continue
+        dates_seen.add(date_str)
+        if ticket_id:
+            ticket_sets.setdefault(cin, set()).add(ticket_id)
+        if owner:
+            trueowner_of[cin] = owner
+
+    return {"ticket_sets": ticket_sets, "trueowner_of": trueowner_of, "dates_seen": dates_seen}
+
+
 def save_daily_aggregate(gs_client, spreadsheet_id, date_str, source_file, aggregate):
     save_aggregate(gs_client, spreadsheet_id, date_str, source_file, aggregate, PENDING_TREND_SHEET)
 
@@ -423,11 +475,12 @@ def run_nightly_job(spreadsheet_id, for_date=None):
     aggregate = compute_daily_aggregate(rows)
     save_daily_aggregate(gs_client, spreadsheet_id, for_date.isoformat(), filename, aggregate)
 
-    # Repeat-ticket data lives in its own sheet - it can be sizeable (raw
-    # TICKETID lists) and would otherwise blow past the 50k-character-per-cell
-    # limit if crammed into the same JSON blob as the main aggregate above.
-    repeat_data = compute_repeat_ticket_counts(rows)
-    save_aggregate(gs_client, spreadsheet_id, for_date.isoformat(), filename, repeat_data, REPEAT_TICKET_SHEET)
+    # Repeat-ticket data goes into its own flat detail sheet (one row per
+    # ticket) instead of a JSON blob - a single day's worth of tickets across
+    # all 4 views turned out to be far more than fits in one 50,000-character
+    # Sheets cell, so it needs a format with no per-cell size ceiling.
+    repeat_rows = compute_repeat_ticket_counts(rows)
+    save_repeat_ticket_detail(gs_client, spreadsheet_id, for_date.isoformat(), repeat_rows)
 
     return True
 
@@ -569,38 +622,29 @@ def build_hourly_api_response(gs_client, spreadsheet_id, hours=24, trueowner_fil
 
 def build_repeat_ticket_response(gs_client, spreadsheet_id, view_key, days=30, top_n=50):
     """For the given BOOKMARK_VIEWS key, unions the distinct TICKETIDs seen per
-    CINAME across the last `days` daily snapshots, then ranks CINAMEs by that
-    distinct count (top_n). A ticket pending across many days only counts once
-    per CINAME - this is a global, cross-day dedup, not a per-day one. Days
-    with no stored snapshot are silently skipped (e.g. before the feature was
-    deployed, or a missed backfill)."""
+    CINAME across the last `days` days (reading the flat PendingTrendRepeatDetail
+    sheet), then ranks CINAMEs by that distinct count (top_n). A ticket pending
+    across many days only counts once per CINAME - this is a global, cross-day
+    dedup, not a per-day one. Days with no stored rows are silently absent from
+    days_covered (e.g. before the feature was deployed, or a missed backfill)."""
     if view_key not in BOOKMARK_VIEWS:
         raise ValueError(f"Unknown view_key {view_key!r}")
 
-    rows = load_range_named(gs_client, spreadsheet_id, REPEAT_TICKET_SHEET, days)
-    ticket_sets = {}   # {cin: set(ticket_id, ...)}
-    trueowner_of = {}
-    days_covered = 0
-
-    for r in rows:
-        repeat = r["data"]
-        bucket = repeat.get(view_key)
-        if not bucket:
-            continue
-        days_covered += 1
-        for cin, ticket_ids in bucket.get("cin_tickets", {}).items():
-            ticket_sets.setdefault(cin, set()).update(ticket_ids)
-        for cin, owner in bucket.get("cin_trueowner", {}).items():
-            trueowner_of[cin] = owner  # last-seen wins, rows are date-ordered
+    since_date_str = (bangkok_now().date() - timedelta(days=days)).isoformat()
+    loaded = load_repeat_ticket_detail(gs_client, spreadsheet_id, view_key, since_date_str)
+    ticket_sets = loaded["ticket_sets"]
+    trueowner_of = loaded["trueowner_of"]
+    dates_seen = loaded["dates_seen"]
 
     totals = {cin: len(ids) for cin, ids in ticket_sets.items()}
     ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+    sorted_dates = sorted(dates_seen)
     return {
         "view": view_key,
         "view_label": BOOKMARK_VIEWS[view_key]["label"],
         "days_requested": days,
-        "days_covered": days_covered,
-        "dates_range": {"from": rows[0]["date"] if rows else None, "to": rows[-1]["date"] if rows else None},
+        "days_covered": len(dates_seen),
+        "dates_range": {"from": sorted_dates[0] if sorted_dates else None, "to": sorted_dates[-1] if sorted_dates else None},
         "ranking": [
             {"rank": i + 1, "ciname": cin, "count": cnt, "trueowner": trueowner_of.get(cin)}
             for i, (cin, cnt) in enumerate(ranked)
