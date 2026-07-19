@@ -15,6 +15,7 @@ from pending_trend import (
     get_drive_and_sheets_clients,
     bangkok_now,
 )
+from pm_dashboard import register_pm_routes
 from realtime_monitor import (
     build_realtime_response,
     get_insert_time,
@@ -37,6 +38,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 CORS(app)
+register_pm_routes(app)
 
 _cache = None
 _cache_lock = threading.Lock()
