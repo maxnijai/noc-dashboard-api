@@ -239,17 +239,17 @@ def _empty_bucket():
 
 
 def compute_repeat_ticket_counts(rows):
-    """Per BOOKMARK_VIEWS group, count occurrences of each CINAME in this single
-    snapshot's rows (region-filtered). Counts once per TICKETID per snapshot -
-    if the same ticket appears twice in one day's export (data quality dupe),
-    it's only counted once for that day. A ticket still pending on a LATER
-    day's snapshot is a separate count (that's the point: long-pending tickets
-    accumulate a higher repeat count across days), so this dedup is strictly
-    within a single snapshot, not across the whole date range. Returns:
-    {view_key: {"cin_counts": {cin: count}, "cin_trueowner": {cin: last_seen_trueowner}}}
+    """Per BOOKMARK_VIEWS group, collect the set of distinct TICKETIDs seen for
+    each CINAME in this single snapshot (region-filtered, deduped within the
+    snapshot). Stored as a list of ticket IDs per CINAME rather than a count,
+    because "repeat ticket count" is ultimately a GLOBAL distinct-TICKETID
+    count across the whole selected date range (see build_repeat_ticket_response) -
+    a ticket pending across 10 days must only count once for that CINAME, not 10.
+    Returns:
+    {view_key: {"cin_tickets": {cin: [ticket_id, ...]}, "cin_trueowner": {cin: last_seen_trueowner}}}
     """
     filtered = [r for r in rows if str(r.get("Region", "")).strip() in ALLOWED_REGIONS]
-    result = {vk: {"cin_counts": {}, "cin_trueowner": {}} for vk in BOOKMARK_VIEWS}
+    result = {vk: {"cin_tickets": {}, "cin_trueowner": {}} for vk in BOOKMARK_VIEWS}
     seen_ticket_ids = {vk: set() for vk in BOOKMARK_VIEWS}
 
     for row_idx, r in enumerate(filtered):
@@ -264,10 +264,12 @@ def compute_repeat_ticket_counts(rows):
             if row_matches_view(r, vk):
                 if ticket_id:
                     if ticket_id in seen_ticket_ids[vk]:
-                        continue  # already counted this ticket for this snapshot
+                        continue  # already recorded this ticket for this snapshot
                     seen_ticket_ids[vk].add(ticket_id)
                 bucket = result[vk]
-                bucket["cin_counts"][cin] = bucket["cin_counts"].get(cin, 0) + 1
+                bucket["cin_tickets"].setdefault(cin, [])
+                if ticket_id:
+                    bucket["cin_tickets"][cin].append(ticket_id)
                 if owner:
                     bucket["cin_trueowner"][cin] = owner
 
@@ -552,15 +554,17 @@ def build_hourly_api_response(gs_client, spreadsheet_id, hours=24, trueowner_fil
 
 
 def build_repeat_ticket_response(gs_client, spreadsheet_id, view_key, days=30, top_n=50):
-    """Sums CINAME occurrence counts (raw, not deduped) across the last `days`
-    daily snapshots for the given BOOKMARK_VIEWS key, and returns the top_n
-    CINAMEs ranked descending. Days with no stored snapshot are silently
-    skipped (e.g. before the feature was deployed, or a missed backfill)."""
+    """For the given BOOKMARK_VIEWS key, unions the distinct TICKETIDs seen per
+    CINAME across the last `days` daily snapshots, then ranks CINAMEs by that
+    distinct count (top_n). A ticket pending across many days only counts once
+    per CINAME - this is a global, cross-day dedup, not a per-day one. Days
+    with no stored snapshot are silently skipped (e.g. before the feature was
+    deployed, or a missed backfill)."""
     if view_key not in BOOKMARK_VIEWS:
         raise ValueError(f"Unknown view_key {view_key!r}")
 
     rows = load_trend_range(gs_client, spreadsheet_id, days=days)
-    totals = {}
+    ticket_sets = {}   # {cin: set(ticket_id, ...)}
     trueowner_of = {}
     days_covered = 0
 
@@ -572,11 +576,12 @@ def build_repeat_ticket_response(gs_client, spreadsheet_id, view_key, days=30, t
         if not bucket:
             continue
         days_covered += 1
-        for cin, cnt in bucket.get("cin_counts", {}).items():
-            totals[cin] = totals.get(cin, 0) + cnt
+        for cin, ticket_ids in bucket.get("cin_tickets", {}).items():
+            ticket_sets.setdefault(cin, set()).update(ticket_ids)
         for cin, owner in bucket.get("cin_trueowner", {}).items():
             trueowner_of[cin] = owner  # last-seen wins, rows are date-ordered
 
+    totals = {cin: len(ids) for cin, ids in ticket_sets.items()}
     ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
     return {
         "view": view_key,
