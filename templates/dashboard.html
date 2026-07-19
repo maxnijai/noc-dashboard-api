@@ -72,6 +72,7 @@ select, .btn { font-family: inherit; font-size: 12px; background: var(--bg3); co
 select:focus, .btn:hover { border-color: var(--border2); }
 .btn-active { background: var(--bg4); border-color: var(--blue); color: var(--blue); }
 .rm-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
+.rt-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
 #rm-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 
@@ -624,6 +625,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3"/><path d="M8 0a1 1 0 011 1v1.06a6.002 6.002 0 015 5H15a1 1 0 010 2h-1.06a6.002 6.002 0 01-5 5V15a1 1 0 01-2 0v-1.06a6.002 6.002 0 01-5-5H1a1 1 0 010-2h1.06a6.002 6.002 0 015-5V1a1 1 0 011-1z" opacity=".35"/></svg>
     Realtime Monitoring
   </div>
+  <div class="nav-item" onclick="showPage('repeatticket')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35a7 7 0 10.35 8.9 1 1 0 00-1.7-1.05 5 5 0 11-.25-6.35L10 6h5V1l-1.35 1.35z"/></svg>
+    Repeat Ticket
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -831,9 +836,45 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">Detail (<span id="rm-detail-count">0</span> tickets)</div>
     <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
-      <table id="rm-detail-table" style="width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap;">
-        <thead></thead>
-        <tbody></tbody>
+    </div>
+  </div>
+
+  <div class="page" id="page-repeatticket">
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;" id="rt-view-tabs">
+      <button class="btn-secondary rt-view-btn" data-view="FBB">4.FBB with SA1-4</button>
+      <button class="btn-secondary rt-view-btn" data-view="NW_NSA12">3. All NW Incident NSA1-2</button>
+      <button class="btn-secondary rt-view-btn" data-view="MB">7.MB with SA1-4</button>
+      <button class="btn-secondary rt-view-btn" data-view="NSA34">NSA3 / NSA4</button>
+    </div>
+
+    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+      <label>ช่วงเวลาย้อนหลัง:
+        <select id="rt-days">
+          <option value="30" selected>30 วัน</option>
+          <option value="60">60 วัน</option>
+          <option value="90">90 วัน</option>
+          <option value="custom">กำหนดเอง...</option>
+        </select>
+      </label>
+      <input type="number" id="rt-days-custom" min="1" max="365" placeholder="จำนวนวัน" style="display:none; width:100px;">
+      <button id="rt-reload" class="btn-secondary">Refresh</button>
+      <span id="rt-status" style="color:var(--text3); font-size:12px;"></span>
+    </div>
+
+    <div style="font-size:13px; font-weight:500; margin-bottom:4px;">Top 50 CINAME — จำนวน ticket ซ้ำ (นับทุกครั้งที่พบในแต่ละ snapshot)</div>
+    <div style="font-size:11px; color:var(--text3); margin-bottom:12px;" id="rt-range-note"></div>
+    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="background:var(--bg3);">
+            <th style="text-align:left; padding:8px 12px;">อันดับ</th>
+            <th style="text-align:left; padding:8px 12px;">CINAME</th>
+            <th style="text-align:left; padding:8px 12px;">TRUEOWNERGROUP</th>
+            <th style="text-align:right; padding:8px 12px;">ticket ซ้ำ</th>
+            <th style="text-align:left; padding:8px 12px; width:200px;"></th>
+          </tr>
+        </thead>
+        <tbody id="rt-body"></tbody>
       </table>
     </div>
   </div>
@@ -3216,7 +3257,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly','realtimemonitor'][i]===id);
+    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly','realtimemonitor','repeatticket'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3225,6 +3266,7 @@ function showPage(id) {
   if (id==='pendingtrend') { setTimeout(()=>{ if (window.initPendingTrendTab) window.initPendingTrendTab(); },50); }
   if (id==='pendingtrendhourly') { setTimeout(()=>{ if (window.initPendingTrendHourlyTab) window.initPendingTrendHourlyTab(); },50); }
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
+  if (id==='repeatticket') { setTimeout(()=>{ if (window.initRepeatTicketTab) window.initRepeatTicketTab(); },50); }
 }
 
 // ===================== TREND CHART =====================
@@ -4370,6 +4412,72 @@ function renderPivot(ft) {
     if (!loaded) reload();
     if (!pollTimer) pollTimer = setInterval(pollInsertTime, 30000);
   };
+})();
+</script>
+
+<script>
+// ===================== REPEAT TICKET (Top 50 CINAME) =====================
+(function () {
+  let currentView = 'FBB';
+  let loaded = false;
+
+  function getDays() {
+    const sel = document.getElementById('rt-days');
+    if (sel.value === 'custom') {
+      const v = parseInt(document.getElementById('rt-days-custom').value, 10);
+      return (v && v > 0) ? v : 30;
+    }
+    return parseInt(sel.value, 10);
+  }
+
+  async function reload() {
+    const statusEl = document.getElementById('rt-status');
+    statusEl.textContent = 'กำลังโหลด...';
+    const days = getDays();
+    try {
+      const res = await fetch(`/api/repeat-ticket?view=${currentView}&days=${days}`);
+      if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; return; }
+      const data = await res.json();
+      statusEl.textContent = `ครอบคลุม ${data.days_covered}/${data.days_requested} วันที่มีข้อมูล`;
+      document.getElementById('rt-range-note').textContent = data.dates_range.from
+        ? `ช่วง ${data.dates_range.from} ถึง ${data.dates_range.to}`
+        : 'ยังไม่มีข้อมูลย้อนหลัง (รอ backfill หรือรอบเก็บข้อมูลถัดไป)';
+
+      const rows = data.ranking || [];
+      const max = rows.length ? Math.max(...rows.map(r => r.count)) : 1;
+      document.getElementById('rt-body').innerHTML = rows.map(r => `
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:8px 12px; color:var(--text3);">${r.rank}</td>
+          <td style="padding:8px 12px;">${r.ciname}</td>
+          <td style="padding:8px 12px; color:var(--text3);">${r.trueowner || ''}</td>
+          <td style="padding:8px 12px; text-align:right; font-weight:600;">${r.count}</td>
+          <td style="padding:8px 12px;"><div style="background:#E24B4A; border-radius:4px; height:8px; width:${Math.round(r.count / max * 100)}%;"></div></td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+      loaded = true;
+    } catch (e) {
+      statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ';
+      console.error('Repeat ticket load failed', e);
+    }
+  }
+
+  document.querySelectorAll('.rt-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentView = btn.dataset.view;
+      document.querySelectorAll('.rt-view-btn').forEach(b => b.classList.toggle('active', b === btn));
+      reload();
+    });
+  });
+  document.querySelector('.rt-view-btn[data-view="FBB"]').classList.add('active');
+
+  document.getElementById('rt-days').addEventListener('change', (e) => {
+    document.getElementById('rt-days-custom').style.display = e.target.value === 'custom' ? 'inline-block' : 'none';
+    if (e.target.value !== 'custom') reload();
+  });
+  document.getElementById('rt-days-custom').addEventListener('change', reload);
+  document.getElementById('rt-reload').addEventListener('click', reload);
+
+  window.initRepeatTicketTab = function () { if (!loaded) reload(); };
 })();
 </script>
 

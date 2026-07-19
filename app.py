@@ -11,6 +11,7 @@ from pending_trend import (
     run_hourly_job,
     build_api_response,
     build_hourly_api_response,
+    build_repeat_ticket_response,
     get_drive_and_sheets_clients,
     bangkok_now,
 )
@@ -2113,6 +2114,20 @@ def api_realtime_monitor_insert_time():
         return jsonify({'insert_time': get_insert_time(gs_client)})
     except Exception as e:
         log.exception("realtime-monitor insert-time check failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/repeat-ticket')
+def api_repeat_ticket():
+    view = request.args.get('view', default='FBB')
+    if view not in BOOKMARK_VIEWS:
+        return jsonify({'error': f'Unknown view {view!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
+    days = request.args.get('days', default=30, type=int)
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_repeat_ticket_response(gs_client, SHEET_ID, view_key=view, days=days)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("repeat-ticket API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')

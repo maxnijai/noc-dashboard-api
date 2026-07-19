@@ -36,18 +36,12 @@ from pending_trend import (
     AGING_ORDER,
     AGING_COLORS,
 )
+from ticket_views import BOOKMARK_VIEWS, row_matches_view as _row_matches_view
 
 log = logging.getLogger(__name__)
 
 REALTIME_SHEET_ID = "1AEQSsiLUbr5p6HYh36WNGF9TkUDVeW2xN-vDvDkjy1k"
 REALTIME_WORKSHEET_GID = 0  # "gid=0" tab from the shared URL
-
-BOOKMARK_VIEWS = {
-    "FBB":      {"label": "4.FBB with SA1-4",           "bookmark": "4.FBB with SA1-4", "severity": None},
-    "NW_NSA12": {"label": "3. All NW Incident NSA1-2",   "bookmark": "3. All NW Incident NSA1-2", "severity": None},
-    "MB":       {"label": "7.MB with SA1-4",             "bookmark": "7.MB with SA1-4", "severity": None},
-    "NSA34":    {"label": "NSA3 / NSA4",                 "bookmark": None, "severity": {"NSA3", "NSA4"}},
-}
 
 DETAIL_COLUMNS = [
     "Over_SLA_Day", "TICKETID", "AGING", "CREATIONDATE", "TARGETFINISH",
@@ -105,15 +99,6 @@ def fetch_rows(gs_client=None):
         _, gs_client = get_drive_and_sheets_clients()
     ws = _get_worksheet(gs_client)
     return ws.get_all_records()
-
-
-def _row_matches_view(row, view_key):
-    view = BOOKMARK_VIEWS[view_key]
-    if view["bookmark"] is not None:
-        return str(row.get("Bookmark", "")).strip() == view["bookmark"]
-    if view["severity"] is not None:
-        return str(row.get("SEVERITY", "")).strip() in view["severity"]
-    return False
 
 
 def _row_matches_filters(row, region_filter, trueowner_filter, aging_filter, district_filter):

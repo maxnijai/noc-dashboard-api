@@ -41,6 +41,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import openpyxl
 
+from ticket_views import BOOKMARK_VIEWS, row_matches_view
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -236,6 +238,33 @@ def _empty_bucket():
     }
 
 
+def compute_repeat_ticket_counts(rows):
+    """Per BOOKMARK_VIEWS group, count occurrences of each CINAME in this single
+    snapshot's rows (region-filtered). This is intentionally NOT deduplicated by
+    TICKETID - a ticket still pending across many days is meant to count every
+    time it shows up, per MAX's explicit choice. Returns:
+    {view_key: {"cin_counts": {cin: count}, "cin_trueowner": {cin: last_seen_trueowner}}}
+    """
+    filtered = [r for r in rows if str(r.get("Region", "")).strip() in ALLOWED_REGIONS]
+    result = {vk: {"cin_counts": {}, "cin_trueowner": {}} for vk in BOOKMARK_VIEWS}
+
+    for row_idx, r in enumerate(filtered):
+        if row_idx % 8000 == 0:
+            time.sleep(0.02)
+        cin = str(r.get("CINAME", "")).strip()
+        if not cin:
+            continue
+        owner = str(r.get("TRUEOWNERGROUP", "")).strip()
+        for vk in BOOKMARK_VIEWS:
+            if row_matches_view(r, vk):
+                bucket = result[vk]
+                bucket["cin_counts"][cin] = bucket["cin_counts"].get(cin, 0) + 1
+                if owner:
+                    bucket["cin_trueowner"][cin] = owner
+
+    return result
+
+
 def compute_daily_aggregate(rows):
     """rows: list of dict rows from download_xlsx_as_rows (already includes ALL regions).
     Returns nested dict: {group_key: {filter_key: bucket}}"""
@@ -287,6 +316,7 @@ def compute_daily_aggregate(rows):
                 if aging in OVER_24H_AGING_KEYS:
                     rb["actual_over_sla"] += 1
 
+    result["_repeat_ticket"] = compute_repeat_ticket_counts(rows)
     return result
 
 
@@ -510,6 +540,46 @@ def build_hourly_api_response(gs_client, spreadsheet_id, hours=24, trueowner_fil
         rows, label_key="dates", extra_meta={"hours": hours},
         trueowner_filter=trueowner_filter, region_filter=region_filter,
     )
+
+
+def build_repeat_ticket_response(gs_client, spreadsheet_id, view_key, days=30, top_n=50):
+    """Sums CINAME occurrence counts (raw, not deduped) across the last `days`
+    daily snapshots for the given BOOKMARK_VIEWS key, and returns the top_n
+    CINAMEs ranked descending. Days with no stored snapshot are silently
+    skipped (e.g. before the feature was deployed, or a missed backfill)."""
+    if view_key not in BOOKMARK_VIEWS:
+        raise ValueError(f"Unknown view_key {view_key!r}")
+
+    rows = load_trend_range(gs_client, spreadsheet_id, days=days)
+    totals = {}
+    trueowner_of = {}
+    days_covered = 0
+
+    for r in rows:
+        repeat = r["data"].get("_repeat_ticket")
+        if not repeat:
+            continue  # older snapshot saved before this feature existed
+        bucket = repeat.get(view_key)
+        if not bucket:
+            continue
+        days_covered += 1
+        for cin, cnt in bucket.get("cin_counts", {}).items():
+            totals[cin] = totals.get(cin, 0) + cnt
+        for cin, owner in bucket.get("cin_trueowner", {}).items():
+            trueowner_of[cin] = owner  # last-seen wins, rows are date-ordered
+
+    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+    return {
+        "view": view_key,
+        "view_label": BOOKMARK_VIEWS[view_key]["label"],
+        "days_requested": days,
+        "days_covered": days_covered,
+        "dates_range": {"from": rows[0]["date"] if rows else None, "to": rows[-1]["date"] if rows else None},
+        "ranking": [
+            {"rank": i + 1, "ciname": cin, "count": cnt, "trueowner": trueowner_of.get(cin)}
+            for i, (cin, cnt) in enumerate(ranked)
+        ],
+    }
 
 
 # Example APScheduler wiring for app.py:
