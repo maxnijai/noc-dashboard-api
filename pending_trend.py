@@ -327,7 +327,6 @@ def compute_daily_aggregate(rows):
                 if aging in OVER_24H_AGING_KEYS:
                     rb["actual_over_sla"] += 1
 
-    result["_repeat_ticket"] = compute_repeat_ticket_counts(rows)
     return result
 
 
@@ -336,6 +335,7 @@ def compute_daily_aggregate(rows):
 # ---------------------------------------------------------------------------
 
 HOURLY_TREND_SHEET = "PendingTrendHourly"
+REPEAT_TICKET_SHEET = "PendingTrendRepeatDaily"
 
 def _ensure_sheet_tab_named(spreadsheet, sheet_name):
     try:
@@ -353,13 +353,20 @@ def save_aggregate(gs_client, spreadsheet_id, key_str, source_file, aggregate, s
     existing = ws.col_values(1)  # key column
     payload = json.dumps(aggregate, ensure_ascii=False, separators=(",", ":"))
 
+    if len(payload) > 49000:
+        log.warning(
+            "save_aggregate: %s payload for %s is %d chars - close to or over "
+            "the Sheets 50,000-char cell limit and may fail to save",
+            sheet_name, key_str, len(payload),
+        )
+
     if key_str in existing:
         row_idx = existing.index(key_str) + 1
         ws.update(f"A{row_idx}:C{row_idx}", [[key_str, source_file, payload]])
-        log.info("Updated %s row for %s", sheet_name, key_str)
+        log.info("Updated %s row for %s (%d chars)", sheet_name, key_str, len(payload))
     else:
         ws.append_row([key_str, source_file, payload])
-        log.info("Appended %s row for %s", sheet_name, key_str)
+        log.info("Appended %s row for %s (%d chars)", sheet_name, key_str, len(payload))
 
 
 def load_range_named(gs_client, spreadsheet_id, sheet_name, n):
@@ -415,6 +422,13 @@ def run_nightly_job(spreadsheet_id, for_date=None):
     rows = download_xlsx_as_rows(drive_service, file_id)
     aggregate = compute_daily_aggregate(rows)
     save_daily_aggregate(gs_client, spreadsheet_id, for_date.isoformat(), filename, aggregate)
+
+    # Repeat-ticket data lives in its own sheet - it can be sizeable (raw
+    # TICKETID lists) and would otherwise blow past the 50k-character-per-cell
+    # limit if crammed into the same JSON blob as the main aggregate above.
+    repeat_data = compute_repeat_ticket_counts(rows)
+    save_aggregate(gs_client, spreadsheet_id, for_date.isoformat(), filename, repeat_data, REPEAT_TICKET_SHEET)
+
     return True
 
 
@@ -563,15 +577,13 @@ def build_repeat_ticket_response(gs_client, spreadsheet_id, view_key, days=30, t
     if view_key not in BOOKMARK_VIEWS:
         raise ValueError(f"Unknown view_key {view_key!r}")
 
-    rows = load_trend_range(gs_client, spreadsheet_id, days=days)
+    rows = load_range_named(gs_client, spreadsheet_id, REPEAT_TICKET_SHEET, days)
     ticket_sets = {}   # {cin: set(ticket_id, ...)}
     trueowner_of = {}
     days_covered = 0
 
     for r in rows:
-        repeat = r["data"].get("_repeat_ticket")
-        if not repeat:
-            continue  # older snapshot saved before this feature existed
+        repeat = r["data"]
         bucket = repeat.get(view_key)
         if not bucket:
             continue
