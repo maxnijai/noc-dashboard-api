@@ -240,13 +240,17 @@ def _empty_bucket():
 
 def compute_repeat_ticket_counts(rows):
     """Per BOOKMARK_VIEWS group, count occurrences of each CINAME in this single
-    snapshot's rows (region-filtered). This is intentionally NOT deduplicated by
-    TICKETID - a ticket still pending across many days is meant to count every
-    time it shows up, per MAX's explicit choice. Returns:
+    snapshot's rows (region-filtered). Counts once per TICKETID per snapshot -
+    if the same ticket appears twice in one day's export (data quality dupe),
+    it's only counted once for that day. A ticket still pending on a LATER
+    day's snapshot is a separate count (that's the point: long-pending tickets
+    accumulate a higher repeat count across days), so this dedup is strictly
+    within a single snapshot, not across the whole date range. Returns:
     {view_key: {"cin_counts": {cin: count}, "cin_trueowner": {cin: last_seen_trueowner}}}
     """
     filtered = [r for r in rows if str(r.get("Region", "")).strip() in ALLOWED_REGIONS]
     result = {vk: {"cin_counts": {}, "cin_trueowner": {}} for vk in BOOKMARK_VIEWS}
+    seen_ticket_ids = {vk: set() for vk in BOOKMARK_VIEWS}
 
     for row_idx, r in enumerate(filtered):
         if row_idx % 8000 == 0:
@@ -254,9 +258,14 @@ def compute_repeat_ticket_counts(rows):
         cin = str(r.get("CINAME", "")).strip()
         if not cin:
             continue
+        ticket_id = str(r.get("TICKETID", "")).strip()
         owner = str(r.get("TRUEOWNERGROUP", "")).strip()
         for vk in BOOKMARK_VIEWS:
             if row_matches_view(r, vk):
+                if ticket_id:
+                    if ticket_id in seen_ticket_ids[vk]:
+                        continue  # already counted this ticket for this snapshot
+                    seen_ticket_ids[vk].add(ticket_id)
                 bucket = result[vk]
                 bucket["cin_counts"][cin] = bucket["cin_counts"].get(cin, 0) + 1
                 if owner:
