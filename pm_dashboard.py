@@ -30,11 +30,11 @@ DN_COLS = {
 }
 
 NODEB_COLS = {
-    "site_id":  0,   # A
-    "cab_no":   4,   # E
-    "bat_bt":   196, # GO
-    "vfy_st":   269, # JJ
-    "vfy_name": 270, # JK
+    "site_id":  1,   # A
+    "cab_no":   5,   # E
+    "bat_bt":   197, # GO
+    "vfy_st":   270, # JJ
+    "vfy_name": 271, # JK
 }
 
 _pm_cache = {}
@@ -54,7 +54,8 @@ def _load_tab(tab: str) -> list[list]:
     return data
 
 def g(row, idx):
-    return row[idx].strip() if len(row) > idx else ""
+    i = idx - 1  # convert 1-based to 0-based
+    return row[i].strip() if len(row) > i else ""
 
 def _parse_dn_rows(vals):
     rows = []
