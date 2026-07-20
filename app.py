@@ -12,6 +12,8 @@ from pending_trend import (
     build_api_response,
     build_hourly_api_response,
     build_repeat_ticket_response,
+    build_repeat_ticket_hourly_trend,
+    load_repeat_ticket_tickets_for_ciname,
     get_drive_and_sheets_clients,
     bangkok_now,
 )
@@ -2128,6 +2130,38 @@ def api_repeat_ticket():
         return jsonify(data)
     except Exception as e:
         log.exception("repeat-ticket API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/repeat-ticket/hourly-trend')
+def api_repeat_ticket_hourly_trend():
+    view = request.args.get('view', default='FBB')
+    if view not in BOOKMARK_VIEWS:
+        return jsonify({'error': f'Unknown view {view!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
+    hours = request.args.get('hours', default=168, type=int)  # 7 days
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_repeat_ticket_hourly_trend(gs_client, SHEET_ID, view_key=view, hours=hours)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("repeat-ticket hourly-trend API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/repeat-ticket/tickets')
+def api_repeat_ticket_tickets():
+    view = request.args.get('view', default='FBB')
+    if view not in BOOKMARK_VIEWS:
+        return jsonify({'error': f'Unknown view {view!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
+    ciname = request.args.get('ciname')
+    if not ciname:
+        return jsonify({'error': 'ciname is required'}), 400
+    days = request.args.get('days', default=30, type=int)
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        since_date_str = (bangkok_now().date() - timedelta(days=days)).isoformat()
+        tickets = load_repeat_ticket_tickets_for_ciname(gs_client, SHEET_ID, view, ciname, since_date_str)
+        return jsonify({'ciname': ciname, 'view': view, 'tickets': tickets})
+    except Exception as e:
+        log.exception("repeat-ticket tickets API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')

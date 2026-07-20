@@ -847,6 +847,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <button class="btn-secondary rt-view-btn" data-view="NSA34">NSA3 / NSA4</button>
     </div>
 
+    <div style="font-size:13px; font-weight:500; margin-bottom:4px;">Ticket ใหม่ (CINAME เดิม) รายชั่วโมง — ย้อนหลัง 7 วัน</div>
+    <div style="font-size:11px; color:var(--text3); margin-bottom:8px;" id="rt-hourly-status"></div>
+    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:24px;">
+      <canvas id="rt-hourly-chart"></canvas>
+    </div>
+
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
       <label>ช่วงเวลาย้อนหลัง:
         <select id="rt-days">
@@ -872,6 +878,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th style="text-align:left; padding:8px 12px;">TRUEOWNERGROUP</th>
             <th style="text-align:right; padding:8px 12px;">ticket ซ้ำ</th>
             <th style="text-align:left; padding:8px 12px; width:200px;"></th>
+            <th style="text-align:center; padding:8px 12px; width:80px;">Detail</th>
           </tr>
         </thead>
         <tbody id="rt-body"></tbody>
@@ -4420,6 +4427,14 @@ function renderPivot(ft) {
 (function () {
   let currentView = 'FBB';
   let loaded = false;
+  let hourlyChart = null;
+
+  function fmtHourLabel(h) {
+    const [datePart, timePart] = h.split('T');
+    const [y, m, d] = datePart.split('-').map(Number);
+    const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return `${d} ${months[m]} ${timePart}`;
+  }
 
   function getDays() {
     const sel = document.getElementById('rt-days');
@@ -4429,6 +4444,81 @@ function renderPivot(ft) {
     }
     return parseInt(sel.value, 10);
   }
+
+  async function reloadHourlyTrend() {
+    const statusEl = document.getElementById('rt-hourly-status');
+    statusEl.textContent = 'กำลังโหลด...';
+    try {
+      const res = await fetch(`/api/repeat-ticket/hourly-trend?view=${currentView}&hours=168`);
+      if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; return; }
+      const data = await res.json();
+      statusEl.textContent = `ครอบคลุม ${data.hours_covered}/${data.hours_requested} ชั่วโมงที่มีข้อมูล — รวมทั้งหมด ${data.total_new} ticket ใหม่`;
+
+      const ctx = document.getElementById('rt-hourly-chart');
+      if (hourlyChart) hourlyChart.destroy();
+      hourlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.hours.map(fmtHourLabel),
+          datasets: [{
+            label: 'Ticket ใหม่ (CINAME เดิม)', data: data.new_ticket_counts,
+            backgroundColor: '#E24B4A', borderRadius: 2,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { ticks: { maxRotation: 60, minRotation: 0, autoSkip: true, font: { size: 9 } } }, y: { beginAtZero: true } },
+          plugins: { legend: { display: false } },
+        },
+      });
+    } catch (e) {
+      statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ';
+      console.error('Repeat ticket hourly trend load failed', e);
+    }
+  }
+
+  async function showTicketDetail(ciname) {
+    const days = getDays();
+    document.getElementById('modal-title').textContent = `Ticket ของ ${ciname}`;
+    const body = document.getElementById('modal-body');
+    body.innerHTML = '<div style="padding:12px; color:var(--text3);">กำลังโหลด...</div>';
+    document.getElementById('kpi-modal').style.display = 'block';
+    try {
+      const res = await fetch(`/api/repeat-ticket/tickets?view=${currentView}&ciname=${encodeURIComponent(ciname)}&days=${days}`);
+      const data = await res.json();
+      const tickets = data.tickets || [];
+      if (!tickets.length) {
+        body.innerHTML = '<div style="padding:12px; color:var(--text3);">ไม่พบ ticket</div>';
+        return;
+      }
+      body.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead>
+            <tr style="background:var(--bg3);">
+              <th style="text-align:left; padding:6px 10px;">TICKETID</th>
+              <th style="text-align:left; padding:6px 10px;">Subject</th>
+              <th style="text-align:left; padding:6px 10px;">Creation Date</th>
+              <th style="text-align:left; padding:6px 10px;">Severity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tickets.map(t => `
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:6px 10px;">${t.ticket_id}</td>
+                <td style="padding:6px 10px;">${t.subject || ''}</td>
+                <td style="padding:6px 10px;">${t.creationdate || ''}</td>
+                <td style="padding:6px 10px;">${t.severity || ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      body.innerHTML = '<div style="padding:12px; color:var(--text3);">โหลดข้อมูลไม่สำเร็จ</div>';
+      console.error('Repeat ticket detail load failed', e);
+    }
+  }
+  window.showRepeatTicketDetail = showTicketDetail;
 
   async function reload() {
     const statusEl = document.getElementById('rt-status');
@@ -4452,8 +4542,9 @@ function renderPivot(ft) {
           <td style="padding:8px 12px; color:var(--text3);">${r.trueowner || ''}</td>
           <td style="padding:8px 12px; text-align:right; font-weight:600;">${r.count}</td>
           <td style="padding:8px 12px;"><div style="background:#E24B4A; border-radius:4px; height:8px; width:${Math.round(r.count / max * 100)}%;"></div></td>
+          <td style="padding:8px 12px; text-align:center;"><button class="btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="showRepeatTicketDetail('${r.ciname.replace(/'/g, "\\'")}')">Detail</button></td>
         </tr>
-      `).join('') || '<tr><td colspan="5" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+      `).join('') || '<tr><td colspan="6" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
       loaded = true;
     } catch (e) {
       statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ';
@@ -4466,6 +4557,7 @@ function renderPivot(ft) {
       currentView = btn.dataset.view;
       document.querySelectorAll('.rt-view-btn').forEach(b => b.classList.toggle('active', b === btn));
       reload();
+      reloadHourlyTrend();
     });
   });
   document.querySelector('.rt-view-btn[data-view="FBB"]').classList.add('active');
@@ -4477,7 +4569,10 @@ function renderPivot(ft) {
   document.getElementById('rt-days-custom').addEventListener('change', reload);
   document.getElementById('rt-reload').addEventListener('click', reload);
 
-  window.initRepeatTicketTab = function () { if (!loaded) reload(); };
+  window.initRepeatTicketTab = function () {
+    if (!loaded) reload();
+    if (!hourlyChart) reloadHourlyTrend();
+  };
 })();
 </script>
 
