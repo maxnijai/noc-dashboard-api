@@ -724,10 +724,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="page" id="page-pendingticket">
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
       <label>Bookmark:
-        <select id="ptk-bookmark"><option value="">ทั้งหมด</option></select>
+        <select id="ptk-bookmark" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
       <label>TRUEOWNERGROUP:
-        <select id="ptk-trueowner"><option value="">ทั้งหมด</option></select>
+        <select id="ptk-trueowner" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
+      </label>
+      <label>SEVERITY:
+        <select id="ptk-severity" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
+      </label>
+      <label>DISTRICT:
+        <select id="ptk-district" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
       <span id="ptk-status" style="color:var(--text3); font-size:12px;"></span>
@@ -4058,6 +4064,10 @@ function renderPivot(ft) {
 
   function el(id) { return document.getElementById(id); }
 
+  function selectedValues(sel) {
+    return [...sel.selectedOptions].map(o => o.value).filter(Boolean);
+  }
+
   function optionsHtml(options, selected) {
     return '<option value=""></option>' + options.map(o =>
       `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}>${o}</option>`
@@ -4065,14 +4075,18 @@ function renderPivot(ft) {
   }
 
   async function fetchData() {
-    const bookmark = el('ptk-bookmark').value;
-    const trueowner = el('ptk-trueowner').value;
+    const bookmark = selectedValues(el('ptk-bookmark'));
+    const trueowner = selectedValues(el('ptk-trueowner'));
+    const severity = selectedValues(el('ptk-severity'));
+    const district = selectedValues(el('ptk-district'));
     const statusEl = el('ptk-status');
     statusEl.textContent = 'กำลังโหลด...';
 
     const params = new URLSearchParams();
-    if (bookmark) params.set('bookmark', bookmark);
-    if (trueowner) params.set('trueowner', trueowner);
+    if (bookmark.length) params.set('bookmark', bookmark.join(','));
+    if (trueowner.length) params.set('trueowner', trueowner.join(','));
+    if (severity.length) params.set('severity', severity.join(','));
+    if (district.length) params.set('district', district.join(','));
 
     const res = await fetch(`/api/pending-ticket?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
@@ -4081,23 +4095,27 @@ function renderPivot(ft) {
     return data;
   }
 
+  function populateStaticMulti(sel, values) {
+    if (sel.dataset.populated) return;
+    values.forEach(v => {
+      const opt = document.createElement('option'); opt.value = v; opt.textContent = v;
+      sel.appendChild(opt);
+    });
+    sel.dataset.populated = '1';
+  }
+
   function populateFilters(data) {
-    const bSel = el('ptk-bookmark');
-    if (!bSel.dataset.populated) {
-      data.filter_options.bookmarks.forEach(b => {
-        const opt = document.createElement('option'); opt.value = b; opt.textContent = b;
-        bSel.appendChild(opt);
-      });
-      bSel.dataset.populated = '1';
-    }
-    const tSel = el('ptk-trueowner');
-    if (!tSel.dataset.populated) {
-      data.filter_options.trueowners.forEach(t => {
-        const opt = document.createElement('option'); opt.value = t; opt.textContent = t;
-        tSel.appendChild(opt);
-      });
-      tSel.dataset.populated = '1';
-    }
+    populateStaticMulti(el('ptk-bookmark'), data.filter_options.bookmarks);
+    populateStaticMulti(el('ptk-trueowner'), data.filter_options.trueowners);
+    populateStaticMulti(el('ptk-severity'), data.filter_options.severities);
+
+    // District counts are faceted on the other filters, so this list is
+    // rebuilt every load - but keep whatever the user already had selected.
+    const dSel = el('ptk-district');
+    const previouslySelected = new Set(selectedValues(dSel));
+    dSel.innerHTML = data.filter_options.districts.map(d =>
+      `<option value="${d.district.replace(/"/g, '&quot;')}"${previouslySelected.has(d.district) ? ' selected' : ''}>${d.district} (${d.count})</option>`
+    ).join('');
   }
 
   function priorityBadge(p) {
@@ -4213,6 +4231,8 @@ function renderPivot(ft) {
   el('ptk-reload').addEventListener('click', reload);
   el('ptk-bookmark').addEventListener('change', reload);
   el('ptk-trueowner').addEventListener('change', reload);
+  el('ptk-severity').addEventListener('change', reload);
+  el('ptk-district').addEventListener('change', reload);
 
   window.initPendingTicketTab = function () { if (!loaded) reload(); };
 })();

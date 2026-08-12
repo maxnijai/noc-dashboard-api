@@ -207,7 +207,18 @@ def export_to_external_sheet(gs_client, tickets, insert_time_str):
 # Combined response
 # ---------------------------------------------------------------------------
 
-def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None):
+def _multi_filter(entries, key, values):
+    if not values:
+        return entries
+    values_set = set(values)
+    return [e for e in entries if str(e.get(key, "")).strip() in values_set]
+
+
+def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
+                                   severity_filter=None, district_filter=None):
+    """bookmark_filter/trueowner_filter/severity_filter/district_filter: each an
+    optional LIST of values (multi-select) - None or empty means "no filter,
+    include everything in that dimension"."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
@@ -221,21 +232,9 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
     ]
 
-    filter_options = {
-        "bookmarks": sorted({str(r.get("Bookmark", "")).strip() for r in scoped if r.get("Bookmark")}),
-        "trueowners": sorted({str(r.get("TRUEOWNERGROUP", "")).strip() for r in scoped if r.get("TRUEOWNERGROUP")}),
-    }
-
-    matched = scoped
-    if bookmark_filter:
-        matched = [r for r in matched if str(r.get("Bookmark", "")).strip() == bookmark_filter]
-    if trueowner_filter:
-        matched = [r for r in matched if str(r.get("TRUEOWNERGROUP", "")).strip() == trueowner_filter]
-
     work_log = load_work_log(gs_client)
 
-    tickets = []
-    for r in matched:
+    def build_entry(r):
         ticket_id = str(r.get("TICKETID", "")).strip()
         nn_cluster = r.get("NN_ClusterID")
         nano = "NANO" if nn_cluster not in (None, "", "None") else ""
@@ -264,23 +263,48 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
                 entry["plan_closed_overdue"] = pcd < today
             except ValueError:
                 pass
-        tickets.append(entry)
+        return entry
 
-    tickets.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
+    all_entries = [build_entry(r) for r in scoped]
+    all_entries.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
+
+    filter_options = {
+        "bookmarks": sorted({str(e.get("Bookmark", "")).strip() for e in all_entries if e.get("Bookmark")}),
+        "trueowners": sorted({str(e.get("TRUEOWNERGROUP", "")).strip() for e in all_entries if e.get("TRUEOWNERGROUP")}),
+        "severities": sorted({str(e.get("SEVERITY", "")).strip() for e in all_entries if e.get("SEVERITY")}),
+    }
+
+    # District counts are faceted on the OTHER active filters (bookmark/trueowner/
+    # severity) so the numbers next to each district option stay accurate as
+    # those filters change - just not on the district filter itself.
+    pre_district = _multi_filter(all_entries, "Bookmark", bookmark_filter)
+    pre_district = _multi_filter(pre_district, "TRUEOWNERGROUP", trueowner_filter)
+    pre_district = _multi_filter(pre_district, "SEVERITY", severity_filter)
+    district_counts = {}
+    for e in pre_district:
+        d = str(e.get("DISTRICT", "")).strip()
+        if d:
+            district_counts[d] = district_counts.get(d, 0) + 1
+    filter_options["districts"] = [
+        {"district": d, "count": c}
+        for d, c in sorted(district_counts.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    matched_entries = _multi_filter(pre_district, "DISTRICT", district_filter)
 
     export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     try:
-        export_to_external_sheet(gs_client, tickets, export_insert_time)
+        export_to_external_sheet(gs_client, all_entries, export_insert_time)  # always the FULL, unfiltered set
     except Exception:
         log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
 
     return {
-        "total": len(tickets),
+        "total": len(matched_entries),
         "filter_options": filter_options,
         "group_problem_options": GROUP_PROBLEM_OPTIONS,
         "action_team_options": ACTION_TEAM_OPTIONS,
         "aging_colors": AGING_COLORS,
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
         "export_insert_time": export_insert_time,
-        "tickets": tickets,
+        "tickets": matched_entries,
     }

@@ -1971,11 +1971,20 @@ def api_realtime_monitor_insert_time():
 
 @app.route('/api/pending-ticket')
 def api_pending_ticket():
-    bookmark = request.args.get('bookmark') or None
-    trueowner = request.args.get('trueowner') or None
+    def multi(name):
+        val = request.args.get(name) or None
+        return [v.strip() for v in val.split(',') if v.strip()] if val else None
+
+    bookmark = multi('bookmark')
+    trueowner = multi('trueowner')
+    severity = multi('severity')
+    district = multi('district')
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        data = build_pending_ticket_response(gs_client, bookmark_filter=bookmark, trueowner_filter=trueowner)
+        data = build_pending_ticket_response(
+            gs_client, bookmark_filter=bookmark, trueowner_filter=trueowner,
+            severity_filter=severity, district_filter=district,
+        )
         return jsonify(data)
     except Exception as e:
         log.exception("pending-ticket API failed")
