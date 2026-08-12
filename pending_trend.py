@@ -558,12 +558,10 @@ def run_nightly_job(spreadsheet_id, for_date=None):
     aggregate = compute_daily_aggregate(rows)
     save_daily_aggregate(gs_client, spreadsheet_id, for_date.isoformat(), filename, aggregate)
 
-    # Repeat-ticket data goes into its own flat detail sheet (one row per
-    # ticket) instead of a JSON blob - a single day's worth of tickets across
-    # all 4 views turned out to be far more than fits in one 50,000-character
-    # Sheets cell, so it needs a format with no per-cell size ceiling.
-    repeat_rows = compute_repeat_ticket_counts(rows)
-    save_repeat_ticket_detail(gs_client, spreadsheet_id, for_date.isoformat(), repeat_rows)
+    # NOTE: repeat-ticket tracking (Repeat Ticket tab) was retired - it read
+    # the whole PendingTrendRepeatDetail/Hourly sheets on every page load,
+    # which only grew (never pruned) and got slower every day. Left the
+    # compute/save functions below in place but no longer call them here.
 
     return True
 
@@ -592,11 +590,8 @@ def run_hourly_job(spreadsheet_id, for_hour=None):
     key_str = for_hour.strftime("%Y-%m-%dT%H:00")
     save_aggregate(gs_client, spreadsheet_id, key_str, filename, aggregate, HOURLY_TREND_SHEET)
 
-    # Also track repeat-ticket detail hourly, so the "new tickets per hour"
-    # trend can distinguish a genuinely new ticket from one still pending
-    # from an earlier hour.
-    repeat_rows = compute_repeat_ticket_counts(rows)
-    save_repeat_ticket_detail(gs_client, spreadsheet_id, key_str, repeat_rows, sheet_name=REPEAT_TICKET_DETAIL_HOURLY_SHEET)
+    # NOTE: repeat-ticket hourly tracking (Repeat Ticket tab) was retired -
+    # see the matching note in run_nightly_job.
 
     return True
 
