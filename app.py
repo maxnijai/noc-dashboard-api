@@ -1979,11 +1979,12 @@ def api_pending_ticket():
     trueowner = multi('trueowner')
     severity = multi('severity')
     district = multi('district')
+    group_problem = multi('group_problem')
     try:
         _, gs_client = get_drive_and_sheets_clients()
         data = build_pending_ticket_response(
             gs_client, bookmark_filter=bookmark, trueowner_filter=trueowner,
-            severity_filter=severity, district_filter=district,
+            severity_filter=severity, district_filter=district, group_problem_filter=group_problem,
         )
         return jsonify(data)
     except Exception as e:

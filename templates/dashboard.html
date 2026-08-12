@@ -735,6 +735,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>DISTRICT:
         <select id="ptk-district" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
+      <label>Group Problem:
+        <select id="ptk-group-problem-filter" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (แสดงเฉพาะรายการที่มีคนกรอกไว้)"></select>
+      </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
       <span id="ptk-status" style="color:var(--text3); font-size:12px;"></span>
     </div>
@@ -4079,6 +4082,7 @@ function renderPivot(ft) {
     const trueowner = selectedValues(el('ptk-trueowner'));
     const severity = selectedValues(el('ptk-severity'));
     const district = selectedValues(el('ptk-district'));
+    const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
     const statusEl = el('ptk-status');
     statusEl.textContent = 'กำลังโหลด...';
 
@@ -4087,6 +4091,7 @@ function renderPivot(ft) {
     if (trueowner.length) params.set('trueowner', trueowner.join(','));
     if (severity.length) params.set('severity', severity.join(','));
     if (district.length) params.set('district', district.join(','));
+    if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
 
     const res = await fetch(`/api/pending-ticket?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
@@ -4115,6 +4120,14 @@ function renderPivot(ft) {
     const previouslySelected = new Set(selectedValues(dSel));
     dSel.innerHTML = data.filter_options.districts.map(d =>
       `<option value="${d.district.replace(/"/g, '&quot;')}"${previouslySelected.has(d.district) ? ' selected' : ''}>${d.district} (${d.count})</option>`
+    ).join('');
+
+    // Group Problem filter options only ever grow as the team fills more in,
+    // so it's safe to rebuild every load too (keeps new entries visible).
+    const gSel = el('ptk-group-problem-filter');
+    const prevGroupSelected = new Set(selectedValues(gSel));
+    gSel.innerHTML = data.filter_options.group_problems.map(g =>
+      `<option value="${g.replace(/"/g, '&quot;')}"${prevGroupSelected.has(g) ? ' selected' : ''}>${g}</option>`
     ).join('');
   }
 
@@ -4233,6 +4246,7 @@ function renderPivot(ft) {
   el('ptk-trueowner').addEventListener('change', reload);
   el('ptk-severity').addEventListener('change', reload);
   el('ptk-district').addEventListener('change', reload);
+  el('ptk-group-problem-filter').addEventListener('change', reload);
 
   window.initPendingTicketTab = function () { if (!loaded) reload(); };
 })();

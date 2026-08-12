@@ -215,10 +215,10 @@ def _multi_filter(entries, key, values):
 
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
-                                   severity_filter=None, district_filter=None):
-    """bookmark_filter/trueowner_filter/severity_filter/district_filter: each an
-    optional LIST of values (multi-select) - None or empty means "no filter,
-    include everything in that dimension"."""
+                                   severity_filter=None, district_filter=None, group_problem_filter=None):
+    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter:
+    each an optional LIST of values (multi-select) - None or empty means "no
+    filter, include everything in that dimension"."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
@@ -291,6 +291,11 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
     ]
 
     matched_entries = _multi_filter(pre_district, "DISTRICT", district_filter)
+    matched_entries = _multi_filter(matched_entries, "group_problem", group_problem_filter)
+
+    filter_options["group_problems"] = sorted({
+        str(e.get("group_problem", "")).strip() for e in all_entries if e.get("group_problem")
+    })
 
     export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     try:
