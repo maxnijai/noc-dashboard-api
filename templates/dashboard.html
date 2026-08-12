@@ -73,6 +73,8 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .btn-active { background: var(--bg4); border-color: var(--blue); color: var(--blue); }
 .rm-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
 .rt-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
+.ptk-overdue { background: #fce7e6 !important; border-color: #E24B4A !important; }
+.ptk-dirty { box-shadow: 0 0 0 2px rgba(47,111,214,.35); }
 #rm-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 
@@ -629,6 +631,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.65 2.35a7 7 0 10.35 8.9 1 1 0 00-1.7-1.05 5 5 0 11-.25-6.35L10 6h5V1l-1.35 1.35z"/></svg>
     Repeat Ticket
   </div>
+  <div class="nav-item" onclick="showPage('pendingticket')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5.41a1 1 0 00-.29-.7L9.3 1.3A1 1 0 008.59 1H4zm4 1.5L11.5 6H8V2.5zM5 8h6v1H5V8zm0 2.5h6v1H5v-1zm0 2.5h4v1H5v-1z"/></svg>
+    Pending Ticket
+  </div>
   <div class="nav-section" style="margin-top:8px">PM</div>
   <div class="nav-item" onclick="showPage('pmdashboard')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2zm0 3h12v2H2zm0 3h8v2H2zm0 3h5v2H2zm9 0l2 2 3-3-1-1-2 2-1-1z"/></svg>
@@ -887,6 +893,52 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </tr>
         </thead>
         <tbody id="rt-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="page" id="page-pendingticket">
+    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+      <label>Bookmark:
+        <select id="ptk-bookmark"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label>TRUEOWNERGROUP:
+        <select id="ptk-trueowner"><option value="">ทั้งหมด</option></select>
+      </label>
+      <button id="ptk-reload" class="btn-secondary">Refresh</button>
+      <span id="ptk-status" style="color:var(--text3); font-size:12px;"></span>
+    </div>
+
+    <div style="overflow:auto; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
+      <table style="border-collapse:collapse; font-size:12px; white-space:nowrap;">
+        <thead>
+          <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
+            <th style="padding:6px 8px; text-align:left; position:sticky; left:0; background:var(--bg3); z-index:3;">TICKETID</th>
+            <th style="padding:6px 8px; text-align:left;">CREATIONDATE</th>
+            <th style="padding:6px 8px; text-align:left;">TARGETFINISH</th>
+            <th style="padding:6px 8px; text-align:left;">SEVERITY</th>
+            <th style="padding:6px 8px; text-align:left; min-width:220px;">SUBJECT</th>
+            <th style="padding:6px 8px; text-align:left;">CINAME</th>
+            <th style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
+            <th style="padding:6px 8px; text-align:left;">Bookmark</th>
+            <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
+            <th style="padding:6px 8px; text-align:left;">SUBDISTRICT</th>
+            <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
+            <th style="padding:6px 8px; text-align:left;">Tech_Team</th>
+            <th style="padding:6px 8px; text-align:left;">Tech_Status</th>
+            <th style="padding:6px 8px; text-align:left;">Priority</th>
+            <th style="padding:6px 8px; text-align:left;">NANO</th>
+            <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
+            <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
+            <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
+            <th style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
+            <th style="padding:6px 8px; text-align:left; min-width:140px;">Plan Closed Date</th>
+            <th style="padding:6px 8px; text-align:left; min-width:90px;">Save</th>
+            <th style="padding:6px 8px; text-align:left;">อัปเดตล่าสุด</th>
+            <th style="padding:6px 8px; text-align:left;">โดย</th>
+          </tr>
+        </thead>
+        <tbody id="ptk-body"></tbody>
       </table>
     </div>
   </div>
@@ -3269,7 +3321,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly','realtimemonitor','repeatticket','pmdashboard'][i]===id);
+    el.classList.toggle('active', ['pendingtrend','pendingtrendhourly','realtimemonitor','repeatticket','pendingticket','pmdashboard'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3279,6 +3331,7 @@ function showPage(id) {
   if (id==='pendingtrendhourly') { setTimeout(()=>{ if (window.initPendingTrendHourlyTab) window.initPendingTrendHourlyTab(); },50); }
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
   if (id==='repeatticket') { setTimeout(()=>{ if (window.initRepeatTicketTab) window.initRepeatTicketTab(); },50); }
+  if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='pmdashboard') { setTimeout(()=>{ if (window.initPMDashboard) window.initPMDashboard(); },50); }
 }
 
@@ -4579,6 +4632,169 @@ function renderPivot(ft) {
     if (!loaded) reload();
     if (!hourlyChart) reloadHourlyTrend();
   };
+})();
+
+// ===================== PENDING TICKET (operational worksheet) =====================
+(function () {
+  let loaded = false;
+  let groupProblemOptions = [];
+  let actionTeamOptions = [];
+
+  function el(id) { return document.getElementById(id); }
+
+  function optionsHtml(options, selected) {
+    return '<option value=""></option>' + options.map(o =>
+      `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}>${o}</option>`
+    ).join('');
+  }
+
+  async function fetchData() {
+    const bookmark = el('ptk-bookmark').value;
+    const trueowner = el('ptk-trueowner').value;
+    const statusEl = el('ptk-status');
+    statusEl.textContent = 'กำลังโหลด...';
+
+    const params = new URLSearchParams();
+    if (bookmark) params.set('bookmark', bookmark);
+    if (trueowner) params.set('trueowner', trueowner);
+
+    const res = await fetch(`/api/pending-ticket?${params.toString()}`);
+    if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
+    const data = await res.json();
+    statusEl.textContent = `${data.total} tickets — insert_time: ${data.insert_time || '-'}`;
+    return data;
+  }
+
+  function populateFilters(data) {
+    const bSel = el('ptk-bookmark');
+    if (!bSel.dataset.populated) {
+      data.filter_options.bookmarks.forEach(b => {
+        const opt = document.createElement('option'); opt.value = b; opt.textContent = b;
+        bSel.appendChild(opt);
+      });
+      bSel.dataset.populated = '1';
+    }
+    const tSel = el('ptk-trueowner');
+    if (!tSel.dataset.populated) {
+      data.filter_options.trueowners.forEach(t => {
+        const opt = document.createElement('option'); opt.value = t; opt.textContent = t;
+        tSel.appendChild(opt);
+      });
+      tSel.dataset.populated = '1';
+    }
+  }
+
+  function priorityBadge(p) {
+    const colors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
+    if (!p) return '';
+    return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:${colors[p]}22;color:${colors[p]};">${p}</span>`;
+  }
+
+  function renderRows(tickets) {
+    el('ptk-body').innerHTML = tickets.map(t => {
+      const tid = t.TICKETID;
+      const safeTid = tid.replace(/'/g, "\\'");
+      return `
+      <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}">
+        <td style="padding:6px 8px; position:sticky; left:0; background:var(--bg2); font-weight:600;">${tid}</td>
+        <td style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
+        <td style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
+        <td style="padding:6px 8px;">${t.SEVERITY || ''}</td>
+        <td style="padding:6px 8px; white-space:normal; min-width:220px;">${t.SUBJECT || ''}</td>
+        <td style="padding:6px 8px;">${t.CINAME || ''}</td>
+        <td style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
+        <td style="padding:6px 8px;">${t.Bookmark || ''}</td>
+        <td style="padding:6px 8px;">${t.Aging_Flag_Group || ''}</td>
+        <td style="padding:6px 8px;">${t.SUBDISTRICT || ''}</td>
+        <td style="padding:6px 8px;">${t.DISTRICT || ''}</td>
+        <td style="padding:6px 8px;">${t.Tech_Team || ''}</td>
+        <td style="padding:6px 8px;">${t.Tech_Status || ''}</td>
+        <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
+        <td style="padding:6px 8px;">${t.nano || ''}</td>
+        <td style="padding:6px 8px;">
+          <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
+        </td>
+        <td style="padding:6px 8px;">
+          <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
+        </td>
+        <td style="padding:6px 8px;">
+          <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}')" rows="1" style="width:100%; min-width:200px; resize:vertical;">${t.detail || ''}</textarea>
+        </td>
+        <td style="padding:6px 8px;">
+          <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
+        </td>
+        <td style="padding:6px 8px;">
+          <input type="date" class="ptk-field ptk-plan-date ${t.plan_closed_overdue ? 'ptk-overdue' : ''}" value="${t.plan_closed_date || ''}" onchange="markDirty('${safeTid}'); checkOverdue(this)" style="width:100%;">
+        </td>
+        <td style="padding:6px 8px;">
+          <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
+        </td>
+        <td style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
+        <td style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="22" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+  }
+
+  window.checkOverdue = function (input) {
+    if (!input.value) { input.classList.remove('ptk-overdue'); return; }
+    const today = new Date().toISOString().slice(0, 10);
+    input.classList.toggle('ptk-overdue', input.value < today);
+  };
+
+  window.markDirty = function (ticketId) {
+    const row = document.querySelector(`tr[data-ticket-id="${CSS.escape(ticketId)}"]`);
+    if (!row) return;
+    const btn = row.querySelector('.ptk-save-btn');
+    if (btn) btn.disabled = false;
+    row.classList.add('ptk-dirty');
+  };
+
+  window.saveTicketRow = async function (ticketId) {
+    const row = document.querySelector(`tr[data-ticket-id="${CSS.escape(ticketId)}"]`);
+    if (!row) return;
+    const btn = row.querySelector('.ptk-save-btn');
+    btn.disabled = true;
+    btn.textContent = '...';
+    const payload = {
+      ticket_id: ticketId,
+      group_problem: row.querySelector('.ptk-group-problem').value,
+      action_team: row.querySelector('.ptk-action-team').value,
+      detail: row.querySelector('.ptk-detail').value,
+      image_link: row.querySelector('.ptk-link').value,
+      plan_closed_date: row.querySelector('.ptk-plan-date').value,
+    };
+    try {
+      const res = await fetch('/api/pending-ticket/update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('save failed');
+      row.classList.remove('ptk-dirty');
+      btn.textContent = 'Save';
+    } catch (e) {
+      btn.textContent = 'ลองใหม่';
+      btn.disabled = false;
+      console.error('Pending ticket save failed', e);
+    }
+  };
+
+  async function reload() {
+    try {
+      const data = await fetchData();
+      groupProblemOptions = data.group_problem_options;
+      actionTeamOptions = data.action_team_options;
+      populateFilters(data);
+      renderRows(data.tickets);
+      loaded = true;
+    } catch (e) {
+      console.error('Pending ticket load failed', e);
+    }
+  }
+
+  el('ptk-reload').addEventListener('click', reload);
+  el('ptk-bookmark').addEventListener('change', reload);
+  el('ptk-trueowner').addEventListener('change', reload);
+
+  window.initPendingTicketTab = function () { if (!loaded) reload(); };
 })();
 
 // ── PM Dashboard ──────────────────────────────────────────────────────────

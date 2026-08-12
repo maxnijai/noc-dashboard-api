@@ -23,6 +23,10 @@ from realtime_monitor import (
     get_insert_time,
     BOOKMARK_VIEWS,
 )
+from pending_ticket import (
+    build_pending_ticket_response,
+    save_work_log_entry,
+)
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2164,6 +2168,37 @@ def api_repeat_ticket_tickets():
         return jsonify({'ciname': ciname, 'view': view, 'tickets': tickets})
     except Exception as e:
         log.exception("repeat-ticket tickets API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket')
+def api_pending_ticket():
+    bookmark = request.args.get('bookmark') or None
+    trueowner = request.args.get('trueowner') or None
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_pending_ticket_response(gs_client, bookmark_filter=bookmark, trueowner_filter=trueowner)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("pending-ticket API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket/update', methods=['POST'])
+def api_pending_ticket_update():
+    payload = request.get_json(silent=True) or {}
+    ticket_id = payload.get('ticket_id')
+    if not ticket_id:
+        return jsonify({'error': 'ticket_id is required'}), 400
+    fields = {
+        k: payload.get(k, '')
+        for k in ('group_problem', 'action_team', 'detail', 'image_link', 'plan_closed_date')
+    }
+    updated_by = payload.get('updated_by') or 'unknown'  # placeholder until login exists
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        saved = save_work_log_entry(gs_client, ticket_id, fields, updated_by=updated_by)
+        return jsonify({'status': 'saved', 'row': saved})
+    except Exception as e:
+        log.exception("pending-ticket update failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')
