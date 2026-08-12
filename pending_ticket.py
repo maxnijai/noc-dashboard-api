@@ -78,6 +78,18 @@ WORK_LOG_HEADER = [
     "plan_closed_date", "updated_at", "updated_by",
 ]
 
+# External mirror: every build of the Pending Ticket table also gets written
+# here in full, exactly matching what's shown on the web page, plus an
+# insert_time column stamping when that write happened.
+EXPORT_SHEET_ID = "10Y3Pyp6-MqlrcxiDXdAjTNWWZLgDWp94dZvU51lOxWU"
+EXPORT_WORKSHEET_GID = 1260767128
+EXPORT_HEADER = [
+    "TICKETID", "CINAME", "SUBJECT", "Priority", "CREATIONDATE", "TARGETFINISH",
+    "SEVERITY", "TRUEOWNERGROUP", "Bookmark", "Aging_Flag_Group", "SUBDISTRICT",
+    "DISTRICT", "Tech_Team", "Tech_Status", "NANO", "Group_Problem", "Action_Team",
+    "Detail", "Image_Link", "Plan_Closed_Date", "Updated_At", "Updated_By", "insert_time",
+]
+
 
 # ---------------------------------------------------------------------------
 # Live ticket rows
@@ -163,6 +175,34 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
     return row_values
 
 
+def _get_export_worksheet(gs_client):
+    sh = gs_client.open_by_key(EXPORT_SHEET_ID)
+    for ws in sh.worksheets():
+        if ws.id == EXPORT_WORKSHEET_GID:
+            return ws
+    return sh.sheet1
+
+
+def export_to_external_sheet(gs_client, tickets, insert_time_str):
+    """Mirrors the full current Pending Ticket table (exactly what's on the
+    web page) into the external sheet, overwriting whatever was there before.
+    Called once per build_pending_ticket_response(), so it stays in sync
+    every time the tab is loaded or refreshed."""
+    ws = _get_export_worksheet(gs_client)
+    rows = [[
+        t.get("TICKETID", ""), t.get("CINAME", ""), t.get("SUBJECT", ""), t.get("priority", ""),
+        t.get("CREATIONDATE", ""), t.get("TARGETFINISH", ""), t.get("SEVERITY", ""),
+        t.get("TRUEOWNERGROUP", ""), t.get("Bookmark", ""), t.get("Aging_Flag_Group", ""),
+        t.get("SUBDISTRICT", ""), t.get("DISTRICT", ""), t.get("Tech_Team", ""), t.get("Tech_Status", ""),
+        t.get("nano", ""), t.get("group_problem", ""), t.get("action_team", ""), t.get("detail", ""),
+        t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
+        insert_time_str,
+    ] for t in tickets]
+    ws.clear()
+    ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
+    log.info("Exported %d rows to external Pending Ticket mirror sheet", len(rows))
+
+
 # ---------------------------------------------------------------------------
 # Combined response
 # ---------------------------------------------------------------------------
@@ -228,6 +268,12 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
 
     tickets.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
 
+    export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        export_to_external_sheet(gs_client, tickets, export_insert_time)
+    except Exception:
+        log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+
     return {
         "total": len(tickets),
         "filter_options": filter_options,
@@ -235,5 +281,6 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         "action_team_options": ACTION_TEAM_OPTIONS,
         "aging_colors": AGING_COLORS,
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
+        "export_insert_time": export_insert_time,
         "tickets": tickets,
     }

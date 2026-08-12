@@ -27,7 +27,7 @@ Priority (P0/P1/P2), per MAX's existing Telegram-bot convention:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pending_trend import (
     get_drive_and_sheets_clients,
@@ -82,10 +82,17 @@ def _parse_dt(s):
 
 
 def _classify_priority(target_finish_str, now_dt):
+    """Priority reference point is tomorrow's 01:15:00 (Bangkok time) - NOT the
+    literal current moment - to match the same convention used elsewhere
+    (Telegram bot, daily snapshot jobs). diff_hours = reference - TARGETFINISH:
+      > 24h  -> P0 (over SLA by more than a day)
+      0-24h  -> P1 (over SLA, under a day)
+      <= 0h  -> P2 (not yet due)"""
     tf = _parse_dt(target_finish_str)
     if tf is None:
         return None
-    diff_hours = (now_dt - tf).total_seconds() / 3600
+    reference_dt = (now_dt + timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    diff_hours = (reference_dt - tf).total_seconds() / 3600
     if diff_hours > 24:
         return "P0"
     elif diff_hours > 0:

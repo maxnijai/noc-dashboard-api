@@ -77,8 +77,8 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .ptk-dirty { box-shadow: 0 0 0 2px rgba(47,111,214,.35); }
 .ptk-sticky-1 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
 .ptk-sticky-2 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
-.ptk-sticky-3 { position:sticky; left:250px; width:180px; min-width:180px; z-index:3; }
-.ptk-sticky-4 { position:sticky; left:430px; width:70px; min-width:70px; z-index:3; }
+.ptk-sticky-3 { position:sticky; left:250px; width:240px; min-width:240px; max-width:240px; overflow:hidden; text-overflow:ellipsis; z-index:3; }
+.ptk-sticky-4 { position:sticky; left:490px; width:70px; min-width:70px; z-index:3; }
 thead .ptk-sticky-1, thead .ptk-sticky-2, thead .ptk-sticky-3, thead .ptk-sticky-4 { z-index:4; background:var(--bg3); }
 tbody .ptk-sticky-1, tbody .ptk-sticky-2, tbody .ptk-sticky-3, tbody .ptk-sticky-4 { background:var(--bg2); }
 tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
@@ -739,12 +739,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
             <th class="ptk-sticky-1" style="padding:6px 8px; text-align:left;">TICKETID</th>
             <th class="ptk-sticky-2" style="padding:6px 8px; text-align:left;">CINAME</th>
-            <th class="ptk-sticky-3" style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
+            <th class="ptk-sticky-3" style="padding:6px 8px; text-align:left;">SUBJECT</th>
             <th class="ptk-sticky-4" style="padding:6px 8px; text-align:left;">Priority</th>
             <th style="padding:6px 8px; text-align:left;">CREATIONDATE</th>
             <th style="padding:6px 8px; text-align:left;">TARGETFINISH</th>
             <th style="padding:6px 8px; text-align:left;">SEVERITY</th>
-            <th style="padding:6px 8px; text-align:left; min-width:220px;">SUBJECT</th>
+            <th style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
             <th style="padding:6px 8px; text-align:left;">Bookmark</th>
             <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
             <th style="padding:6px 8px; text-align:left;">SUBDISTRICT</th>
@@ -4117,12 +4117,12 @@ function renderPivot(ft) {
       <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}">
         <td class="ptk-sticky-1" style="padding:6px 8px; font-weight:600;">${tid}</td>
         <td class="ptk-sticky-2" style="padding:6px 8px;">${t.CINAME || ''}</td>
-        <td class="ptk-sticky-3" style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
+        <td class="ptk-sticky-3" style="padding:6px 8px;" title="${(t.SUBJECT || '').replace(/"/g, '&quot;')}">${t.SUBJECT || ''}</td>
         <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
         <td style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
         <td style="padding:6px 8px;">${t.SEVERITY || ''}</td>
-        <td style="padding:6px 8px; white-space:normal; min-width:220px;">${t.SUBJECT || ''}</td>
+        <td style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
         <td style="padding:6px 8px;">${t.Bookmark || ''}</td>
         <td style="padding:6px 8px; ${agingStyle}">${agingKey}</td>
         <td style="padding:6px 8px;">${t.SUBDISTRICT || ''}</td>
