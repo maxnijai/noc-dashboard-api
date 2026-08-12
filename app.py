@@ -6,14 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from pending_trend import (
-    run_nightly_job,
-    run_hourly_job,
-    build_api_response,
-    build_hourly_api_response,
-    get_drive_and_sheets_clients,
-    bangkok_now,
-)
+from pending_trend import get_drive_and_sheets_clients
 from pm_dashboard import register_pm_routes
 from realtime_monitor import (
     build_realtime_response,
@@ -1945,151 +1938,6 @@ def api_rebuild():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     return jsonify({'status':'rebuilding'})
 
-@app.route('/api/pending-trend')
-def api_pending_trend():
-    period = request.args.get('period', '14d')
-    trueowner = request.args.get('trueowner') or None
-    region_param = request.args.get('region') or None
-    region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
-    try:
-        _, gs_client = get_drive_and_sheets_clients()
-        data = build_api_response(gs_client, SHEET_ID, period=period, trueowner_filter=trueowner, region_filter=region_filter)
-        return jsonify(data)
-    except Exception as e:
-        log.exception("pending-trend API failed")
-        return jsonify({"error": str(e)}), 500
-
-_pending_trend_job_status = {'running': False, 'results': [], 'started_at': None, 'finished_at': None, 'error': None}
-_pending_trend_job_lock = threading.Lock()
-
-def _run_pending_trend_backfill(days, for_date):
-    global _pending_trend_job_status
-    with _pending_trend_job_lock:
-        _pending_trend_job_status = {
-            'running': True, 'results': [], 'started_at': datetime.now().isoformat(),
-            'finished_at': None, 'error': None,
-        }
-    try:
-        if days:
-            results = []
-            today = bangkok_now().date()
-            for i in range(days):
-                d = today - timedelta(days=i)
-                ok = run_nightly_job(SHEET_ID, for_date=d)
-                results.append({'date': d.isoformat(), 'ok': ok})
-                with _pending_trend_job_lock:
-                    _pending_trend_job_status['results'] = list(results)
-                if not ok:
-                    break  # no more backups this far back, stop walking
-                time.sleep(1.5)  # breathing room between days for the shared gunicorn worker
-        else:
-            ok = run_nightly_job(SHEET_ID, for_date=for_date)
-            d = for_date or bangkok_now().date()
-            with _pending_trend_job_lock:
-                _pending_trend_job_status['results'] = [{'date': d.isoformat(), 'ok': ok}]
-    except Exception as e:
-        log.exception("pending-trend backfill failed")
-        with _pending_trend_job_lock:
-            _pending_trend_job_status['error'] = str(e)
-    finally:
-        with _pending_trend_job_lock:
-            _pending_trend_job_status['running'] = False
-            _pending_trend_job_status['finished_at'] = datetime.now().isoformat()
-
-@app.route('/api/pending-trend/rebuild', methods=['GET', 'POST'])
-def api_pending_trend_rebuild():
-    """Kicks off backfill in a background thread and returns immediately - the
-    Drive download + xlsx parse for several days can take minutes, and running
-    it synchronously inside the request would block the single gunicorn worker
-    and risk hitting the 120s timeout in Procfile.
-    Usage:
-      /api/pending-trend/rebuild?date=2026-07-13   -> single date
-      /api/pending-trend/rebuild?days=14           -> walks backward from today
-    Check progress with GET /api/pending-trend/rebuild/status"""
-    if _pending_trend_job_status['running']:
-        return jsonify({'status': 'already_running', 'progress': _pending_trend_job_status}), 409
-
-    for_date_str = request.args.get('date')
-    days = request.args.get('days', type=int)
-    for_date = datetime.strptime(for_date_str, '%Y-%m-%d').date() if for_date_str else None
-
-    threading.Thread(target=_run_pending_trend_backfill, args=(days, for_date), daemon=True).start()
-    return jsonify({'status': 'started', 'check_status_at': '/api/pending-trend/rebuild/status'})
-
-@app.route('/api/pending-trend/rebuild/status')
-def api_pending_trend_rebuild_status():
-    return jsonify(_pending_trend_job_status)
-
-@app.route('/api/pending-trend-hourly')
-def api_pending_trend_hourly():
-    hours = request.args.get('hours', default=24, type=int)
-    trueowner = request.args.get('trueowner') or None
-    region_param = request.args.get('region') or None
-    region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
-    try:
-        _, gs_client = get_drive_and_sheets_clients()
-        data = build_hourly_api_response(gs_client, SHEET_ID, hours=hours, trueowner_filter=trueowner, region_filter=region_filter)
-        return jsonify(data)
-    except Exception as e:
-        log.exception("pending-trend-hourly API failed")
-        return jsonify({"error": str(e)}), 500
-
-_pending_trend_hourly_job_status = {'running': False, 'results': [], 'started_at': None, 'finished_at': None, 'error': None}
-_pending_trend_hourly_job_lock = threading.Lock()
-
-def _run_pending_trend_hourly_backfill(hours):
-    global _pending_trend_hourly_job_status
-    with _pending_trend_hourly_job_lock:
-        _pending_trend_hourly_job_status = {
-            'running': True, 'results': [], 'started_at': datetime.now().isoformat(),
-            'finished_at': None, 'error': None,
-        }
-    try:
-        results = []
-        # Start from the LAST FULLY COMPLETED hour, not the current (still-forming)
-        # one - the current hour's backup file typically doesn't exist yet until
-        # ~:29 past, so requesting it always "fails" and used to abort the whole walk.
-        now_hour = bangkok_now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
-        consecutive_misses = 0
-        for i in range(hours):
-            h = now_hour - timedelta(hours=i)
-            ok = run_hourly_job(SHEET_ID, for_hour=h)
-            results.append({'hour': h.strftime('%Y-%m-%dT%H:00'), 'ok': ok})
-            with _pending_trend_hourly_job_lock:
-                _pending_trend_hourly_job_status['results'] = list(results)
-            if ok:
-                consecutive_misses = 0
-            else:
-                consecutive_misses += 1
-                if consecutive_misses >= 3:
-                    break  # likely hit the real edge of available history, stop walking
-            time.sleep(1.5)  # breathing room between hours for the shared gunicorn worker
-    except Exception as e:
-        log.exception("pending-trend-hourly backfill failed")
-        with _pending_trend_hourly_job_lock:
-            _pending_trend_hourly_job_status['error'] = str(e)
-    finally:
-        with _pending_trend_hourly_job_lock:
-            _pending_trend_hourly_job_status['running'] = False
-            _pending_trend_hourly_job_status['finished_at'] = datetime.now().isoformat()
-
-@app.route('/api/pending-trend-hourly/rebuild', methods=['GET', 'POST'])
-def api_pending_trend_hourly_rebuild():
-    """Backfills the last N hours (default 24), one hourly snapshot per API call
-    to Drive, running in a background thread just like the daily version.
-    Usage: /api/pending-trend-hourly/rebuild?hours=24
-    Check progress with GET /api/pending-trend-hourly/rebuild/status"""
-    if _pending_trend_hourly_job_status['running']:
-        return jsonify({'status': 'already_running', 'progress': _pending_trend_hourly_job_status}), 409
-
-    hours = request.args.get('hours', default=24, type=int)
-    threading.Thread(target=_run_pending_trend_hourly_backfill, args=(hours,), daemon=True).start()
-    return jsonify({'status': 'started', 'check_status_at': '/api/pending-trend-hourly/rebuild/status'})
-
-@app.route('/api/pending-trend-hourly/rebuild/status')
-def api_pending_trend_hourly_rebuild_status():
-    return jsonify(_pending_trend_hourly_job_status)
-
 @app.route('/api/realtime-monitor')
 def api_realtime_monitor():
     view = request.args.get('view', default='FBB')
@@ -2179,16 +2027,6 @@ def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
-    s.add_job(
-        lambda: run_nightly_job(SHEET_ID),
-        'cron', hour=1, minute=35, timezone='Asia/Bangkok', id='pending_trend_nightly',
-        misfire_grace_time=3600,
-    )
-    s.add_job(
-        lambda: run_hourly_job(SHEET_ID),
-        'cron', minute=35, timezone='Asia/Bangkok', id='pending_trend_hourly',
-        misfire_grace_time=1200,
-    )
     s.start()
 
 start()
