@@ -50,7 +50,7 @@ AUTH_EXEMPT_PREFIXES = ('/static/',)
 def require_login():
     if request.path in AUTH_EXEMPT_PATHS or request.path.startswith(AUTH_EXEMPT_PREFIXES):
         return
-    if not session.get('user_phone'):
+    if not session.get('user_email'):
         if request.path.startswith('/api/'):
             return jsonify({'error': 'login required'}), 401
         return redirect(url_for('login_page', next=request.path))
@@ -61,17 +61,17 @@ def require_login():
 def login_page():
     if request.method == 'GET':
         return render_template('login.html', error=None)
-    phone = request.form.get('phone', '')
+    email = request.form.get('email', '')
     password = request.form.get('password', '')
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        user = auth.verify_login(gs_client, phone, password)
+        user = auth.verify_login(gs_client, email, password)
     except Exception:
         log.exception("login check failed")
         return render_template('login.html', error='ระบบขัดข้อง กรุณาลองใหม่'), 500
     if not user:
-        return render_template('login.html', error='เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง')
-    session['user_phone'] = auth.normalize_phone(user['phone'])
+        return render_template('login.html', error='อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+    session['user_email'] = auth.normalize_email(user['email'])
     session['user_name'] = user['name']
     session['must_change_password'] = user['must_change_password']
     session.permanent = True
@@ -86,7 +86,7 @@ def logout():
 
 @app.route('/change-password', methods=['GET', 'POST'])
 def change_password_page():
-    if not session.get('user_phone'):
+    if not session.get('user_email'):
         return redirect(url_for('login_page'))
     if request.method == 'GET':
         return render_template('change_password.html', name=session.get('user_name', ''),
@@ -96,7 +96,7 @@ def change_password_page():
     confirm_pw = request.form.get('confirm_password', '')
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        user = auth.verify_login(gs_client, session['user_phone'], current_pw)
+        user = auth.verify_login(gs_client, session['user_email'], current_pw)
         if not user:
             return render_template('change_password.html', name=session.get('user_name', ''),
                                     must_change=session.get('must_change_password', False),
@@ -109,7 +109,7 @@ def change_password_page():
             return render_template('change_password.html', name=session.get('user_name', ''),
                                     must_change=session.get('must_change_password', False),
                                     error='รหัสผ่านสั้นเกินไป (อย่างน้อย 4 ตัวอักษร)')
-        auth.set_password(gs_client, session['user_phone'], new_pw)
+        auth.set_password(gs_client, session['user_email'], new_pw)
         session['must_change_password'] = False
         return redirect(url_for('index'))
     except Exception:
@@ -120,9 +120,9 @@ def change_password_page():
 
 @app.route('/api/auth/seed-users', methods=['POST'])
 def api_seed_users():
-    """One-time bootstrap: POST a JSON array of {phone, name, company,
+    """One-time bootstrap: POST a JSON array of {email, phone, name, company,
     department} to create accounts (default password = last 4 phone digits,
-    forced change on first login). Skips any phone that already has an
+    forced change on first login). Skips any email that already has an
     account, so it's safe to call more than once (e.g. to add new hires
     later). Not committed with any real data - the caller supplies it.
     Requires ?token=<SEED_USERS_TOKEN env var> since this endpoint has to be
@@ -132,14 +132,14 @@ def api_seed_users():
         return jsonify({'error': 'missing or invalid token'}), 403
     payload = request.get_json(silent=True)
     if not isinstance(payload, list):
-        return jsonify({'error': 'expected a JSON array of {phone, name, company, department}'}), 400
+        return jsonify({'error': 'expected a JSON array of {email, phone, name, company, department}'}), 400
     try:
         _, gs_client = get_drive_and_sheets_clients()
         created, skipped = 0, 0
         for u in payload:
             ok = auth.seed_user(
-                gs_client, u.get('phone', ''), u.get('name', ''),
-                u.get('company', ''), u.get('department', ''),
+                gs_client, u.get('email', ''), u.get('phone', ''),
+                u.get('name', ''), u.get('company', ''), u.get('department', ''),
             )
             created += 1 if ok else 0
             skipped += 0 if ok else 1
