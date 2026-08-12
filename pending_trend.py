@@ -69,7 +69,7 @@ SNAPSHOT_SEARCH_WINDOW_HOURS = 4    # look within +/- this window if 01:xx file 
 
 PENDING_TREND_SHEET = "PendingTrendDaily"   # tab name in the main spreadsheet
 
-ALLOWED_REGIONS = {"NOE1", "NOE2", "NOR1", "NOR2"}
+ALLOWED_REGIONS = {"NOR1", "NOR2"}
 
 SEVERITY_GROUPS = {
     "SA":     {"label": "SA1-SA4",   "values": {"SA1", "SA2", "SA3", "SA4"}},
