@@ -75,6 +75,13 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .rt-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
 .ptk-overdue { background: #fce7e6 !important; border-color: #E24B4A !important; }
 .ptk-dirty { box-shadow: 0 0 0 2px rgba(47,111,214,.35); }
+.ptk-sticky-1 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
+.ptk-sticky-2 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
+.ptk-sticky-3 { position:sticky; left:250px; width:180px; min-width:180px; z-index:3; }
+.ptk-sticky-4 { position:sticky; left:430px; width:70px; min-width:70px; z-index:3; }
+thead .ptk-sticky-1, thead .ptk-sticky-2, thead .ptk-sticky-3, thead .ptk-sticky-4 { z-index:4; background:var(--bg3); }
+tbody .ptk-sticky-1, tbody .ptk-sticky-2, tbody .ptk-sticky-3, tbody .ptk-sticky-4 { background:var(--bg2); }
+tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #rm-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 
@@ -913,20 +920,20 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <table style="border-collapse:collapse; font-size:12px; white-space:nowrap;">
         <thead>
           <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
-            <th style="padding:6px 8px; text-align:left; position:sticky; left:0; background:var(--bg3); z-index:3;">TICKETID</th>
+            <th class="ptk-sticky-1" style="padding:6px 8px; text-align:left;">TICKETID</th>
+            <th class="ptk-sticky-2" style="padding:6px 8px; text-align:left;">CINAME</th>
+            <th class="ptk-sticky-3" style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
+            <th class="ptk-sticky-4" style="padding:6px 8px; text-align:left;">Priority</th>
             <th style="padding:6px 8px; text-align:left;">CREATIONDATE</th>
             <th style="padding:6px 8px; text-align:left;">TARGETFINISH</th>
             <th style="padding:6px 8px; text-align:left;">SEVERITY</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">SUBJECT</th>
-            <th style="padding:6px 8px; text-align:left;">CINAME</th>
-            <th style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
             <th style="padding:6px 8px; text-align:left;">Bookmark</th>
             <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
             <th style="padding:6px 8px; text-align:left;">SUBDISTRICT</th>
             <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
             <th style="padding:6px 8px; text-align:left;">Tech_Team</th>
             <th style="padding:6px 8px; text-align:left;">Tech_Status</th>
-            <th style="padding:6px 8px; text-align:left;">Priority</th>
             <th style="padding:6px 8px; text-align:left;">NANO</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
             <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
@@ -4639,6 +4646,7 @@ function renderPivot(ft) {
   let loaded = false;
   let groupProblemOptions = [];
   let actionTeamOptions = [];
+  let agingColors = {};
 
   function el(id) { return document.getElementById(id); }
 
@@ -4694,22 +4702,25 @@ function renderPivot(ft) {
     el('ptk-body').innerHTML = tickets.map(t => {
       const tid = t.TICKETID;
       const safeTid = tid.replace(/'/g, "\\'");
+      const agingKey = t.Aging_Flag_Group || '';
+      const agingColor = agingColors[agingKey] || '';
+      const agingStyle = agingColor ? `background:${agingColor}55;` : '';
       return `
       <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}">
-        <td style="padding:6px 8px; position:sticky; left:0; background:var(--bg2); font-weight:600;">${tid}</td>
+        <td class="ptk-sticky-1" style="padding:6px 8px; font-weight:600;">${tid}</td>
+        <td class="ptk-sticky-2" style="padding:6px 8px;">${t.CINAME || ''}</td>
+        <td class="ptk-sticky-3" style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
+        <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
         <td style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
         <td style="padding:6px 8px;">${t.SEVERITY || ''}</td>
         <td style="padding:6px 8px; white-space:normal; min-width:220px;">${t.SUBJECT || ''}</td>
-        <td style="padding:6px 8px;">${t.CINAME || ''}</td>
-        <td style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
         <td style="padding:6px 8px;">${t.Bookmark || ''}</td>
-        <td style="padding:6px 8px;">${t.Aging_Flag_Group || ''}</td>
+        <td style="padding:6px 8px; ${agingStyle}">${agingKey}</td>
         <td style="padding:6px 8px;">${t.SUBDISTRICT || ''}</td>
         <td style="padding:6px 8px;">${t.DISTRICT || ''}</td>
         <td style="padding:6px 8px;">${t.Tech_Team || ''}</td>
         <td style="padding:6px 8px;">${t.Tech_Status || ''}</td>
-        <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px;">${t.nano || ''}</td>
         <td style="padding:6px 8px;">
           <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
@@ -4732,7 +4743,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="22" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+    }).join('') || '<tr><td colspan="23" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
   }
 
   window.checkOverdue = function (input) {
@@ -4782,6 +4793,7 @@ function renderPivot(ft) {
       const data = await fetchData();
       groupProblemOptions = data.group_problem_options;
       actionTeamOptions = data.action_team_options;
+      agingColors = data.aging_colors || {};
       populateFilters(data);
       renderRows(data.tickets);
       loaded = true;

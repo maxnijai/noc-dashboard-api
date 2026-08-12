@@ -26,12 +26,13 @@ NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
 import logging
 from datetime import datetime, date
 
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, ALLOWED_REGIONS
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
 
 ALLOWED_SEVERITIES = {"SA1", "SA2", "SA3", "SA4", "NSA1", "NSA2", "NSA3", "NSA4"}
+PENDING_TICKET_REGIONS = {"NOR1", "NOR2"}  # narrower than pending_trend's ALLOWED_REGIONS on purpose
 
 # Sort/group order: named bookmarks first (in this exact order), then
 # anything else lumped into "Others".
@@ -176,7 +177,7 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
 
     scoped = [
         r for r in all_rows
-        if str(r.get("Region", "")).strip() in ALLOWED_REGIONS
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
         and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
     ]
 
@@ -232,6 +233,7 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         "filter_options": filter_options,
         "group_problem_options": GROUP_PROBLEM_OPTIONS,
         "action_team_options": ACTION_TEAM_OPTIONS,
+        "aging_colors": AGING_COLORS,
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
         "tickets": tickets,
     }
