@@ -619,6 +619,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:13px;font-weight:600;">Intelligent Productivity</span>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:3px;">NOR1 · NOR2 · 2569</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span>{{ session.user_name or '' }}</span>
+      <span>
+        <a href="/change-password" style="color:var(--blue);text-decoration:none;">เปลี่ยนรหัส</a>
+        &nbsp;·&nbsp;
+        <a href="/logout" style="color:var(--text3);text-decoration:none;">ออกจากระบบ</a>
+      </span>
+    </div>
   </div>
 
   <div class="nav-section">หน้าหลัก</div>

@@ -1,6 +1,6 @@
-import os, json, logging, threading, time, re, math
+import os, json, logging, threading, time, re, math, secrets
 from datetime import datetime, timedelta, date
-from flask import Flask, jsonify, render_template, send_from_directory, request
+from flask import Flask, jsonify, render_template, send_from_directory, request, session, redirect, url_for
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
@@ -17,6 +17,7 @@ from pending_ticket import (
     build_pending_ticket_response,
     save_work_log_entry,
 )
+import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -33,8 +34,119 @@ log = logging.getLogger(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
 CORS(app)
 register_pm_routes(app)
+
+# ---------------------------------------------------------------------------
+# Auth: session-based login required for the entire site. A handful of paths
+# are exempt (the login/change-password pages themselves, static assets, and
+# the one-time bulk user-seed endpoint used to bootstrap accounts).
+# ---------------------------------------------------------------------------
+AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/favicon.ico'}
+AUTH_EXEMPT_PREFIXES = ('/static/',)
+
+@app.before_request
+def require_login():
+    if request.path in AUTH_EXEMPT_PATHS or request.path.startswith(AUTH_EXEMPT_PREFIXES):
+        return
+    if not session.get('user_phone'):
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'login required'}), 401
+        return redirect(url_for('login_page', next=request.path))
+    if session.get('must_change_password') and request.path != '/logout':
+        return redirect(url_for('change_password_page'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login_page():
+    if request.method == 'GET':
+        return render_template('login.html', error=None)
+    phone = request.form.get('phone', '')
+    password = request.form.get('password', '')
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        user = auth.verify_login(gs_client, phone, password)
+    except Exception:
+        log.exception("login check failed")
+        return render_template('login.html', error='ระบบขัดข้อง กรุณาลองใหม่'), 500
+    if not user:
+        return render_template('login.html', error='เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง')
+    session['user_phone'] = auth.normalize_phone(user['phone'])
+    session['user_name'] = user['name']
+    session['must_change_password'] = user['must_change_password']
+    session.permanent = True
+    if user['must_change_password']:
+        return redirect(url_for('change_password_page'))
+    return redirect(request.args.get('next') or url_for('index'))
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password_page():
+    if not session.get('user_phone'):
+        return redirect(url_for('login_page'))
+    if request.method == 'GET':
+        return render_template('change_password.html', name=session.get('user_name', ''),
+                                must_change=session.get('must_change_password', False), error=None)
+    current_pw = request.form.get('current_password', '')
+    new_pw = request.form.get('new_password', '')
+    confirm_pw = request.form.get('confirm_password', '')
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        user = auth.verify_login(gs_client, session['user_phone'], current_pw)
+        if not user:
+            return render_template('change_password.html', name=session.get('user_name', ''),
+                                    must_change=session.get('must_change_password', False),
+                                    error='รหัสผ่านปัจจุบันไม่ถูกต้อง')
+        if new_pw != confirm_pw:
+            return render_template('change_password.html', name=session.get('user_name', ''),
+                                    must_change=session.get('must_change_password', False),
+                                    error='รหัสผ่านใหม่ไม่ตรงกัน')
+        if len(new_pw) < 4:
+            return render_template('change_password.html', name=session.get('user_name', ''),
+                                    must_change=session.get('must_change_password', False),
+                                    error='รหัสผ่านสั้นเกินไป (อย่างน้อย 4 ตัวอักษร)')
+        auth.set_password(gs_client, session['user_phone'], new_pw)
+        session['must_change_password'] = False
+        return redirect(url_for('index'))
+    except Exception:
+        log.exception("change password failed")
+        return render_template('change_password.html', name=session.get('user_name', ''),
+                                must_change=session.get('must_change_password', False),
+                                error='ระบบขัดข้อง กรุณาลองใหม่'), 500
+
+@app.route('/api/auth/seed-users', methods=['POST'])
+def api_seed_users():
+    """One-time bootstrap: POST a JSON array of {phone, name, company,
+    department} to create accounts (default password = last 4 phone digits,
+    forced change on first login). Skips any phone that already has an
+    account, so it's safe to call more than once (e.g. to add new hires
+    later). Not committed with any real data - the caller supplies it.
+    Requires ?token=<SEED_USERS_TOKEN env var> since this endpoint has to be
+    exempt from login (nobody can log in before the first account exists)."""
+    expected_token = os.environ.get('SEED_USERS_TOKEN')
+    if not expected_token or request.args.get('token') != expected_token:
+        return jsonify({'error': 'missing or invalid token'}), 403
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, list):
+        return jsonify({'error': 'expected a JSON array of {phone, name, company, department}'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        created, skipped = 0, 0
+        for u in payload:
+            ok = auth.seed_user(
+                gs_client, u.get('phone', ''), u.get('name', ''),
+                u.get('company', ''), u.get('department', ''),
+            )
+            created += 1 if ok else 0
+            skipped += 0 if ok else 1
+        return jsonify({'created': created, 'skipped_existing': skipped})
+    except Exception as e:
+        log.exception("seed-users failed")
+        return jsonify({'error': str(e)}), 500
 
 _cache = None
 _cache_lock = threading.Lock()
@@ -2001,7 +2113,7 @@ def api_pending_ticket_update():
         k: payload.get(k, '')
         for k in ('group_problem', 'action_team', 'detail', 'image_link', 'plan_closed_date')
     }
-    updated_by = payload.get('updated_by') or 'unknown'  # placeholder until login exists
+    updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()
         saved = save_work_log_entry(gs_client, ticket_id, fields, updated_by=updated_by)
