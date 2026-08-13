@@ -136,15 +136,7 @@ def api_seed_users():
         return jsonify({'error': 'expected a JSON array of {email, phone, name, company, department, password}'}), 400
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        created, skipped = 0, 0
-        for u in payload:
-            ok = auth.seed_user(
-                gs_client, u.get('email', ''), u.get('phone', ''),
-                u.get('name', ''), u.get('company', ''), u.get('department', ''),
-                default_password=u.get('password') or None,
-            )
-            created += 1 if ok else 0
-            skipped += 0 if ok else 1
+        created, skipped = auth.batch_seed_users(gs_client, payload)
         return jsonify({'created': created, 'skipped_existing': skipped})
     except Exception as e:
         log.exception("seed-users failed")

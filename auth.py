@@ -104,7 +104,11 @@ def seed_user(gs_client, email, phone, name="", company="", department="", defau
     """Adds a user row if one doesn't already exist for this email. Default
     password is the last 4 digits of the phone unless overridden; the account
     is flagged must_change_password so they're forced to set their own on
-    first login. Safe to call repeatedly (skips existing emails)."""
+    first login. Safe to call repeatedly (skips existing emails).
+
+    NOTE: for seeding more than a handful of users, prefer batch_seed_users
+    below - this one does a fresh read+write round trip per call, which
+    burns through the Sheets API per-minute read quota fast."""
     if not email:
         return False
     if find_user_by_email(gs_client, email):
@@ -118,3 +122,42 @@ def seed_user(gs_client, email, phone, name="", company="", department="", defau
         bangkok_now().strftime("%Y-%m-%d %H:%M:%S"),
     ])
     return True
+
+
+def batch_seed_users(gs_client, users):
+    """Same effect as calling seed_user() once per entry in `users` (each a
+    dict with email/phone/name/company/department/password), but does it
+    with ONE read (to find existing emails) and ONE write (to append every
+    new row at once) instead of a read+write per user - avoids hitting the
+    Sheets API per-minute read-request quota when seeding many accounts at
+    once. Returns (created_count, skipped_count)."""
+    ws = _get_users_ws(gs_client)
+    existing_emails = {normalize_email(u["email"]) for u in get_all_users(gs_client)}
+
+    rows = []
+    created = 0
+    skipped = 0
+    seen_this_batch = set()
+    for u in users:
+        email = u.get("email", "")
+        if not email:
+            skipped += 1
+            continue
+        email_norm = normalize_email(email)
+        if email_norm in existing_emails or email_norm in seen_this_batch:
+            skipped += 1
+            continue
+        seen_this_batch.add(email_norm)
+        phone = u.get("phone", "")
+        phone_norm = normalize_phone(phone)
+        pw = u.get("password") or phone_norm[-4:] or "0000"
+        rows.append([
+            email_norm, phone, u.get("name", ""), u.get("company", ""), u.get("department", ""),
+            generate_password_hash(pw), "TRUE",
+            bangkok_now().strftime("%Y-%m-%d %H:%M:%S"),
+        ])
+        created += 1
+
+    if rows:
+        ws.append_rows(rows, value_input_option="RAW")
+    return created, skipped
