@@ -4183,7 +4183,7 @@ function renderPivot(ft) {
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
         <td style="padding:6px 8px;">
-          <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}')" rows="1" style="width:100%; min-width:200px; resize:vertical;">${t.detail || ''}</textarea>
+          <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; resize:vertical;">${t.detail || ''}</textarea>
         </td>
         <td style="padding:6px 8px;">
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
@@ -4218,13 +4218,27 @@ function renderPivot(ft) {
     const row = document.querySelector(`tr[data-ticket-id="${CSS.escape(ticketId)}"]`);
     if (!row) return;
     const btn = row.querySelector('.ptk-save-btn');
+    const detailEl = row.querySelector('.ptk-detail');
+    const detailVal = detailEl.value.trim();
+
+    // รายละเอียดต้องกรอกทุกครั้งและต้องมีรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (มี "/" คั่น)
+    if (!detailVal || !detailVal.includes('/')) {
+      detailEl.style.outline = '2px solid #dc2626';
+      detailEl.style.background = '#fee2e2';
+      detailEl.focus();
+      alert('กรุณากรอกรายละเอียดตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมีเครื่องหมาย / คั่นระหว่างปัญหากับวิธีแก้ไข)');
+      return;
+    }
+    detailEl.style.outline = '';
+    detailEl.style.background = '';
+
     btn.disabled = true;
     btn.textContent = '...';
     const payload = {
       ticket_id: ticketId,
       group_problem: row.querySelector('.ptk-group-problem').value,
       action_team: row.querySelector('.ptk-action-team').value,
-      detail: row.querySelector('.ptk-detail').value,
+      detail: detailVal,
       image_link: row.querySelector('.ptk-link').value,
       plan_closed_date: row.querySelector('.ptk-plan-date').value,
     };
@@ -4232,7 +4246,10 @@ function renderPivot(ft) {
       const res = await fetch('/api/pending-ticket/update', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error('save failed');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'save failed');
+      }
       const data = await res.json();
       // row shape from the API: [ticket_id, group_problem, action_team, detail, image_link, plan_closed_date, updated_at, updated_by]
       const saved = data.row || [];

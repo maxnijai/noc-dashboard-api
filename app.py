@@ -2129,6 +2129,12 @@ def api_pending_ticket_update():
         k: payload.get(k, '')
         for k in ('group_problem', 'action_team', 'detail', 'image_link', 'plan_closed_date')
     }
+    # รายละเอียดต้องกรอกทุกครั้งและต้องอยู่ในรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" -
+    # บังคับซ้ำฝั่ง server เผื่อมีการเรียก API ตรงๆ ข้ามหน้าเว็บ (ฝั่งหน้าเว็บเช็คไว้แล้วเช่นกัน)
+    detail = (fields.get('detail') or '').strip()
+    if not detail or '/' not in detail:
+        return jsonify({'error': 'detail ต้องกรอกตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมี /)'}), 400
+    fields['detail'] = detail
     updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()
