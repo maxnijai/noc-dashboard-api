@@ -193,6 +193,7 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
 /* Page sections */
 .page { display: none; }
 .page.active { display: block; }
+.exp-collapsed { display: none !important; }
 
 .trend-legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
@@ -638,6 +639,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5.41a1 1 0 00-.29-.7L9.3 1.3A1 1 0 008.59 1H4zm4 1.5L11.5 6H8V2.5zM5 8h6v1H5V8zm0 2.5h6v1H5v-1zm0 2.5h4v1H5v-1z"/></svg>
     Pending Ticket
   </div>
+  <div class="nav-item" onclick="showPage('exclusivepending')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 1a1 1 0 011-1h12a1 1 0 011 1v1H1V1zm0 3h14v10a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm3 2v2h2V6H4zm4 0v2h2V6H8zm-4 4v2h2v-2H4zm4 0v2h2v-2H8z"/></svg>
+    Exclusive Pending
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -781,6 +786,21 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <tbody id="ptk-body"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- EXCLUSIVE PENDING (morning-meeting summary) -->
+  <div class="page" id="page-exclusivepending">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div>
+        <div style="font-size:16px; font-weight:700;">Exclusive Pending</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">สรุป Group Problem แยกตาม Bookmark และ Aging_Flag_Group — สำหรับประชุมเช้าตอบ CNO</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="exp-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
+        <button id="exp-reload" class="btn-secondary">Refresh</button>
+      </div>
+    </div>
+    <div id="exp-body"></div>
   </div>
 
 
@@ -3161,7 +3181,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket'][i]===id);
+    el.classList.toggle('active', ['realtimemonitor','pendingticket','exclusivepending'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3169,6 +3189,7 @@ function showPage(id) {
   // Re-render charts when switching to that page (canvas needs visible parent)
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
+  if (id==='exclusivepending') { setTimeout(()=>{ if (window.initExclusivePendingTab) window.initExclusivePendingTab(); },50); }
 }
 
 // ===================== TREND CHART =====================
@@ -4307,6 +4328,136 @@ function renderPivot(ft) {
   el('ptk-group-problem-filter').addEventListener('change', reload);
 
   window.initPendingTicketTab = function () { if (!loaded) reload(); };
+})();
+
+// ── EXCLUSIVE PENDING (morning-meeting summary) ─────────────────────────────
+(function () {
+  let loaded = false;
+
+  function el(id) { return document.getElementById(id); }
+
+  function priorityBadge(p) {
+    const colors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
+    if (!p) return '';
+    return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:${colors[p]}22;color:${colors[p]};">${p}</span>`;
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  async function fetchData() {
+    const statusEl = el('exp-status');
+    statusEl.textContent = 'กำลังโหลด...';
+    const res = await fetch('/api/exclusive-pending');
+    if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
+    const data = await res.json();
+    statusEl.textContent = `${data.total_over_sla} tickets over SLA — generated: ${data.generated_at || '-'}`;
+    return data;
+  }
+
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors) {
+    const overSet = new Set(overKeys);
+    const head = agingOrder.map(ag => {
+      const isOver = overSet.has(ag);
+      return `<th style="padding:6px 8px; text-align:center; font-size:11px; ${isOver ? 'color:#B23A3A;' : 'color:var(--text3);'}">${ag}</th>`;
+    }).join('');
+    const rows = bookmarkBlock.rows.map(r => {
+      const cells = agingOrder.map(ag => {
+        const count = r.counts[ag] || 0;
+        const isOver = overSet.has(ag);
+        const color = agingColors[ag] || '';
+        const bg = count > 0 ? `${color}45` : 'transparent';
+        return `<td style="padding:6px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || ''}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; min-width:220px;">${escapeHtml(r.group_problem)}</td>
+        ${cells}
+        <td style="padding:6px 8px; text-align:center; font-weight:700; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead>
+          <tr style="background:var(--bg3);">
+            <th style="padding:6px 8px; text-align:left;">Group Problem</th>
+            ${head}
+            <th style="padding:6px 8px; text-align:center;">Over SLA รวม</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function renderDetailTable(detailBlock) {
+    const rows = detailBlock.tickets.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
+        <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.Aging_Flag_Group)}</td>
+        <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
+        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
+        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
+      </tr>`).join('');
+    return `
+      <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r); margin-top:8px;">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead>
+            <tr style="background:var(--bg3); position:sticky; top:0;">
+              <th style="padding:6px 8px; text-align:left;">TICKETID</th>
+              <th style="padding:6px 8px; text-align:left;">Priority</th>
+              <th style="padding:6px 8px; text-align:left;">SUBJECT</th>
+              <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
+              <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
+              <th style="padding:6px 8px; text-align:right;">Over SLA</th>
+              <th style="padding:6px 8px; text-align:left;">Group Problem</th>
+              <th style="padding:6px 8px; text-align:left;">Action Team</th>
+              <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function render(data) {
+    const detailByBookmark = {};
+    (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
+
+    const sections = (data.summary || []).map((block, i) => {
+      const detailBlock = detailByBookmark[block.bookmark];
+      const sectionId = `exp-section-${i}`;
+      return `
+        <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden;">
+          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
+            <span style="font-size:14px; font-weight:700;">${escapeHtml(block.bookmark)}</span>
+            <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+          </div>
+          <div id="${sectionId}" style="padding:10px 14px;">
+            ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${detailBlock ? renderDetailTable(detailBlock) : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+          </div>
+        </div>`;
+    }).join('');
+
+    el('exp-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
+  }
+
+  async function reload() {
+    try {
+      const data = await fetchData();
+      render(data);
+      loaded = true;
+    } catch (e) {
+      console.error('Exclusive Pending load failed', e);
+    }
+  }
+
+  el('exp-reload').addEventListener('click', reload);
+  window.initExclusivePendingTab = function () { if (!loaded) reload(); };
 })();
 </script>
 </body>

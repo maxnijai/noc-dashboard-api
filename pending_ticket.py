@@ -27,7 +27,7 @@ import logging
 import threading
 from datetime import datetime, date
 
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -327,4 +327,108 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
         "export_insert_time": export_insert_time,
         "tickets": matched_entries,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Exclusive Pending — morning-meeting summary: for each Bookmark, a
+# Group Problem x Aging_Flag_Group matrix, plus the ticket-level detail for
+# anything sitting in the four "over SLA" aging buckets (1-4; excludes
+# "< 1 day" and "Within SLA" since those aren't meeting-worthy yet).
+# ---------------------------------------------------------------------------
+
+EXCLUSIVE_BOOKMARK_ORDER = BOOKMARK_SORT_ORDER + ["Others"]
+UNSPECIFIED_GROUP_PROBLEM = "(ยังไม่ระบุ)"
+UNSPECIFIED_AGING = "(ไม่ระบุ)"
+
+
+def _exclusive_bookmark_label(raw):
+    raw = str(raw or "").strip()
+    return raw if raw in BOOKMARK_SORT_ORDER else "Others"
+
+
+def build_exclusive_pending_response(gs_client=None):
+    """Morning-meeting view: how many pending tickets per Bookmark are stuck
+    on which Group Problem, broken out by aging bucket - plus the full
+    ticket-level list for anything already over SLA (aging buckets 1-4),
+    so a team lead can answer CNO questions ticket-by-ticket without
+    switching tabs."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    all_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    scoped = [
+        r for r in all_rows
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
+        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
+    ]
+    work_log = load_work_log(gs_client)
+
+    entries = []
+    for r in scoped:
+        ticket_id = str(r.get("TICKETID", "")).strip()
+        wl = work_log.get(ticket_id, {})
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+        entries.append({
+            "TICKETID": ticket_id,
+            "SUBJECT": r.get("SUBJECT", ""),
+            "CINAME": r.get("CINAME", ""),
+            "DISTRICT": r.get("DISTRICT", ""),
+            "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
+            "priority": _classify_priority(r.get("TARGETFINISH"), now_dt),
+            "Bookmark": _exclusive_bookmark_label(r.get("Bookmark")),
+            "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
+            "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
+            "action_team": wl.get("action_team", ""),
+            "detail": wl.get("detail", ""),
+            "over_sla_day": over_sla_day,
+        })
+
+    # Summary matrix: bookmark -> group_problem -> aging_key -> count
+    summary = {}
+    for e in entries:
+        (summary.setdefault(e["Bookmark"], {})
+                 .setdefault(e["group_problem"], {})
+                 .setdefault(e["Aging_Flag_Group"], 0))
+        summary[e["Bookmark"]][e["group_problem"]][e["Aging_Flag_Group"]] += 1
+
+    summary_out = []
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        if bm not in summary:
+            continue
+        rows = []
+        for gp, counts in summary[bm].items():
+            over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            row = {"group_problem": gp, "over_total": over_total, "counts": {
+                ag: counts.get(ag, 0) for ag in AGING_ORDER
+            }}
+            rows.append(row)
+        rows.sort(key=lambda r: -r["over_total"])
+        bookmark_total = sum(r["over_total"] for r in rows)
+        summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
+
+    # Detail: only tickets sitting in the "over SLA" aging buckets (1-4)
+    detail_entries = [e for e in entries if e["Aging_Flag_Group"] in OVER_24H_AGING_KEYS]
+    detail_entries.sort(key=lambda e: -e["over_sla_day"])
+
+    detail_out = []
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        tickets = [e for e in detail_entries if e["Bookmark"] == bm]
+        if not tickets:
+            continue
+        detail_out.append({"bookmark": bm, "tickets": tickets, "total": len(tickets)})
+
+    return {
+        "aging_order": AGING_ORDER,
+        "over_aging_keys": OVER_24H_AGING_KEYS,
+        "aging_colors": AGING_COLORS,
+        "summary": summary_out,
+        "detail": detail_out,
+        "total_over_sla": len(detail_entries),
+        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
     }

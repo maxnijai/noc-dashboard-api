@@ -14,6 +14,7 @@ from realtime_monitor import (
 )
 from pending_ticket import (
     build_pending_ticket_response,
+    build_exclusive_pending_response,
     save_work_log_entry,
 )
 import auth
@@ -2140,6 +2141,16 @@ def api_pending_ticket_update():
         return jsonify({'status': 'saved', 'row': saved})
     except Exception as e:
         log.exception("pending-ticket update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/exclusive-pending')
+def api_exclusive_pending():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_exclusive_pending_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("exclusive-pending API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')
