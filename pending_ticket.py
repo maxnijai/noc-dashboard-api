@@ -427,6 +427,7 @@ def build_exclusive_pending_response(gs_client=None):
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
             "action_team": wl.get("action_team", ""),
             "detail": wl.get("detail", ""),
+            "plan_closed_date": wl.get("plan_closed_date", ""),
             "over_sla_day": over_sla_day,
         })
 
@@ -459,6 +460,8 @@ def build_exclusive_pending_response(gs_client=None):
 
     detail_out = []
     unspecified_by_province_out = []
+    group_problem_by_plan_date_out = []
+    NO_PLAN_DATE = "(ยังไม่วางแผน)"
     for bm in EXCLUSIVE_BOOKMARK_ORDER:
         tickets = [e for e in detail_entries if e["Bookmark"] == bm]
         if not tickets:
@@ -481,6 +484,29 @@ def build_exclusive_pending_response(gs_client=None):
         if province_rows:
             unspecified_by_province_out.append({"bookmark": bm, "provinces": province_rows})
 
+        # Group Problem x Plan Closed Date matrix - who's stuck on what, and
+        # when it's actually planned to close (or not planned at all yet).
+        plan_dates = sorted({t["plan_closed_date"] for t in tickets if t["plan_closed_date"]})
+        date_columns = plan_dates + [NO_PLAN_DATE]
+        gp_plan_matrix = {}
+        for e in tickets:
+            col = e["plan_closed_date"] or NO_PLAN_DATE
+            gp_plan_matrix.setdefault(e["group_problem"], {}).setdefault(col, 0)
+            gp_plan_matrix[e["group_problem"]][col] += 1
+        gp_plan_rows = []
+        for gp, counts in gp_plan_matrix.items():
+            row_total = sum(counts.values())
+            gp_plan_rows.append({
+                "group_problem": gp,
+                "counts": {c: counts.get(c, 0) for c in date_columns},
+                "total": row_total,
+            })
+        gp_plan_rows.sort(key=lambda r: -r["total"])
+        if gp_plan_rows:
+            group_problem_by_plan_date_out.append({
+                "bookmark": bm, "date_columns": date_columns, "rows": gp_plan_rows,
+            })
+
     return {
         "aging_order": AGING_ORDER,
         "over_aging_keys": OVER_24H_AGING_KEYS,
@@ -488,6 +514,7 @@ def build_exclusive_pending_response(gs_client=None):
         "summary": summary_out,
         "detail": detail_out,
         "unspecified_by_province": unspecified_by_province_out,
+        "group_problem_by_plan_date": group_problem_by_plan_date_out,
         "total_over_sla": len(detail_entries),
         "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
     }

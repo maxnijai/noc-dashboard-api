@@ -4406,6 +4406,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
         <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.plan_closed_date) || '-'}</td>
       </tr>`;
     }).join('');
     return `
@@ -4422,6 +4423,7 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">Group Problem</th>
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
+              <th style="padding:6px 8px; text-align:left;">Plan Closed Date</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -4437,7 +4439,7 @@ function renderPivot(ft) {
         <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.count}</td>
       </tr>`).join('');
     return `
-      <div style="margin-top:10px; max-width:360px;">
+      <div style="flex:1; min-width:280px; max-width:360px;">
         <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:4px;">Over SLA ที่ยังไม่ระบุ Group Problem — แยกตามจังหวัด (มาก→น้อย)</div>
         <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
           <thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">จังหวัด</th><th style="padding:5px 8px; text-align:right;">จำนวน</th></tr></thead>
@@ -4446,16 +4448,52 @@ function renderPivot(ft) {
       </div>`;
   }
 
+  function renderGroupProblemByPlanDate(block) {
+    if (!block || !block.rows || !block.rows.length) return '';
+    const cols = block.date_columns || [];
+    const head = cols.map(c => `<th style="padding:5px 8px; text-align:center; white-space:nowrap; ${c.startsWith('(') ? 'color:#B23A3A;' : 'color:var(--text2);'}">${escapeHtml(c)}</th>`).join('');
+    const rows = block.rows.map(r => {
+      const cells = cols.map(c => {
+        const count = r.counts[c] || 0;
+        const isNoPlan = c.startsWith('(');
+        return `<td style="padding:5px 8px; text-align:center; ${isNoPlan && count > 0 ? 'background:#B23A3A22; font-weight:700;' : ''}">${count || ''}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 8px; min-width:180px;">${escapeHtml(r.group_problem)}</td>
+        ${cells}
+        <td style="padding:5px 8px; text-align:center; font-weight:700;">${r.total}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="flex:2; min-width:360px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:4px;">Group Problem × Plan Closed Date</div>
+        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Group Problem</th>${head}<th style="padding:5px 8px; text-align:center;">รวม</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
   function render(data) {
     const detailByBookmark = {};
     (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
     const provinceByBookmark = {};
     (data.unspecified_by_province || []).forEach(d => { provinceByBookmark[d.bookmark] = d; });
+    const planDateByBookmark = {};
+    (data.group_problem_by_plan_date || []).forEach(d => { planDateByBookmark[d.bookmark] = d; });
 
     const sections = (data.summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
       const provinceBlock = provinceByBookmark[block.bookmark];
+      const planDateBlock = planDateByBookmark[block.bookmark];
       const sectionId = `exp-section-${i}`;
+      const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlock);
+      const sideBySide = (provinceHtml || planDateHtml)
+        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:10px;">${provinceHtml}${planDateHtml}</div>`
+        : '';
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden;">
           <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
@@ -4464,7 +4502,7 @@ function renderPivot(ft) {
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
             ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
-            ${renderUnspecifiedByProvince(provinceBlock)}
+            ${sideBySide}
             ${detailBlock ? renderDetailTable(detailBlock, data.aging_colors) : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
           </div>
         </div>`;
