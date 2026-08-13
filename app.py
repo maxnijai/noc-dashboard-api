@@ -121,10 +121,11 @@ def change_password_page():
 @app.route('/api/auth/seed-users', methods=['POST'])
 def api_seed_users():
     """One-time bootstrap: POST a JSON array of {email, phone, name, company,
-    department} to create accounts (default password = last 4 phone digits,
-    forced change on first login). Skips any email that already has an
-    account, so it's safe to call more than once (e.g. to add new hires
-    later). Not committed with any real data - the caller supplies it.
+    department, password} to create accounts. If password is omitted,
+    default password = last 4 phone digits; forced change on first login
+    either way. Skips any email that already has an account, so it's safe
+    to call more than once (e.g. to add new hires later). Not committed
+    with any real data - the caller supplies it.
     Requires ?token=<SEED_USERS_TOKEN env var> since this endpoint has to be
     exempt from login (nobody can log in before the first account exists)."""
     expected_token = os.environ.get('SEED_USERS_TOKEN')
@@ -132,7 +133,7 @@ def api_seed_users():
         return jsonify({'error': 'missing or invalid token'}), 403
     payload = request.get_json(silent=True)
     if not isinstance(payload, list):
-        return jsonify({'error': 'expected a JSON array of {email, phone, name, company, department}'}), 400
+        return jsonify({'error': 'expected a JSON array of {email, phone, name, company, department, password}'}), 400
     try:
         _, gs_client = get_drive_and_sheets_clients()
         created, skipped = 0, 0
@@ -140,6 +141,7 @@ def api_seed_users():
             ok = auth.seed_user(
                 gs_client, u.get('email', ''), u.get('phone', ''),
                 u.get('name', ''), u.get('company', ''), u.get('department', ''),
+                default_password=u.get('password') or None,
             )
             created += 1 if ok else 0
             skipped += 0 if ok else 1
