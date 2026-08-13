@@ -7,7 +7,6 @@ from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from pending_trend import get_drive_and_sheets_clients
-from pm_dashboard import register_pm_routes
 from realtime_monitor import (
     build_realtime_response,
     get_insert_time,
@@ -36,7 +35,6 @@ TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
 CORS(app)
-register_pm_routes(app)
 
 # ---------------------------------------------------------------------------
 # Auth: session-based login required for the entire site. A handful of paths
