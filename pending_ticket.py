@@ -24,6 +24,7 @@ NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
 """
 
 import logging
+import threading
 from datetime import datetime, date
 
 from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER
@@ -303,11 +304,19 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         str(e.get("group_problem", "")).strip() for e in all_entries if e.get("group_problem")
     })
 
+    # Mirrors the full table to an external tracking sheet. This write can be
+    # slow (700+ rows, full clear+rewrite) and the page doesn't need to wait
+    # on it, so it runs in the background instead of blocking the response -
+    # this was previously the single biggest contributor to page load time.
     export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
-    try:
-        export_to_external_sheet(gs_client, all_entries, export_insert_time)  # always the FULL, unfiltered set
-    except Exception:
-        log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+
+    def _export_in_background(entries, insert_time_str):
+        try:
+            export_to_external_sheet(gs_client, entries, insert_time_str)
+        except Exception:
+            log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+
+    threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
 
     return {
         "total": len(matched_entries),

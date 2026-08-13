@@ -619,8 +619,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:13px;font-weight:600;">Intelligent Productivity</span>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:3px;">NOR1 · NOR2 · 2569</div>
-    <div style="font-size:11px;color:var(--text2);margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
-      <span>{{ session.user_name or '' }}</span>
+    <div style="font-size:12px;color:var(--text2);margin-top:8px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-weight:700;color:var(--text);">{{ session.user_name or session.user_email or '' }}</span>
       <span>
         <a href="/change-password" style="color:var(--blue);text-decoration:none;">เปลี่ยนรหัส</a>
         &nbsp;·&nbsp;
@@ -750,7 +750,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ptk-group-problem-filter" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (แสดงเฉพาะรายการที่มีคนกรอกไว้)"></select>
       </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
-      <span id="ptk-status" style="color:var(--text3); font-size:12px;"></span>
+      <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
 
     <div style="overflow:auto; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
