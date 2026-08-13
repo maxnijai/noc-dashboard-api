@@ -772,7 +772,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
             <th style="padding:6px 8px; text-align:left;">Tech_Team</th>
             <th style="padding:6px 8px; text-align:left;">Tech_Status</th>
-            <th style="padding:6px 8px; text-align:left;">NANO</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
             <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
@@ -4161,10 +4160,14 @@ function renderPivot(ft) {
     ).join('');
   }
 
-  function priorityBadge(p) {
+  function priorityBadge(p, isNano) {
     const colors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
-    if (!p) return '';
-    return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:${colors[p]}22;color:${colors[p]};">${p}</span>`;
+    if (!p) return isNano ? nanoBadge() : '';
+    return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:${colors[p]}22;color:${colors[p]};">${p}</span>${isNano ? nanoBadge() : ''}`;
+  }
+
+  function nanoBadge() {
+    return `<span style="display:inline-block;margin-left:4px;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:#7c3aed22;color:#7c3aed;">NANO</span>`;
   }
 
   function renderRows(tickets) {
@@ -4179,7 +4182,7 @@ function renderPivot(ft) {
         <td class="ptk-sticky-1" style="padding:6px 8px; font-weight:600;">${tid}</td>
         <td class="ptk-sticky-2" style="padding:6px 8px;">${t.CINAME || ''}</td>
         <td class="ptk-sticky-3" style="padding:6px 8px;" title="${(t.SUBJECT || '').replace(/"/g, '&quot;')}">${t.SUBJECT || ''}</td>
-        <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
+        <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority, !!t.nano)}</td>
         <td style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
         <td style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
         <td style="padding:6px 8px;">${t.SEVERITY || ''}</td>
@@ -4190,7 +4193,6 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">${t.DISTRICT || ''}</td>
         <td style="padding:6px 8px;">${t.Tech_Team || ''}</td>
         <td style="padding:6px 8px;">${t.Tech_Status || ''}</td>
-        <td style="padding:6px 8px;">${t.nano || ''}</td>
         <td style="padding:6px 8px;">
           <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
         </td>
@@ -4212,7 +4214,7 @@ function renderPivot(ft) {
         <td class="ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td class="ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="23" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+    }).join('') || '<tr><td colspan="22" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
   }
 
@@ -4360,7 +4362,8 @@ function renderPivot(ft) {
     const overSet = new Set(overKeys);
     const head = agingOrder.map(ag => {
       const isOver = overSet.has(ag);
-      return `<th style="padding:6px 8px; text-align:center; font-size:11px; ${isOver ? 'color:#B23A3A;' : 'color:var(--text3);'}">${ag}</th>`;
+      const color = agingColors[ag] || '';
+      return `<th style="padding:6px 8px; text-align:center; font-size:11px; background:${color}30; ${isOver ? 'color:#8B2E2E; font-weight:700;' : 'color:var(--text2);'}">${ag}</th>`;
     }).join('');
     const rows = bookmarkBlock.rows.map(r => {
       const cells = agingOrder.map(ag => {
@@ -4389,19 +4392,22 @@ function renderPivot(ft) {
       </table>`;
   }
 
-  function renderDetailTable(detailBlock) {
-    const rows = detailBlock.tickets.map(t => `
+  function renderDetailTable(detailBlock, agingColors) {
+    const rows = detailBlock.tickets.map(t => {
+      const agColor = agingColors[t.Aging_Flag_Group] || '';
+      return `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
         <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.Aging_Flag_Group)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
         <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
         <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     return `
       <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r); margin-top:8px;">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -4423,12 +4429,32 @@ function renderPivot(ft) {
       </div>`;
   }
 
+  function renderUnspecifiedByProvince(block) {
+    if (!block || !block.provinces || !block.provinces.length) return '';
+    const rows = block.provinces.map(p => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 8px;">${escapeHtml(p.province)}</td>
+        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.count}</td>
+      </tr>`).join('');
+    return `
+      <div style="margin-top:10px; max-width:360px;">
+        <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:4px;">Over SLA ที่ยังไม่ระบุ Group Problem — แยกตามจังหวัด (มาก→น้อย)</div>
+        <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
+          <thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">จังหวัด</th><th style="padding:5px 8px; text-align:right;">จำนวน</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
   function render(data) {
     const detailByBookmark = {};
     (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
+    const provinceByBookmark = {};
+    (data.unspecified_by_province || []).forEach(d => { provinceByBookmark[d.bookmark] = d; });
 
     const sections = (data.summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
+      const provinceBlock = provinceByBookmark[block.bookmark];
       const sectionId = `exp-section-${i}`;
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden;">
@@ -4438,7 +4464,8 @@ function renderPivot(ft) {
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
             ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
-            ${detailBlock ? renderDetailTable(detailBlock) : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+            ${renderUnspecifiedByProvince(provinceBlock)}
+            ${detailBlock ? renderDetailTable(detailBlock, data.aging_colors) : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
           </div>
         </div>`;
     }).join('');

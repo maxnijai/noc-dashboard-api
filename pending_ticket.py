@@ -25,6 +25,7 @@ NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
 
 import logging
 import threading
+import time
 from datetime import datetime, date
 
 from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
@@ -104,9 +105,32 @@ def _get_worksheet(gs_client):
     return sh.sheet1
 
 
-def fetch_live_rows(gs_client):
+# Short-TTL cache for the two reads every page load needs (live ticket rows +
+# work log). Pending Ticket and Exclusive Pending both call these on every
+# load, and several people opening/refreshing the dashboard around the same
+# moment used to mean a fresh Sheets API read per person per tab - that's
+# what was causing both the slow loads and the "quota exceeded" errors
+# earlier. A short cache means concurrent/rapid loads within the same
+# window reuse one read instead of hammering the API again per request.
+_CACHE_TTL_SECONDS = 20
+_live_rows_cache = {"data": None, "ts": 0}
+_work_log_cache = {"data": None, "ts": 0}
+_cache_lock = threading.Lock()
+
+
+def fetch_live_rows(gs_client, use_cache=True):
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _live_rows_cache["data"] is not None and (now - _live_rows_cache["ts"]) < _CACHE_TTL_SECONDS:
+                return _live_rows_cache["data"]
     ws = _get_worksheet(gs_client)
-    return ws.get_all_records()
+    rows = ws.get_all_records()
+    if use_cache:
+        with _cache_lock:
+            _live_rows_cache["data"] = rows
+            _live_rows_cache["ts"] = now
+    return rows
 
 
 def _bookmark_sort_key(bookmark):
@@ -129,9 +153,14 @@ def _ensure_work_log_tab(spreadsheet):
         return ws
 
 
-def load_work_log(gs_client):
+def load_work_log(gs_client, use_cache=True):
     """Returns {ticket_id: {group_problem, action_team, detail, image_link,
     plan_closed_date, updated_at, updated_by}} for every saved row."""
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _work_log_cache["data"] is not None and (now - _work_log_cache["ts"]) < _CACHE_TTL_SECONDS:
+                return _work_log_cache["data"]
     sh = gs_client.open_by_key(REALTIME_SHEET_ID)
     ws = _ensure_work_log_tab(sh)
     records = ws.get_all_values()[1:]  # skip header
@@ -145,7 +174,17 @@ def load_work_log(gs_client):
             "image_link": padded[4], "plan_closed_date": padded[5],
             "updated_at": padded[6], "updated_by": padded[7],
         }
+    if use_cache:
+        with _cache_lock:
+            _work_log_cache["data"] = out
+            _work_log_cache["ts"] = now
     return out
+
+
+def _invalidate_work_log_cache():
+    with _cache_lock:
+        _work_log_cache["data"] = None
+        _work_log_cache["ts"] = 0
 
 
 def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
@@ -173,6 +212,7 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
         ws.update(f"A{row_idx}:H{row_idx}", [row_values])
     else:
         ws.append_row(row_values)
+    _invalidate_work_log_cache()
     return row_values
 
 
@@ -379,6 +419,7 @@ def build_exclusive_pending_response(gs_client=None):
             "SUBJECT": r.get("SUBJECT", ""),
             "CINAME": r.get("CINAME", ""),
             "DISTRICT": r.get("DISTRICT", ""),
+            "PROVINCE": r.get("PROVINCE", ""),
             "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
             "priority": _classify_priority(r.get("TARGETFINISH"), now_dt),
             "Bookmark": _exclusive_bookmark_label(r.get("Bookmark")),
@@ -417,11 +458,28 @@ def build_exclusive_pending_response(gs_client=None):
     detail_entries.sort(key=lambda e: -e["over_sla_day"])
 
     detail_out = []
+    unspecified_by_province_out = []
     for bm in EXCLUSIVE_BOOKMARK_ORDER:
         tickets = [e for e in detail_entries if e["Bookmark"] == bm]
         if not tickets:
             continue
         detail_out.append({"bookmark": bm, "tickets": tickets, "total": len(tickets)})
+
+        # Among this Bookmark's over-SLA tickets, break down the ones with no
+        # Group Problem set yet by PROVINCE (most-affected province first) -
+        # helps spot where nobody has started triage yet.
+        province_counts = {}
+        for e in tickets:
+            if e["group_problem"] != UNSPECIFIED_GROUP_PROBLEM:
+                continue
+            prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
+            province_counts[prov] = province_counts.get(prov, 0) + 1
+        province_rows = sorted(
+            ({"province": p, "count": c} for p, c in province_counts.items()),
+            key=lambda x: -x["count"]
+        )
+        if province_rows:
+            unspecified_by_province_out.append({"bookmark": bm, "provinces": province_rows})
 
     return {
         "aging_order": AGING_ORDER,
@@ -429,6 +487,7 @@ def build_exclusive_pending_response(gs_client=None):
         "aging_colors": AGING_COLORS,
         "summary": summary_out,
         "detail": detail_out,
+        "unspecified_by_province": unspecified_by_province_out,
         "total_over_sla": len(detail_entries),
         "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
     }
