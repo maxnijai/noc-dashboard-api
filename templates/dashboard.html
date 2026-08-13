@@ -750,6 +750,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ptk-group-problem-filter" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (แสดงเฉพาะรายการที่มีคนกรอกไว้)"></select>
       </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
+      <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
 
@@ -4193,8 +4194,8 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">
           <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
         </td>
-        <td style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
-        <td style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
+        <td class="ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
+        <td class="ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
     }).join('') || '<tr><td colspan="23" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
   }
@@ -4232,6 +4233,11 @@ function renderPivot(ft) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('save failed');
+      const data = await res.json();
+      // row shape from the API: [ticket_id, group_problem, action_team, detail, image_link, plan_closed_date, updated_at, updated_by]
+      const saved = data.row || [];
+      row.querySelector('.ptk-updated-at').textContent = saved[6] || '';
+      row.querySelector('.ptk-updated-by').textContent = saved[7] || '';
       row.classList.remove('ptk-dirty');
       btn.textContent = 'Save';
     } catch (e) {
@@ -4256,6 +4262,13 @@ function renderPivot(ft) {
   }
 
   el('ptk-reload').addEventListener('click', reload);
+  el('ptk-reset-filters').addEventListener('click', () => {
+    ['ptk-aging', 'ptk-bookmark', 'ptk-trueowner', 'ptk-severity', 'ptk-district', 'ptk-group-problem-filter'].forEach(id => {
+      const sel = el(id);
+      [...sel.options].forEach(o => o.selected = false);
+    });
+    reload();
+  });
   el('ptk-aging').addEventListener('change', reload);
   el('ptk-bookmark').addEventListener('change', reload);
   el('ptk-trueowner').addEventListener('change', reload);
