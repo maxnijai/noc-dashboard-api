@@ -26,7 +26,7 @@ NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
 import logging
 from datetime import datetime, date
 
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -215,9 +215,10 @@ def _multi_filter(entries, key, values):
 
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
-                                   severity_filter=None, district_filter=None, group_problem_filter=None):
-    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter:
-    each an optional LIST of values (multi-select) - None or empty means "no
+                                   severity_filter=None, district_filter=None, group_problem_filter=None,
+                                   aging_filter=None):
+    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
+    aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
     filter, include everything in that dimension"."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
@@ -268,18 +269,23 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
     all_entries = [build_entry(r) for r in scoped]
     all_entries.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
 
+    present_agings = {str(e.get("Aging_Flag_Group", "")).strip() for e in all_entries if e.get("Aging_Flag_Group")}
     filter_options = {
         "bookmarks": sorted({str(e.get("Bookmark", "")).strip() for e in all_entries if e.get("Bookmark")}),
         "trueowners": sorted({str(e.get("TRUEOWNERGROUP", "")).strip() for e in all_entries if e.get("TRUEOWNERGROUP")}),
         "severities": sorted({str(e.get("SEVERITY", "")).strip() for e in all_entries if e.get("SEVERITY")}),
+        # Kept in canonical Aging_Flag_Group order (not alphabetical) so the
+        # dropdown reads 1)->6) like everywhere else Aging is shown.
+        "agings": [a for a in AGING_ORDER if a in present_agings],
     }
 
     # District counts are faceted on the OTHER active filters (bookmark/trueowner/
-    # severity) so the numbers next to each district option stay accurate as
-    # those filters change - just not on the district filter itself.
+    # severity/aging) so the numbers next to each district option stay accurate
+    # as those filters change - just not on the district filter itself.
     pre_district = _multi_filter(all_entries, "Bookmark", bookmark_filter)
     pre_district = _multi_filter(pre_district, "TRUEOWNERGROUP", trueowner_filter)
     pre_district = _multi_filter(pre_district, "SEVERITY", severity_filter)
+    pre_district = _multi_filter(pre_district, "Aging_Flag_Group", aging_filter)
     district_counts = {}
     for e in pre_district:
         d = str(e.get("DISTRICT", "")).strip()

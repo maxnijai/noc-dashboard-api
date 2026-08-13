@@ -731,6 +731,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
   <div class="page" id="page-pendingticket">
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+      <label>Aging_Flag_Group:
+        <select id="ptk-aging" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
+      </label>
       <label>Bookmark:
         <select id="ptk-bookmark" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
@@ -4086,6 +4089,7 @@ function renderPivot(ft) {
   }
 
   async function fetchData() {
+    const aging = selectedValues(el('ptk-aging'));
     const bookmark = selectedValues(el('ptk-bookmark'));
     const trueowner = selectedValues(el('ptk-trueowner'));
     const severity = selectedValues(el('ptk-severity'));
@@ -4095,6 +4099,7 @@ function renderPivot(ft) {
     statusEl.textContent = 'กำลังโหลด...';
 
     const params = new URLSearchParams();
+    if (aging.length) params.set('aging', aging.join(','));
     if (bookmark.length) params.set('bookmark', bookmark.join(','));
     if (trueowner.length) params.set('trueowner', trueowner.join(','));
     if (severity.length) params.set('severity', severity.join(','));
@@ -4118,6 +4123,7 @@ function renderPivot(ft) {
   }
 
   function populateFilters(data) {
+    populateStaticMulti(el('ptk-aging'), data.filter_options.agings);
     populateStaticMulti(el('ptk-bookmark'), data.filter_options.bookmarks);
     populateStaticMulti(el('ptk-trueowner'), data.filter_options.trueowners);
     populateStaticMulti(el('ptk-severity'), data.filter_options.severities);
@@ -4250,6 +4256,7 @@ function renderPivot(ft) {
   }
 
   el('ptk-reload').addEventListener('click', reload);
+  el('ptk-aging').addEventListener('change', reload);
   el('ptk-bookmark').addEventListener('change', reload);
   el('ptk-trueowner').addEventListener('change', reload);
   el('ptk-severity').addEventListener('change', reload);
