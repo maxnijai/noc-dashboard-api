@@ -43,7 +43,7 @@ register_pm_routes(app)
 # are exempt (the login/change-password pages themselves, static assets, and
 # the one-time bulk user-seed endpoint used to bootstrap accounts).
 # ---------------------------------------------------------------------------
-AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/favicon.ico'}
+AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/favicon.ico'}
 AUTH_EXEMPT_PREFIXES = ('/static/',)
 
 @app.before_request
@@ -140,6 +140,26 @@ def api_seed_users():
         return jsonify({'created': created, 'skipped_existing': skipped})
     except Exception as e:
         log.exception("seed-users failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/auth/reset-passwords', methods=['POST'])
+def api_reset_passwords():
+    """One-time-use admin fixup: POST a JSON array of {email, password} to
+    force-set that account's password (and re-flag must_change_password),
+    regardless of whatever it currently is. Same token gate and login-exempt
+    reasoning as seed-users. Unknown emails are silently skipped."""
+    expected_token = os.environ.get('SEED_USERS_TOKEN')
+    if not expected_token or request.args.get('token') != expected_token:
+        return jsonify({'error': 'missing or invalid token'}), 403
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, list):
+        return jsonify({'error': 'expected a JSON array of {email, password}'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        updated = auth.batch_reset_passwords(gs_client, payload)
+        return jsonify({'updated': updated})
+    except Exception as e:
+        log.exception("reset-passwords failed")
         return jsonify({'error': str(e)}), 500
 
 _cache = None

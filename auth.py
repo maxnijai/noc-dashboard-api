@@ -161,3 +161,34 @@ def batch_seed_users(gs_client, users):
     if rows:
         ws.append_rows(rows, value_input_option="RAW")
     return created, skipped
+
+
+def batch_reset_passwords(gs_client, updates):
+    """Force-sets the password for each {email, password} in `updates`,
+    re-flagging must_change_password=TRUE so they still get the
+    change-password prompt on next login. Does ONE read (to find each
+    email's row) and ONE batched write (all cells at once) - same
+    quota-friendly approach as batch_seed_users. Only touches emails that
+    already exist; unknown emails are silently skipped. Returns the count
+    of rows actually updated."""
+    ws = _get_users_ws(gs_client)
+    values = ws.get_all_values()
+    email_to_row = {}
+    for idx, row in enumerate(values[1:], start=2):  # data starts row 2
+        if row and row[0]:
+            email_to_row[normalize_email(row[0])] = idx
+
+    batch_data = []
+    updated = 0
+    for u in updates:
+        email_norm = normalize_email(u.get("email", ""))
+        row_idx = email_to_row.get(email_norm)
+        if not row_idx:
+            continue
+        new_hash = generate_password_hash(u.get("password") or "0000")
+        batch_data.append({"range": f"F{row_idx}:G{row_idx}", "values": [[new_hash, "TRUE"]]})
+        updated += 1
+
+    if batch_data:
+        ws.batch_update(batch_data)
+    return updated
