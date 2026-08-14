@@ -834,6 +834,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
+    <div id="oc-today-summary" style="margin-bottom:14px;"></div>
     <div id="oc-body"></div>
   </div>
 
@@ -4632,6 +4633,62 @@ function renderPivot(ft) {
     sel.value = months.includes(prev) ? prev : months[months.length - 1];
   }
 
+  function renderTodaySummary(data) {
+    const today = todayStr();
+    if (!data.dates.includes(today)) {
+      el('oc-today-summary').innerHTML = '';
+      return;
+    }
+    // Per province: count who's actually Oncall today (status "on" or
+    // "always"), split by Remark (NOD/OFC) so it answers "กี่ทีม" at a
+    // glance without opening the full grid.
+    const byProvince = {};
+    data.rows.forEach(r => {
+      const status = r.days[today] || 'on';
+      if (status === 'off') return; // not oncall today
+      const p = r.province_th || '(ไม่ระบุจังหวัด)';
+      const bucket = byProvince[p] || (byProvince[p] = { nod: 0, ofc: 0, other: 0 });
+      if (r.remark === 'NOD') bucket.nod++;
+      else if (r.remark === 'OFC') bucket.ofc++;
+      else bucket.other++;
+    });
+    const provinces = Object.keys(byProvince).sort();
+    const totalNod = provinces.reduce((s, p) => s + byProvince[p].nod, 0);
+    const totalOfc = provinces.reduce((s, p) => s + byProvince[p].ofc, 0);
+
+    const rows = provinces.map(p => {
+      const b = byProvince[p];
+      const total = b.nod + b.ofc + b.other;
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(p)}</td>
+        <td style="padding:6px 10px; text-align:center;">${b.nod || '-'}</td>
+        <td style="padding:6px 10px; text-align:center;">${b.ofc || '-'}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:700;">${total}</td>
+      </tr>`;
+    }).join('');
+
+    const dateLabel = new Date(today + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    el('oc-today-summary').innerHTML = `
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
+        <div style="padding:8px 14px; background:var(--bg3); font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Oncall วันนี้ (${escapeHtml(dateLabel)}) แยกตามจังหวัด</span>
+          <span style="font-weight:400; font-size:12px; color:var(--text3);">รวม NOD ${totalNod} ทีม / OFC ${totalOfc} ทีม</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead><tr style="background:var(--bg4);">
+              <th style="padding:6px 10px; text-align:left;">จังหวัด</th>
+              <th style="padding:6px 10px; text-align:center;">NOD</th>
+              <th style="padding:6px 10px; text-align:center;">OFC</th>
+              <th style="padding:6px 10px; text-align:center;">รวม</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
   function render() {
     if (!scheduleData) return;
     const provinceFilter = el('oc-province-filter').value;
@@ -4754,6 +4811,7 @@ function renderPivot(ft) {
         tr.querySelector('.oc-updated-by').textContent = data.updated_by || '-';
         tr.querySelector('.oc-updated-at').textContent = data.updated_at || '-';
       }
+      if (dateStr === todayStr()) renderTodaySummary(scheduleData);
     } catch (e) {
       // revert on failure
       row.days[dateStr] = current;
@@ -4772,6 +4830,7 @@ function renderPivot(ft) {
       scheduleData = data;
       populateProvinceFilter(data);
       populateMonthFilter(data);
+      renderTodaySummary(data);
       render();
       loaded = true;
     } catch (e) {
