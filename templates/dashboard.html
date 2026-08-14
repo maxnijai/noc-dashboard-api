@@ -4222,13 +4222,21 @@ function renderPivot(ft) {
 
   async function fetchData() {
     const aging = selectedValues(el('ptk-aging'));
-    const bookmark = selectedValues(el('ptk-bookmark'));
+    let bookmark = selectedValues(el('ptk-bookmark'));
     const trueowner = selectedValues(el('ptk-trueowner'));
     const severity = selectedValues(el('ptk-severity'));
     const district = selectedValues(el('ptk-district'));
     const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
     const statusEl = el('ptk-status');
     statusEl.textContent = 'กำลังโหลด...';
+
+    // Default the very first load to "4.FBB with SA1-4" - it's consistently
+    // the smallest Bookmark group, so opening the tab renders far fewer
+    // rows/dropdowns up front instead of the full ~700-900 unfiltered set.
+    // Only applies before the dropdown itself has any selection yet (first
+    // load, or after Reset Filters) - never overrides a filter the person
+    // picked themselves.
+    if (!loaded && bookmark.length === 0) bookmark = ['4.FBB with SA1-4'];
 
     const params = new URLSearchParams();
     if (aging.length) params.set('aging', aging.join(','));
@@ -4434,11 +4442,20 @@ function renderPivot(ft) {
 
   async function reload() {
     try {
+      const wasFirstLoad = !loaded;
       const data = await fetchData();
       groupProblemOptions = data.group_problem_options;
       actionTeamOptions = data.action_team_options;
       agingColors = data.aging_colors || {};
       populateFilters(data);
+      if (wasFirstLoad) {
+        // Reflect the default "4.FBB with SA1-4" filter applied in
+        // fetchData() back onto the now-populated dropdown, so it visually
+        // shows as selected instead of looking like "0 selected" while
+        // actually filtered.
+        const bmSel = el('ptk-bookmark');
+        [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); });
+      }
       renderRows(data.tickets);
       loaded = true;
     } catch (e) {
