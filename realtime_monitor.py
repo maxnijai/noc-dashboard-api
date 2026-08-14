@@ -137,6 +137,33 @@ def _top_n_breakdown(rows, dim_key, n=25):
     return [{"category": cat, "total": total, "aging_counts": breakdown[cat]} for cat, total in ranked]
 
 
+def _aging_totals(rows):
+    """Overall Aging_Flag_Group counts across `rows` (not broken out by any
+    other dimension) - feeds the SLA donut chart."""
+    totals = {k: 0 for k in AGING_ORDER}
+    for r in rows:
+        aging = str(r.get("Aging_Flag_Group", "")).strip()
+        if aging in AGING_ORDER:
+            totals[aging] += 1
+    return totals
+
+
+def _classification_breakdown(rows, n=8):
+    """Top-N CLASSIFICATION categories by count, with the rest folded into
+    "Other" - feeds the Classification donut chart."""
+    totals = {}
+    for r in rows:
+        cat = str(r.get("CLASSIFICATION", "")).strip() or "(ไม่ระบุ)"
+        totals[cat] = totals.get(cat, 0) + 1
+    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
+    top = ranked[:n]
+    other_total = sum(c for _, c in ranked[n:])
+    result = [{"category": cat, "total": total} for cat, total in top]
+    if other_total:
+        result.append({"category": "Other", "total": other_total})
+    return result
+
+
 def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
                              trueowner_filter=None, aging_filter=None, district_filter=None):
     if gs_client is None:
@@ -207,6 +234,8 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
         "breakdown_region": _top_n_breakdown(matched, "Region"),
         "breakdown_trueowner": _top_n_breakdown(matched, "TRUEOWNERGROUP"),
         "breakdown_district": _top_n_breakdown(matched, "DISTRICT"),
+        "sla_breakdown": _aging_totals(matched),
+        "classification_breakdown": _classification_breakdown(matched),
         "map_points": map_points,
         "detail_rows": detail_rows,
         "detail_truncated": truncated,

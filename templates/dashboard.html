@@ -684,11 +684,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
 
   <div class="page active" id="page-realtimemonitor">
-    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;" id="rm-view-tabs">
-      <button class="btn-secondary rm-view-btn" data-view="FBB">4.FBB with SA1-4</button>
-      <button class="btn-secondary rm-view-btn" data-view="NW_NSA12">3. All NW Incident NSA1-2</button>
-      <button class="btn-secondary rm-view-btn" data-view="MB">7.MB with SA1-4</button>
-      <button class="btn-secondary rm-view-btn" data-view="NSA34">NSA3 / NSA4</button>
+    <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;" id="rm-view-tabs">
+      <label style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+        View:
+        <select id="rm-view-select" style="padding:6px 10px;">
+          <option value="FBB">4.FBB with SA1-4</option>
+          <option value="NW_NSA12">3. All NW Incident NSA1-2</option>
+          <option value="MB">7.MB with SA1-4</option>
+          <option value="NSA34">NSA3 / NSA4</option>
+        </select>
+      </label>
     </div>
 
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
@@ -711,9 +716,25 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span id="rm-status" style="color:var(--text3); font-size:12px;"></span>
     </div>
 
-    <div style="font-size:13px; font-weight:500; margin-bottom:8px;" id="rm-region-title">Region</div>
-    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
-      <canvas id="rm-chart-region"></canvas>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+      <div style="flex:2; min-width:320px;">
+        <div style="font-size:13px; font-weight:500; margin-bottom:8px;" id="rm-region-title">Region</div>
+        <div class="pt-chart-wrap" style="position:relative; height:220px;">
+          <canvas id="rm-chart-region"></canvas>
+        </div>
+      </div>
+      <div style="flex:1; min-width:200px;">
+        <div style="font-size:13px; font-weight:500; margin-bottom:8px;">SLA</div>
+        <div class="pt-chart-wrap" style="position:relative; height:220px;">
+          <canvas id="rm-chart-sla-donut"></canvas>
+        </div>
+      </div>
+      <div style="flex:1; min-width:200px;">
+        <div style="font-size:13px; font-weight:500; margin-bottom:8px;">Classification</div>
+        <div class="pt-chart-wrap" style="position:relative; height:220px;">
+          <canvas id="rm-chart-classification-donut"></canvas>
+        </div>
+      </div>
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">TRUEOWNERGROUP</div>
@@ -738,7 +759,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">Detail (<span id="rm-detail-count">0</span> tickets)</div>
-    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); max-height:500px; overflow-y:auto;">
+      <table id="rm-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
@@ -4013,6 +4038,40 @@ function renderPivot(ft) {
     });
   }
 
+  const DONUT_PALETTE = ['#2563eb', '#639922', '#EF9F27', '#E24B4A', '#7c3aed', '#B45309', '#0891b2', '#be185d', '#8b949e'];
+
+  function buildSlaDonut(canvasId, slaBreakdown, agingOrder, agingColors) {
+    const ctx = document.getElementById(canvasId);
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const labels = agingOrder;
+    const data = agingOrder.map(k => slaBreakdown[k] || 0);
+    const colors = agingOrder.map(k => agingColors[k]);
+    charts[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 10 } } },
+      },
+    });
+  }
+
+  function buildClassificationDonut(canvasId, breakdown) {
+    const ctx = document.getElementById(canvasId);
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const labels = breakdown.map(b => b.category);
+    const data = breakdown.map(b => b.total);
+    const colors = breakdown.map((_, i) => DONUT_PALETTE[i % DONUT_PALETTE.length]);
+    charts[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 8 }, boxWidth: 8 } } },
+      },
+    });
+  }
+
   function ensureMap() {
     if (map) return;
     map = L.map('rm-map', { zoomControl: true, preferCanvas: true }).setView([17.2, 99.7], 7);
@@ -4086,6 +4145,8 @@ function renderPivot(ft) {
     if (!agingSel.dataset.populated) { populateSelectOnce(agingSel, data.aging_order); }
 
     buildBarChart('rm-chart-region', data.breakdown_region, data.aging_order, data.aging_colors);
+    buildSlaDonut('rm-chart-sla-donut', data.sla_breakdown, data.aging_order, data.aging_colors);
+    buildClassificationDonut('rm-chart-classification-donut', data.classification_breakdown);
     buildBarChart('rm-chart-trueowner', data.breakdown_trueowner, data.aging_order, data.aging_colors);
     buildBarChart('rm-chart-district', data.breakdown_district, data.aging_order, data.aging_colors);
     renderMap(data.map_points);
@@ -4113,21 +4174,16 @@ function renderPivot(ft) {
     } catch (e) { /* silent - poll again next tick */ }
   }
 
-  document.querySelectorAll('.rm-view-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentView = btn.dataset.view;
-      document.querySelectorAll('.rm-view-btn').forEach(b => b.classList.toggle('active', b === btn));
-      // Reset dependent filters/dropdowns since they're scoped per-view
-      ['rm-trueowner', 'rm-district', 'rm-aging'].forEach(id => {
-        const sel = document.getElementById(id);
-        sel.innerHTML = '<option value="">ทั้งหมด</option>';
-        delete sel.dataset.populated;
-      });
-      reload();
+  document.getElementById('rm-view-select').addEventListener('change', (e) => {
+    currentView = e.target.value;
+    // Reset dependent filters/dropdowns since they're scoped per-view
+    ['rm-trueowner', 'rm-district', 'rm-aging'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">ทั้งหมด</option>';
+      delete sel.dataset.populated;
     });
+    reload();
   });
-  // Default active view button
-  document.querySelector('.rm-view-btn[data-view="FBB"]').classList.add('active');
 
   document.getElementById('rm-reload').addEventListener('click', reload);
   document.getElementById('rm-trueowner').addEventListener('change', reload);
