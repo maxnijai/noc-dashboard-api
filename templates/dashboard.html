@@ -816,7 +816,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <div>
         <div style="font-size:16px; font-weight:700;">Oncall Team</div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อสลับ Oncall / Day Off / ไม่ได้ Oncall</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อทำเครื่องหมาย Day Off</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Province:
@@ -828,9 +828,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-add-month" class="btn-secondary" title="เพิ่มเดือนถัดไปสำหรับวางแผนล่วงหน้า">+ วางแผนเดือนถัดไป</button>
         <button id="oc-reset-filter" class="btn-secondary">Reset Filter</button>
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
-          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
-          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
-          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;border:1px dashed var(--border);margin-left:8px;"></span>ไม่ได้ Oncall
+          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;"></span>Day Off
         </span>
         <span id="oc-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
         <button id="oc-reload" class="btn-secondary">Refresh</button>
@@ -4590,14 +4588,12 @@ function renderPivot(ft) {
   }
 
   function cellStyle(status) {
+    // Only "Day Off" gets a visible label/color now - everything else
+    // ("on", "always", "blank") renders as an empty cell so the grid isn't
+    // covered in repeated "On" text; Day Off is the only thing worth
+    // flagging at a glance.
     if (status === 'off') return { bg: '#E24B4A', fg: '#fff', label: 'Off' };
-    // "blank" = not part of the oncall rotation that day at all (e.g.
-    // daytime-only staff) - distinct from "off" (normally on rotation,
-    // just off this particular day).
-    if (status === 'blank') return { bg: 'transparent', fg: 'var(--text3)', label: '-', border: '1px dashed var(--border)' };
-    // "always" (7*24) displays identically to a normal Oncall day - it's
-    // just not clickable since there's no "day off" concept for those rows.
-    return { bg: '#63992222', fg: '#3d6216', label: 'On' };
+    return { bg: 'transparent', fg: 'var(--text3)', label: '' };
   }
 
   function todayStr() {
@@ -4809,10 +4805,9 @@ function renderPivot(ft) {
     if (!row) return;
     const current = row.days[dateStr] || 'on';
     if (current === 'always') return; // not togglable
-    // Cycle: Oncall -> Day Off -> ไม่ได้ Oncall (blank, e.g. daytime-only
-    // staff) -> back to Oncall.
-    const cycle = { on: 'off', off: 'blank', blank: 'on' };
-    const next = cycle[current] || 'on';
+    // Simple 2-way toggle now: anything not "off" flips to "off" (Day
+    // Off), and "off" flips back to blank/oncall.
+    const next = current === 'off' ? 'on' : 'off';
 
     // optimistic update
     row.days[dateStr] = next;
