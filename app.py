@@ -2174,9 +2174,10 @@ def api_oncall_schedule_toggle():
     new_status = payload.get('status')
     if not team_id1 or not date_str or new_status not in ('on', 'off'):
         return jsonify({'error': 'team_id1, date, and status (on/off) are required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        result = oncall.toggle_oncall_cell(gs_client, team_id1, date_str, new_status)
+        result = oncall.toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=updated_by)
         return jsonify(result)
     except Exception as e:
         log.exception("oncall-schedule toggle failed")

@@ -5,7 +5,14 @@ uses (REALTIME_SHEET_ID), so no new spreadsheet/credentials to manage.
 
 Storage shape (one row per team member, one column per date):
     TeamType | Region | Province | ProvinceTH | Type | TeamID | Remark |
-    No | TeamID1 | Name | Tel | FMOffice | TypeCM | <date1> | <date2> | ...
+    No | TeamID1 | Name | Tel | FMOffice | TypeCM | LastUpdatedBy |
+    LastUpdatedAt | <date1> | <date2> | ...
+
+LastUpdatedBy/LastUpdatedAt track the most recent toggle on ANY date for
+that person (not per-cell - one row's most recent edit), stamped from the
+session the same way Pending Ticket's work log does. Dates always start
+right after these two fixed columns and new months are appended at the
+true end of the sheet, so the tracking columns never need to move.
 
 Cell values in the date columns: "off" (Day Off), "on" (Oncall - the
 default), or "always" (7*24 - always oncall, not meant to be toggled;
@@ -16,11 +23,13 @@ import threading
 import time
 
 from realtime_monitor import REALTIME_SHEET_ID
+from pending_trend import bangkok_now
 
 ONCALL_SHEET = "OncallSchedule"
 IDENTITY_HEADER = [
     "TeamType", "Region", "Province", "ProvinceTH", "Type", "TeamID",
     "Remark", "No", "TeamID1", "Name", "Tel", "FMOffice", "TypeCM",
+    "LastUpdatedBy", "LastUpdatedAt",
 ]
 IDENTITY_COLS = len(IDENTITY_HEADER)  # date columns start right after this
 
@@ -67,6 +76,7 @@ def seed_oncall_schedule(gs_client, dates, rows):
             r.get("province_th", ""), r.get("type", ""), r.get("team_id", ""),
             r.get("remark", ""), r.get("no", ""), r.get("team_id1", ""),
             r.get("name", ""), r.get("tel", ""), r.get("fm_office", ""), r.get("type_cm", ""),
+            "", "",  # LastUpdatedBy, LastUpdatedAt - blank until first toggle
         ]
         days = r.get("days", {})
         for d in dates:
@@ -79,8 +89,9 @@ def seed_oncall_schedule(gs_client, dates, rows):
 
 
 def load_oncall_schedule(gs_client, use_cache=True):
-    """Returns {"dates": [...], "rows": [ {...identity, "days": {date: status}} ]}
-    or None if the tab hasn't been seeded yet."""
+    """Returns {"dates": [...], "rows": [ {...identity, "last_updated_by",
+    "last_updated_at", "days": {date: status}} ]} or None if the tab hasn't
+    been seeded yet."""
     now = time.monotonic()
     if use_cache:
         with _cache_lock:
@@ -108,6 +119,7 @@ def load_oncall_schedule(gs_client, use_cache=True):
             "province_th": padded[3], "type": padded[4], "team_id": padded[5],
             "remark": padded[6], "no": padded[7], "team_id1": padded[8],
             "name": padded[9], "tel": padded[10], "fm_office": padded[11], "type_cm": padded[12],
+            "last_updated_by": padded[13], "last_updated_at": padded[14],
             "days": days,
         })
 
@@ -119,10 +131,12 @@ def load_oncall_schedule(gs_client, use_cache=True):
     return result
 
 
-def toggle_oncall_cell(gs_client, team_id1, date_str, new_status):
-    """Sets one person's status for one date. new_status must be "on" or
-    "off" (the two clickable states - "always"/7*24 rows are left alone by
-    the UI, but nothing stops setting them here if ever needed)."""
+def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=None):
+    """Sets one person's status for one date, and stamps that row's
+    LastUpdatedBy/LastUpdatedAt (whoever last touched ANY of that person's
+    dates, not per-cell). new_status must be "on" or "off" (the two
+    clickable states - "always"/7*24 rows are left alone by the UI, but
+    nothing stops setting them here if ever needed)."""
     sh = _get_spreadsheet(gs_client)
     ws = _get_oncall_ws(sh)
     if ws is None:
@@ -143,9 +157,11 @@ def toggle_oncall_cell(gs_client, team_id1, date_str, new_status):
     if row_idx is None:
         raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
 
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     ws.update_cell(row_idx, col_idx, new_status)
+    ws.update(f"N{row_idx}:O{row_idx}", [[updated_by or "unknown", now_str]], value_input_option="RAW")
     _invalidate_cache()
-    return {"team_id1": team_id1, "date": date_str, "status": new_status}
+    return {"team_id1": team_id1, "date": date_str, "status": new_status, "updated_by": updated_by or "unknown", "updated_at": now_str}
 
 
 def add_month_columns(gs_client, year_month):

@@ -4639,7 +4639,6 @@ function renderPivot(ft) {
     const today = todayStr();
     const filteredRows = scheduleData.rows.filter(r => !provinceFilter || r.province_th === provinceFilter);
     const dates = scheduleData.dates.filter(d => !monthFilter || d.startsWith(monthFilter));
-    const totalCols = 6 + dates.length;
 
     // Group rows by province regardless of their order in the source data -
     // NOD and OFC teams for the same province are scattered across the
@@ -4650,6 +4649,7 @@ function renderPivot(ft) {
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
     );
+    const totalCols = 8 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -4690,13 +4690,15 @@ function renderPivot(ft) {
         </td>`;
       }).join('');
       const remarkColor = r.remark === 'NOD' ? '#2563eb' : (r.remark === 'OFC' ? '#B45309' : 'var(--text2)');
-      return groupHeader + `<tr style="border-top:1px solid var(--border);">
+      return groupHeader + `<tr style="border-top:1px solid var(--border);" data-row-team="${escapeHtml(r.team_id1)}">
         <td class="oc-sticky-1" style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(r.name)}</td>
         <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.province_th)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
         <td style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
+        <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
+        <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
         ${cells}
       </tr>`;
     }).join('');
@@ -4712,6 +4714,8 @@ function renderPivot(ft) {
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
+              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
+              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
               ${dayRow}
             </tr>
             <tr style="background:var(--bg3); position:sticky; top:28px; z-index:2;">${dowRow}</tr>
@@ -4742,6 +4746,14 @@ function renderPivot(ft) {
         body: JSON.stringify({ team_id1: teamId1, date: dateStr, status: next }),
       });
       if (!res.ok) throw new Error('toggle failed');
+      const data = await res.json();
+      row.last_updated_by = data.updated_by;
+      row.last_updated_at = data.updated_at;
+      const tr = document.querySelector(`tr[data-row-team="${CSS.escape(teamId1)}"]`);
+      if (tr) {
+        tr.querySelector('.oc-updated-by').textContent = data.updated_by || '-';
+        tr.querySelector('.oc-updated-at').textContent = data.updated_at || '-';
+      }
     } catch (e) {
       // revert on failure
       row.days[dateStr] = current;
