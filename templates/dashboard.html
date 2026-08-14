@@ -4469,6 +4469,11 @@ function renderPivot(ft) {
       const sel = el(id);
       [...sel.options].forEach(o => o.selected = false);
     });
+    // Default Bookmark to "4.FBB with SA1-4" (smallest group) instead of
+    // clearing to "0 selected" - keeps Reset consistent with the same
+    // lighter-weight default the tab opens with.
+    const bmSel = el('ptk-bookmark');
+    [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); });
     reload();
   });
   el('ptk-aging').addEventListener('change', reload);
