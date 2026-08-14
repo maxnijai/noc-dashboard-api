@@ -827,7 +827,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </label>
         <button id="oc-add-month" class="btn-secondary" title="เพิ่มเดือนถัดไปสำหรับวางแผนล่วงหน้า">+ วางแผนเดือนถัดไป</button>
         <button id="oc-reset-filter" class="btn-secondary">Reset Filter</button>
-        <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด (ที่ยังไม่มีใครเลือกเอง) ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
+        <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
@@ -4594,13 +4594,12 @@ function renderPivot(ft) {
     // Oncall for that day yet - empty, not counted anywhere.
     // "on" = explicitly clicked Oncall - green, counted in the summary.
     // "off" = Day Off - red, not counted.
-    // "always" (7*24) = fixed always-oncall role from the original roster
-    // (e.g. supervisors) - counts the same as "on", but rendered visibly
-    // different (purple, lock icon) and NOT clickable, so it's obvious
-    // it's locked by design rather than stuck/broken.
+    // No more fixed/locked "always" (7*24) role - every cell for every
+    // person is clickable the same way now; "always" is treated the same
+    // as "on" for display if any legacy value slips through, but nothing
+    // sets it anymore.
     if (status === 'off') return { bg: '#E24B4A', fg: '#fff', label: 'Off' };
-    if (status === 'always') return { bg: '#7c3aed22', fg: '#5b21b6', label: '🔒7*24' };
-    if (status === 'on') return { bg: '#63992222', fg: '#3d6216', label: 'Oncall' };
+    if (status === 'on' || status === 'always') return { bg: '#63992222', fg: '#3d6216', label: 'Oncall' };
     return { bg: 'transparent', fg: 'var(--text3)', label: '' };
   }
 
@@ -4760,15 +4759,13 @@ function renderPivot(ft) {
       const cells = dates.map(d => {
         const status = r.days[d] || 'blank';
         const style = cellStyle(status);
-        const clickable = status !== 'always';
         const info = dowInfo(d);
         const isToday = d === today;
         const bg = isToday ? '#2563eb10' : (info.isWeekend ? '#B23A3A08' : 'transparent');
         const border = isToday ? 'border-left:2px solid #2563eb; border-right:2px solid #2563eb;' : '';
-        return `<td onclick="${clickable ? `toggleOncallCell('${r.team_id1}','${d}',this)` : ''}"
+        return `<td onclick="toggleOncallCell('${r.team_id1}','${d}',this)"
           data-team="${escapeHtml(r.team_id1)}" data-date="${d}"
-          title="${clickable ? '' : 'ล็อกไว้ตามข้อมูลต้นฉบับ (7*24 - ไม่สามารถแก้ไขได้)'}"
-          style="padding:4px; text-align:center; ${clickable ? 'cursor:pointer;' : 'cursor:not-allowed;'} background:${bg}; ${border}">
+          style="padding:4px; text-align:center; cursor:pointer; background:${bg}; ${border}">
           <span class="oc-badge" style="display:inline-block; width:44px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg}; border:${style.border || 'none'};">${style.label}</span>
         </td>`;
       }).join('');
@@ -4813,9 +4810,9 @@ function renderPivot(ft) {
     const row = scheduleData.rows.find(r => r.team_id1 === teamId1);
     if (!row) return;
     const current = row.days[dateStr] || 'blank';
-    if (current === 'always') return; // not togglable
     // Cycle: blank (unset) -> Oncall -> Day Off -> back to blank.
-    const cycle = { blank: 'on', on: 'off', off: 'blank' };
+    // Any legacy "always" value cycles the same as "on" would.
+    const cycle = { blank: 'on', on: 'off', off: 'blank', always: 'off' };
     const next = cycle[current] || 'on';
 
     // optimistic update
@@ -4909,7 +4906,7 @@ function renderPivot(ft) {
   }
 
   async function resetDefaultOn() {
-    if (!confirm('ล้างค่า Oncall เริ่มต้นทั้งหมด (ที่ยังไม่มีใครเลือกเอง) ให้เป็นว่าง?\n\nไม่กระทบ Day Off หรือช่องที่มีคนคลิกเลือก Oncall เองแล้ว')) return;
+    if (!confirm('ล้างค่า Oncall เริ่มต้นทั้งหมด (รวมถึง 7*24 เดิม) ให้เป็นว่าง?\n\nไม่กระทบ Day Off หรือช่องที่มีคนคลิกเลือก Oncall เองแล้ว')) return;
     const btn = el('oc-reset-default-on');
     btn.disabled = true;
     btn.textContent = 'กำลังล้าง...';

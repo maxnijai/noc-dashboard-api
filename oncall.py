@@ -232,11 +232,12 @@ def add_month_columns(gs_client, year_month):
 
 def reset_default_on_to_blank(gs_client):
     """One-time cleanup: the original Excel seed marked every non-day-off
-    cell as "on", which made the today-summary count everyone as Oncall by
-    default - not useful once Oncall is meant to be an explicit pick per
-    person per day. This finds every date cell still holding "on" and
-    clears it to "blank" in ONE batched write (leaves "off" and "always"
-    untouched). Returns how many cells were cleared."""
+    cell as "on" (and a couple of fixed roles as "always"/7*24), which made
+    the today-summary count people as Oncall by default - not useful once
+    Oncall is meant to be an explicit pick per person per day, with no
+    locked/fixed roles either. This finds every date cell still holding
+    "on" or "always" and clears it to "blank" in ONE batched write. Returns
+    how many cells were cleared."""
     sh = _get_spreadsheet(gs_client)
     ws = _get_oncall_ws(sh)
     if ws is None:
@@ -256,7 +257,7 @@ def reset_default_on_to_blank(gs_client):
         day_statuses = padded[IDENTITY_COLS:IDENTITY_COLS + n_dates]
         new_row = []
         for s in day_statuses:
-            if s == "on":
+            if s in ("on", "always"):
                 new_row.append("blank")
                 cleared += 1
             else:
