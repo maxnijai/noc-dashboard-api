@@ -4652,16 +4652,18 @@ function renderPivot(ft) {
     if (provinces.includes(prev)) sel.value = prev;
   }
 
-  function populateDistrictFilter(data) {
+  function populateDistrictFilter(data, provinceFilter) {
     const sel = el('oc-district-filter');
     const prev = sel.value;
+    const rows = provinceFilter ? data.rows.filter(r => r.province_th === provinceFilter) : data.rows;
     const districtSet = new Set();
-    data.rows.forEach(r => {
+    rows.forEach(r => {
       (r.district || '').split(',').map(d => d.trim()).filter(Boolean).forEach(d => districtSet.add(d));
     });
     const districts = [...districtSet].sort();
     sel.innerHTML = '<option value="">ทั้งหมด</option>' + districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-    if (districts.includes(prev)) sel.value = prev;
+    // Keep the previous pick only if it still applies to the narrowed (or widened) list
+    sel.value = districts.includes(prev) ? prev : '';
   }
 
   function populateMonthFilter(data) {
@@ -4751,7 +4753,7 @@ function renderPivot(ft) {
       sel.value = provinceName;
     }
     el('oc-team-filter').value = ''; // show every remaining team in that province
-    el('oc-district-filter').value = '';
+    populateDistrictFilter(scheduleData, provinceName);
     oncallTodayOnly = true; // narrow rows to just today's Oncall picks, matching the card's number
     render();
     document.getElementById('oc-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4927,7 +4929,7 @@ function renderPivot(ft) {
       if (!data) return;
       scheduleData = data;
       populateProvinceFilter(data);
-      populateDistrictFilter(data);
+      populateDistrictFilter(data, el('oc-province-filter').value);
       populateMonthFilter(data);
       renderTodaySummary(data);
       render();
@@ -4972,7 +4974,7 @@ function renderPivot(ft) {
     if (!scheduleData) return;
     el('oc-province-filter').value = '';
     el('oc-team-filter').value = '';
-    el('oc-district-filter').value = '';
+    populateDistrictFilter(scheduleData, '');
     oncallTodayOnly = false;
     const months = [...new Set(scheduleData.dates.map(d => d.slice(0, 7)))].sort();
     const todayMonth = todayStr().slice(0, 7);
@@ -5062,7 +5064,11 @@ function renderPivot(ft) {
   }
 
   el('oc-reload').addEventListener('click', reload);
-  el('oc-province-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
+  el('oc-province-filter').addEventListener('change', () => {
+    oncallTodayOnly = false;
+    populateDistrictFilter(scheduleData, el('oc-province-filter').value);
+    render();
+  });
   el('oc-team-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
   el('oc-district-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
   el('oc-month-filter').addEventListener('change', render);
