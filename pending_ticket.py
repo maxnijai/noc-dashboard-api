@@ -107,57 +107,48 @@ def _get_worksheet(gs_client):
 
 # Two very different caching needs share this file:
 #
-# - live ticket rows: fed by an EXTERNAL system (SCCD+ITSM) that stamps every
-#   row with the same `insert_time` on each of its own batch updates - we
-#   never write to this sheet ourselves, so we can't invalidate on write.
-#   Instead we mirror what realtime_monitor.py already does: cheaply read
-#   just the insert_time cell first, and only pay for the full
-#   get_all_records() read when it's actually changed. The full-row cache
-#   itself can then be kept practically indefinitely (LIVE_ROWS_CACHE_TTL is
-#   just a safety net for the rare case insert_time itself doesn't change
-#   but the sheet content does).
+# - live ticket rows: fed by an EXTERNAL system (SCCD+ITSM) that re-stamps
+#   `insert_time` on its own frequent cadence (every few minutes, as new
+#   tickets stream in) - not the rarely-changing kind of value the
+#   insert_time trick works well for. An earlier version of this function
+#   read that cell first as a "cheap check" before deciding whether to do
+#   the full get_all_records() read, mirroring realtime_monitor.py - but
+#   because insert_time here changes on nearly every load anyway, that
+#   turned one Sheets API round trip into two almost every time (the cheap
+#   check, then the full read right after since insert_time had already
+#   moved on) - net SLOWER, which is what caused the "หน้านี้มันนานไป"
+#   report. Reverted to a plain short-TTL cache below: no extra round trip,
+#   just reuse the same read for anyone loading within the TTL window.
 # - work log: written entirely through save_work_log_entry() in THIS app, so
 #   it explicitly invalidates its cache on every save - safe to cache for a
 #   long time since staleness can only come from someone editing the sheet
 #   directly outside the app.
 #
-# Both are safe to cache long only because Gunicorn runs a single worker
+# Both caches are safe to rely on only because Gunicorn runs a single worker
 # process (see Procfile) - this in-memory cache is shared by every request.
 # Raising the worker count would split it across processes and let stale
 # reads slip through; use more threads instead if more concurrency is ever
 # needed, not more workers.
-LIVE_ROWS_CACHE_TTL_SECONDS = 7200  # 2h safety net; insert_time check below is the real gate
+LIVE_ROWS_CACHE_TTL_SECONDS = 15    # short: this sheet changes every few minutes anyway
 WORK_LOG_CACHE_TTL_SECONDS = 7200   # 2h; save_work_log_entry invalidates explicitly
-_live_rows_cache = {"data": None, "ts": 0, "insert_time": None}
+_live_rows_cache = {"data": None, "ts": 0}
 _work_log_cache = {"data": None, "ts": 0}
 _cache_lock = threading.Lock()
 
 
 def fetch_live_rows(gs_client, use_cache=True):
-    ws = _get_worksheet(gs_client)
     now = time.monotonic()
-
     if use_cache:
-        # Cheap poll: just the insert_time cell (row 2, col A), same trick
-        # realtime_monitor.get_insert_time() uses. If it hasn't moved since
-        # our last full read, skip get_all_records() entirely.
-        try:
-            current_insert_time = ws.cell(2, 1).value
-        except Exception:
-            current_insert_time = None
         with _cache_lock:
-            cache_fresh_enough = (now - _live_rows_cache["ts"]) < LIVE_ROWS_CACHE_TTL_SECONDS
-            if (_live_rows_cache["data"] is not None and cache_fresh_enough
-                    and current_insert_time is not None
-                    and current_insert_time == _live_rows_cache["insert_time"]):
+            if _live_rows_cache["data"] is not None and (now - _live_rows_cache["ts"]) < LIVE_ROWS_CACHE_TTL_SECONDS:
                 return _live_rows_cache["data"]
 
+    ws = _get_worksheet(gs_client)
     rows = ws.get_all_records()
     if use_cache:
         with _cache_lock:
             _live_rows_cache["data"] = rows
             _live_rows_cache["ts"] = now
-            _live_rows_cache["insert_time"] = rows[0].get("insert_time") if rows else None
     return rows
 
 
