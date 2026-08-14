@@ -43,7 +43,7 @@ CORS(app)
 # are exempt (the login/change-password pages themselves, static assets, and
 # the one-time bulk user-seed endpoint used to bootstrap accounts).
 # ---------------------------------------------------------------------------
-AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/api/oncall/seed', '/favicon.ico'}
+AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/api/oncall/seed', '/api/oncall-schedule/add-district-column', '/favicon.ico'}
 AUTH_EXEMPT_PREFIXES = ('/static/',)
 
 @app.before_request
@@ -2214,7 +2214,12 @@ def api_oncall_reset_default_on():
 def api_oncall_add_district_column():
     """One-time migration: POST {team_district_map: {team_id1: "district, district"}}
     to insert the District identity column, without touching any date-cell
-    (Oncall/Day Off) data already entered."""
+    (Oncall/Day Off) data already entered. Token-gated (same pattern as
+    seed-users/oncall-seed) since this is meant to run from a standalone
+    tool file outside a logged-in browser session."""
+    expected_token = os.environ.get('SEED_USERS_TOKEN')
+    if not expected_token or request.args.get('token') != expected_token:
+        return jsonify({'error': 'missing or invalid token'}), 403
     payload = request.get_json(silent=True) or {}
     team_district_map = payload.get('team_district_map')
     if not isinstance(team_district_map, dict):
