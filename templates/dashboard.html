@@ -4668,7 +4668,7 @@ function renderPivot(ft) {
       const barPct = Math.round((x.total / maxTotal) * 100);
       const isTop = i === 0;
       return `
-        <div style="background:var(--bg2); border:1px solid ${isTop ? '#2563eb55' : 'var(--border)'}; border-radius:10px; padding:10px 12px; position:relative; overflow:hidden; transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
+        <div onclick="jumpToProvince('${x.p.replace(/'/g, "\\'")}')" style="cursor:pointer; background:var(--bg2); border:1px solid ${isTop ? '#2563eb55' : 'var(--border)'}; border-radius:10px; padding:10px 12px; position:relative; overflow:hidden; transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
           <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
             <span style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(x.p)}</span>
             <span style="font-size:20px; font-weight:800; color:${isTop ? '#2563eb' : 'var(--text)'};">${x.total}</span>
@@ -4699,6 +4699,15 @@ function renderPivot(ft) {
         </div>
       </div>`;
   }
+
+  window.jumpToProvince = function (provinceName) {
+    const sel = el('oc-province-filter');
+    if ([...sel.options].some(o => o.value === provinceName)) {
+      sel.value = provinceName;
+      render();
+    }
+    document.getElementById('oc-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   function render() {
     if (!scheduleData) return;
