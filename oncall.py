@@ -37,7 +37,16 @@ IDENTITY_COLS = len(IDENTITY_HEADER)  # date columns start right after this
 _LAST_UPDATED_BY_COL = IDENTITY_HEADER.index("LastUpdatedBy") + 1  # 1-based
 _LAST_UPDATED_AT_COL = IDENTITY_HEADER.index("LastUpdatedAt") + 1  # 1-based
 
-_CACHE_TTL_SECONDS = 20
+_CACHE_TTL_SECONDS = 7200  # 2h - safe because every write in this file goes
+                            # through our own app (toggle/seed/add-month/reset)
+                            # and explicitly calls _invalidate_cache(), so a
+                            # stale read only happens if the sheet is edited
+                            # by hand outside the app. Gunicorn runs a single
+                            # worker process (see Procfile) so this in-memory
+                            # cache is shared by every request - do not raise
+                            # the worker count without moving this to a
+                            # cross-process store, or edits from one request
+                            # could stay invisible to others for the full TTL.
 _cache = {"data": None, "ts": 0}
 _cache_lock = threading.Lock()
 
