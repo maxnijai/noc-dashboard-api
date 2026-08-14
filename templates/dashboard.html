@@ -4812,7 +4812,7 @@ function renderPivot(ft) {
     const dayRow = dates.map(d => {
       const info = dowInfo(d);
       const isToday = d === today;
-      return `<th style="padding:2px 6px 6px; text-align:center; font-size:11px; ${isToday ? 'color:#2563eb; font-weight:700;' : (info.isWeekend ? 'color:#B23A3A;' : 'color:var(--text2);')} background:${isToday ? '#2563eb22' : (info.isWeekend ? '#B23A3A15' : 'transparent')}; ${isToday ? 'border-left:2px solid #2563eb; border-right:2px solid #2563eb;' : ''}">${info.day}${isToday ? '<br><span style=\'font-size:9px;\'>วันนี้</span>' : ''}</th>`;
+      return `<th data-date-header="${d}" style="padding:2px 6px 6px; text-align:center; font-size:11px; ${isToday ? 'color:#2563eb; font-weight:700;' : (info.isWeekend ? 'color:#B23A3A;' : 'color:var(--text2);')} background:${isToday ? '#2563eb22' : (info.isWeekend ? '#B23A3A15' : 'transparent')}; ${isToday ? 'border-left:2px solid #2563eb; border-right:2px solid #2563eb;' : ''}">${info.day}${isToday ? '<br><span style=\'font-size:9px;\'>วันนี้</span>' : ''}</th>`;
     }).join('');
 
     let lastProvince = null;
@@ -4858,7 +4858,7 @@ function renderPivot(ft) {
     }).join('');
 
     el('oc-body').innerHTML = `
-      <div style="overflow:auto; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
+      <div id="oc-table-scroll" style="overflow:auto; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
         <table style="border-collapse:collapse; font-size:12px; white-space:nowrap;">
           <thead>
             <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
@@ -4878,6 +4878,22 @@ function renderPivot(ft) {
           <tbody>${bodyRows}</tbody>
         </table>
       </div>`;
+
+    scrollToToday();
+  }
+
+  // Auto-scrolls the date grid so today's column sits right after the
+  // frozen columns (checkbox..Remark = 622px wide) - people don't have to
+  // hunt for today's column on load, but scrolling left for earlier days
+  // and right for later ones still works exactly as normal since this
+  // only sets the starting scroll position, not the column order.
+  const OC_STICKY_WIDTH = 622;
+  function scrollToToday() {
+    const container = el('oc-table-scroll');
+    if (!container) return;
+    const todayTh = container.querySelector('th[data-date-header="' + todayStr() + '"]');
+    if (!todayTh) return;
+    container.scrollLeft = Math.max(0, todayTh.offsetLeft - OC_STICKY_WIDTH);
   }
 
   window.toggleOncallCell = async function (teamId1, dateStr, td) {
