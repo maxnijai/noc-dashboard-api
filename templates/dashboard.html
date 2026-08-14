@@ -4986,17 +4986,29 @@ function renderPivot(ft) {
   }
 
   // Auto-scrolls the date grid so today's column sits right after the
-  // frozen columns (checkbox..Remark = 622px wide) - people don't have to
-  // hunt for today's column on load, but scrolling left for earlier days
-  // and right for later ones still works exactly as normal since this
-  // only sets the starting scroll position, not the column order.
-  const OC_STICKY_WIDTH = 622;
+  // frozen columns - people don't have to hunt for today's column on load,
+  // but scrolling left for earlier days and right for later ones still
+  // works exactly as normal since this only sets the starting scroll
+  // position, not the column order. Sticky width is measured live from the
+  // actual rendered cells (rather than a hardcoded constant) so it can't
+  // drift out of sync if the frozen columns' widths ever change.
   function scrollToToday() {
     const container = el('oc-table-scroll');
     if (!container) return;
     const todayTh = container.querySelector('th[data-date-header="' + todayStr() + '"]');
     if (!todayTh) return;
-    container.scrollLeft = Math.max(0, todayTh.offsetLeft - OC_STICKY_WIDTH);
+    let stickyWidth = 0;
+    for (let i = 0; i <= 5; i++) {
+      const cell = container.querySelector('.oc-sticky-' + i);
+      if (cell) stickyWidth += cell.offsetWidth;
+    }
+    // requestAnimationFrame twice: ensures the browser has fully laid out
+    // the freshly-inserted table (widths/offsets settled) before we read
+    // them - reading immediately after innerHTML assignment can otherwise
+    // catch layout mid-flight in some browsers with sticky positioning.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      container.scrollLeft = Math.max(0, todayTh.offsetLeft - stickyWidth);
+    }));
   }
 
   window.toggleOncallCell = async function (teamId1, dateStr, td) {
