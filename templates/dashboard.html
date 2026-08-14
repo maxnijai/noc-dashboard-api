@@ -4657,39 +4657,45 @@ function renderPivot(ft) {
       else if (r.remark === 'OFC') bucket.ofc++;
       else bucket.other++;
     });
-    const provinces = Object.keys(byProvince).sort();
-    const totalNod = provinces.reduce((s, p) => s + byProvince[p].nod, 0);
-    const totalOfc = provinces.reduce((s, p) => s + byProvince[p].ofc, 0);
+    const provinces = Object.keys(byProvince)
+      .map(p => ({ p, ...byProvince[p], total: byProvince[p].nod + byProvince[p].ofc + byProvince[p].other }))
+      .sort((a, b) => b.total - a.total);
+    const totalNod = provinces.reduce((s, x) => s + x.nod, 0);
+    const totalOfc = provinces.reduce((s, x) => s + x.ofc, 0);
+    const maxTotal = Math.max(1, ...provinces.map(x => x.total));
 
-    const rows = provinces.map(p => {
-      const b = byProvince[p];
-      const total = b.nod + b.ofc + b.other;
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(p)}</td>
-        <td style="padding:6px 10px; text-align:center;">${b.nod || '-'}</td>
-        <td style="padding:6px 10px; text-align:center;">${b.ofc || '-'}</td>
-        <td style="padding:6px 10px; text-align:center; font-weight:700;">${total}</td>
-      </tr>`;
+    const cards = provinces.map((x, i) => {
+      const barPct = Math.round((x.total / maxTotal) * 100);
+      const isTop = i === 0;
+      return `
+        <div style="background:var(--bg2); border:1px solid ${isTop ? '#2563eb55' : 'var(--border)'}; border-radius:10px; padding:10px 12px; position:relative; overflow:hidden; transition:box-shadow .15s;" onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow='none'">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px;">
+            <span style="font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(x.p)}</span>
+            <span style="font-size:20px; font-weight:800; color:${isTop ? '#2563eb' : 'var(--text)'};">${x.total}</span>
+          </div>
+          <div style="height:5px; background:var(--bg4); border-radius:3px; margin-top:8px; overflow:hidden;">
+            <div style="height:100%; width:${barPct}%; background:linear-gradient(90deg,#2563eb,#639922); border-radius:3px;"></div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:8px; font-size:11px;">
+            <span style="background:#2563eb18; color:#2563eb; padding:2px 8px; border-radius:20px; font-weight:600;">NOD ${x.nod}</span>
+            <span style="background:#B4530918; color:#B45309; padding:2px 8px; border-radius:20px; font-weight:600;">OFC ${x.ofc}</span>
+          </div>
+        </div>`;
     }).join('');
 
     const dateLabel = new Date(today + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
 
     el('oc-today-summary').innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
-        <div style="padding:8px 14px; background:var(--bg3); font-weight:700; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
-          <span>Oncall วันนี้ (${escapeHtml(dateLabel)}) แยกตามจังหวัด</span>
-          <span style="font-weight:400; font-size:12px; color:var(--text3);">รวม NOD ${totalNod} ทีม / OFC ${totalOfc} ทีม</span>
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; background:var(--bg2);">
+        <div style="padding:12px 16px; background:linear-gradient(135deg,#2563eb0d,#6399220d); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--border);">
+          <span style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#639922;"></span>
+            Oncall วันนี้ · ${escapeHtml(dateLabel)}
+          </span>
+          <span style="font-size:12px; color:var(--text3);">รวมทั้งภาคเหนือ — NOD <b style="color:#2563eb;">${totalNod}</b> ทีม · OFC <b style="color:#B45309;">${totalOfc}</b> ทีม</span>
         </div>
-        <div style="overflow-x:auto;">
-          <table style="border-collapse:collapse; font-size:12px; width:100%;">
-            <thead><tr style="background:var(--bg4);">
-              <th style="padding:6px 10px; text-align:left;">จังหวัด</th>
-              <th style="padding:6px 10px; text-align:center;">NOD</th>
-              <th style="padding:6px 10px; text-align:center;">OFC</th>
-              <th style="padding:6px 10px; text-align:center;">รวม</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
+        <div style="padding:12px 16px; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;">
+          ${cards}
         </div>
       </div>`;
   }
