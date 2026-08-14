@@ -4594,9 +4594,13 @@ function renderPivot(ft) {
     // Oncall for that day yet - empty, not counted anywhere.
     // "on" = explicitly clicked Oncall - green, counted in the summary.
     // "off" = Day Off - red, not counted.
-    // "always" (7*24) = counts as Oncall too, just not clickable.
+    // "always" (7*24) = fixed always-oncall role from the original roster
+    // (e.g. supervisors) - counts the same as "on", but rendered visibly
+    // different (purple, lock icon) and NOT clickable, so it's obvious
+    // it's locked by design rather than stuck/broken.
     if (status === 'off') return { bg: '#E24B4A', fg: '#fff', label: 'Off' };
-    if (status === 'on' || status === 'always') return { bg: '#63992222', fg: '#3d6216', label: 'Oncall' };
+    if (status === 'always') return { bg: '#7c3aed22', fg: '#5b21b6', label: '🔒7*24' };
+    if (status === 'on') return { bg: '#63992222', fg: '#3d6216', label: 'Oncall' };
     return { bg: 'transparent', fg: 'var(--text3)', label: '' };
   }
 
@@ -4763,8 +4767,9 @@ function renderPivot(ft) {
         const border = isToday ? 'border-left:2px solid #2563eb; border-right:2px solid #2563eb;' : '';
         return `<td onclick="${clickable ? `toggleOncallCell('${r.team_id1}','${d}',this)` : ''}"
           data-team="${escapeHtml(r.team_id1)}" data-date="${d}"
-          style="padding:4px; text-align:center; ${clickable ? 'cursor:pointer;' : 'cursor:default;'} background:${bg}; ${border}">
-          <span class="oc-badge" style="display:inline-block; width:34px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg}; border:${style.border || 'none'};">${style.label}</span>
+          title="${clickable ? '' : 'ล็อกไว้ตามข้อมูลต้นฉบับ (7*24 - ไม่สามารถแก้ไขได้)'}"
+          style="padding:4px; text-align:center; ${clickable ? 'cursor:pointer;' : 'cursor:not-allowed;'} background:${bg}; ${border}">
+          <span class="oc-badge" style="display:inline-block; width:44px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg}; border:${style.border || 'none'};">${style.label}</span>
         </td>`;
       }).join('');
       const remarkColor = r.remark === 'NOD' ? '#2563eb' : (r.remark === 'OFC' ? '#B45309' : 'var(--text2)');
