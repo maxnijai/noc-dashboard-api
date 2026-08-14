@@ -87,6 +87,7 @@ def seed_oncall_schedule(gs_client, dates, rows):
 
     ws.update("A1", [header] + body, value_input_option="RAW")
     _invalidate_cache()
+    _invalidate_layout_cache()
     return len(body)
 
 
@@ -133,38 +134,82 @@ def load_oncall_schedule(gs_client, use_cache=True):
     return result
 
 
+# Layout cache (header/dates + team_id1 -> row index) - separate from and
+# much longer-lived than the data cache above, since the SHAPE of the
+# sheet (who's in it, which columns exist) changes only on seed/add-month,
+# not on every toggle. Without this, every single click was doing a full
+# ws.get_all_values() read (1 API call) plus two separate writes (2 more) -
+# fine occasionally, but once Oncall became something people click for
+# every person on every day instead of a pre-filled default, dozens of
+# rapid clicks were blowing through the Sheets API per-minute quota and
+# the UI would stall waiting on 429s. Caching the layout cuts a toggle
+# down to a single batched write call after the first hit.
+_LAYOUT_CACHE_TTL_SECONDS = 300
+_layout_cache = {"dates": None, "team_row": None, "ts": 0}
+
+
+def _invalidate_layout_cache():
+    with _cache_lock:
+        _layout_cache["dates"] = None
+        _layout_cache["team_row"] = None
+        _layout_cache["ts"] = 0
+
+
+def _get_layout(ws):
+    now = time.monotonic()
+    with _cache_lock:
+        if _layout_cache["dates"] is not None and (now - _layout_cache["ts"]) < _LAYOUT_CACHE_TTL_SECONDS:
+            return _layout_cache["dates"], _layout_cache["team_row"]
+
+    values = ws.get_all_values()
+    header = values[0]
+    dates = header[IDENTITY_COLS:]
+    team_row = {}
+    for i, line in enumerate(values[1:], start=2):
+        if line and len(line) > 8 and line[8]:
+            team_row[line[8]] = i  # column I = TeamID1 (0-based index 8)
+
+    with _cache_lock:
+        _layout_cache["dates"] = dates
+        _layout_cache["team_row"] = team_row
+        _layout_cache["ts"] = now
+    return dates, team_row
+
+
 def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=None):
     """Sets one person's status for one date, and stamps that row's
     LastUpdatedBy/LastUpdatedAt (whoever last touched ANY of that person's
     dates, not per-cell). new_status must be "on", "off", or "blank" (the
-    three clickable states - "blank" means the person isn't part of the
-    oncall rotation that day at all, e.g. daytime-only staff, distinct from
-    "off" which means they ARE normally on rotation but this day is a day
-    off. "always"/7*24 rows are left alone by the UI, but nothing stops
-    setting them here if ever needed)."""
+    three clickable states - "blank" means nobody's picked this person as
+    Oncall for that day, "off" means Day Off. Legacy "always"/7*24 rows
+    from old data are treated like any other cell now)."""
     sh = _get_spreadsheet(gs_client)
     ws = _get_oncall_ws(sh)
     if ws is None:
         raise ValueError("OncallSchedule tab has not been seeded yet")
 
-    values = ws.get_all_values()
-    header = values[0]
-    dates = header[IDENTITY_COLS:]
+    dates, team_row = _get_layout(ws)
     if date_str not in dates:
         raise ValueError(f"date {date_str} is not a column in OncallSchedule")
     col_idx = IDENTITY_COLS + dates.index(date_str) + 1  # 1-based
 
-    row_idx = None
-    for i, line in enumerate(values[1:], start=2):
-        if line and line[8] == team_id1:  # column I = TeamID1 (0-based index 8)
-            row_idx = i
-            break
+    row_idx = team_row.get(team_id1)
+    if row_idx is None:
+        # Cache might be stale (e.g. a row was added after it was built) -
+        # refresh once before giving up.
+        _invalidate_layout_cache()
+        dates, team_row = _get_layout(ws)
+        row_idx = team_row.get(team_id1)
     if row_idx is None:
         raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
 
     now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
-    ws.update_cell(row_idx, col_idx, new_status)
-    ws.update(f"N{row_idx}:O{row_idx}", [[updated_by or "unknown", now_str]], value_input_option="RAW")
+    from gspread.utils import rowcol_to_a1
+    cell_a1 = rowcol_to_a1(row_idx, col_idx)
+    ws.batch_update([
+        {"range": cell_a1, "values": [[new_status]]},
+        {"range": f"N{row_idx}:O{row_idx}", "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
     _invalidate_cache()
     return {"team_id1": team_id1, "date": date_str, "status": new_status, "updated_by": updated_by or "unknown", "updated_at": now_str}
 
@@ -227,6 +272,7 @@ def add_month_columns(gs_client, year_month):
         ws.update(body_range, fill_rows, value_input_option="RAW")
 
     _invalidate_cache()
+    _invalidate_layout_cache()
     return len(dates_to_add)
 
 
