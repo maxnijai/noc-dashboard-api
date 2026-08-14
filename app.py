@@ -17,6 +17,7 @@ from pending_ticket import (
     build_exclusive_pending_response,
     save_work_log_entry,
 )
+import oncall
 import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -42,7 +43,7 @@ CORS(app)
 # are exempt (the login/change-password pages themselves, static assets, and
 # the one-time bulk user-seed endpoint used to bootstrap accounts).
 # ---------------------------------------------------------------------------
-AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/favicon.ico'}
+AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/api/oncall/seed', '/favicon.ico'}
 AUTH_EXEMPT_PREFIXES = ('/static/',)
 
 @app.before_request
@@ -2151,6 +2152,54 @@ def api_exclusive_pending():
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-schedule')
+def api_oncall_schedule():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = oncall.load_oncall_schedule(gs_client)
+        if data is None:
+            return jsonify({'error': 'not seeded yet'}), 404
+        return jsonify(data)
+    except Exception as e:
+        log.exception("oncall-schedule API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-schedule/toggle', methods=['POST'])
+def api_oncall_schedule_toggle():
+    payload = request.get_json(silent=True) or {}
+    team_id1 = payload.get('team_id1')
+    date_str = payload.get('date')
+    new_status = payload.get('status')
+    if not team_id1 or not date_str or new_status not in ('on', 'off'):
+        return jsonify({'error': 'team_id1, date, and status (on/off) are required'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        result = oncall.toggle_oncall_cell(gs_client, team_id1, date_str, new_status)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("oncall-schedule toggle failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall/seed', methods=['POST'])
+def api_oncall_seed():
+    """One-time bootstrap (same token-gate pattern as seed-users): POST
+    {dates: [...], rows: [...]} to (re)populate the OncallSchedule tab."""
+    expected_token = os.environ.get('SEED_USERS_TOKEN')
+    if not expected_token or request.args.get('token') != expected_token:
+        return jsonify({'error': 'missing or invalid token'}), 403
+    payload = request.get_json(silent=True) or {}
+    dates = payload.get('dates')
+    rows = payload.get('rows')
+    if not isinstance(dates, list) or not isinstance(rows, list):
+        return jsonify({'error': 'expected {dates: [...], rows: [...]}'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall.seed_oncall_schedule(gs_client, dates, rows)
+        return jsonify({'seeded_rows': count, 'dates': len(dates)})
+    except Exception as e:
+        log.exception("oncall seed failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')
