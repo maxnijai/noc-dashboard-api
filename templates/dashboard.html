@@ -4723,10 +4723,18 @@ function renderPivot(ft) {
 
   window.jumpToProvince = function (provinceName) {
     const sel = el('oc-province-filter');
-    if ([...sel.options].some(o => o.value === provinceName)) {
+    sel.value = provinceName;
+    if (sel.value !== provinceName) {
+      // Exact <option> wasn't found (rare mismatch) - add it so the
+      // dropdown reflects the filter instead of silently failing.
+      const opt = document.createElement('option');
+      opt.value = provinceName;
+      opt.textContent = provinceName;
+      sel.appendChild(opt);
       sel.value = provinceName;
-      render();
     }
+    el('oc-team-filter').value = ''; // show the full roster for that province
+    render();
     document.getElementById('oc-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
