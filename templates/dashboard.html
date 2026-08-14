@@ -82,11 +82,15 @@ select:focus, .btn:hover { border-color: var(--border2); }
 thead .ptk-sticky-1, thead .ptk-sticky-2, thead .ptk-sticky-3, thead .ptk-sticky-4 { z-index:4; background:var(--bg3); }
 tbody .ptk-sticky-1, tbody .ptk-sticky-2, tbody .ptk-sticky-3, tbody .ptk-sticky-4 { background:var(--bg2); }
 tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
-.oc-sticky-1 { position:sticky; left:0; width:160px; min-width:160px; z-index:3; }
-.oc-sticky-2 { position:sticky; left:160px; width:110px; min-width:110px; z-index:3; }
-thead .oc-sticky-1, thead .oc-sticky-2 { z-index:4; background:var(--bg3); }
-tbody .oc-sticky-1, tbody .oc-sticky-2 { background:var(--bg2); }
-tbody .oc-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-sticky-0 { position:sticky; left:0; width:32px; min-width:32px; z-index:3; text-align:center; }
+.oc-sticky-1 { position:sticky; left:32px; width:150px; min-width:150px; z-index:3; }
+.oc-sticky-2 { position:sticky; left:182px; width:100px; min-width:100px; z-index:3; }
+.oc-sticky-3 { position:sticky; left:282px; width:50px; min-width:50px; z-index:3; }
+.oc-sticky-4 { position:sticky; left:332px; width:150px; min-width:150px; z-index:3; }
+.oc-sticky-5 { position:sticky; left:482px; width:70px; min-width:70px; z-index:3; }
+thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5 { z-index:4; background:var(--bg3); }
+tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5 { background:var(--bg2); }
+tbody .oc-sticky-5 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #rm-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 
@@ -822,6 +826,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Province:
           <select id="oc-province-filter" style="padding:4px 8px;"></select>
         </label>
+        <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Team:
+          <select id="oc-team-filter" style="padding:4px 8px;">
+            <option value="">ทั้งหมด</option>
+            <option value="NOD">NOD</option>
+            <option value="OFC">OFC</option>
+          </select>
+        </label>
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Month:
           <select id="oc-month-filter" style="padding:4px 8px;"></select>
         </label>
@@ -837,6 +848,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div id="oc-today-summary" style="margin-bottom:14px;"></div>
+    <div id="oc-bulk-bar" style="display:none; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:#2563eb0d; border:1px solid #2563eb33; border-radius:var(--r); font-size:12px;">
+      <span id="oc-bulk-count" style="font-weight:700;"></span>
+      <button id="oc-bulk-set-oncall" class="btn-secondary">ตั้งเป็น Oncall (วันนี้)</button>
+      <button id="oc-bulk-clear" class="btn-secondary">ยกเลิกการเลือก</button>
+    </div>
     <div id="oc-body"></div>
   </div>
 
@@ -4575,6 +4591,7 @@ function renderPivot(ft) {
 (function () {
   let loaded = false;
   let scheduleData = null; // {dates, rows}
+  let selectedTeams = new Set();
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -4716,9 +4733,13 @@ function renderPivot(ft) {
   function render() {
     if (!scheduleData) return;
     const provinceFilter = el('oc-province-filter').value;
+    const teamFilter = el('oc-team-filter').value;
     const monthFilter = el('oc-month-filter').value;
     const today = todayStr();
-    const filteredRows = scheduleData.rows.filter(r => !provinceFilter || r.province_th === provinceFilter);
+    const filteredRows = scheduleData.rows.filter(r =>
+      (!provinceFilter || r.province_th === provinceFilter) &&
+      (!teamFilter || r.remark === teamFilter)
+    );
     const dates = scheduleData.dates.filter(d => !monthFilter || d.startsWith(monthFilter));
 
     // Group rows by province regardless of their order in the source data -
@@ -4730,7 +4751,7 @@ function renderPivot(ft) {
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
     );
-    const totalCols = 8 + dates.length;
+    const totalCols = 9 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -4770,12 +4791,14 @@ function renderPivot(ft) {
         </td>`;
       }).join('');
       const remarkColor = r.remark === 'NOD' ? '#2563eb' : (r.remark === 'OFC' ? '#B45309' : 'var(--text2)');
+      const checked = selectedTeams.has(r.team_id1) ? 'checked' : '';
       return groupHeader + `<tr style="border-top:1px solid var(--border);" data-row-team="${escapeHtml(r.team_id1)}">
+        <td class="oc-sticky-0"><input type="checkbox" onchange="toggleTeamSelect('${r.team_id1}', this.checked)" ${checked}></td>
         <td class="oc-sticky-1" style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(r.name)}</td>
         <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.province_th)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
-        <td style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
+        <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
+        <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
+        <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
         <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
         <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
@@ -4788,11 +4811,12 @@ function renderPivot(ft) {
         <table style="border-collapse:collapse; font-size:12px; white-space:nowrap;">
           <thead>
             <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
+              <th class="oc-sticky-0" rowspan="2" style="vertical-align:bottom;"><input type="checkbox" id="oc-select-all" onchange="toggleSelectAll(this.checked)"></th>
               <th class="oc-sticky-1" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Name</th>
               <th class="oc-sticky-2" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Province</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
+              <th class="oc-sticky-3" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
+              <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
+              <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
@@ -4899,6 +4923,7 @@ function renderPivot(ft) {
   function resetFilters() {
     if (!scheduleData) return;
     el('oc-province-filter').value = '';
+    el('oc-team-filter').value = '';
     const months = [...new Set(scheduleData.dates.map(d => d.slice(0, 7)))].sort();
     const todayMonth = todayStr().slice(0, 7);
     el('oc-month-filter').value = months.includes(todayMonth) ? todayMonth : months[months.length - 1];
@@ -4924,12 +4949,77 @@ function renderPivot(ft) {
     btn.textContent = 'ล้างค่า Oncall เริ่มต้น';
   }
 
+  function updateBulkBar() {
+    const bar = el('oc-bulk-bar');
+    if (selectedTeams.size === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'flex';
+    el('oc-bulk-count').textContent = `เลือกไว้ ${selectedTeams.size} ทีม`;
+  }
+
+  window.toggleTeamSelect = function (teamId1, checked) {
+    if (checked) selectedTeams.add(teamId1);
+    else selectedTeams.delete(teamId1);
+    updateBulkBar();
+  };
+
+  window.toggleSelectAll = function (checked) {
+    document.querySelectorAll('#oc-body tbody input[type=checkbox]').forEach(cb => {
+      const teamId1 = cb.closest('tr').dataset.rowTeam;
+      cb.checked = checked;
+      if (checked) selectedTeams.add(teamId1);
+      else selectedTeams.delete(teamId1);
+    });
+    updateBulkBar();
+  };
+
+  async function bulkSetOncallToday() {
+    const today = todayStr();
+    if (!scheduleData.dates.includes(today)) {
+      alert('เดือนที่แสดงอยู่ไม่มีวันนี้อยู่ในตาราง เปลี่ยน Month ก่อนครับ');
+      return;
+    }
+    const btn = el('oc-bulk-set-oncall');
+    btn.disabled = true;
+    btn.textContent = 'กำลังตั้งค่า...';
+    const teamIds = [...selectedTeams];
+    for (const teamId1 of teamIds) {
+      const row = scheduleData.rows.find(r => r.team_id1 === teamId1);
+      if (!row) continue;
+      try {
+        const res = await fetch('/api/oncall-schedule/toggle', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ team_id1: teamId1, date: today, status: 'on' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          row.days[today] = 'on';
+          row.last_updated_by = data.updated_by;
+          row.last_updated_at = data.updated_at;
+        }
+      } catch (e) {
+        console.error('Bulk set oncall failed for', teamId1, e);
+      }
+    }
+    selectedTeams.clear();
+    updateBulkBar();
+    renderTodaySummary(scheduleData);
+    render();
+    btn.disabled = false;
+    btn.textContent = 'ตั้งเป็น Oncall (วันนี้)';
+  }
+
   el('oc-reload').addEventListener('click', reload);
   el('oc-province-filter').addEventListener('change', render);
+  el('oc-team-filter').addEventListener('change', render);
   el('oc-month-filter').addEventListener('change', render);
   el('oc-add-month').addEventListener('click', addNextMonth);
   el('oc-reset-filter').addEventListener('click', resetFilters);
   el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
+  el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
+  el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
 })();
 </script>
