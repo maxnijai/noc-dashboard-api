@@ -866,7 +866,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </label>
         <button id="oc-add-month" class="btn-secondary" title="เพิ่มเดือนถัดไปสำหรับวางแผนล่วงหน้า">+ วางแผนเดือนถัดไป</button>
         <button id="oc-reset-filter" class="btn-secondary">Reset Filter</button>
+        {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
         <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
+        {% endif %}
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
@@ -5163,7 +5165,7 @@ function renderPivot(ft) {
   el('oc-month-filter').addEventListener('change', render);
   el('oc-add-month').addEventListener('click', addNextMonth);
   el('oc-reset-filter').addEventListener('click', resetFilters);
-  el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
+  if (el('oc-reset-default-on')) el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
   el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
