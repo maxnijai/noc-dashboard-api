@@ -166,11 +166,16 @@ def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=Non
 
 def add_month_columns(gs_client, year_month):
     """Appends one column per day of `year_month` ("YYYY-MM") to the end of
-    the sheet, defaulting every existing person's status to "on" for those
-    new dates (they can then click to plan Day Offs ahead of time). Dates
-    that already exist as columns are skipped. Returns how many columns
-    were actually added."""
+    the sheet. Each new date is defaulted from that person's existing
+    schedule on the SAME DAY OF WEEK (Mon-Sun) - e.g. if someone is
+    consistently off on Fridays in the existing data, every Friday in the
+    new month defaults to off too - using the most common status seen for
+    that weekday (so one-off exceptions don't skew the pattern). People can
+    still click to adjust individual days after. Dates that already exist
+    as columns are skipped. Returns how many columns were actually added."""
     import calendar
+    from collections import Counter
+    from datetime import datetime
     from gspread.utils import rowcol_to_a1
 
     year, month = (int(x) for x in year_month.split("-"))
@@ -184,10 +189,14 @@ def add_month_columns(gs_client, year_month):
 
     values = ws.get_all_values()
     header = values[0]
-    existing_dates = set(header[IDENTITY_COLS:])
-    dates_to_add = [d for d in month_dates if d not in existing_dates]
+    existing_dates = header[IDENTITY_COLS:]
+    existing_dates_set = set(existing_dates)
+    dates_to_add = [d for d in month_dates if d not in existing_dates_set]
     if not dates_to_add:
         return 0
+
+    existing_weekdays = [datetime.strptime(d, "%Y-%m-%d").weekday() for d in existing_dates]  # Mon=0..Sun=6
+    new_weekdays = [datetime.strptime(d, "%Y-%m-%d").weekday() for d in dates_to_add]
 
     start_col = len(header) + 1  # 1-based, right after the current last column
     end_col = start_col + len(dates_to_add) - 1
@@ -197,9 +206,20 @@ def add_month_columns(gs_client, year_month):
 
     n_data_rows = len(values) - 1
     if n_data_rows > 0:
+        fill_rows = []
+        for line in values[1:1 + n_data_rows]:
+            padded = line + [""] * (len(header) - len(line))
+            day_statuses = padded[IDENTITY_COLS:]
+            weekday_pattern = {}
+            for wd in range(7):
+                statuses = [
+                    (day_statuses[i] or "on") for i, w in enumerate(existing_weekdays)
+                    if w == wd and i < len(day_statuses)
+                ]
+                weekday_pattern[wd] = Counter(statuses).most_common(1)[0][0] if statuses else "on"
+            fill_rows.append([weekday_pattern.get(wd, "on") for wd in new_weekdays])
         body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
-        fill = [["on"] * len(dates_to_add) for _ in range(n_data_rows)]
-        ws.update(body_range, fill, value_input_option="RAW")
+        ws.update(body_range, fill_rows, value_input_option="RAW")
 
     _invalidate_cache()
     return len(dates_to_add)
