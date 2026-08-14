@@ -4780,7 +4780,7 @@ function renderPivot(ft) {
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
     );
-    const totalCols = 9 + dates.length;
+    const totalCols = 10 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -4828,6 +4828,7 @@ function renderPivot(ft) {
         <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
         <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
         <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
+        <td style="padding:6px 8px; max-width:220px; white-space:normal;">${escapeHtml(r.district)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
         <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
         <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
@@ -4846,6 +4847,7 @@ function renderPivot(ft) {
               <th class="oc-sticky-3" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
+              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">อำเภอที่ดูแล</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>

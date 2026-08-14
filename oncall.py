@@ -30,10 +30,12 @@ from pending_trend import bangkok_now
 ONCALL_SHEET = "OncallSchedule"
 IDENTITY_HEADER = [
     "TeamType", "Region", "Province", "ProvinceTH", "Type", "TeamID",
-    "Remark", "No", "TeamID1", "Name", "Tel", "FMOffice", "TypeCM",
+    "Remark", "District", "No", "TeamID1", "Name", "Tel", "FMOffice", "TypeCM",
     "LastUpdatedBy", "LastUpdatedAt",
 ]
 IDENTITY_COLS = len(IDENTITY_HEADER)  # date columns start right after this
+_LAST_UPDATED_BY_COL = IDENTITY_HEADER.index("LastUpdatedBy") + 1  # 1-based
+_LAST_UPDATED_AT_COL = IDENTITY_HEADER.index("LastUpdatedAt") + 1  # 1-based
 
 _CACHE_TTL_SECONDS = 20
 _cache = {"data": None, "ts": 0}
@@ -76,7 +78,7 @@ def seed_oncall_schedule(gs_client, dates, rows):
         line = [
             r.get("team_type", ""), r.get("region", ""), r.get("province", ""),
             r.get("province_th", ""), r.get("type", ""), r.get("team_id", ""),
-            r.get("remark", ""), r.get("no", ""), r.get("team_id1", ""),
+            r.get("remark", ""), r.get("district", ""), r.get("no", ""), r.get("team_id1", ""),
             r.get("name", ""), r.get("tel", ""), r.get("fm_office", ""), r.get("type_cm", ""),
             "", "",  # LastUpdatedBy, LastUpdatedAt - blank until first toggle
         ]
@@ -120,9 +122,9 @@ def load_oncall_schedule(gs_client, use_cache=True):
         rows.append({
             "team_type": padded[0], "region": padded[1], "province": padded[2],
             "province_th": padded[3], "type": padded[4], "team_id": padded[5],
-            "remark": padded[6], "no": padded[7], "team_id1": padded[8],
-            "name": padded[9], "tel": padded[10], "fm_office": padded[11], "type_cm": padded[12],
-            "last_updated_by": padded[13], "last_updated_at": padded[14],
+            "remark": padded[6], "district": padded[7], "no": padded[8], "team_id1": padded[9],
+            "name": padded[10], "tel": padded[11], "fm_office": padded[12], "type_cm": padded[13],
+            "last_updated_by": padded[14], "last_updated_at": padded[15],
             "days": days,
         })
 
@@ -164,10 +166,11 @@ def _get_layout(ws):
     values = ws.get_all_values()
     header = values[0]
     dates = header[IDENTITY_COLS:]
+    team_id1_idx = IDENTITY_HEADER.index("TeamID1")
     team_row = {}
     for i, line in enumerate(values[1:], start=2):
-        if line and len(line) > 8 and line[8]:
-            team_row[line[8]] = i  # column I = TeamID1 (0-based index 8)
+        if line and len(line) > team_id1_idx and line[team_id1_idx]:
+            team_row[line[team_id1_idx]] = i
 
     with _cache_lock:
         _layout_cache["dates"] = dates
@@ -206,9 +209,10 @@ def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=Non
     now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     from gspread.utils import rowcol_to_a1
     cell_a1 = rowcol_to_a1(row_idx, col_idx)
+    tracking_range = f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}"
     ws.batch_update([
         {"range": cell_a1, "values": [[new_status]]},
-        {"range": f"N{row_idx}:O{row_idx}", "values": [[updated_by or "unknown", now_str]]},
+        {"range": tracking_range, "values": [[updated_by or "unknown", now_str]]},
     ], value_input_option="RAW")
     _invalidate_cache()
     return {"team_id1": team_id1, "date": date_str, "status": new_status, "updated_by": updated_by or "unknown", "updated_at": now_str}
@@ -319,3 +323,49 @@ def reset_default_on_to_blank(gs_client):
         _invalidate_cache()
 
     return cleared
+
+
+def add_district_column(gs_client, team_district_map):
+    """One-time migration: inserts the "District" identity column into the
+    LIVE sheet (which was seeded before this column existed) WITHOUT
+    touching any date-cell data - every existing Oncall/Day Off pick people
+    have already clicked is read back unchanged and rewritten as-is, just
+    with one new value inserted per row. `team_district_map` is
+    {team_id1: "comma, separated, districts"}. Returns how many rows got a
+    district value filled in (rows whose team_id1 wasn't found in the map
+    get an empty District, not skipped)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    if "District" in old_header:
+        raise ValueError("District column already exists - nothing to migrate")
+
+    remark_idx = old_header.index("Remark") if "Remark" in old_header else 6
+    team_id1_idx = old_header.index("TeamID1") if "TeamID1" in old_header else 8
+    insert_at = remark_idx + 1  # right after Remark
+
+    new_header = old_header[:insert_at] + ["District"] + old_header[insert_at:]
+    filled = 0
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(old_header) - len(line))
+        team_id1 = padded[team_id1_idx] if team_id1_idx < len(padded) else ""
+        district = team_district_map.get(team_id1, "")
+        if district:
+            filled += 1
+        new_row = padded[:insert_at] + [district] + padded[insert_at:]
+        new_rows.append(new_row)
+
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return filled

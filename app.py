@@ -2210,6 +2210,23 @@ def api_oncall_reset_default_on():
         log.exception("oncall-schedule reset-default-on failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-schedule/add-district-column', methods=['POST'])
+def api_oncall_add_district_column():
+    """One-time migration: POST {team_district_map: {team_id1: "district, district"}}
+    to insert the District identity column, without touching any date-cell
+    (Oncall/Day Off) data already entered."""
+    payload = request.get_json(silent=True) or {}
+    team_district_map = payload.get('team_district_map')
+    if not isinstance(team_district_map, dict):
+        return jsonify({'error': 'expected {team_district_map: {team_id1: "districts"}}'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        filled = oncall.add_district_column(gs_client, team_district_map)
+        return jsonify({'filled': filled})
+    except Exception as e:
+        log.exception("oncall-schedule add-district-column failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall/seed', methods=['POST'])
 def api_oncall_seed():
     """One-time bootstrap (same token-gate pattern as seed-users): POST
