@@ -4498,9 +4498,10 @@ function renderPivot(ft) {
         <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_group_problem || ''}</td>
         <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_action_team || ''}</td>
         <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_detail || ''}</td>
+        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || ''}</td>
       </tr>`).join('');
     return `
-      <div style="flex:1; min-width:340px; max-width:420px;">
+      <div style="flex:1; min-width:420px; max-width:500px;">
         <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:4px;">Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
         <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
           <thead><tr style="background:var(--bg3);">
@@ -4508,6 +4509,7 @@ function renderPivot(ft) {
             <th style="padding:5px 8px; text-align:right;">Group Problem ว่าง</th>
             <th style="padding:5px 8px; text-align:right;">Action Team ว่าง</th>
             <th style="padding:5px 8px; text-align:right;">รายละเอียด ว่าง</th>
+            <th style="padding:5px 8px; text-align:right;">Plan Closed Date ว่าง</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>

@@ -469,19 +469,25 @@ def build_exclusive_pending_response(gs_client=None):
         detail_out.append({"bookmark": bm, "tickets": tickets, "total": len(tickets)})
 
         # Among this Bookmark's over-SLA tickets, break down by PROVINCE how
-        # many are still missing each of the three fields a lead needs to
-        # answer CNO with (Group Problem, Action Team, รายละเอียด) - most
-        # affected province first, so gaps in triage are visible at a glance.
+        # many are still missing each of the four fields a lead needs to
+        # answer CNO with (Group Problem, Action Team, รายละเอียด, Plan
+        # Closed Date) - most affected province first, so gaps in triage
+        # are visible at a glance.
         province_counts = {}
         for e in tickets:
             prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
-            row = province_counts.setdefault(prov, {"missing_group_problem": 0, "missing_action_team": 0, "missing_detail": 0})
+            row = province_counts.setdefault(prov, {
+                "missing_group_problem": 0, "missing_action_team": 0,
+                "missing_detail": 0, "missing_plan_closed_date": 0,
+            })
             if e["group_problem"] == UNSPECIFIED_GROUP_PROBLEM:
                 row["missing_group_problem"] += 1
             if not str(e["action_team"]).strip():
                 row["missing_action_team"] += 1
             if not str(e["detail"]).strip():
                 row["missing_detail"] += 1
+            if not str(e["plan_closed_date"]).strip():
+                row["missing_plan_closed_date"] += 1
         province_rows = sorted(
             (
                 {"province": p, **counts, "total_missing": sum(counts.values())}
