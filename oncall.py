@@ -146,3 +146,44 @@ def toggle_oncall_cell(gs_client, team_id1, date_str, new_status):
     ws.update_cell(row_idx, col_idx, new_status)
     _invalidate_cache()
     return {"team_id1": team_id1, "date": date_str, "status": new_status}
+
+
+def add_month_columns(gs_client, year_month):
+    """Appends one column per day of `year_month` ("YYYY-MM") to the end of
+    the sheet, defaulting every existing person's status to "on" for those
+    new dates (they can then click to plan Day Offs ahead of time). Dates
+    that already exist as columns are skipped. Returns how many columns
+    were actually added."""
+    import calendar
+    from gspread.utils import rowcol_to_a1
+
+    year, month = (int(x) for x in year_month.split("-"))
+    _, days_in_month = calendar.monthrange(year, month)
+    month_dates = [f"{year:04d}-{month:02d}-{d:02d}" for d in range(1, days_in_month + 1)]
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    header = values[0]
+    existing_dates = set(header[IDENTITY_COLS:])
+    dates_to_add = [d for d in month_dates if d not in existing_dates]
+    if not dates_to_add:
+        return 0
+
+    start_col = len(header) + 1  # 1-based, right after the current last column
+    end_col = start_col + len(dates_to_add) - 1
+
+    header_range = f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(1, end_col)}"
+    ws.update(header_range, [dates_to_add], value_input_option="RAW")
+
+    n_data_rows = len(values) - 1
+    if n_data_rows > 0:
+        body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
+        fill = [["on"] * len(dates_to_add) for _ in range(n_data_rows)]
+        ws.update(body_range, fill, value_input_option="RAW")
+
+    _invalidate_cache()
+    return len(dates_to_add)

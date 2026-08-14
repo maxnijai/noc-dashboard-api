@@ -2182,6 +2182,20 @@ def api_oncall_schedule_toggle():
         log.exception("oncall-schedule toggle failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-schedule/add-month', methods=['POST'])
+def api_oncall_schedule_add_month():
+    payload = request.get_json(silent=True) or {}
+    year_month = payload.get('year_month')  # "YYYY-MM"
+    if not year_month:
+        return jsonify({'error': 'year_month ("YYYY-MM") is required'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        added = oncall.add_month_columns(gs_client, year_month)
+        return jsonify({'added_dates': added})
+    except Exception as e:
+        log.exception("oncall-schedule add-month failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall/seed', methods=['POST'])
 def api_oncall_seed():
     """One-time bootstrap (same token-gate pattern as seed-users): POST
