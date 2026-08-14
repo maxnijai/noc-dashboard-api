@@ -4615,6 +4615,7 @@ function renderPivot(ft) {
     const provinceFilter = el('oc-province-filter').value;
     const rows = scheduleData.rows.filter(r => !provinceFilter || r.province_th === provinceFilter);
     const dates = scheduleData.dates;
+    const totalCols = 6 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -4625,7 +4626,21 @@ function renderPivot(ft) {
       return `<th style="padding:2px 6px 6px; text-align:center; font-size:11px; ${info.isWeekend ? 'color:#B23A3A;' : 'color:var(--text2);'} background:${info.isWeekend ? '#B23A3A15' : 'transparent'};">${info.day}</th>`;
     }).join('');
 
+    // Group rows by province (keeps the source order within each group; a
+    // province header row separates groups so a long roster reads like
+    // sections instead of one flat list).
+    let lastProvince = null;
     const bodyRows = rows.map(r => {
+      let groupHeader = '';
+      if (r.province_th !== lastProvince) {
+        lastProvince = r.province_th;
+        const count = rows.filter(x => x.province_th === lastProvince).length;
+        groupHeader = `<tr>
+          <td colspan="${totalCols}" style="padding:6px 8px; background:var(--bg4); font-weight:700; font-size:12px; border-top:2px solid var(--border);">
+            ${escapeHtml(lastProvince || '(ไม่ระบุจังหวัด)')} <span style="font-weight:400; color:var(--text3); font-size:11px;">(${count} คน)</span>
+          </td>
+        </tr>`;
+      }
       const cells = dates.map(d => {
         const status = r.days[d] || 'on';
         const style = cellStyle(status);
@@ -4637,11 +4652,13 @@ function renderPivot(ft) {
           <span class="oc-badge" style="display:inline-block; width:34px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg};">${style.label}</span>
         </td>`;
       }).join('');
-      return `<tr style="border-top:1px solid var(--border);">
+      const remarkColor = r.remark === 'NOD' ? '#2563eb' : (r.remark === 'OFC' ? '#B45309' : 'var(--text2)');
+      return groupHeader + `<tr style="border-top:1px solid var(--border);">
         <td class="oc-sticky-1" style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(r.name)}</td>
         <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.province_th)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
         ${cells}
       </tr>`;
@@ -4656,6 +4673,7 @@ function renderPivot(ft) {
               <th class="oc-sticky-2" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Province</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
+              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               ${dayRow}
             </tr>
