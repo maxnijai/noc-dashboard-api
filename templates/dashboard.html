@@ -5073,7 +5073,10 @@ function renderPivot(ft) {
       scheduleData = data;
       populateProvinceFilter(data);
       populateMonthFilter(data);
-      el('oc-month-filter').value = yearMonth;
+      // Stay on the current month by default even after adding a future
+      // one for planning - only switch if the person explicitly picks it
+      // from the Month dropdown themselves.
+      renderTodaySummary(data);
       render();
     } catch (e) {
       console.error('Add next month failed', e);
