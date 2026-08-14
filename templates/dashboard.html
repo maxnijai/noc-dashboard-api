@@ -83,11 +83,11 @@ thead .ptk-sticky-1, thead .ptk-sticky-2, thead .ptk-sticky-3, thead .ptk-sticky
 tbody .ptk-sticky-1, tbody .ptk-sticky-2, tbody .ptk-sticky-3, tbody .ptk-sticky-4 { background:var(--bg2); }
 tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .oc-sticky-0 { position:sticky; left:0; width:32px; min-width:32px; z-index:3; text-align:center; }
-.oc-sticky-1 { position:sticky; left:32px; width:150px; min-width:150px; z-index:3; }
-.oc-sticky-2 { position:sticky; left:182px; width:100px; min-width:100px; z-index:3; }
-.oc-sticky-3 { position:sticky; left:282px; width:50px; min-width:50px; z-index:3; }
-.oc-sticky-4 { position:sticky; left:332px; width:150px; min-width:150px; z-index:3; }
-.oc-sticky-5 { position:sticky; left:482px; width:70px; min-width:70px; z-index:3; }
+.oc-sticky-1 { position:sticky; left:32px; width:220px; min-width:220px; z-index:3; }
+.oc-sticky-2 { position:sticky; left:252px; width:100px; min-width:100px; z-index:3; }
+.oc-sticky-3 { position:sticky; left:352px; width:50px; min-width:50px; z-index:3; }
+.oc-sticky-4 { position:sticky; left:402px; width:150px; min-width:150px; z-index:3; }
+.oc-sticky-5 { position:sticky; left:552px; width:70px; min-width:70px; z-index:3; }
 thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5 { z-index:4; background:var(--bg3); }
 tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5 { background:var(--bg2); }
 tbody .oc-sticky-5 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
@@ -4780,7 +4780,7 @@ function renderPivot(ft) {
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
     );
-    const totalCols = 10 + dates.length;
+    const totalCols = 9 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -4823,12 +4823,11 @@ function renderPivot(ft) {
       const checked = selectedTeams.has(r.team_id1) ? 'checked' : '';
       return groupHeader + `<tr style="border-top:1px solid var(--border);" data-row-team="${escapeHtml(r.team_id1)}">
         <td class="oc-sticky-0"><input type="checkbox" onchange="toggleTeamSelect('${r.team_id1}', this.checked)" ${checked}></td>
-        <td class="oc-sticky-1" style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(r.name)}</td>
+        <td class="oc-sticky-1" style="padding:6px 8px; white-space:normal;" title="${escapeHtml(r.district)}">${escapeHtml(r.district)}</td>
         <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.province_th)}</td>
         <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
         <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
         <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
-        <td style="padding:6px 8px; max-width:220px; white-space:normal;">${escapeHtml(r.district)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
         <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
         <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
@@ -4842,12 +4841,11 @@ function renderPivot(ft) {
           <thead>
             <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
               <th class="oc-sticky-0" rowspan="2" style="vertical-align:bottom;"><input type="checkbox" id="oc-select-all" onchange="toggleSelectAll(this.checked)"></th>
-              <th class="oc-sticky-1" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Name</th>
+              <th class="oc-sticky-1" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">อำเภอที่ดูแล</th>
               <th class="oc-sticky-2" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Province</th>
               <th class="oc-sticky-3" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">อำเภอที่ดูแล</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
