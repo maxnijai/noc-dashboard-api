@@ -833,6 +833,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <option value="OFC">OFC</option>
           </select>
         </label>
+        <label style="font-size:12px; display:flex; align-items:center; gap:6px;">อำเภอ:
+          <select id="oc-district-filter" style="padding:4px 8px;"></select>
+        </label>
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Month:
           <select id="oc-month-filter" style="padding:4px 8px;"></select>
         </label>
@@ -4649,6 +4652,18 @@ function renderPivot(ft) {
     if (provinces.includes(prev)) sel.value = prev;
   }
 
+  function populateDistrictFilter(data) {
+    const sel = el('oc-district-filter');
+    const prev = sel.value;
+    const districtSet = new Set();
+    data.rows.forEach(r => {
+      (r.district || '').split(',').map(d => d.trim()).filter(Boolean).forEach(d => districtSet.add(d));
+    });
+    const districts = [...districtSet].sort();
+    sel.innerHTML = '<option value="">ทั้งหมด</option>' + districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+    if (districts.includes(prev)) sel.value = prev;
+  }
+
   function populateMonthFilter(data) {
     const sel = el('oc-month-filter');
     const prev = sel.value;
@@ -4736,6 +4751,7 @@ function renderPivot(ft) {
       sel.value = provinceName;
     }
     el('oc-team-filter').value = ''; // show every remaining team in that province
+    el('oc-district-filter').value = '';
     oncallTodayOnly = true; // narrow rows to just today's Oncall picks, matching the card's number
     render();
     document.getElementById('oc-body').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4750,11 +4766,13 @@ function renderPivot(ft) {
     if (!scheduleData) return;
     const provinceFilter = el('oc-province-filter').value;
     const teamFilter = el('oc-team-filter').value;
+    const districtFilter = el('oc-district-filter').value;
     const monthFilter = el('oc-month-filter').value;
     const today = todayStr();
     let filteredRows = scheduleData.rows.filter(r =>
       (!provinceFilter || r.province_th === provinceFilter) &&
-      (!teamFilter || r.remark === teamFilter)
+      (!teamFilter || r.remark === teamFilter) &&
+      (!districtFilter || (r.district || '').split(',').map(d => d.trim()).includes(districtFilter))
     );
     if (oncallTodayOnly) {
       filteredRows = filteredRows.filter(r => {
@@ -4909,6 +4927,7 @@ function renderPivot(ft) {
       if (!data) return;
       scheduleData = data;
       populateProvinceFilter(data);
+      populateDistrictFilter(data);
       populateMonthFilter(data);
       renderTodaySummary(data);
       render();
@@ -4953,6 +4972,7 @@ function renderPivot(ft) {
     if (!scheduleData) return;
     el('oc-province-filter').value = '';
     el('oc-team-filter').value = '';
+    el('oc-district-filter').value = '';
     oncallTodayOnly = false;
     const months = [...new Set(scheduleData.dates.map(d => d.slice(0, 7)))].sort();
     const todayMonth = todayStr().slice(0, 7);
@@ -5044,6 +5064,7 @@ function renderPivot(ft) {
   el('oc-reload').addEventListener('click', reload);
   el('oc-province-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
   el('oc-team-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
+  el('oc-district-filter').addEventListener('change', () => { oncallTodayOnly = false; render(); });
   el('oc-month-filter').addEventListener('change', render);
   el('oc-add-month').addEventListener('click', addNextMonth);
   el('oc-reset-filter').addEventListener('click', resetFilters);
