@@ -134,9 +134,12 @@ def load_oncall_schedule(gs_client, use_cache=True):
 def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=None):
     """Sets one person's status for one date, and stamps that row's
     LastUpdatedBy/LastUpdatedAt (whoever last touched ANY of that person's
-    dates, not per-cell). new_status must be "on" or "off" (the two
-    clickable states - "always"/7*24 rows are left alone by the UI, but
-    nothing stops setting them here if ever needed)."""
+    dates, not per-cell). new_status must be "on", "off", or "blank" (the
+    three clickable states - "blank" means the person isn't part of the
+    oncall rotation that day at all, e.g. daytime-only staff, distinct from
+    "off" which means they ARE normally on rotation but this day is a day
+    off. "always"/7*24 rows are left alone by the UI, but nothing stops
+    setting them here if ever needed)."""
     sh = _get_spreadsheet(gs_client)
     ws = _get_oncall_ws(sh)
     if ws is None:

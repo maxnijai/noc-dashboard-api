@@ -2172,8 +2172,8 @@ def api_oncall_schedule_toggle():
     team_id1 = payload.get('team_id1')
     date_str = payload.get('date')
     new_status = payload.get('status')
-    if not team_id1 or not date_str or new_status not in ('on', 'off'):
-        return jsonify({'error': 'team_id1, date, and status (on/off) are required'}), 400
+    if not team_id1 or not date_str or new_status not in ('on', 'off', 'blank'):
+        return jsonify({'error': 'team_id1, date, and status (on/off/blank) are required'}), 400
     updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()

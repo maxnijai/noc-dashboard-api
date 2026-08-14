@@ -816,7 +816,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <div>
         <div style="font-size:16px; font-weight:700;">Oncall Team</div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อสลับ Day Off / Oncall</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อสลับ Oncall / Day Off / ไม่ได้ Oncall</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Province:
@@ -829,6 +829,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
+          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;border:1px dashed var(--border);margin-left:8px;"></span>ไม่ได้ Oncall
         </span>
         <span id="oc-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
         <button id="oc-reload" class="btn-secondary">Refresh</button>
@@ -4589,7 +4590,11 @@ function renderPivot(ft) {
 
   function cellStyle(status) {
     if (status === 'off') return { bg: '#E24B4A', fg: '#fff', label: 'Off' };
-    // "always" (7*24) now displays identically to a normal Oncall day - it's
+    // "blank" = not part of the oncall rotation that day at all (e.g.
+    // daytime-only staff) - distinct from "off" (normally on rotation,
+    // just off this particular day).
+    if (status === 'blank') return { bg: 'transparent', fg: 'var(--text3)', label: '-', border: '1px dashed var(--border)' };
+    // "always" (7*24) displays identically to a normal Oncall day - it's
     // just not clickable since there's no "day off" concept for those rows.
     return { bg: '#63992222', fg: '#3d6216', label: 'On' };
   }
@@ -4645,7 +4650,7 @@ function renderPivot(ft) {
     const byProvince = {};
     data.rows.forEach(r => {
       const status = r.days[today] || 'on';
-      if (status === 'off') return; // not oncall today
+      if (status !== 'on' && status !== 'always') return; // off or blank = not oncall today
       const p = r.province_th || '(ไม่ระบุจังหวัด)';
       const bucket = byProvince[p] || (byProvince[p] = { nod: 0, ofc: 0, other: 0 });
       if (r.remark === 'NOD') bucket.nod++;
@@ -4743,7 +4748,7 @@ function renderPivot(ft) {
         return `<td onclick="${clickable ? `toggleOncallCell('${r.team_id1}','${d}',this)` : ''}"
           data-team="${escapeHtml(r.team_id1)}" data-date="${d}"
           style="padding:4px; text-align:center; ${clickable ? 'cursor:pointer;' : 'cursor:default;'} background:${bg}; ${border}">
-          <span class="oc-badge" style="display:inline-block; width:34px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg};">${style.label}</span>
+          <span class="oc-badge" style="display:inline-block; width:34px; padding:2px 0; border-radius:4px; font-size:10px; font-weight:700; background:${style.bg}; color:${style.fg}; border:${style.border || 'none'};">${style.label}</span>
         </td>`;
       }).join('');
       const remarkColor = r.remark === 'NOD' ? '#2563eb' : (r.remark === 'OFC' ? '#B45309' : 'var(--text2)');
@@ -4788,13 +4793,17 @@ function renderPivot(ft) {
     if (!row) return;
     const current = row.days[dateStr] || 'on';
     if (current === 'always') return; // not togglable
-    const next = current === 'off' ? 'on' : 'off';
+    // Cycle: Oncall -> Day Off -> ไม่ได้ Oncall (blank, e.g. daytime-only
+    // staff) -> back to Oncall.
+    const cycle = { on: 'off', off: 'blank', blank: 'on' };
+    const next = cycle[current] || 'on';
 
     // optimistic update
     row.days[dateStr] = next;
     const style = cellStyle(next);
     badge.style.background = style.bg;
     badge.style.color = style.fg;
+    badge.style.border = style.border || 'none';
     badge.textContent = style.label;
 
     try {
@@ -4818,6 +4827,7 @@ function renderPivot(ft) {
       const revertStyle = cellStyle(current);
       badge.style.background = revertStyle.bg;
       badge.style.color = revertStyle.fg;
+      badge.style.border = revertStyle.border || 'none';
       badge.textContent = revertStyle.label;
       console.error('Oncall toggle failed', e);
     }
