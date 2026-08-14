@@ -468,18 +468,27 @@ def build_exclusive_pending_response(gs_client=None):
             continue
         detail_out.append({"bookmark": bm, "tickets": tickets, "total": len(tickets)})
 
-        # Among this Bookmark's over-SLA tickets, break down the ones with no
-        # Group Problem set yet by PROVINCE (most-affected province first) -
-        # helps spot where nobody has started triage yet.
+        # Among this Bookmark's over-SLA tickets, break down by PROVINCE how
+        # many are still missing each of the three fields a lead needs to
+        # answer CNO with (Group Problem, Action Team, รายละเอียด) - most
+        # affected province first, so gaps in triage are visible at a glance.
         province_counts = {}
         for e in tickets:
-            if e["group_problem"] != UNSPECIFIED_GROUP_PROBLEM:
-                continue
             prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
-            province_counts[prov] = province_counts.get(prov, 0) + 1
+            row = province_counts.setdefault(prov, {"missing_group_problem": 0, "missing_action_team": 0, "missing_detail": 0})
+            if e["group_problem"] == UNSPECIFIED_GROUP_PROBLEM:
+                row["missing_group_problem"] += 1
+            if not str(e["action_team"]).strip():
+                row["missing_action_team"] += 1
+            if not str(e["detail"]).strip():
+                row["missing_detail"] += 1
         province_rows = sorted(
-            ({"province": p, "count": c} for p, c in province_counts.items()),
-            key=lambda x: -x["count"]
+            (
+                {"province": p, **counts, "total_missing": sum(counts.values())}
+                for p, counts in province_counts.items()
+                if sum(counts.values()) > 0
+            ),
+            key=lambda x: (-x["missing_group_problem"], -x["total_missing"])
         )
         if province_rows:
             unspecified_by_province_out.append({"bookmark": bm, "provinces": province_rows})
