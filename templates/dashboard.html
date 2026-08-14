@@ -816,7 +816,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <div>
         <div style="font-size:16px; font-weight:700;">Oncall Team</div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อทำเครื่องหมาย Day Off</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตารางเวรทีมช่างภาคเหนือ — คลิกที่ช่องเพื่อสลับ Oncall / Day Off / ว่าง</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Province:
@@ -827,8 +827,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </label>
         <button id="oc-add-month" class="btn-secondary" title="เพิ่มเดือนถัดไปสำหรับวางแผนล่วงหน้า">+ วางแผนเดือนถัดไป</button>
         <button id="oc-reset-filter" class="btn-secondary">Reset Filter</button>
+        <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด (ที่ยังไม่มีใครเลือกเอง) ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
-          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;"></span>Day Off
+          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
+          <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
         </span>
         <span id="oc-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
         <button id="oc-reload" class="btn-secondary">Refresh</button>
@@ -4588,11 +4590,13 @@ function renderPivot(ft) {
   }
 
   function cellStyle(status) {
-    // Only "Day Off" gets a visible label/color now - everything else
-    // ("on", "always", "blank") renders as an empty cell so the grid isn't
-    // covered in repeated "On" text; Day Off is the only thing worth
-    // flagging at a glance.
+    // blank/unset (the default) = nobody has picked this person as
+    // Oncall for that day yet - empty, not counted anywhere.
+    // "on" = explicitly clicked Oncall - green, counted in the summary.
+    // "off" = Day Off - red, not counted.
+    // "always" (7*24) = counts as Oncall too, just not clickable.
     if (status === 'off') return { bg: '#E24B4A', fg: '#fff', label: 'Off' };
+    if (status === 'on' || status === 'always') return { bg: '#63992222', fg: '#3d6216', label: 'Oncall' };
     return { bg: 'transparent', fg: 'var(--text3)', label: '' };
   }
 
@@ -4646,7 +4650,7 @@ function renderPivot(ft) {
     // glance without opening the full grid.
     const byProvince = {};
     data.rows.forEach(r => {
-      const status = r.days[today] || 'on';
+      const status = r.days[today] || 'blank';
       if (status !== 'on' && status !== 'always') return; // off or blank = not oncall today
       const p = r.province_th || '(ไม่ระบุจังหวัด)';
       const bucket = byProvince[p] || (byProvince[p] = { nod: 0, ofc: 0, other: 0 });
@@ -4750,7 +4754,7 @@ function renderPivot(ft) {
         </tr>`;
       }
       const cells = dates.map(d => {
-        const status = r.days[d] || 'on';
+        const status = r.days[d] || 'blank';
         const style = cellStyle(status);
         const clickable = status !== 'always';
         const info = dowInfo(d);
@@ -4803,11 +4807,11 @@ function renderPivot(ft) {
     const badge = td.querySelector('.oc-badge');
     const row = scheduleData.rows.find(r => r.team_id1 === teamId1);
     if (!row) return;
-    const current = row.days[dateStr] || 'on';
+    const current = row.days[dateStr] || 'blank';
     if (current === 'always') return; // not togglable
-    // Simple 2-way toggle now: anything not "off" flips to "off" (Day
-    // Off), and "off" flips back to blank/oncall.
-    const next = current === 'off' ? 'on' : 'off';
+    // Cycle: blank (unset) -> Oncall -> Day Off -> back to blank.
+    const cycle = { blank: 'on', on: 'off', off: 'blank' };
+    const next = cycle[current] || 'on';
 
     // optimistic update
     row.days[dateStr] = next;
@@ -4899,11 +4903,31 @@ function renderPivot(ft) {
     render();
   }
 
+  async function resetDefaultOn() {
+    if (!confirm('ล้างค่า Oncall เริ่มต้นทั้งหมด (ที่ยังไม่มีใครเลือกเอง) ให้เป็นว่าง?\n\nไม่กระทบ Day Off หรือช่องที่มีคนคลิกเลือก Oncall เองแล้ว')) return;
+    const btn = el('oc-reset-default-on');
+    btn.disabled = true;
+    btn.textContent = 'กำลังล้าง...';
+    try {
+      const res = await fetch('/api/oncall-schedule/reset-default-on', { method: 'POST' });
+      if (!res.ok) throw new Error('reset failed');
+      const data = await res.json();
+      alert(`ล้างค่าเริ่มต้นสำเร็จ: ${data.cleared} ช่อง`);
+      await reload();
+    } catch (e) {
+      console.error('Reset default on failed', e);
+      alert('ล้างค่าไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+    }
+    btn.disabled = false;
+    btn.textContent = 'ล้างค่า Oncall เริ่มต้น';
+  }
+
   el('oc-reload').addEventListener('click', reload);
   el('oc-province-filter').addEventListener('change', render);
   el('oc-month-filter').addEventListener('change', render);
   el('oc-add-month').addEventListener('click', addNextMonth);
   el('oc-reset-filter').addEventListener('click', resetFilters);
+  el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
 })();
 </script>

@@ -2197,6 +2197,19 @@ def api_oncall_schedule_add_month():
         log.exception("oncall-schedule add-month failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-schedule/reset-default-on', methods=['POST'])
+def api_oncall_reset_default_on():
+    """One-time cleanup: clears every "on" cell (the old blanket default
+    from the Excel seed) to "blank", so Oncall becomes something people
+    pick explicitly instead of counting everyone by default."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        cleared = oncall.reset_default_on_to_blank(gs_client)
+        return jsonify({'cleared': cleared})
+    except Exception as e:
+        log.exception("oncall-schedule reset-default-on failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall/seed', methods=['POST'])
 def api_oncall_seed():
     """One-time bootstrap (same token-gate pattern as seed-users): POST

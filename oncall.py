@@ -14,9 +14,11 @@ session the same way Pending Ticket's work log does. Dates always start
 right after these two fixed columns and new months are appended at the
 true end of the sheet, so the tracking columns never need to move.
 
-Cell values in the date columns: "off" (Day Off), "on" (Oncall - the
-default), or "always" (7*24 - always oncall, not meant to be toggled;
-carried over from the seed data as-is).
+Cell values in the date columns: "" or "blank" (unset - nobody has picked
+this person as Oncall for that day; the default, not counted anywhere),
+"on" (explicitly marked Oncall - counted), "off" (Day Off - not counted),
+or "always" (7*24 - always oncall, not meant to be toggled; carried over
+from the seed data as-is, counted).
 """
 
 import threading
@@ -80,7 +82,7 @@ def seed_oncall_schedule(gs_client, dates, rows):
         ]
         days = r.get("days", {})
         for d in dates:
-            line.append(days.get(d, "on"))
+            line.append(days.get(d, "blank"))
         body.append(line)
 
     ws.update("A1", [header] + body, value_input_option="RAW")
@@ -113,7 +115,7 @@ def load_oncall_schedule(gs_client, use_cache=True):
         if not line or not line[0]:
             continue
         padded = line + [""] * (len(header) - len(line))
-        days = {dates[i]: (padded[IDENTITY_COLS + i] or "on") for i in range(len(dates))}
+        days = {dates[i]: (padded[IDENTITY_COLS + i] or "blank") for i in range(len(dates))}
         rows.append({
             "team_type": padded[0], "region": padded[1], "province": padded[2],
             "province_th": padded[3], "type": padded[4], "team_id": padded[5],
@@ -216,13 +218,57 @@ def add_month_columns(gs_client, year_month):
             weekday_pattern = {}
             for wd in range(7):
                 statuses = [
-                    (day_statuses[i] or "on") for i, w in enumerate(existing_weekdays)
+                    (day_statuses[i] or "blank") for i, w in enumerate(existing_weekdays)
                     if w == wd and i < len(day_statuses)
                 ]
-                weekday_pattern[wd] = Counter(statuses).most_common(1)[0][0] if statuses else "on"
-            fill_rows.append([weekday_pattern.get(wd, "on") for wd in new_weekdays])
+                weekday_pattern[wd] = Counter(statuses).most_common(1)[0][0] if statuses else "blank"
+            fill_rows.append([weekday_pattern.get(wd, "blank") for wd in new_weekdays])
         body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
         ws.update(body_range, fill_rows, value_input_option="RAW")
 
     _invalidate_cache()
     return len(dates_to_add)
+
+
+def reset_default_on_to_blank(gs_client):
+    """One-time cleanup: the original Excel seed marked every non-day-off
+    cell as "on", which made the today-summary count everyone as Oncall by
+    default - not useful once Oncall is meant to be an explicit pick per
+    person per day. This finds every date cell still holding "on" and
+    clears it to "blank" in ONE batched write (leaves "off" and "always"
+    untouched). Returns how many cells were cleared."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    header = values[0]
+    n_dates = len(header) - IDENTITY_COLS
+    if n_dates <= 0 or len(values) <= 1:
+        return 0
+
+    n_data_rows = len(values) - 1
+    new_grid = []
+    cleared = 0
+    for line in values[1:1 + n_data_rows]:
+        padded = line + [""] * (len(header) - len(line))
+        day_statuses = padded[IDENTITY_COLS:IDENTITY_COLS + n_dates]
+        new_row = []
+        for s in day_statuses:
+            if s == "on":
+                new_row.append("blank")
+                cleared += 1
+            else:
+                new_row.append(s)
+        new_grid.append(new_row)
+
+    if cleared:
+        from gspread.utils import rowcol_to_a1
+        start_col = IDENTITY_COLS + 1
+        end_col = IDENTITY_COLS + n_dates
+        body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
+        ws.update(body_range, new_grid, value_input_option="RAW")
+        _invalidate_cache()
+
+    return cleared
