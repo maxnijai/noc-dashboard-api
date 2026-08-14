@@ -4772,7 +4772,15 @@ function renderPivot(ft) {
       return new Date(y, m - 1, 1).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
     };
     sel.innerHTML = months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
-    sel.value = months.includes(prev) ? prev : months[months.length - 1];
+    // Prefer, in order: whatever was already selected -> the month
+    // containing today -> the latest month available. Falling straight to
+    // "last month in the list" (the old behavior) meant adding a future
+    // month for planning silently became the default view for EVERYONE
+    // opening the tab fresh, not just right after clicking Add - today's
+    // month should always win unless the person picked something else.
+    const todayMonth = todayStr().slice(0, 7);
+    const fallback = months.includes(todayMonth) ? todayMonth : months[months.length - 1];
+    sel.value = months.includes(prev) ? prev : fallback;
   }
 
   function renderTodaySummary(data) {
