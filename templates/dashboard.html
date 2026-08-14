@@ -826,6 +826,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <select id="oc-month-filter" style="padding:4px 8px;"></select>
         </label>
         <button id="oc-add-month" class="btn-secondary" title="เพิ่มเดือนถัดไปสำหรับวางแผนล่วงหน้า">+ วางแผนเดือนถัดไป</button>
+        <button id="oc-reset-filter" class="btn-secondary">Reset Filter</button>
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#E24B4A;margin-left:8px;"></span>Day Off
@@ -4894,10 +4895,20 @@ function renderPivot(ft) {
     btn.textContent = '+ วางแผนเดือนถัดไป';
   }
 
+  function resetFilters() {
+    if (!scheduleData) return;
+    el('oc-province-filter').value = '';
+    const months = [...new Set(scheduleData.dates.map(d => d.slice(0, 7)))].sort();
+    const todayMonth = todayStr().slice(0, 7);
+    el('oc-month-filter').value = months.includes(todayMonth) ? todayMonth : months[months.length - 1];
+    render();
+  }
+
   el('oc-reload').addEventListener('click', reload);
   el('oc-province-filter').addEventListener('change', render);
   el('oc-month-filter').addEventListener('change', render);
   el('oc-add-month').addEventListener('click', addNextMonth);
+  el('oc-reset-filter').addEventListener('click', resetFilters);
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
 })();
 </script>
