@@ -6,7 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from pending_trend import get_drive_and_sheets_clients
+from pending_trend import get_drive_and_sheets_clients, bangkok_now
 from realtime_monitor import (
     build_realtime_response,
     get_insert_time,
@@ -2135,6 +2135,15 @@ def api_pending_ticket_update():
     if not detail or '/' not in detail:
         return jsonify({'error': 'detail ต้องกรอกตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมี /)'}), 400
     fields['detail'] = detail
+
+    # Plan Closed Date ห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน (เทียบเวลาไทย) - เช็คซ้ำฝั่ง
+    # server เผื่อมีการเรียก API ตรงๆ ข้ามหน้าเว็บ (ฝั่งหน้าเว็บเช็คไว้แล้วเช่นกัน)
+    plan_closed_date = (fields.get('plan_closed_date') or '').strip()
+    if plan_closed_date:
+        today_str = bangkok_now().strftime('%Y-%m-%d')
+        if plan_closed_date < today_str:
+            return jsonify({'error': 'Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบัน'}), 400
+
     updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()
