@@ -4743,11 +4743,12 @@ function renderPivot(ft) {
       lines.push('━━━━━━━━━━━━━━');
       lines.push(`▶ ${g.bookmark} (Over SLA รวม: ${g.tickets.length} ticket)`);
 
-      const byProvince = {};
+      const byProvince = {};       // province -> incomplete count
+      const totalByProvince = {};  // province -> total over-SLA ticket count in this group
       g.tickets.forEach(t => {
-        if (!isIncomplete(t)) return;
         const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-        byProvince[p] = (byProvince[p] || 0) + 1;
+        totalByProvince[p] = (totalByProvince[p] || 0) + 1;
+        if (isIncomplete(t)) byProvince[p] = (byProvince[p] || 0) + 1;
       });
       const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b] - byProvince[a]);
       const groupIncomplete = Object.values(byProvince).reduce((s, c) => s + c, 0);
@@ -4758,8 +4759,9 @@ function renderPivot(ft) {
       } else {
         provinces.forEach(p => {
           const count = byProvince[p];
-          const pct = g.tickets.length ? Math.round((count / g.tickets.length) * 100) : 0;
-          lines.push(`📍 ${p}: ${count} ticket ข้อมูลไม่ครบ — ${pct}% ของกลุ่มนี้`);
+          const provinceTotal = totalByProvince[p];
+          const pct = provinceTotal ? Math.round((count / provinceTotal) * 100) : 0;
+          lines.push(`📍 ${p}: ${count}/${provinceTotal} ticket ยังลงข้อมูลไม่ครบ — ${pct}%`);
         });
       }
     });
