@@ -19,6 +19,7 @@ from pending_ticket import (
     rename_group_problem_value,
 )
 import oncall
+import oncall_escalation
 import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -44,7 +45,7 @@ CORS(app)
 # are exempt (the login/change-password pages themselves, static assets, and
 # the one-time bulk user-seed endpoint used to bootstrap accounts).
 # ---------------------------------------------------------------------------
-AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/api/oncall/seed', '/api/oncall-schedule/add-district-column', '/favicon.ico'}
+AUTH_EXEMPT_PATHS = {'/login', '/change-password', '/api/auth/seed-users', '/api/auth/reset-passwords', '/api/oncall/seed', '/api/oncall-schedule/add-district-column', '/api/oncall-escalation/seed', '/favicon.ico'}
 AUTH_EXEMPT_PREFIXES = ('/static/',)
 
 @app.before_request
@@ -2240,6 +2241,38 @@ def api_oncall_add_district_column():
         return jsonify({'filled': filled})
     except Exception as e:
         log.exception("oncall-schedule add-district-column failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation')
+def api_oncall_escalation():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = oncall_escalation.load_escalation_contacts(gs_client)
+        if data is None:
+            return jsonify({'error': 'not seeded yet'}), 404
+        return jsonify(data)
+    except Exception as e:
+        log.exception("oncall-escalation API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/seed', methods=['POST'])
+def api_oncall_escalation_seed():
+    """One-time bootstrap: POST {rows: [{province, position, name, tel, type}, ...]}
+    to (re)populate the OncallEscalation tab. Token-gated like the other
+    seed tools since it's meant to run from a standalone file."""
+    expected_token = os.environ.get('SEED_USERS_TOKEN')
+    if not expected_token or request.args.get('token') != expected_token:
+        return jsonify({'error': 'missing or invalid token'}), 403
+    payload = request.get_json(silent=True) or {}
+    rows = payload.get('rows')
+    if not isinstance(rows, list):
+        return jsonify({'error': 'expected {rows: [...]}'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall_escalation.seed_escalation_contacts(gs_client, rows)
+        return jsonify({'seeded_rows': count})
+    except Exception as e:
+        log.exception("oncall-escalation seed failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall/seed', methods=['POST'])
