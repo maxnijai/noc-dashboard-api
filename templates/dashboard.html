@@ -4724,10 +4724,15 @@ function renderPivot(ft) {
 
   function buildExpLineSummaryText() {
     if (!lastData) return '';
+    // "ไม่ครบ" หมายถึงยังไม่ได้ triage เลย - ใช้แค่ 3 ฟิลด์หลักที่บอกว่ามี
+    // คนเข้ามาวิเคราะห์ ticket นี้แล้วหรือยัง (Group Problem/Action Team/
+    // รายละเอียด). ไม่รวม Plan Closed Date เพราะเป็นขั้นตอนวางแผนที่กรอก
+    // ทีหลังแยกต่างหาก แทบไม่มีใครกรอกไม่ว่า ticket จะ triage แล้วหรือยัง
+    // เลย - เอามารวมด้วยทำให้แทบทุก ticket โดนนับว่า "ไม่ครบ" จนตัวเลข
+    // ไม่มีความหมาย (ขึ้น 100% เกือบทุกจังหวัด)
     const isIncomplete = t => t.group_problem === '(ยังไม่ระบุ)'
       || !String(t.action_team || '').trim()
-      || !String(t.detail || '').trim()
-      || !String(t.plan_closed_date || '').trim();
+      || !String(t.detail || '').trim();
 
     const groups = lastData.detail || []; // [{bookmark, tickets, total}, ...]
     const allTickets = groups.flatMap(d => d.tickets);
