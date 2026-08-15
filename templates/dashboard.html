@@ -834,10 +834,28 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span id="exp-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
+        <button id="exp-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
         <button id="exp-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
     <div id="exp-body"></div>
+  </div>
+
+  <!-- EXCLUSIVE PENDING LINE SUMMARY MODAL -->
+  <div id="exp-line-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) el('exp-line-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">📋 สรุป Exclusive Pending สำหรับส่ง LINE</span>
+        <button onclick="el('exp-line-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="exp-line-text" readonly style="width:100%; height:360px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="exp-line-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="exp-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ONCALL TEAM -->
@@ -4507,6 +4525,7 @@ function renderPivot(ft) {
 // ── EXCLUSIVE PENDING (morning-meeting summary) ─────────────────────────────
 (function () {
   let loaded = false;
+  let lastData = null;
 
   function el(id) { return document.getElementById(id); }
 
@@ -4695,12 +4714,74 @@ function renderPivot(ft) {
   async function reload() {
     try {
       const data = await fetchData();
+      lastData = data;
       render(data);
       loaded = true;
     } catch (e) {
       console.error('Exclusive Pending load failed', e);
     }
   }
+
+  function buildExpLineSummaryText() {
+    if (!lastData) return '';
+    // Flatten every bookmark's over-SLA ticket list into one set - the
+    // person asked for a view across ALL groups combined (Mobile SA1-4,
+    // FBB SA1-4, NSA1-2, etc.), not broken out per bookmark like the page
+    // itself is.
+    const allTickets = (lastData.detail || []).flatMap(d => d.tickets);
+    const totalOverSla = lastData.total_over_sla || allTickets.length;
+
+    const byProvince = {};
+    allTickets.forEach(t => {
+      const incomplete = t.group_problem === '(ยังไม่ระบุ)'
+        || !String(t.action_team || '').trim()
+        || !String(t.detail || '').trim()
+        || !String(t.plan_closed_date || '').trim();
+      if (!incomplete) return;
+      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+      byProvince[p] = (byProvince[p] || 0) + 1;
+    });
+
+    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b] - byProvince[a]);
+    const totalIncomplete = Object.values(byProvince).reduce((s, c) => s + c, 0);
+
+    const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const lines = [];
+    lines.push(`📋 สรุป Exclusive Pending วันนี้ (${dateLabel})`);
+    lines.push('รวมทุกกลุ่ม Bookmark (Mobile SA1-4, FBB SA1-4, NSA1-2 ฯลฯ)');
+    lines.push('━━━━━━━━━━━━━━');
+    provinces.forEach(p => {
+      const count = byProvince[p];
+      const pct = totalOverSla ? Math.round((count / totalOverSla) * 100) : 0;
+      lines.push(`📍 ${p}: ${count} ticket ข้อมูลไม่ครบ — ${pct}% ของ Over SLA ทั้งหมด`);
+    });
+    if (!provinces.length) lines.push('✅ ไม่มี ticket ที่ข้อมูลไม่ครบเลย');
+    lines.push('━━━━━━━━━━━━━━');
+    lines.push(`Over SLA ทั้งหมดทุกกลุ่ม: ${totalOverSla} ticket`);
+    const totalPct = totalOverSla ? Math.round((totalIncomplete / totalOverSla) * 100) : 0;
+    lines.push(`ข้อมูลไม่ครบรวม: ${totalIncomplete} ticket (${totalPct}%)`);
+    return lines.join('\n');
+  }
+
+  el('exp-line-summary').addEventListener('click', () => {
+    const text = buildExpLineSummaryText();
+    el('exp-line-text').value = text;
+    el('exp-line-copy-status').textContent = '';
+    el('exp-line-modal').style.display = 'block';
+  });
+
+  el('exp-line-copy-btn').addEventListener('click', async () => {
+    const textarea = el('exp-line-text');
+    const statusEl = el('exp-line-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
 
   el('exp-reload').addEventListener('click', reload);
   window.initExclusivePendingTab = function () { if (!loaded) reload(); };
