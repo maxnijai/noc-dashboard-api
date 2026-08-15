@@ -67,7 +67,6 @@ GROUP_PROBLEM_OPTIONS = [
     "Fiber optic - PEA/MEA Maintenance transmission line",
     "Fiber optic - High loss/Degrade/Animal",
     "Workload - Assigning team access site",
-    "Workload - Assigning team access island/border area",
     "Solar Cell - Off Grid",
     "Clear",
 ]
@@ -234,6 +233,28 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
         ws.append_row(row_values)
     _invalidate_work_log_cache()
     return row_values
+
+
+def rename_group_problem_value(gs_client, old_value, new_value):
+    """One-time cleanup: renames every occurrence of `old_value` in the
+    group_problem column of TicketWorkLog to `new_value` (e.g. consolidating
+    two similar options into one after the dropdown list changes). Returns
+    how many rows were updated."""
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_work_log_tab(sh)
+    values = ws.get_all_values()
+    if not values:
+        return 0
+    updates = []
+    changed = 0
+    for i, row in enumerate(values[1:], start=2):  # skip header
+        if len(row) > 1 and row[1] == old_value:
+            updates.append({"range": f"B{i}", "values": [[new_value]]})
+            changed += 1
+    if updates:
+        ws.batch_update(updates, value_input_option="RAW")
+        _invalidate_work_log_cache()
+    return changed
 
 
 def _get_export_worksheet(gs_client):

@@ -16,6 +16,7 @@ from pending_ticket import (
     build_pending_ticket_response,
     build_exclusive_pending_response,
     save_work_log_entry,
+    rename_group_problem_value,
 )
 import oncall
 import auth
@@ -2259,6 +2260,25 @@ def api_oncall_seed():
         return jsonify({'seeded_rows': count, 'dates': len(dates)})
     except Exception as e:
         log.exception("oncall seed failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket/rename-group-problem', methods=['POST'])
+def api_rename_group_problem():
+    """One-time cleanup: renames every existing group_problem value in
+    TicketWorkLog from one string to another (e.g. after consolidating two
+    similar dropdown options into one), so already-saved tickets don't show
+    blank once the old option disappears from the list."""
+    payload = request.get_json(silent=True) or {}
+    old_value = (payload.get('old_value') or '').strip()
+    new_value = (payload.get('new_value') or '').strip()
+    if not old_value or not new_value:
+        return jsonify({'error': 'old_value and new_value are required'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        changed = rename_group_problem_value(gs_client, old_value, new_value)
+        return jsonify({'changed': changed})
+    except Exception as e:
+        log.exception("rename-group-problem failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')

@@ -789,6 +789,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
+      {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
+      <button id="ptk-migrate-workload" class="btn-secondary" title="รวมค่า Group Problem เก่า &quot;Workload - Assigning team access island/border area&quot; เป็น &quot;Workload - Assigning team access site&quot;">รวม Workload (ครั้งเดียว)</button>
+      {% endif %}
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
 
@@ -4518,6 +4521,32 @@ function renderPivot(ft) {
   el('ptk-severity').addEventListener('change', reload);
   el('ptk-district').addEventListener('change', reload);
   el('ptk-group-problem-filter').addEventListener('change', reload);
+
+  if (el('ptk-migrate-workload')) {
+    el('ptk-migrate-workload').addEventListener('click', async () => {
+      if (!confirm('รวมค่า Group Problem เก่า "Workload - Assigning team access island/border area" เป็น "Workload - Assigning team access site" สำหรับ ticket ที่เคยเลือกไว้แล้วทั้งหมด?')) return;
+      const btn = el('ptk-migrate-workload');
+      btn.disabled = true;
+      btn.textContent = 'กำลังรวม...';
+      try {
+        const res = await fetch('/api/pending-ticket/rename-group-problem', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            old_value: 'Workload - Assigning team access island/border area',
+            new_value: 'Workload - Assigning team access site',
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'failed');
+        alert(`รวมสำเร็จ ✅ — แก้ไป ${data.changed} ticket`);
+        reload();
+      } catch (e) {
+        alert('รวมไม่สำเร็จ: ' + e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = 'รวม Workload (ครั้งเดียว)';
+    });
+  }
 
   window.initPendingTicketTab = function () { if (!loaded) reload(); };
 })();
