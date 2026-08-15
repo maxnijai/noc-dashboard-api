@@ -2257,22 +2257,55 @@ def api_oncall_escalation():
 
 @app.route('/api/oncall-escalation/seed', methods=['POST'])
 def api_oncall_escalation_seed():
-    """One-time bootstrap: POST {rows: [{province, position, name, tel, type}, ...]}
-    to (re)populate the OncallEscalation tab. Token-gated like the other
-    seed tools since it's meant to run from a standalone file."""
+    """One-time bootstrap: POST {rows: [{province, position, name, tel, type}, ...],
+    dates: ["YYYY-MM-DD", ...]} to (re)populate the OncallEscalation tab
+    with a full date grid, all defaulted to blank. Token-gated like the
+    other seed tools since it's meant to run from a standalone file."""
     expected_token = os.environ.get('SEED_USERS_TOKEN')
     if not expected_token or request.args.get('token') != expected_token:
         return jsonify({'error': 'missing or invalid token'}), 403
     payload = request.get_json(silent=True) or {}
     rows = payload.get('rows')
-    if not isinstance(rows, list):
-        return jsonify({'error': 'expected {rows: [...]}'}), 400
+    dates = payload.get('dates')
+    if not isinstance(rows, list) or not isinstance(dates, list):
+        return jsonify({'error': 'expected {rows: [...], dates: [...]}'}), 400
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        count = oncall_escalation.seed_escalation_contacts(gs_client, rows)
-        return jsonify({'seeded_rows': count})
+        count = oncall_escalation.seed_escalation_contacts(gs_client, rows, dates)
+        return jsonify({'seeded_rows': count, 'dates': len(dates)})
     except Exception as e:
         log.exception("oncall-escalation seed failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/toggle', methods=['POST'])
+def api_oncall_escalation_toggle():
+    payload = request.get_json(silent=True) or {}
+    row_key = payload.get('row_key')
+    date_str = payload.get('date')
+    new_status = payload.get('status')
+    if not row_key or not date_str or new_status not in ('on', 'off', 'blank'):
+        return jsonify({'error': 'row_key, date, and status (on/off/blank) are required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        result = oncall_escalation.toggle_escalation_cell(gs_client, row_key, date_str, new_status, updated_by=updated_by)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("oncall-escalation toggle failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/add-month', methods=['POST'])
+def api_oncall_escalation_add_month():
+    payload = request.get_json(silent=True) or {}
+    year_month = payload.get('year_month')
+    if not year_month:
+        return jsonify({'error': 'year_month ("YYYY-MM") is required'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        added = oncall_escalation.add_month_columns(gs_client, year_month)
+        return jsonify({'added_dates': added})
+    except Exception as e:
+        log.exception("oncall-escalation add-month failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall/seed', methods=['POST'])
