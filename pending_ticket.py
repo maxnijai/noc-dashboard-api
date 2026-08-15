@@ -72,7 +72,7 @@ GROUP_PROBLEM_OPTIONS = [
     "Clear",
 ]
 
-ACTION_TEAM_OPTIONS = ["OFC", "NODE", "SUP", "ENG Zone", "Specail Team"]
+ACTION_TEAM_OPTIONS = ["OFC", "NODE", "SUP", "ENG Zone", "Special Team", "Planwork", "Track 7", "E//", "Other Vendor"]
 
 WORK_LOG_SHEET = "TicketWorkLog"
 WORK_LOG_HEADER = [
