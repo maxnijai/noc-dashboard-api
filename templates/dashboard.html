@@ -4724,42 +4724,50 @@ function renderPivot(ft) {
 
   function buildExpLineSummaryText() {
     if (!lastData) return '';
-    // Flatten every bookmark's over-SLA ticket list into one set - the
-    // person asked for a view across ALL groups combined (Mobile SA1-4,
-    // FBB SA1-4, NSA1-2, etc.), not broken out per bookmark like the page
-    // itself is.
-    const allTickets = (lastData.detail || []).flatMap(d => d.tickets);
+    const isIncomplete = t => t.group_problem === '(ยังไม่ระบุ)'
+      || !String(t.action_team || '').trim()
+      || !String(t.detail || '').trim()
+      || !String(t.plan_closed_date || '').trim();
+
+    const groups = lastData.detail || []; // [{bookmark, tickets, total}, ...]
+    const allTickets = groups.flatMap(d => d.tickets);
     const totalOverSla = lastData.total_over_sla || allTickets.length;
-
-    const byProvince = {};
-    allTickets.forEach(t => {
-      const incomplete = t.group_problem === '(ยังไม่ระบุ)'
-        || !String(t.action_team || '').trim()
-        || !String(t.detail || '').trim()
-        || !String(t.plan_closed_date || '').trim();
-      if (!incomplete) return;
-      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-      byProvince[p] = (byProvince[p] || 0) + 1;
-    });
-
-    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b] - byProvince[a]);
-    const totalIncomplete = Object.values(byProvince).reduce((s, c) => s + c, 0);
 
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
     const lines = [];
     lines.push(`📋 สรุป Exclusive Pending วันนี้ (${dateLabel})`);
-    lines.push('รวมทุกกลุ่ม Bookmark (Mobile SA1-4, FBB SA1-4, NSA1-2 ฯลฯ)');
-    lines.push('━━━━━━━━━━━━━━');
-    provinces.forEach(p => {
-      const count = byProvince[p];
-      const pct = totalOverSla ? Math.round((count / totalOverSla) * 100) : 0;
-      lines.push(`📍 ${p}: ${count} ticket ข้อมูลไม่ครบ — ${pct}% ของ Over SLA ทั้งหมด`);
+    lines.push('แยกตามกลุ่ม Bookmark');
+
+    let grandTotalIncomplete = 0;
+    groups.forEach(g => {
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`▶ ${g.bookmark} (Over SLA รวม: ${g.tickets.length} ticket)`);
+
+      const byProvince = {};
+      g.tickets.forEach(t => {
+        if (!isIncomplete(t)) return;
+        const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+        byProvince[p] = (byProvince[p] || 0) + 1;
+      });
+      const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b] - byProvince[a]);
+      const groupIncomplete = Object.values(byProvince).reduce((s, c) => s + c, 0);
+      grandTotalIncomplete += groupIncomplete;
+
+      if (!provinces.length) {
+        lines.push('✅ ไม่มี ticket ที่ข้อมูลไม่ครบเลย');
+      } else {
+        provinces.forEach(p => {
+          const count = byProvince[p];
+          const pct = g.tickets.length ? Math.round((count / g.tickets.length) * 100) : 0;
+          lines.push(`📍 ${p}: ${count} ticket ข้อมูลไม่ครบ — ${pct}% ของกลุ่มนี้`);
+        });
+      }
     });
-    if (!provinces.length) lines.push('✅ ไม่มี ticket ที่ข้อมูลไม่ครบเลย');
+
     lines.push('━━━━━━━━━━━━━━');
-    lines.push(`Over SLA ทั้งหมดทุกกลุ่ม: ${totalOverSla} ticket`);
-    const totalPct = totalOverSla ? Math.round((totalIncomplete / totalOverSla) * 100) : 0;
-    lines.push(`ข้อมูลไม่ครบรวม: ${totalIncomplete} ticket (${totalPct}%)`);
+    lines.push(`รวมทุกกลุ่ม — Over SLA ทั้งหมด: ${totalOverSla} ticket`);
+    const totalPct = totalOverSla ? Math.round((grandTotalIncomplete / totalOverSla) * 100) : 0;
+    lines.push(`ข้อมูลไม่ครบรวม: ${grandTotalIncomplete} ticket (${totalPct}%)`);
     return lines.join('\n');
   }
 
