@@ -2164,20 +2164,28 @@ def api_pending_ticket_update():
         k: payload.get(k, '')
         for k in ('group_problem', 'action_team', 'detail', 'image_link', 'plan_closed_date')
     }
-    # รายละเอียดต้องกรอกทุกครั้งและต้องอยู่ในรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" -
-    # บังคับซ้ำฝั่ง server เผื่อมีการเรียก API ตรงๆ ข้ามหน้าเว็บ (ฝั่งหน้าเว็บเช็คไว้แล้วเช่นกัน)
+    # ต้องกรอกครบทั้ง 4 ช่องเสมอ ห้ามว่างช่องใดช่องหนึ่ง - เช็คซ้ำฝั่ง server
+    # เผื่อมีการเรียก API ตรงๆ ข้ามหน้าเว็บ (ฝั่งหน้าเว็บเช็คไว้แล้วเช่นกัน)
+    group_problem = (fields.get('group_problem') or '').strip()
+    if not group_problem:
+        return jsonify({'error': 'Group Problem ห้ามว่าง'}), 400
+    action_team = (fields.get('action_team') or '').strip()
+    if not action_team:
+        return jsonify({'error': 'Action Team ห้ามว่าง'}), 400
+
+    # รายละเอียดต้องกรอกทุกครั้งและต้องอยู่ในรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข"
     detail = (fields.get('detail') or '').strip()
     if not detail or '/' not in detail:
         return jsonify({'error': 'detail ต้องกรอกตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมี /)'}), 400
     fields['detail'] = detail
 
-    # Plan Closed Date ห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน (เทียบเวลาไทย) - เช็คซ้ำฝั่ง
-    # server เผื่อมีการเรียก API ตรงๆ ข้ามหน้าเว็บ (ฝั่งหน้าเว็บเช็คไว้แล้วเช่นกัน)
+    # Plan Closed Date ห้ามว่าง และห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน (เทียบเวลาไทย)
     plan_closed_date = (fields.get('plan_closed_date') or '').strip()
-    if plan_closed_date:
-        today_str = bangkok_now().strftime('%Y-%m-%d')
-        if plan_closed_date < today_str:
-            return jsonify({'error': 'Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบัน'}), 400
+    if not plan_closed_date:
+        return jsonify({'error': 'Plan Closed Date ห้ามว่าง'}), 400
+    today_str = bangkok_now().strftime('%Y-%m-%d')
+    if plan_closed_date < today_str:
+        return jsonify({'error': 'Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบัน'}), 400
 
     updated_by = session.get('user_name') or 'unknown'
     try:

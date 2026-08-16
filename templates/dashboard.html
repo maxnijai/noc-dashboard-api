@@ -4422,10 +4422,10 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">${t.Tech_Team || ''}</td>
         <td style="padding:6px 8px;">${t.Tech_Status || ''}</td>
         <td style="padding:6px 8px;">
-          <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
+          <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
         </td>
         <td style="padding:6px 8px;">
-          <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}')" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
+          <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
         <td style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; max-width:280px; max-height:120px; overflow-y:auto; resize:vertical; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
@@ -4482,9 +4482,34 @@ function renderPivot(ft) {
     const row = document.querySelector(`tr[data-ticket-id="${CSS.escape(ticketId)}"]`);
     if (!row) return;
     const btn = row.querySelector('.ptk-save-btn');
+    const groupProblemEl = row.querySelector('.ptk-group-problem');
+    const actionTeamEl = row.querySelector('.ptk-action-team');
     const detailEl = row.querySelector('.ptk-detail');
+    const planDateEl = row.querySelector('.ptk-plan-date');
     const detailVal = detailEl.value.trim();
+    const planDateVal = planDateEl.value; // <input type="date"> gives "YYYY-MM-DD" or ""
 
+    // ต้องกรอกครบทั้ง 4 ช่องเสมอ ห้ามว่างช่องใดช่องหนึ่ง: Group Problem,
+    // Action Team, รายละเอียด, Plan Closed Date
+    [groupProblemEl, actionTeamEl, detailEl, planDateEl].forEach(el => {
+      el.style.outline = '';
+      el.style.background = '';
+    });
+
+    if (!groupProblemEl.value) {
+      groupProblemEl.style.outline = '2px solid #dc2626';
+      groupProblemEl.style.background = '#fee2e2';
+      groupProblemEl.focus();
+      alert('กรุณาเลือก Group Problem ห้ามว่างครับ');
+      return;
+    }
+    if (!actionTeamEl.value) {
+      actionTeamEl.style.outline = '2px solid #dc2626';
+      actionTeamEl.style.background = '#fee2e2';
+      actionTeamEl.focus();
+      alert('กรุณาเลือก Action Team ห้ามว่างครับ');
+      return;
+    }
     // รายละเอียดต้องกรอกทุกครั้งและต้องมีรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (มี "/" คั่น)
     if (!detailVal || !detailVal.includes('/')) {
       detailEl.style.outline = '2px solid #dc2626';
@@ -4493,33 +4518,31 @@ function renderPivot(ft) {
       alert('กรุณากรอกรายละเอียดตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมีเครื่องหมาย / คั่นระหว่างปัญหากับวิธีแก้ไข)');
       return;
     }
-    detailEl.style.outline = '';
-    detailEl.style.background = '';
-
-    const planDateEl = row.querySelector('.ptk-plan-date');
-    const planDateVal = planDateEl.value; // <input type="date"> gives "YYYY-MM-DD" or ""
-    if (planDateVal) {
-      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
-      if (planDateVal < todayStr) {
-        planDateEl.style.outline = '2px solid #dc2626';
-        planDateEl.style.background = '#fee2e2';
-        planDateEl.focus();
-        alert('Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบันครับ');
-        return;
-      }
+    if (!planDateVal) {
+      planDateEl.style.outline = '2px solid #dc2626';
+      planDateEl.style.background = '#fee2e2';
+      planDateEl.focus();
+      alert('กรุณากรอก Plan Closed Date ห้ามว่างครับ');
+      return;
     }
-    planDateEl.style.outline = '';
-    planDateEl.style.background = '';
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+    if (planDateVal < todayStr) {
+      planDateEl.style.outline = '2px solid #dc2626';
+      planDateEl.style.background = '#fee2e2';
+      planDateEl.focus();
+      alert('Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบันครับ');
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = '...';
     const payload = {
       ticket_id: ticketId,
-      group_problem: row.querySelector('.ptk-group-problem').value,
-      action_team: row.querySelector('.ptk-action-team').value,
+      group_problem: groupProblemEl.value,
+      action_team: actionTeamEl.value,
       detail: detailVal,
       image_link: row.querySelector('.ptk-link').value,
-      plan_closed_date: row.querySelector('.ptk-plan-date').value,
+      plan_closed_date: planDateVal,
     };
     try {
       const res = await fetch('/api/pending-ticket/update', {
