@@ -30,7 +30,7 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 /* Layout */
 .shell { display: flex; height: 100vh; overflow: hidden; }
 .sidebar { width: 220px; min-width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
-.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.main { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 
 /* Header */
 .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -829,7 +829,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
 
-    <div style="overflow:auto; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
+    <div style="overflow:auto; -webkit-overflow-scrolling:touch; touch-action:pan-x pan-y; border:1px solid var(--border); border-radius:var(--r); max-height:75vh;">
       <table style="border-collapse:collapse; font-size:12px; white-space:nowrap;">
         <thead>
           <tr style="background:var(--bg3); position:sticky; top:0; z-index:2;">
