@@ -212,6 +212,29 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
      last-edited) hides so there's far less to scroll through horizontally
      and the fields that matter are easy to reach and edit with a thumb. */
   .ptk-mobile-hide { display: none !important; }
+  /* Turn the Pending Ticket table into a stacked card per ticket on
+     mobile, instead of a wide table people have to scroll sideways
+     through - repeated attempts at fixing horizontal touch-scroll (nested
+     scroll containers, -webkit-overflow-scrolling) still weren't reliable
+     across devices, so avoid the problem entirely: no horizontal
+     scrolling at all on this table below 768px, only vertical. */
+  #page-pendingticket table, #page-pendingticket thead, #page-pendingticket tbody,
+  #page-pendingticket th, #page-pendingticket tr, #page-pendingticket td {
+    display: block; width: 100% !important;
+  }
+  #page-pendingticket thead { display: none; }
+  #page-pendingticket .ptk-row {
+    border: 1px solid var(--border) !important; border-radius: var(--r);
+    margin-bottom: 10px; padding: 8px; background: var(--bg2);
+  }
+  #page-pendingticket .ptk-row td {
+    position: static !important; left: auto !important; background: transparent !important;
+    box-shadow: none !important; border: none !important; padding: 6px 4px !important;
+  }
+  #page-pendingticket .ptk-row td[data-label]:not([data-label=""])::before {
+    content: attr(data-label); display: block; font-size: 11px; font-weight: 700;
+    color: var(--text3); margin-bottom: 3px;
+  }
 }
 .mobile-menu-btn { display: none; }
 
@@ -4431,11 +4454,11 @@ function renderPivot(ft) {
       const agingColor = agingColors[agingKey] || '';
       const agingStyle = agingColor ? `background:${agingColor}55;` : '';
       return `
-      <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}">
-        <td class="ptk-sticky-1" style="padding:6px 8px; font-weight:600;">${tid}</td>
-        <td class="ptk-sticky-2" style="padding:6px 8px;">${t.CINAME || ''}</td>
-        <td class="ptk-sticky-3" style="padding:6px 8px;" title="${(t.SUBJECT || '').replace(/"/g, '&quot;')}">${t.SUBJECT || ''}</td>
-        <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority, !!t.nano)}</td>
+      <tr class="ptk-row" style="border-top:1px solid var(--border);" data-ticket-id="${tid}">
+        <td class="ptk-sticky-1" data-label="TICKETID" style="padding:6px 8px; font-weight:600;">${tid}</td>
+        <td class="ptk-sticky-2" data-label="CINAME" style="padding:6px 8px;">${t.CINAME || ''}</td>
+        <td class="ptk-sticky-3" data-label="SUBJECT" style="padding:6px 8px;" title="${(t.SUBJECT || '').replace(/"/g, '&quot;')}">${t.SUBJECT || ''}</td>
+        <td class="ptk-sticky-4" data-label="Priority" style="padding:6px 8px;">${priorityBadge(t.priority, !!t.nano)}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.SEVERITY || ''}</td>
@@ -4446,23 +4469,23 @@ function renderPivot(ft) {
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.DISTRICT || ''}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Team || ''}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Status || ''}</td>
-        <td style="padding:6px 8px;">
+        <td data-label="Group Problem" style="padding:6px 8px;">
           <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
         </td>
-        <td style="padding:6px 8px;">
+        <td data-label="Action Team" style="padding:6px 8px;">
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
-        <td style="padding:6px 8px;">
+        <td data-label="รายละเอียด" style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; max-width:280px; max-height:120px; overflow-y:auto; resize:vertical; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
         </td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
         </td>
-        <td style="padding:6px 8px;">
+        <td data-label="Plan Closed Date" style="padding:6px 8px;">
           <input type="date" class="ptk-field ptk-plan-date ${t.plan_closed_overdue ? 'ptk-overdue' : ''}" value="${t.plan_closed_date || ''}" onchange="markDirty('${safeTid}'); checkOverdue(this); this.style.outline=''; this.style.background='';" style="width:100%;">
         </td>
-        <td style="padding:6px 8px;">
-          <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
+        <td data-label="" style="padding:6px 8px;">
+          <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px; width:100%;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
         </td>
         <td class="ptk-mobile-hide ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td class="ptk-mobile-hide ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
