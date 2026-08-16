@@ -4858,7 +4858,8 @@ function renderPivot(ft) {
     });
     const provincesAffected = Object.keys(provinceCounts).length;
     const worstProvinceEntry = Object.entries(provinceCounts).sort((a, b) => b[1] - a[1])[0];
-    const worstBookmarkEntry = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total)[0];
+    const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
+    const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
 
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -4869,13 +4870,28 @@ function renderPivot(ft) {
         ${sub ? `<div style="font-size:12px; color:var(--text2); margin-top:6px;">${sub}</div>` : ''}
       </div>`;
 
+    const bookmarkBreakdownCard = `
+      <div style="flex:1.4; min-width:220px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
+        ${bookmarkTotals.map(b => `
+          <div style="margin-bottom:6px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
+              <span style="color:var(--text2);">${escapeHtml(b.bookmark)}</span>
+              <span style="font-weight:700; ${b.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${b.over_total}</span>
+            </div>
+            <div style="height:5px; background:var(--bg4); border-radius:3px; overflow:hidden;">
+              <div style="height:100%; width:${(b.over_total / maxBookmarkTotal) * 100}%; background:#7c3aed;"></div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+
     el('exp-kpi-summary').innerHTML = `
       <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
       <div style="display:flex; flex-wrap:wrap; gap:12px;">
         ${card('🔴', 'Over SLA รวมทุกกลุ่ม', totalOverSla, 'จาก 4 กลุ่ม Bookmark ที่เกิน SLA', '#B23A3A')}
         ${card('📍', 'จังหวัดที่มีปัญหา', provincesAffected, worstProvinceEntry ? `หนักสุด: ${escapeHtml(worstProvinceEntry[0])} (${worstProvinceEntry[1]} ticket)` : '', '#2563eb')}
         ${card('⚠️', 'ยังไม่ได้ Triage', notTriaged, totalOverSla ? `${Math.round((notTriaged / totalOverSla) * 100)}% ของ Over SLA ทั้งหมด` : '', '#B45309')}
-        ${card('📌', 'กลุ่มที่ต้องเร่งดูก่อน', worstBookmarkEntry ? worstBookmarkEntry.over_total : '-', worstBookmarkEntry ? escapeHtml(worstBookmarkEntry.bookmark) : '', '#7c3aed')}
+        ${bookmarkBreakdownCard}
       </div>`;
   }
 
