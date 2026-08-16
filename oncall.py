@@ -31,7 +31,7 @@ ONCALL_SHEET = "OncallSchedule"
 IDENTITY_HEADER = [
     "TeamType", "Region", "Province", "ProvinceTH", "Type", "TeamID",
     "Remark", "District", "No", "TeamID1", "Name", "Tel", "FMOffice", "TypeCM",
-    "LastUpdatedBy", "LastUpdatedAt",
+    "LastUpdatedBy", "LastUpdatedAt", "Note",
 ]
 IDENTITY_COLS = len(IDENTITY_HEADER)  # date columns start right after this
 _LAST_UPDATED_BY_COL = IDENTITY_HEADER.index("LastUpdatedBy") + 1  # 1-based
@@ -133,7 +133,7 @@ def load_oncall_schedule(gs_client, use_cache=True):
             "province_th": padded[3], "type": padded[4], "team_id": padded[5],
             "remark": padded[6], "district": padded[7], "no": padded[8], "team_id1": padded[9],
             "name": padded[10], "tel": padded[11], "fm_office": padded[12], "type_cm": padded[13],
-            "last_updated_by": padded[14], "last_updated_at": padded[15],
+            "last_updated_by": padded[14], "last_updated_at": padded[15], "note": padded[16],
             "days": days,
         })
 
@@ -378,3 +378,75 @@ def add_district_column(gs_client, team_district_map):
     _invalidate_cache()
     _invalidate_layout_cache()
     return filled
+
+
+def add_note_column(gs_client):
+    """One-time migration: appends the "Note" identity column to the end of
+    the CURRENT identity block (right after LastUpdatedAt, before the date
+    columns) on the LIVE sheet, WITHOUT touching any date-cell data - every
+    existing Oncall/Day Off pick is read back unchanged and rewritten
+    as-is. New rows get an empty Note. Returns the number of data rows
+    rewritten (not how many have a note - this just adds the column)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    if "Note" in old_header:
+        raise ValueError("Note column already exists - nothing to migrate")
+
+    # Insert right after LastUpdatedAt (or at the position IDENTITY_COLS-1
+    # expects if that column is missing for some reason).
+    if "LastUpdatedAt" in old_header:
+        insert_at = old_header.index("LastUpdatedAt") + 1
+    else:
+        insert_at = min(IDENTITY_COLS - 1, len(old_header))
+
+    new_header = old_header[:insert_at] + ["Note"] + old_header[insert_at:]
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(old_header) - len(line))
+        new_row = padded[:insert_at] + [""] + padded[insert_at:]
+        new_rows.append(new_row)
+
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)
+
+
+def update_note(gs_client, team_id1, note_text, updated_by=None):
+    """Sets the freeform Note for one person (e.g. an announcement a
+    Supervisor/Eng Zone wants everyone to see), and stamps
+    LastUpdatedBy/LastUpdatedAt the same way a date-cell toggle does."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
+
+    note_col = IDENTITY_HEADER.index("Note") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, note_col), "values": [[note_text]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"team_id1": team_id1, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}

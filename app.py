@@ -2275,13 +2275,73 @@ def api_oncall_add_district_column():
     payload = request.get_json(silent=True) or {}
     team_district_map = payload.get('team_district_map')
     if not isinstance(team_district_map, dict):
-        return jsonify({'error': 'expected {team_district_map: {team_id1: "districts"}}'}), 400
+        return jsonify({'error': 'expected {team_district_map: "districts"}'}), 400
     try:
         _, gs_client = get_drive_and_sheets_clients()
         filled = oncall.add_district_column(gs_client, team_district_map)
         return jsonify({'filled': filled})
     except Exception as e:
         log.exception("oncall-schedule add-district-column failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-schedule/add-note-column', methods=['POST'])
+def api_oncall_add_note_column():
+    """One-time schema migration (admin-only): adds the Note column to
+    OncallSchedule without touching any existing Oncall/Day Off data.
+    Session-authenticated (runs from inside the logged-in dashboard, not a
+    standalone tool), restricted to the admin account."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall.add_note_column(gs_client)
+        return jsonify({'rows': count})
+    except Exception as e:
+        log.exception("oncall-schedule add-note-column failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/add-note-column', methods=['POST'])
+def api_oncall_escalation_add_note_column():
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall_escalation.add_note_column(gs_client)
+        return jsonify({'rows': count})
+    except Exception as e:
+        log.exception("oncall-escalation add-note-column failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-schedule/note', methods=['POST'])
+def api_oncall_schedule_note():
+    payload = request.get_json(silent=True) or {}
+    team_id1 = payload.get('team_id1')
+    note_text = payload.get('note', '')
+    if not team_id1:
+        return jsonify({'error': 'team_id1 is required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        result = oncall.update_note(gs_client, team_id1, note_text, updated_by=updated_by)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("oncall-schedule note update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/note', methods=['POST'])
+def api_oncall_escalation_note():
+    payload = request.get_json(silent=True) or {}
+    row_key = payload.get('row_key')
+    note_text = payload.get('note', '')
+    if not row_key:
+        return jsonify({'error': 'row_key is required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        result = oncall_escalation.update_note(gs_client, row_key, note_text, updated_by=updated_by)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("oncall-escalation note update failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-escalation')

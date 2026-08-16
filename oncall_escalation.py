@@ -24,7 +24,7 @@ from oncall import _get_spreadsheet
 from pending_trend import bangkok_now
 
 ESCALATION_SHEET = "OncallEscalation"
-IDENTITY_HEADER = ["Province", "Position", "Name", "Tel", "Type", "LastUpdatedBy", "LastUpdatedAt"]
+IDENTITY_HEADER = ["Province", "Position", "Name", "Tel", "Type", "LastUpdatedBy", "LastUpdatedAt", "Note"]
 IDENTITY_COLS = len(IDENTITY_HEADER)
 _LAST_UPDATED_BY_COL = IDENTITY_HEADER.index("LastUpdatedBy") + 1  # 1-based
 _LAST_UPDATED_AT_COL = IDENTITY_HEADER.index("LastUpdatedAt") + 1  # 1-based
@@ -82,7 +82,7 @@ def seed_escalation_contacts(gs_client, rows, dates):
     for r in rows:
         line = [
             r.get("province", ""), r.get("position", ""), r.get("name", ""),
-            r.get("tel", ""), r.get("type", ""), "", "",  # LastUpdatedBy/At blank
+            r.get("tel", ""), r.get("type", ""), "", "", "",  # LastUpdatedBy/At/Note blank
         ]
         line.extend(["blank"] * len(dates))
         body.append(line)
@@ -120,12 +120,12 @@ def load_escalation_contacts(gs_client, use_cache=True):
         if not row or not row[0]:
             continue
         padded = row + [""] * (len(header) - len(row))
-        province, position, name, tel, typ, last_by, last_at = padded[:IDENTITY_COLS]
+        province, position, name, tel, typ, last_by, last_at, note = padded[:IDENTITY_COLS]
         days = {dates[i]: (padded[IDENTITY_COLS + i] or "blank") for i in range(len(dates))}
         by_province.setdefault(province, []).append({
             "position": position, "name": name, "tel": tel, "type": typ,
             "row_key": _row_key(province, position, name),
-            "last_updated_by": last_by, "last_updated_at": last_at,
+            "last_updated_by": last_by, "last_updated_at": last_at, "note": note,
             "days": days,
         })
 
@@ -233,3 +233,70 @@ def add_month_columns(gs_client, year_month):
     _invalidate_cache()
     _invalidate_layout_cache()
     return len(dates_to_add)
+
+
+def add_note_column(gs_client):
+    """One-time migration: appends the "Note" identity column right after
+    LastUpdatedAt on the LIVE sheet, WITHOUT touching any date-cell data -
+    every existing Oncall/Day Off pick is read back unchanged and
+    rewritten as-is. New rows get an empty Note."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallEscalation tab is empty")
+    old_header = values[0]
+
+    if "Note" in old_header:
+        raise ValueError("Note column already exists - nothing to migrate")
+
+    if "LastUpdatedAt" in old_header:
+        insert_at = old_header.index("LastUpdatedAt") + 1
+    else:
+        insert_at = min(IDENTITY_COLS - 1, len(old_header))
+
+    new_header = old_header[:insert_at] + ["Note"] + old_header[insert_at:]
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(old_header) - len(line))
+        new_row = padded[:insert_at] + [""] + padded[insert_at:]
+        new_rows.append(new_row)
+
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)
+
+
+def update_note(gs_client, row_key, note_text, updated_by=None):
+    """Sets the freeform Note for one escalation contact, and stamps
+    LastUpdatedBy/LastUpdatedAt the same way a date-cell toggle does."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(row_key)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(row_key)
+    if row_idx is None:
+        raise ValueError(f"contact {row_key} not found in OncallEscalation")
+
+    note_col = IDENTITY_HEADER.index("Note") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, note_col), "values": [[note_text]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"row_key": row_key, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}

@@ -954,6 +954,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-line-summary" class="btn-secondary" title="เช็คสรุปสถานะ Oncall ทีมวันนี้ พร้อมข้อความสำหรับส่ง LINE">📋 เช็ค Status ทีม</button>
         {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
         <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
+        <button id="oc-add-note-column" class="btn-secondary" title="เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว)">+ คอลัมน์หมายเหตุ (ครั้งเดียว)</button>
         {% endif %}
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
@@ -5284,7 +5285,7 @@ function renderPivot(ft) {
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
     );
-    const totalCols = 9 + dates.length;
+    const totalCols = 10 + dates.length;
 
     const dowRow = dates.map(d => {
       const info = dowInfo(d);
@@ -5344,6 +5345,9 @@ function renderPivot(ft) {
           <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">-</td>
           <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; color:var(--text2);">${escapeHtml(c.type)}</td>
           <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
+          <td style="padding:2px 4px;">
+            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(c.row_key)}" data-note-kind="escalation" value="${escapeHtml(c.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; min-width:150px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
+          </td>
           <td class="oe-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_by) || '-'}</td>
           <td class="oe-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_at) || '-'}</td>
           ${cells}
@@ -5374,6 +5378,9 @@ function renderPivot(ft) {
           <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
           <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
           <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
+          <td style="padding:2px 4px;">
+            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(r.team_id1)}" data-note-kind="team" value="${escapeHtml(r.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; min-width:150px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
+          </td>
           <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
           <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
           ${cells}
@@ -5395,6 +5402,7 @@ function renderPivot(ft) {
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
+              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom; min-width:160px;">หมายเหตุ</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
               ${dayRow}
@@ -5521,6 +5529,53 @@ function renderPivot(ft) {
     }
   };
 
+  window.saveOncallNote = async function (input) {
+    const key = input.dataset.noteKey;
+    const kind = input.dataset.noteKind; // "team" or "escalation"
+    const noteText = input.value;
+    const original = input.defaultValue;
+    if (noteText === original) return; // nothing changed, skip the call
+
+    input.style.opacity = '0.6';
+    const url = kind === 'escalation' ? '/api/oncall-escalation/note' : '/api/oncall-schedule/note';
+    const body = kind === 'escalation' ? { row_key: key, note: noteText } : { team_id1: key, note: noteText };
+    try {
+      const res = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('save failed');
+      const data = await res.json();
+      input.defaultValue = noteText;
+      input.style.borderColor = '#639922';
+      setTimeout(() => { input.style.borderColor = ''; }, 1200);
+      // Update this row's local data + last-edited cells so it stays in sync
+      if (kind === 'escalation') {
+        for (const p of (escalationData && escalationData.provinces || [])) {
+          const c = p.contacts.find(c => c.row_key === key);
+          if (c) { c.note = noteText; c.last_updated_by = data.updated_by; c.last_updated_at = data.updated_at; break; }
+        }
+        const tr = document.querySelector(`tr[data-row-key="${CSS.escape(key)}"]`);
+        if (tr) {
+          tr.querySelector('.oe-updated-by').textContent = data.updated_by || '-';
+          tr.querySelector('.oe-updated-at').textContent = data.updated_at || '-';
+        }
+      } else {
+        const row = scheduleData && scheduleData.rows.find(r => r.team_id1 === key);
+        if (row) { row.note = noteText; row.last_updated_by = data.updated_by; row.last_updated_at = data.updated_at; }
+        const tr = document.querySelector(`tr[data-row-team="${CSS.escape(key)}"]`);
+        if (tr) {
+          tr.querySelector('.oc-updated-by').textContent = data.updated_by || '-';
+          tr.querySelector('.oc-updated-at').textContent = data.updated_at || '-';
+        }
+      }
+    } catch (e) {
+      console.error('Save note failed', e);
+      input.style.borderColor = '#E24B4A';
+      setTimeout(() => { input.style.borderColor = ''; }, 2000);
+    }
+    input.style.opacity = '1';
+  };
+
   async function reload() {
     try {
       const [data, escData] = await Promise.all([fetchData(), fetchEscalationData()]);
@@ -5601,6 +5656,31 @@ function renderPivot(ft) {
     }
     btn.disabled = false;
     btn.textContent = 'ล้างค่า Oncall เริ่มต้น';
+  }
+
+  async function addNoteColumn() {
+    if (!confirm('เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว) ให้ทั้งตาราง Oncall Team และ Sup/Eng Zone?\n\nไม่กระทบข้อมูล Oncall/Day Off ที่มีอยู่แล้ว')) return;
+    const btn = el('oc-add-note-column');
+    btn.disabled = true;
+    btn.textContent = 'กำลังเพิ่ม...';
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch('/api/oncall-schedule/add-note-column', { method: 'POST' }),
+        fetch('/api/oncall-escalation/add-note-column', { method: 'POST' }),
+      ]);
+      const d1 = await r1.json().catch(() => ({}));
+      const d2 = await r2.json().catch(() => ({}));
+      const msgs = [];
+      msgs.push(r1.ok ? `Oncall Team: เพิ่มสำเร็จ (${d1.rows} แถว)` : `Oncall Team: ${d1.error || 'ผิดพลาด'}`);
+      msgs.push(r2.ok ? `Sup/Eng Zone: เพิ่มสำเร็จ (${d2.rows} แถว)` : `Sup/Eng Zone: ${d2.error || 'ผิดพลาด'}`);
+      alert(msgs.join('\n'));
+      await reload();
+    } catch (e) {
+      console.error('Add note column failed', e);
+      alert('เพิ่มคอลัมน์ไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+    }
+    btn.disabled = false;
+    btn.textContent = '+ คอลัมน์หมายเหตุ (ครั้งเดียว)';
   }
 
   function updateBulkBar() {
@@ -5744,6 +5824,7 @@ function renderPivot(ft) {
 
   el('oc-reset-filter').addEventListener('click', resetFilters);
   if (el('oc-reset-default-on')) el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
+  if (el('oc-add-note-column')) el('oc-add-note-column').addEventListener('click', addNoteColumn);
   el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
