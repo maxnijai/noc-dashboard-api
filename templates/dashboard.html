@@ -4703,6 +4703,10 @@ function renderPivot(ft) {
     return (s || '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function expTodayStr() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+  }
+
   async function fetchData() {
     const statusEl = el('exp-status');
     statusEl.textContent = 'กำลังโหลด...';
@@ -4750,8 +4754,11 @@ function renderPivot(ft) {
   }
 
   function renderDetailTable(detailBlock, agingColors) {
+    const today = expTodayStr();
     const rows = detailBlock.tickets.map(t => {
       const agColor = agingColors[t.Aging_Flag_Group] || '';
+      const planDate = t.plan_closed_date || '';
+      const isBackdated = planDate && planDate < today;
       return `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
@@ -4763,7 +4770,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
         <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.plan_closed_date) || '-'}</td>
+        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>
       </tr>`;
     }).join('');
     return `
@@ -4816,13 +4823,22 @@ function renderPivot(ft) {
 
   function renderGroupProblemByPlanDate(block) {
     if (!block || !block.rows || !block.rows.length) return '';
+    const today = expTodayStr();
     const cols = block.date_columns || [];
-    const head = cols.map(c => `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; ${c.startsWith('(') ? 'color:#B23A3A;' : 'color:var(--text2);'}">${escapeHtml(c)}</th>`).join('');
+    const head = cols.map(c => {
+      const isNoPlan = c.startsWith('(');
+      const isBackdated = !isNoPlan && c < today;
+      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+    }).join('');
     const rows = block.rows.map((r, i) => {
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
         const isNoPlan = c.startsWith('(');
-        return `<td style="padding:7px 10px; text-align:center; ${isNoPlan && count > 0 ? 'background:#B23A3A1a; font-weight:700; color:#B23A3A;' : ''}">${count || '–'}</td>`;
+        const isBackdated = !isNoPlan && c < today;
+        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
+        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
+        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''}">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
