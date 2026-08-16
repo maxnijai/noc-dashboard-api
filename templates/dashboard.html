@@ -206,6 +206,12 @@ table.team tr:hover td { background: var(--bg3); cursor: pointer; }
   .mobile-sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 199; }
   .mobile-sidebar-backdrop.mobile-open { display: block; }
   .charts-grid { grid-template-columns: 1fr; }
+  /* Pending Ticket: only TICKETID/CINAME/SUBJECT/Priority + the 4 required
+     edit fields + Save stay visible on mobile - everything else (dates,
+     SEVERITY, TRUEOWNERGROUP, Bookmark, Aging, districts, Tech_*, link,
+     last-edited) hides so there's far less to scroll through horizontally
+     and the fields that matter are easy to reach and edit with a thumb. */
+  .ptk-mobile-hide { display: none !important; }
 }
 .mobile-menu-btn { display: none; }
 
@@ -837,24 +843,24 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th class="ptk-sticky-2" style="padding:6px 8px; text-align:left;">CINAME</th>
             <th class="ptk-sticky-3" style="padding:6px 8px; text-align:left;">SUBJECT</th>
             <th class="ptk-sticky-4" style="padding:6px 8px; text-align:left;">Priority</th>
-            <th style="padding:6px 8px; text-align:left;">CREATIONDATE</th>
-            <th style="padding:6px 8px; text-align:left;">TARGETFINISH</th>
-            <th style="padding:6px 8px; text-align:left;">SEVERITY</th>
-            <th style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
-            <th style="padding:6px 8px; text-align:left;">Bookmark</th>
-            <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
-            <th style="padding:6px 8px; text-align:left;">SUBDISTRICT</th>
-            <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
-            <th style="padding:6px 8px; text-align:left;">Tech_Team</th>
-            <th style="padding:6px 8px; text-align:left;">Tech_Status</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">CREATIONDATE</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">TARGETFINISH</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">SEVERITY</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">TRUEOWNERGROUP</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">Bookmark</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">SUBDISTRICT</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">DISTRICT</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">Tech_Team</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">Tech_Status</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
             <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
-            <th style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
             <th style="padding:6px 8px; text-align:left; min-width:140px;">Plan Closed Date</th>
             <th style="padding:6px 8px; text-align:left; min-width:90px;">Save</th>
-            <th style="padding:6px 8px; text-align:left;">อัปเดตล่าสุด</th>
-            <th style="padding:6px 8px; text-align:left;">โดย</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">อัปเดตล่าสุด</th>
+            <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">โดย</th>
           </tr>
         </thead>
         <tbody id="ptk-body"></tbody>
@@ -4430,16 +4436,16 @@ function renderPivot(ft) {
         <td class="ptk-sticky-2" style="padding:6px 8px;">${t.CINAME || ''}</td>
         <td class="ptk-sticky-3" style="padding:6px 8px;" title="${(t.SUBJECT || '').replace(/"/g, '&quot;')}">${t.SUBJECT || ''}</td>
         <td class="ptk-sticky-4" style="padding:6px 8px;">${priorityBadge(t.priority, !!t.nano)}</td>
-        <td style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
-        <td style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
-        <td style="padding:6px 8px;">${t.SEVERITY || ''}</td>
-        <td style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
-        <td style="padding:6px 8px;">${t.Bookmark || ''}</td>
-        <td style="padding:6px 8px; ${agingStyle}">${agingKey}</td>
-        <td style="padding:6px 8px;">${t.SUBDISTRICT || ''}</td>
-        <td style="padding:6px 8px;">${t.DISTRICT || ''}</td>
-        <td style="padding:6px 8px;">${t.Tech_Team || ''}</td>
-        <td style="padding:6px 8px;">${t.Tech_Status || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.CREATIONDATE || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.TARGETFINISH || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.SEVERITY || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.TRUEOWNERGROUP || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Bookmark || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px; ${agingStyle}">${agingKey}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.SUBDISTRICT || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.DISTRICT || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Team || ''}</td>
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Status || ''}</td>
         <td style="padding:6px 8px;">
           <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
         </td>
@@ -4449,7 +4455,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; max-width:280px; max-height:120px; overflow-y:auto; resize:vertical; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
         </td>
-        <td style="padding:6px 8px;">
+        <td class="ptk-mobile-hide" style="padding:6px 8px;">
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
         </td>
         <td style="padding:6px 8px;">
@@ -4458,8 +4464,8 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">
           <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
         </td>
-        <td class="ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
-        <td class="ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
+        <td class="ptk-mobile-hide ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
+        <td class="ptk-mobile-hide ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
     }).join('') || '<tr><td colspan="22" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
