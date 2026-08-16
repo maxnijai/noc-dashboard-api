@@ -450,3 +450,53 @@ def update_note(gs_client, team_id1, note_text, updated_by=None):
     ], value_input_option="RAW")
     _invalidate_cache()
     return {"team_id1": team_id1, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def repair_column_alignment(gs_client):
+    """Self-healing repair: rebuilds every row of OncallSchedule by matching
+    values to their column NAME in the current header, instead of trusting
+    positional offsets (which is what earlier migrations assumed and what
+    drifted out of sync, causing date-status values like "on"/"off" to show
+    up in the wrong column). Date columns are found by pattern (YYYY-MM-DD)
+    rather than a fixed starting index, so this works regardless of how the
+    misalignment happened. Identity columns not found in the header are
+    filled blank; the resulting header always matches IDENTITY_HEADER
+    followed by every date column found, sorted chronologically. Safe to
+    run repeatedly. Returns the number of data rows rewritten."""
+    import re
+    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    identity_pos = {name: (old_header.index(name) if name in old_header else None) for name in IDENTITY_HEADER}
+    date_cols = sorted({h for h in old_header if date_re.match(h)})
+    date_pos = {d: old_header.index(d) for d in date_cols}
+
+    new_header = list(IDENTITY_HEADER) + date_cols
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (max(0, len(old_header) - len(line)))
+        new_row = []
+        for name in IDENTITY_HEADER:
+            idx = identity_pos.get(name)
+            new_row.append(padded[idx] if idx is not None and idx < len(padded) else "")
+        for d in date_cols:
+            idx = date_pos[d]
+            val = padded[idx] if idx < len(padded) else "blank"
+            new_row.append(val if val in ("on", "off", "always") else "blank")
+        new_rows.append(new_row)
+
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)

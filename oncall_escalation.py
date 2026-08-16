@@ -300,3 +300,48 @@ def update_note(gs_client, row_key, note_text, updated_by=None):
     ], value_input_option="RAW")
     _invalidate_cache()
     return {"row_key": row_key, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def repair_column_alignment(gs_client):
+    """Self-healing repair: rebuilds every row of OncallEscalation by
+    matching values to their column NAME in the current header instead of
+    trusting positional offsets. Date columns are found by pattern
+    (YYYY-MM-DD). Safe to run repeatedly. Returns the number of data rows
+    rewritten."""
+    import re
+    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallEscalation tab is empty")
+    old_header = values[0]
+
+    identity_pos = {name: (old_header.index(name) if name in old_header else None) for name in IDENTITY_HEADER}
+    date_cols = sorted({h for h in old_header if date_re.match(h)})
+    date_pos = {d: old_header.index(d) for d in date_cols}
+
+    new_header = list(IDENTITY_HEADER) + date_cols
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (max(0, len(old_header) - len(line)))
+        new_row = []
+        for name in IDENTITY_HEADER:
+            idx = identity_pos.get(name)
+            new_row.append(padded[idx] if idx is not None and idx < len(padded) else "")
+        for d in date_cols:
+            idx = date_pos[d]
+            val = padded[idx] if idx < len(padded) else "blank"
+            new_row.append(val if val == "on" or val == "off" else "blank")
+        new_rows.append(new_row)
+
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)

@@ -2312,6 +2312,30 @@ def api_oncall_escalation_add_note_column():
         log.exception("oncall-escalation add-note-column failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-schedule/repair-columns', methods=['POST'])
+def api_oncall_repair_columns():
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall.repair_column_alignment(gs_client)
+        return jsonify({'rows': count})
+    except Exception as e:
+        log.exception("oncall-schedule repair-columns failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/repair-columns', methods=['POST'])
+def api_oncall_escalation_repair_columns():
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        count = oncall_escalation.repair_column_alignment(gs_client)
+        return jsonify({'rows': count})
+    except Exception as e:
+        log.exception("oncall-escalation repair-columns failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall-schedule/note', methods=['POST'])
 def api_oncall_schedule_note():
     payload = request.get_json(silent=True) or {}
