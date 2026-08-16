@@ -41,6 +41,34 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
 CORS(app)
 
 # ---------------------------------------------------------------------------
+# Presence: lightweight in-memory "who's online" tracking, updated on every
+# authenticated request (no Google Sheets writes - keeps quota untouched).
+# Lives only in process memory, so it resets on redeploy and (per the
+# single-worker Procfile note elsewhere) is consistent across every request
+# since there's only one process. "Online" = seen within the last 5 minutes.
+# ---------------------------------------------------------------------------
+ONLINE_WINDOW_SECONDS = 5 * 60
+_online_users = {}  # email -> {"name": ..., "last_seen": epoch_seconds}
+_online_lock = threading.Lock()
+
+def _mark_online(email, name):
+    if not email:
+        return
+    with _online_lock:
+        _online_users[email] = {"name": name or email, "last_seen": time.time()}
+
+def _get_online_users():
+    now = time.time()
+    with _online_lock:
+        active = [
+            {"email": email, "name": info["name"], "last_seen": info["last_seen"]}
+            for email, info in _online_users.items()
+            if now - info["last_seen"] <= ONLINE_WINDOW_SECONDS
+        ]
+    active.sort(key=lambda u: -u["last_seen"])
+    return active
+
+# ---------------------------------------------------------------------------
 # Auth: session-based login required for the entire site. A handful of paths
 # are exempt (the login/change-password pages themselves, static assets, and
 # the one-time bulk user-seed endpoint used to bootstrap accounts).
@@ -58,6 +86,11 @@ def require_login():
         return redirect(url_for('login_page', next=request.path))
     if session.get('must_change_password') and request.path != '/logout':
         return redirect(url_for('change_password_page'))
+    _mark_online(session.get('user_email'), session.get('user_name'))
+
+@app.route('/api/online-users')
+def api_online_users():
+    return jsonify({'users': _get_online_users()})
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():

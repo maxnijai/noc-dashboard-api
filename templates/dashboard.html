@@ -642,6 +642,22 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <span style="color:var(--text3);">&nbsp;·&nbsp;</span>
         <a href="/logout" style="color:var(--text3);text-decoration:none;">ออกจากระบบ</a>
       </div>
+      <button id="online-users-btn" style="margin-top:8px; padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:20px; background:var(--bg2); color:var(--text2); cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+        <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#639922;"></span>
+        <span id="online-users-count">- คนออนไลน์</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ONLINE USERS MODAL -->
+  <div id="online-users-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('online-users-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:400px;margin:60px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">👥 ผู้ใช้งานออนไลน์ตอนนี้</span>
+        <button onclick="document.getElementById('online-users-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div id="online-users-list" style="padding:8px 0; max-height:400px; overflow-y:auto;"></div>
+      <div style="padding:8px 18px; font-size:11px; color:var(--text3); border-top:1px solid var(--border);">นับคนที่มีการใช้งานในเว็บนี้ในช่วง 5 นาทีล่าสุด</div>
     </div>
   </div>
 
@@ -1038,6 +1054,48 @@ async function reloadDashboardOnly(){
   }
 }
 window.addEventListener('DOMContentLoaded',()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); });
+
+// ── ONLINE USERS (global, works from any tab) ───────────────────────────────
+(function () {
+  function escapeHtml(s) {
+    return (s || '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function timeAgo(epochSeconds) {
+    const diff = Math.max(0, Math.floor(Date.now() / 1000 - epochSeconds));
+    if (diff < 60) return 'เมื่อสักครู่';
+    return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
+  }
+  async function loadOnlineUsers() {
+    try {
+      const res = await fetch('/api/online-users');
+      if (!res.ok) return;
+      const data = await res.json();
+      const users = data.users || [];
+      document.getElementById('online-users-count').textContent = `${users.length} คนออนไลน์`;
+      const listEl = document.getElementById('online-users-list');
+      if (!users.length) {
+        listEl.innerHTML = '<div style="padding:16px; text-align:center; color:var(--text3); font-size:13px;">ไม่มีใครออนไลน์ตอนนี้</div>';
+        return;
+      }
+      listEl.innerHTML = users.map(u => `
+        <div style="padding:8px 18px; display:flex; align-items:center; justify-content:space-between; font-size:13px;">
+          <span style="display:flex; align-items:center; gap:8px;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#639922;"></span>
+            <span style="font-weight:600;">${escapeHtml(u.name)}</span>
+          </span>
+          <span style="color:var(--text3); font-size:11px;">${timeAgo(u.last_seen)}</span>
+        </div>`).join('');
+    } catch (e) {
+      console.error('Online users load failed', e);
+    }
+  }
+  document.getElementById('online-users-btn').addEventListener('click', () => {
+    document.getElementById('online-users-modal').style.display = 'block';
+    loadOnlineUsers();
+  });
+  loadOnlineUsers();
+  setInterval(loadOnlineUsers, 30000); // refresh the sidebar count every 30s
+})();
 
 let NOR1 = new Set();
 
