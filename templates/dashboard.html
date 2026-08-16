@@ -5019,9 +5019,14 @@ function renderPivot(ft) {
   }
 
   const ESCALATION_ROW_STYLE = {
-    'Supervisor': { bg: '#7c3aed15', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
-    'Supervisor MTE': { bg: '#7c3aed15', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
-    'Eng Zone': { bg: '#B4530915', badgeBg: '#B4530922', badgeFg: '#B45309' },
+    // "bg" (translucent) is fine for non-sticky cells, but the sticky
+    // (frozen) columns need a fully OPAQUE background - a translucent one
+    // lets whatever's scrolled underneath (e.g. the เวลาแก้ไขล่าสุด column)
+    // show/ghost through, since sticky cells sit on top of scrolled
+    // content rather than actually hiding it unless fully opaque.
+    'Supervisor': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
+    'Supervisor MTE': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
+    'Eng Zone': { bg: '#B4530915', stickyBg: '#fdecd8', badgeBg: '#B4530922', badgeFg: '#B45309' },
   };
 
   function populateProvinceFilter(data) {
@@ -5232,7 +5237,7 @@ function renderPivot(ft) {
       </tr>`;
 
       const escRowsHtml = escContacts.map(c => {
-        const style = ESCALATION_ROW_STYLE[c.position] || { bg: 'transparent', badgeBg: 'var(--bg3)', badgeFg: 'var(--text2)' };
+        const style = ESCALATION_ROW_STYLE[c.position] || { bg: 'transparent', stickyBg: 'var(--bg2)', badgeBg: 'var(--bg3)', badgeFg: 'var(--text2)' };
         const cells = dates.map(d => {
           const status = c.days[d] || 'blank';
           const cs = cellStyle(status);
@@ -5246,14 +5251,14 @@ function renderPivot(ft) {
           </td>`;
         }).join('');
         return `<tr style="border-top:1px solid var(--border); background:${style.bg};" data-row-key="${escapeHtml(c.row_key)}">
-          <td class="oc-sticky-0" style="background:${style.bg};"></td>
-          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.bg}; font-weight:600;">${escapeHtml(c.name)}</td>
-          <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap; background:${style.bg};">${escapeHtml(provinceKey)}</td>
-          <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap; background:${style.bg};">
+          <td class="oc-sticky-0" style="background:${style.stickyBg};"></td>
+          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; font-weight:600;">${escapeHtml(c.name)}</td>
+          <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">${escapeHtml(provinceKey)}</td>
+          <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">
             <span style="display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; background:${style.badgeBg}; color:${style.badgeFg};">${escapeHtml(c.position)}</span>
           </td>
-          <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap; background:${style.bg};">-</td>
-          <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; background:${style.bg}; color:var(--text2);">${escapeHtml(c.type)}</td>
+          <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">-</td>
+          <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; color:var(--text2);">${escapeHtml(c.type)}</td>
           <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
           <td class="oe-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_by) || '-'}</td>
           <td class="oe-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_at) || '-'}</td>
