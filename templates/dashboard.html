@@ -4718,33 +4718,35 @@ function renderPivot(ft) {
     const head = agingOrder.map(ag => {
       const isOver = overSet.has(ag);
       const color = agingColors[ag] || '';
-      return `<th style="padding:6px 8px; text-align:center; font-size:11px; background:${color}30; ${isOver ? 'color:#8B2E2E; font-weight:700;' : 'color:var(--text2);'}">${ag}</th>`;
+      return `<th style="padding:8px; text-align:center; font-size:11px; font-weight:700; background:${color}30; ${isOver ? 'color:#8B2E2E;' : 'color:var(--text2);'}">${ag}</th>`;
     }).join('');
-    const rows = bookmarkBlock.rows.map(r => {
+    const rows = bookmarkBlock.rows.map((r, i) => {
       const cells = agingOrder.map(ag => {
         const count = r.counts[ag] || 0;
         const isOver = overSet.has(ag);
         const color = agingColors[ag] || '';
-        const bg = count > 0 ? `${color}45` : 'transparent';
-        return `<td style="padding:6px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || ''}</td>`;
+        const bg = count > 0 ? `${color}45` : (i % 2 ? 'var(--bg1)' : 'transparent');
+        return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 8px; min-width:220px;">${escapeHtml(r.group_problem)}</td>
+        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r.group_problem)}</td>
         ${cells}
-        <td style="padding:6px 8px; text-align:center; font-weight:700; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
     }).join('');
     return `
-      <table style="border-collapse:collapse; font-size:12px; width:100%;">
-        <thead>
-          <tr style="background:var(--bg3);">
-            <th style="padding:6px 8px; text-align:left;">Group Problem</th>
-            ${head}
-            <th style="padding:6px 8px; text-align:center;">Over SLA รวม</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border2);">
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Group Problem</th>
+              ${head}
+              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
   function renderDetailTable(detailBlock, agingColors) {
@@ -4788,24 +4790,24 @@ function renderPivot(ft) {
 
   function renderUnspecifiedByProvince(block) {
     if (!block || !block.provinces || !block.provinces.length) return '';
-    const rows = block.provinces.map(p => `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:5px 8px;">${escapeHtml(p.province)}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_group_problem || ''}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_action_team || ''}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_detail || ''}</td>
-        <td style="padding:5px 8px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || ''}</td>
+    const rows = block.provinces.map((p, i) => `
+      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; font-weight:600;">${escapeHtml(p.province)}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_group_problem || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_action_team || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_detail || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || '–'}</td>
       </tr>`).join('');
     return `
       <div style="flex:1; min-width:420px; max-width:500px;">
-        <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:4px;">Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
-        <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden;">
-          <thead><tr style="background:var(--bg3);">
-            <th style="padding:5px 8px; text-align:left;">จังหวัด</th>
-            <th style="padding:5px 8px; text-align:right;">Group Problem ว่าง</th>
-            <th style="padding:5px 8px; text-align:right;">Action Team ว่าง</th>
-            <th style="padding:5px 8px; text-align:right;">รายละเอียด ว่าง</th>
-            <th style="padding:5px 8px; text-align:right;">Plan Closed Date ว่าง</th>
+        <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:6px; display:flex; align-items:center; gap:5px;">🚩 Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
+        <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid #B23A3A33;">
+            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">จังหวัด</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Action Team</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รายละเอียด</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Plan Closed</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -4815,25 +4817,28 @@ function renderPivot(ft) {
   function renderGroupProblemByPlanDate(block) {
     if (!block || !block.rows || !block.rows.length) return '';
     const cols = block.date_columns || [];
-    const head = cols.map(c => `<th style="padding:5px 8px; text-align:center; white-space:nowrap; ${c.startsWith('(') ? 'color:#B23A3A;' : 'color:var(--text2);'}">${escapeHtml(c)}</th>`).join('');
-    const rows = block.rows.map(r => {
+    const head = cols.map(c => `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; ${c.startsWith('(') ? 'color:#B23A3A;' : 'color:var(--text2);'}">${escapeHtml(c)}</th>`).join('');
+    const rows = block.rows.map((r, i) => {
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
         const isNoPlan = c.startsWith('(');
-        return `<td style="padding:5px 8px; text-align:center; ${isNoPlan && count > 0 ? 'background:#B23A3A22; font-weight:700;' : ''}">${count || ''}</td>`;
+        return `<td style="padding:7px 10px; text-align:center; ${isNoPlan && count > 0 ? 'background:#B23A3A1a; font-weight:700; color:#B23A3A;' : ''}">${count || '–'}</td>`;
       }).join('');
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:5px 8px; min-width:180px;">${escapeHtml(r.group_problem)}</td>
+      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
         ${cells}
-        <td style="padding:5px 8px; text-align:center; font-weight:700;">${r.total}</td>
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
       </tr>`;
     }).join('');
     return `
       <div style="flex:2; min-width:360px;">
-        <div style="font-size:12px; font-weight:700; margin-bottom:4px;">Group Problem × Plan Closed Date</div>
-        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
+        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
           <table style="border-collapse:collapse; font-size:12px; width:100%;">
-            <thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Group Problem</th>${head}<th style="padding:5px 8px; text-align:center;">รวม</th></tr></thead>
+            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
+              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+            </tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -4891,10 +4896,10 @@ function renderPivot(ft) {
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
       const planDateHtml = renderGroupProblemByPlanDate(planDateBlock);
       const sideBySide = (provinceHtml || planDateHtml)
-        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:10px;">${provinceHtml}${planDateHtml}</div>`
+        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
       return `
-        <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden;">
+        <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
           <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
             <span style="font-size:14px; font-weight:700;">${escapeHtml(block.bookmark)}</span>
             <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
@@ -4902,7 +4907,7 @@ function renderPivot(ft) {
           <div id="${sectionId}" style="padding:10px 14px;">
             ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
             ${sideBySide}
-            ${detailBlock ? renderDetailTable(detailBlock, data.aging_colors) : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+            ${detailBlock ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable(detailBlock, data.aging_colors)}</div>` : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
           </div>
         </div>`;
     }).join('');
