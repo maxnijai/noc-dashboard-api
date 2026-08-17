@@ -88,9 +88,10 @@ tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .oc-sticky-3 { position:sticky; left:352px; width:50px; min-width:50px; z-index:3; }
 .oc-sticky-4 { position:sticky; left:402px; width:150px; min-width:150px; z-index:3; }
 .oc-sticky-5 { position:sticky; left:552px; width:70px; min-width:70px; z-index:3; }
-thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5 { z-index:4; background:var(--bg3); }
-tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5 { background:var(--bg2); }
-tbody .oc-sticky-5 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-sticky-6 { position:sticky; left:622px; width:170px; min-width:170px; z-index:3; }
+thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5, thead .oc-sticky-6 { z-index:4; background:var(--bg3); }
+tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5, tbody .oc-sticky-6 { background:var(--bg2); }
+tbody .oc-sticky-6 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .oe-sticky-0 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
 .oe-sticky-1 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
 .oe-sticky-2 { position:sticky; left:250px; width:180px; min-width:180px; z-index:3; }
@@ -5345,10 +5346,10 @@ function renderPivot(ft) {
           </td>
           <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">-</td>
           <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; color:var(--text2);">${escapeHtml(c.type)}</td>
-          <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
-          <td style="padding:2px 4px;">
-            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(c.row_key)}" data-note-kind="escalation" value="${escapeHtml(c.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; min-width:150px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
+          <td class="oc-sticky-6" style="padding:2px 4px; background:${style.stickyBg};">
+            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(c.row_key)}" data-note-kind="escalation" value="${escapeHtml(c.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
+          <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
           <td class="oe-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_by) || '-'}</td>
           <td class="oe-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_at) || '-'}</td>
           ${cells}
@@ -5378,10 +5379,10 @@ function renderPivot(ft) {
           <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.type)}</td>
           <td class="oc-sticky-4" style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.team_id1)}</td>
           <td class="oc-sticky-5" style="padding:6px 8px; white-space:nowrap; font-weight:600; color:${remarkColor};">${escapeHtml(r.remark)}</td>
-          <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
-          <td style="padding:2px 4px;">
-            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(r.team_id1)}" data-note-kind="team" value="${escapeHtml(r.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; min-width:150px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
+          <td class="oc-sticky-6" style="padding:2px 4px;">
+            <input type="text" class="oc-note-input" data-note-key="${escapeHtml(r.team_id1)}" data-note-kind="team" value="${escapeHtml(r.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
+          <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
           <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
           <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
           ${cells}
@@ -5402,8 +5403,8 @@ function renderPivot(ft) {
               <th class="oc-sticky-3" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Type</th>
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
+              <th class="oc-sticky-6" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">หมายเหตุ</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom; min-width:160px;">หมายเหตุ</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
               ${dayRow}
