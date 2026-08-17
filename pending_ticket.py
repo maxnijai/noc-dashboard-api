@@ -418,14 +418,19 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
 # "< 1 day" and "Within SLA" since those aren't meeting-worthy yet).
 # ---------------------------------------------------------------------------
 
-EXCLUSIVE_BOOKMARK_ORDER = BOOKMARK_SORT_ORDER + ["Others"]
+EXCLUSIVE_BOOKMARK_ORDER = BOOKMARK_SORT_ORDER + ["NSA3-4"]
 UNSPECIFIED_GROUP_PROBLEM = "(ยังไม่ระบุ)"
 UNSPECIFIED_AGING = "(ไม่ระบุ)"
 
 
 def _exclusive_bookmark_label(raw):
+    # Catch-all bucket for anything not in the 3 named Bookmark categories -
+    # in practice this is always NSA3/NSA4 tickets, so the label reflects
+    # that directly instead of the generic "Others" (single source of
+    # truth: this flows through to every page - KPI cards, section
+    # headers, dropdowns, LINE summaries - without needing separate edits).
     raw = str(raw or "").strip()
-    return raw if raw in BOOKMARK_SORT_ORDER else "Others"
+    return raw if raw in BOOKMARK_SORT_ORDER else "NSA3-4"
 
 
 def build_exclusive_pending_response(gs_client=None, priority_filter=None, restrict_to_over_sla=True):
