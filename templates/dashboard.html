@@ -925,9 +925,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="exp-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
-    <div id="exp-kpi-summary" style="margin-bottom:18px;"></div>
-    <div id="exp-snapshot-compare" style="margin-bottom:18px;">
-      <button id="exp-load-snapshot" class="btn-secondary">📊 เทียบ P0 กับ Snapshot 01:15 วันนี้</button>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px; align-items:stretch;">
+      <div id="exp-kpi-summary" style="flex:1; min-width:220px;"></div>
+      <div id="exp-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
     <div id="exp-body"></div>
   </div>
@@ -963,9 +963,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="p0-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
-    <div id="p0-kpi-summary" style="margin-bottom:18px;"></div>
-    <div id="p0-snapshot-compare" style="margin-bottom:18px;">
-      <button id="p0-load-snapshot" class="btn-secondary">📊 เทียบ P0 กับ Snapshot 01:15 วันนี้</button>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px; align-items:stretch;">
+      <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
+      <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
     <div id="p0-body"></div>
   </div>
@@ -1206,13 +1206,14 @@ window.addEventListener('DOMContentLoaded',()=>{ if (window.initRealtimeMonitorT
 })();
 
 // ── P0 SNAPSHOT COMPARISON (shared by Exclusive Pending and P0 Only) ───────
-// On-demand (not auto-loaded, since it can download a ~5MB xlsx from Drive
-// on a cache miss): compares P0 ("Over SLA > 1 day") right now against what
-// it looked like at the ~01:15 daily snapshot, per group.
+// Auto-loads once per page load (cached 15 min server-side, so this is
+// cheap except on a true cache miss where it downloads a ~5MB xlsx from
+// Drive) - compares P0 ("Over SLA > 1 day") right now against what it
+// looked like at the ~01:15 daily snapshot, per group.
 async function loadP0SnapshotComparison(prefix) {
   const container = document.getElementById(prefix + '-snapshot-compare');
-  const btn = document.getElementById(prefix + '-load-snapshot');
-  if (btn) { btn.disabled = true; btn.textContent = 'กำลังโหลด... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)'; }
+  if (!container) return;
+  container.innerHTML = `<div style="height:100%; min-height:100px; border:1px solid var(--border); border-radius:var(--r); display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px;">กำลังโหลด... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)</div>`;
   try {
     const res = await fetch('/api/p0-snapshot-comparison');
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
@@ -1229,7 +1230,7 @@ async function loadP0SnapshotComparison(prefix) {
       </tr>`;
     }).join('');
     container.innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); max-width:600px;">
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%;">
         <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
           <span>snapshot: ${data.snapshot_matched_at} (${data.snapshot_date})</span>
           <span>ปัจจุบัน: ${data.current_generated_at}</span>
@@ -1251,10 +1252,8 @@ async function loadP0SnapshotComparison(prefix) {
   }
 }
 document.addEventListener('DOMContentLoaded', () => {
-  const expBtn = document.getElementById('exp-load-snapshot');
-  if (expBtn) expBtn.addEventListener('click', () => loadP0SnapshotComparison('exp'));
-  const p0Btn = document.getElementById('p0-load-snapshot');
-  if (p0Btn) p0Btn.addEventListener('click', () => loadP0SnapshotComparison('p0'));
+  if (document.getElementById('exp-snapshot-compare')) loadP0SnapshotComparison('exp');
+  if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
 });
 
 let NOR1 = new Set();
