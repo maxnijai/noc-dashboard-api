@@ -624,4 +624,9 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         "group_problem_by_plan_date": group_problem_by_plan_date_out,
         "total_over_sla": len(detail_entries),
         "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        # insert_time is stamped by the EXTERNAL system (SCCD+ITSM) on the raw
+        # sheet each time it syncs - different from generated_at above, which
+        # is just when THIS response was built. Same field Pending Ticket
+        # shows, so people can tell how fresh the underlying ticket data is.
+        "insert_time": all_rows[0].get("insert_time") if all_rows else None,
     }

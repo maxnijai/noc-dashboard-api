@@ -4801,7 +4801,7 @@ function renderPivot(ft) {
     const res = await fetch(url);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
     const data = await res.json();
-    statusEl.textContent = `${data.total_over_sla} tickets over SLA — generated: ${data.generated_at || '-'}`;
+    statusEl.textContent = `${data.total_over_sla} tickets over SLA — generated: ${data.generated_at || '-'} — insert_time: ${data.insert_time || '-'}`;
     return data;
   }
 
@@ -5227,7 +5227,7 @@ function renderPivot(ft) {
     const res = await fetch('/api/exclusive-pending?priority=P0&all_aging=1');
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
     const data = await res.json();
-    statusEl.textContent = `${data.total_over_sla} P0 tickets ทั้งหมด — generated: ${data.generated_at || '-'}`;
+    statusEl.textContent = `${data.total_over_sla} P0 tickets ทั้งหมด — generated: ${data.generated_at || '-'} — insert_time: ${data.insert_time || '-'}`;
     return data;
   }
 
