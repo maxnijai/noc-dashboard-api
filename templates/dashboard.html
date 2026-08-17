@@ -4792,6 +4792,16 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
     }).join('');
+    const totalCells = agingOrder.map(ag => {
+      const sum = bookmarkBlock.rows.reduce((s, r) => s + (r.counts[ag] || 0), 0);
+      return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = bookmarkBlock.rows.reduce((s, r) => s + (r.over_total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center; color:#B23A3A;">${grandTotal}</td>
+      </tr>`;
     return `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -4802,7 +4812,7 @@ function renderPivot(ft) {
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${totalRow}</tbody>
         </table>
       </div>`;
   }
@@ -4859,6 +4869,13 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_detail || '–'}</td>
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || '–'}</td>
       </tr>`).join('');
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_group_problem || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_action_team || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_detail || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_plan_closed_date || 0), 0)}</td>
+      </tr>`;
     return `
       <div style="flex:1; min-width:420px; max-width:500px;">
         <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:6px; display:flex; align-items:center; gap:5px;">🚩 Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
@@ -4870,7 +4887,7 @@ function renderPivot(ft) {
             <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รายละเอียด</th>
             <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Plan Closed</th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${totalRow}</tbody>
         </table>
       </div>`;
   }
@@ -4900,6 +4917,16 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
       </tr>`;
     }).join('');
+    const totalCells = cols.map(c => {
+      const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+      </tr>`;
     return `
       <div style="flex:2; min-width:360px;">
         <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
@@ -4909,7 +4936,7 @@ function renderPivot(ft) {
               <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows}${totalRow}</tbody>
           </table>
         </div>
       </div>`;
@@ -5140,6 +5167,16 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
     }).join('');
+    const totalCells = agingOrder.map(ag => {
+      const sum = bookmarkBlock.rows.reduce((s, r) => s + (r.counts[ag] || 0), 0);
+      return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = bookmarkBlock.rows.reduce((s, r) => s + (r.over_total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center; color:#B23A3A;">${grandTotal}</td>
+      </tr>`;
     return `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -5150,7 +5187,7 @@ function renderPivot(ft) {
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${totalRow}</tbody>
         </table>
       </div>`;
   }
@@ -5207,6 +5244,13 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_detail || '–'}</td>
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || '–'}</td>
       </tr>`).join('');
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_group_problem || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_action_team || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_detail || 0), 0)}</td>
+        <td style="padding:7px 10px; text-align:right;">${block.provinces.reduce((s, p) => s + (p.missing_plan_closed_date || 0), 0)}</td>
+      </tr>`;
     return `
       <div style="flex:1; min-width:420px; max-width:500px;">
         <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:6px; display:flex; align-items:center; gap:5px;">🚩 Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
@@ -5218,7 +5262,7 @@ function renderPivot(ft) {
             <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รายละเอียด</th>
             <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Plan Closed</th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${totalRow}</tbody>
         </table>
       </div>`;
   }
@@ -5248,6 +5292,16 @@ function renderPivot(ft) {
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
       </tr>`;
     }).join('');
+    const totalCells = cols.map(c => {
+      const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+      </tr>`;
     return `
       <div style="flex:2; min-width:360px;">
         <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
@@ -5257,7 +5311,7 @@ function renderPivot(ft) {
               <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows}${totalRow}</tbody>
           </table>
         </div>
       </div>`;
