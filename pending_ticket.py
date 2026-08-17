@@ -496,7 +496,15 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             continue
         rows = []
         for gp, counts in summary[bm].items():
-            over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            # "over_total" normally means just the over-SLA buckets (1-4) -
+            # but when restrict_to_over_sla is off (P0 Only), it should
+            # count every bucket instead, so this number and the detail
+            # list below (and the KPI breakdown card) all agree on the
+            # same total instead of the KPI card silently under-counting.
+            if restrict_to_over_sla:
+                over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            else:
+                over_total = sum(counts.values())
             row = {"group_problem": gp, "over_total": over_total, "counts": {
                 ag: counts.get(ag, 0) for ag in AGING_ORDER
             }}
