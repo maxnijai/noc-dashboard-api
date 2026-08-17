@@ -2201,7 +2201,8 @@ def api_exclusive_pending():
     try:
         _, gs_client = get_drive_and_sheets_clients()
         priority_filter = request.args.get('priority') or None
-        data = build_exclusive_pending_response(gs_client, priority_filter=priority_filter)
+        restrict_to_over_sla = request.args.get('all_aging') != '1'  # ?all_aging=1 disables the over-SLA-only restriction
+        data = build_exclusive_pending_response(gs_client, priority_filter=priority_filter, restrict_to_over_sla=restrict_to_over_sla)
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")

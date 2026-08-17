@@ -428,7 +428,7 @@ def _exclusive_bookmark_label(raw):
     return raw if raw in BOOKMARK_SORT_ORDER else "Others"
 
 
-def build_exclusive_pending_response(gs_client=None, priority_filter=None):
+def build_exclusive_pending_response(gs_client=None, priority_filter=None, restrict_to_over_sla=True):
     """Morning-meeting view: how many pending tickets per Bookmark are stuck
     on which Group Problem, broken out by aging bucket - plus the full
     ticket-level list for anything already over SLA (aging buckets 1-4),
@@ -436,7 +436,11 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None):
     switching tabs. `priority_filter` (e.g. "P0") restricts EVERYTHING -
     matrix, province breakdowns, plan-date matrix, detail lists - to just
     that priority, for a page like "P0 Only" that needs the exact same
-    view scoped down to the most urgent tickets."""
+    view scoped down to the most urgent tickets. `restrict_to_over_sla`
+    controls the DETAIL list only: True (default, normal Exclusive
+    Pending) limits it to the four over-SLA aging buckets; False includes
+    every ticket regardless of aging bucket - used by "P0 Only" so it
+    shows literally every P0 ticket, not just the ones already overdue."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
@@ -501,8 +505,11 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None):
         bookmark_total = sum(r["over_total"] for r in rows)
         summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
 
-    # Detail: only tickets sitting in the "over SLA" aging buckets (1-4)
-    detail_entries = [e for e in entries if e["Aging_Flag_Group"] in OVER_24H_AGING_KEYS]
+    # Detail: over-SLA aging buckets (1-4) only by default, matching the
+    # normal Exclusive Pending view - unless restrict_to_over_sla is off
+    # (P0 Only), in which case every entry that made it this far (already
+    # priority-filtered above) is included regardless of aging bucket.
+    detail_entries = [e for e in entries if not restrict_to_over_sla or e["Aging_Flag_Group"] in OVER_24H_AGING_KEYS]
     detail_entries.sort(key=lambda e: -e["over_sla_day"])
 
     detail_out = []
