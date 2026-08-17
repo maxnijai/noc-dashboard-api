@@ -926,6 +926,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div id="exp-kpi-summary" style="margin-bottom:18px;"></div>
+    <div id="exp-snapshot-compare" style="margin-bottom:18px;">
+      <button id="exp-load-snapshot" class="btn-secondary">📊 เทียบ P0 กับ Snapshot 01:15 วันนี้</button>
+    </div>
     <div id="exp-body"></div>
   </div>
 
@@ -961,6 +964,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div id="p0-kpi-summary" style="margin-bottom:18px;"></div>
+    <div id="p0-snapshot-compare" style="margin-bottom:18px;">
+      <button id="p0-load-snapshot" class="btn-secondary">📊 เทียบ P0 กับ Snapshot 01:15 วันนี้</button>
+    </div>
     <div id="p0-body"></div>
   </div>
 
@@ -1198,6 +1204,58 @@ window.addEventListener('DOMContentLoaded',()=>{ if (window.initRealtimeMonitorT
   loadOnlineUsers();
   setInterval(loadOnlineUsers, 30000); // refresh the sidebar count every 30s
 })();
+
+// ── P0 SNAPSHOT COMPARISON (shared by Exclusive Pending and P0 Only) ───────
+// On-demand (not auto-loaded, since it can download a ~5MB xlsx from Drive
+// on a cache miss): compares P0 ("Over SLA > 1 day") right now against what
+// it looked like at the ~01:15 daily snapshot, per group.
+async function loadP0SnapshotComparison(prefix) {
+  const container = document.getElementById(prefix + '-snapshot-compare');
+  const btn = document.getElementById(prefix + '-load-snapshot');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังโหลด... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)'; }
+  try {
+    const res = await fetch('/api/p0-snapshot-comparison');
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+    const data = await res.json();
+    const rows = data.groups.map(g => {
+      const diffColor = g.diff > 0 ? '#B23A3A' : (g.diff < 0 ? '#639922' : 'var(--text3)');
+      const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
+      return `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:7px 10px; font-weight:600;">${g.label}</td>
+        <td style="padding:7px 10px; text-align:center;">${g.snapshot_p0}</td>
+        <td style="padding:7px 10px; text-align:center; font-weight:700; color:#B23A3A;">${g.current_p0}</td>
+        <td style="padding:7px 10px; text-align:center; font-weight:700; color:${diffColor};">${diffLabel}</td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); max-width:600px;">
+        <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+          <span>snapshot: ${data.snapshot_matched_at} (${data.snapshot_date})</span>
+          <span>ปัจจุบัน: ${data.current_generated_at}</span>
+          <a href="#" onclick="loadP0SnapshotComparison('${prefix}'); return false;" style="color:var(--blue);">🔄 โหลดใหม่</a>
+        </div>
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="border-bottom:2px solid var(--border2); background:var(--bg3);">
+            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">กลุ่ม</th>
+            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Over SLA &gt;1 วัน @01:15</th>
+            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">P0 ปัจจุบัน</th>
+            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Diff</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    console.error('Snapshot comparison load failed', e);
+    container.innerHTML = `<div style="color:#B23A3A; font-size:12px; display:flex; align-items:center; gap:8px;">โหลดไม่สำเร็จ: ${e.message} <button onclick="loadP0SnapshotComparison('${prefix}')" class="btn-secondary">ลองใหม่</button></div>`;
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const expBtn = document.getElementById('exp-load-snapshot');
+  if (expBtn) expBtn.addEventListener('click', () => loadP0SnapshotComparison('exp'));
+  const p0Btn = document.getElementById('p0-load-snapshot');
+  if (p0Btn) p0Btn.addEventListener('click', () => loadP0SnapshotComparison('p0'));
+});
 
 let NOR1 = new Set();
 

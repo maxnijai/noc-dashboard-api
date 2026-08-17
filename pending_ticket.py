@@ -630,3 +630,114 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         # shows, so people can tell how fresh the underlying ticket data is.
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# P0 snapshot comparison: "P0 right now" vs "what P0 looked like at ~01:15
+# today" (from the Drive backup file closest to that time), broken out by
+# the same 4 groups as the Realtime Monitoring view buttons (Mobile SA1-4,
+# Online/FBB SA1-4, NSA1-2, NSA3/4) - NOT the Exclusive Pending Bookmark
+# grouping, which lumps NSA3/4 into "Others".
+# ---------------------------------------------------------------------------
+
+from datetime import time as _dtime, timedelta as _timedelta
+
+_P0_SNAPSHOT_CACHE_TTL_SECONDS = 900  # 15 min - the snapshot itself is fixed once written; "current" P0 drifts slowly enough that this is fine
+_p0_snapshot_cache = {"data": None, "ts": 0}
+_p0_snapshot_lock = threading.Lock()
+
+P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
+
+
+def _classify_priority_at(target_finish_str, reference_dt):
+    """Same P0/P1/P2 formula as realtime_monitor._classify_priority, but
+    takes the reference point (normally "tomorrow's 01:15") directly rather
+    than deriving it from "now" - needed here because we're classifying
+    tickets as they stood at a FIXED past moment (a Drive snapshot), not
+    live data."""
+    tf = _parse_dt(target_finish_str)
+    if tf is None:
+        return None
+    diff_hours = (reference_dt - tf).total_seconds() / 3600
+    if diff_hours > 24:
+        return "P0"
+    elif diff_hours > 0:
+        return "P1"
+    else:
+        return "P2"
+
+
+def _count_p0_by_group(rows, reference_dt):
+    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        if priority != "P0":
+            continue
+        for key in P0_COMPARISON_GROUPS:
+            if row_matches_view(r, key):
+                counts[key] += 1
+    return counts
+
+
+def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
+    """Returns {"snapshot_date", "snapshot_matched_at", "groups": [{"key",
+    "label", "snapshot_p0", "current_p0", "diff"}, ...]} - P0 count right
+    now vs P0 count as it stood at the ~01:15 Drive backup closest to
+    today, for each of the 4 severity/bookmark groups. Falls back to
+    yesterday's snapshot if today's isn't found yet (e.g. very early in the
+    morning before the day's 01:15 backup has run)."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+    from ticket_views import BOOKMARK_VIEWS
+
+    now = time.monotonic()
+    if use_cache:
+        with _p0_snapshot_lock:
+            if _p0_snapshot_cache["data"] is not None and (now - _p0_snapshot_cache["ts"]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
+                return _p0_snapshot_cache["data"]
+
+    today = bangkok_now().date()
+    file_info = find_nightly_file(drive_service, today)
+    snapshot_date = today
+    if file_info is None:
+        file_info = find_nightly_file(drive_service, today - _timedelta(days=1))
+        snapshot_date = today - _timedelta(days=1)
+    if file_info is None:
+        raise ValueError(f"No backup snapshot found near 01:15 for {today} or {today - _timedelta(days=1)}")
+
+    file_id, matched_dt, filename = file_info
+    snapshot_rows = download_xlsx_as_rows(drive_service, file_id)
+
+    reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
+    snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
+
+    live_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    current_reference_dt = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    current_counts = _count_p0_by_group(live_rows, current_reference_dt)
+
+    groups = []
+    for key in P0_COMPARISON_GROUPS:
+        s = snapshot_counts[key]
+        c = current_counts[key]
+        groups.append({
+            "key": key, "label": BOOKMARK_VIEWS[key]["label"],
+            "snapshot_p0": s, "current_p0": c, "diff": c - s,
+        })
+
+    result = {
+        "snapshot_date": snapshot_date.strftime("%Y-%m-%d"),
+        "snapshot_matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "snapshot_filename": filename,
+        "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "groups": groups,
+    }
+    if use_cache:
+        with _p0_snapshot_lock:
+            _p0_snapshot_cache["data"] = result
+            _p0_snapshot_cache["ts"] = now
+    return result

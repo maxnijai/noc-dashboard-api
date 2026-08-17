@@ -17,6 +17,7 @@ from pending_ticket import (
     build_exclusive_pending_response,
     save_work_log_entry,
     rename_group_problem_value,
+    build_p0_snapshot_comparison,
 )
 import oncall
 import oncall_escalation
@@ -2206,6 +2207,22 @@ def api_exclusive_pending():
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-snapshot-comparison')
+def api_p0_snapshot_comparison():
+    """P0 count right now vs P0 count at ~01:15 today (from the Drive backup
+    closest to that time), per group (Mobile SA1-4, FBB SA1-4, NSA1-2,
+    NSA3/4). Slow on a cache miss (downloads a ~5MB xlsx from Drive), so
+    it's cached for 15 min and meant to be triggered on demand from the
+    frontend rather than loaded automatically on every page view."""
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        use_cache = request.args.get('refresh') != '1'
+        data = build_p0_snapshot_comparison(gs_client, drive_service, use_cache=use_cache)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("p0-snapshot-comparison API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-schedule')
