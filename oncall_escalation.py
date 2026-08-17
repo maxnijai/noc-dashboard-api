@@ -65,6 +65,65 @@ def _row_key(province, position, name):
     return f"{province}||{position}||{name}"
 
 
+def duplicate_province_contacts(gs_client, source_province, target_province):
+    """Adds a copy of every Sup/Eng Zone contact from `source_province`
+    under `target_province` (same position/name/tel/type - e.g. a shared
+    Eng Zone that covers two provinces) - useful when one Supervisor/Eng
+    Zone actually covers multiple provinces and should show up under both.
+    New rows start with a blank date grid (nothing pre-clicked) and no
+    note, appended to the sheet's existing date columns. Skips any contact
+    that would exact-duplicate a row already under target_province.
+    Returns how many rows were added."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallEscalation tab is empty")
+    header = values[0]
+    dates = header[IDENTITY_COLS:]
+
+    prov_idx = IDENTITY_HEADER.index("Province")
+    pos_idx = IDENTITY_HEADER.index("Position")
+    name_idx = IDENTITY_HEADER.index("Name")
+    tel_idx = IDENTITY_HEADER.index("Tel")
+    type_idx = IDENTITY_HEADER.index("Type")
+
+    existing_target_keys = set()
+    source_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(header) - len(line))
+        if padded[prov_idx] == target_province:
+            existing_target_keys.add((padded[pos_idx], padded[name_idx]))
+        if padded[prov_idx] == source_province:
+            source_rows.append(padded)
+
+    new_rows = []
+    for padded in source_rows:
+        key = (padded[pos_idx], padded[name_idx])
+        if key in existing_target_keys:
+            continue  # already there, don't duplicate
+        line = [""] * len(header)
+        line[prov_idx] = target_province
+        line[pos_idx] = padded[pos_idx]
+        line[name_idx] = padded[name_idx]
+        line[tel_idx] = padded[tel_idx]
+        line[type_idx] = padded[type_idx]
+        for i in range(len(dates)):
+            line[IDENTITY_COLS + i] = "blank"
+        new_rows.append(line)
+
+    if new_rows:
+        ws.append_rows(new_rows, value_input_option="RAW")
+        _invalidate_cache()
+        _invalidate_layout_cache()
+    return len(new_rows)
+
+
 def seed_escalation_contacts(gs_client, rows, dates):
     """Replaces the whole OncallEscalation tab with `rows` (list of dicts:
     province, position, name, tel, type) and one column per date in

@@ -2338,6 +2338,26 @@ def api_oncall_escalation_repair_columns():
         log.exception("oncall-escalation repair-columns failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-escalation/duplicate-province', methods=['POST'])
+def api_oncall_escalation_duplicate_province():
+    """Admin-only: copies every Sup/Eng Zone contact from one province to
+    another (same person, e.g. a shared Eng Zone covering two provinces),
+    so they show up under both. POST {source_province, target_province}."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    payload = request.get_json(silent=True) or {}
+    source_province = payload.get('source_province')
+    target_province = payload.get('target_province')
+    if not source_province or not target_province:
+        return jsonify({'error': 'source_province and target_province are required'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        added = oncall_escalation.duplicate_province_contacts(gs_client, source_province, target_province)
+        return jsonify({'added': added})
+    except Exception as e:
+        log.exception("oncall-escalation duplicate-province failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall-schedule/note', methods=['POST'])
 def api_oncall_schedule_note():
     payload = request.get_json(silent=True) or {}

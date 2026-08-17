@@ -1004,6 +1004,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
         <button id="oc-add-note-column" class="btn-secondary" title="เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว)">+ คอลัมน์หมายเหตุ (ครั้งเดียว)</button>
         <button id="oc-repair-columns" class="btn-secondary" title="ซ่อมแนวคอลัมน์ที่เลื่อนผิดตำแหน่ง">🔧 ซ่อมแนวคอลัมน์</button>
+        <button id="oc-dup-shared-supeng" class="btn-secondary" title="คัดลอก Sup/Eng Zone: พิษณุโลก→อุตรดิตถ์, สุโขทัย→กำแพงเพชร">👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด</button>
         {% endif %}
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
@@ -6108,6 +6109,35 @@ function renderPivot(ft) {
     btn.textContent = '🔧 ซ่อมแนวคอลัมน์';
   }
 
+  async function duplicateSharedSupEng() {
+    const pairs = [
+      { source_province: 'พิษณุโลก', target_province: 'อุตรดิตถ์' },
+      { source_province: 'สุโขทัย', target_province: 'กำแพงเพชร' },
+    ];
+    if (!confirm('คัดลอก Sup/Eng Zone: พิษณุโลก → อุตรดิตถ์, สุโขทัย → กำแพงเพชร?\n\nคนที่มีอยู่แล้วในจังหวัดปลายทางจะไม่ถูกซ้ำ')) return;
+    const btn = el('oc-dup-shared-supeng');
+    btn.disabled = true;
+    btn.textContent = 'กำลังคัดลอก...';
+    try {
+      const results = await Promise.all(pairs.map(p =>
+        fetch('/api/oncall-escalation/duplicate-province', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+        }).then(async res => ({ ok: res.ok, data: await res.json().catch(() => ({})), pair: p }))
+      ));
+      const msgs = results.map(r =>
+        r.ok ? `${r.pair.source_province} → ${r.pair.target_province}: เพิ่ม ${r.data.added} คน`
+             : `${r.pair.source_province} → ${r.pair.target_province}: ${r.data.error || 'ผิดพลาด'}`
+      );
+      alert(msgs.join('\n'));
+      await reload();
+    } catch (e) {
+      console.error('Duplicate shared Sup/Eng Zone failed', e);
+      alert('คัดลอกไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+    }
+    btn.disabled = false;
+    btn.textContent = '👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด';
+  }
+
   function updateBulkBar() {
     const bar = el('oc-bulk-bar');
     if (selectedTeams.size === 0) {
@@ -6251,6 +6281,7 @@ function renderPivot(ft) {
   if (el('oc-reset-default-on')) el('oc-reset-default-on').addEventListener('click', resetDefaultOn);
   if (el('oc-add-note-column')) el('oc-add-note-column').addEventListener('click', addNoteColumn);
   if (el('oc-repair-columns')) el('oc-repair-columns').addEventListener('click', repairColumns);
+  if (el('oc-dup-shared-supeng')) el('oc-dup-shared-supeng').addEventListener('click', duplicateSharedSupEng);
   el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
