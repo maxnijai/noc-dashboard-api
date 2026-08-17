@@ -1218,33 +1218,33 @@ async function loadP0SnapshotComparison(prefix) {
     const res = await fetch('/api/p0-snapshot-comparison');
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
     const data = await res.json();
-    const rows = data.groups.map(g => {
-      const diffColor = g.diff > 0 ? '#B23A3A' : (g.diff < 0 ? '#639922' : 'var(--text3)');
+    const accents = ['#2563eb', '#7c3aed', '#B45309', '#0891b2']; // one accent color per group, in order
+    const cards = data.groups.map((g, i) => {
+      const accent = accents[i % accents.length];
+      const diffUp = g.diff > 0, diffDown = g.diff < 0;
+      const diffColor = diffUp ? '#B23A3A' : (diffDown ? '#639922' : 'var(--text3)');
+      const diffArrow = diffUp ? '▲' : (diffDown ? '▼' : '–');
       const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
       return `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:7px 10px; font-weight:600;">${g.label}</td>
-        <td style="padding:7px 10px; text-align:center;">${g.snapshot_p0}</td>
-        <td style="padding:7px 10px; text-align:center; font-weight:700; color:#B23A3A;">${g.current_p0}</td>
-        <td style="padding:7px 10px; text-align:center; font-weight:700; color:${diffColor};">${diffLabel}</td>
-      </tr>`;
+      <div style="flex:1; min-width:150px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
+        <div style="display:flex; align-items:baseline; gap:6px;">
+          <span style="font-size:26px; font-weight:800; line-height:1;">${g.current_p0}</span>
+          <span style="font-size:11px; color:var(--text3);">P0 ปัจจุบัน</span>
+        </div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px;">
+          <span>@01:15: <b>${g.snapshot_p0}</b></span>
+          <span style="color:${diffColor}; font-weight:700;">${diffArrow} ${diffLabel}</span>
+        </div>
+      </div>`;
     }).join('');
     container.innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%;">
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%; background:var(--bg1);">
         <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-          <span>snapshot: ${data.snapshot_matched_at} (${data.snapshot_date})</span>
-          <span>ปัจจุบัน: ${data.current_generated_at}</span>
+          <span>📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}) · ปัจจุบัน: ${data.current_generated_at}</span>
           <a href="#" onclick="loadP0SnapshotComparison('${prefix}'); return false;" style="color:var(--blue);">🔄 โหลดใหม่</a>
         </div>
-        <table style="border-collapse:collapse; font-size:12px; width:100%;">
-          <thead><tr style="border-bottom:2px solid var(--border2); background:var(--bg3);">
-            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">กลุ่ม</th>
-            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Over SLA &gt;1 วัน @01:15</th>
-            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">P0 ปัจจุบัน</th>
-            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Diff</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
   } catch (e) {
     console.error('Snapshot comparison load failed', e);
