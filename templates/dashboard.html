@@ -713,6 +713,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M1 1a1 1 0 011-1h12a1 1 0 011 1v1H1V1zm0 3h14v10a1 1 0 01-1 1H2a1 1 0 01-1-1V4zm3 2v2h2V6H4zm4 0v2h2V6H8zm-4 4v2h2v-2H4zm4 0v2h2v-2H8z"/></svg>
     Exclusive Pending
   </div>
+  <div class="nav-item" onclick="showPage('p0only')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="8" y="11" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor">P0</text></svg>
+    P0 Only
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -900,6 +904,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">สรุป Group Problem แยกตาม Bookmark และ Aging_Flag_Group — สำหรับประชุมเช้าตอบ CNO</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <label style="font-size:12px; display:flex; align-items:center; gap:6px;">Priority:
+          <select id="exp-priority-filter" style="padding:4px 8px;">
+            <option value="">ทั้งหมด</option>
+            <option value="P0">P0</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+          </select>
+        </label>
         <span id="exp-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
         <button id="exp-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
         <button id="exp-reload" class="btn-secondary">Refresh</button>
@@ -925,6 +937,41 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
   </div>
+
+  <!-- P0 ONLY (same layout as Exclusive Pending, permanently scoped to P0) -->
+  <div class="page" id="page-p0only">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <div>
+        <div style="font-size:16px; font-weight:700;">P0 Only</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">เหมือนหน้า Exclusive Pending แต่กรองเฉพาะ Priority P0 ทุกกลุ่ม — สำหรับเช็คงานเร่งด่วนที่สุด</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="p0-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
+        <button id="p0-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
+        <button id="p0-reload" class="btn-secondary">Refresh</button>
+      </div>
+    </div>
+    <div id="p0-kpi-summary" style="margin-bottom:18px;"></div>
+    <div id="p0-body"></div>
+  </div>
+
+  <!-- P0 ONLY LINE SUMMARY MODAL -->
+  <div id="p0-line-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('p0-line-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">📋 สรุป P0 Only สำหรับส่ง LINE</span>
+        <button onclick="document.getElementById('p0-line-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="p0-line-text" readonly style="width:100%; height:360px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="p0-line-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="p0-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- ONCALL TEAM -->
   <div class="page" id="page-oncallteam">
@@ -3413,7 +3460,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket','exclusivepending','oncallteam'][i]===id);
+    el.classList.toggle('active', ['realtimemonitor','pendingticket','exclusivepending','p0only','oncallteam'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3422,6 +3469,7 @@ function showPage(id) {
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='exclusivepending') { setTimeout(()=>{ if (window.initExclusivePendingTab) window.initExclusivePendingTab(); },50); }
+  if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   toggleMobileSidebar(false); // picking a tab on mobile should close the drawer
 }
@@ -4713,7 +4761,9 @@ function renderPivot(ft) {
   async function fetchData() {
     const statusEl = el('exp-status');
     statusEl.textContent = 'กำลังโหลด...';
-    const res = await fetch('/api/exclusive-pending');
+    const priority = el('exp-priority-filter').value;
+    const url = priority ? `/api/exclusive-pending?priority=${encodeURIComponent(priority)}` : '/api/exclusive-pending';
+    const res = await fetch(url);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
     const data = await res.json();
     statusEl.textContent = `${data.total_over_sla} tickets over SLA — generated: ${data.generated_at || '-'}`;
@@ -5033,7 +5083,355 @@ function renderPivot(ft) {
   });
 
   el('exp-reload').addEventListener('click', reload);
+  el('exp-priority-filter').addEventListener('change', reload);
   window.initExclusivePendingTab = function () { if (!loaded) reload(); };
+})();
+
+// ── P0 ONLY (same as Exclusive Pending, hardcoded to Priority P0) ──────────
+(function () {
+  let loaded = false;
+  let lastData = null;
+
+  function el(id) { return document.getElementById(id); }
+
+  function priorityBadge(p) {
+    const colors = { P0: '#E24B4A', P1: '#EF9F27', P2: '#639922' };
+    if (!p) return '';
+    return `<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:${colors[p]}22;color:${colors[p]};">${p}</span>`;
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString().replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function expTodayStr() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+  }
+
+  async function fetchData() {
+    const statusEl = el('p0-status');
+    statusEl.textContent = 'กำลังโหลด...';
+    const res = await fetch('/api/exclusive-pending?priority=P0');
+    if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
+    const data = await res.json();
+    statusEl.textContent = `${data.total_over_sla} tickets over SLA — generated: ${data.generated_at || '-'}`;
+    return data;
+  }
+
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors) {
+    const overSet = new Set(overKeys);
+    const head = agingOrder.map(ag => {
+      const isOver = overSet.has(ag);
+      const color = agingColors[ag] || '';
+      return `<th style="padding:8px; text-align:center; font-size:11px; font-weight:700; background:${color}30; ${isOver ? 'color:#8B2E2E;' : 'color:var(--text2);'}">${ag}</th>`;
+    }).join('');
+    const rows = bookmarkBlock.rows.map((r, i) => {
+      const cells = agingOrder.map(ag => {
+        const count = r.counts[ag] || 0;
+        const isOver = overSet.has(ag);
+        const color = agingColors[ag] || '';
+        const bg = count > 0 ? `${color}45` : (i % 2 ? 'var(--bg1)' : 'transparent');
+        return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r.group_problem)}</td>
+        ${cells}
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border2);">
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Group Problem</th>
+              ${head}
+              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderDetailTable(detailBlock, agingColors) {
+    const today = expTodayStr();
+    const rows = detailBlock.tickets.map(t => {
+      const agColor = agingColors[t.Aging_Flag_Group] || '';
+      const planDate = t.plan_closed_date || '';
+      const isBackdated = planDate && planDate < today;
+      return `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
+        <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
+        <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
+        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
+        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r); margin-top:8px;">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead>
+            <tr style="background:var(--bg3); position:sticky; top:0;">
+              <th style="padding:6px 8px; text-align:left;">TICKETID</th>
+              <th style="padding:6px 8px; text-align:left;">Priority</th>
+              <th style="padding:6px 8px; text-align:left;">SUBJECT</th>
+              <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
+              <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
+              <th style="padding:6px 8px; text-align:right;">Over SLA</th>
+              <th style="padding:6px 8px; text-align:left;">Group Problem</th>
+              <th style="padding:6px 8px; text-align:left;">Action Team</th>
+              <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
+              <th style="padding:6px 8px; text-align:left;">Plan Closed Date</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderUnspecifiedByProvince(block) {
+    if (!block || !block.provinces || !block.provinces.length) return '';
+    const rows = block.provinces.map((p, i) => `
+      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; font-weight:600;">${escapeHtml(p.province)}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_group_problem || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_action_team || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_detail || '–'}</td>
+        <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_plan_closed_date || '–'}</td>
+      </tr>`).join('');
+    return `
+      <div style="flex:1; min-width:420px; max-width:500px;">
+        <div style="font-size:12px; font-weight:700; color:#B23A3A; margin-bottom:6px; display:flex; align-items:center; gap:5px;">🚩 Over SLA ที่ยังกรอกไม่ครบ — แยกตามจังหวัด (มาก→น้อย)</div>
+        <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid #B23A3A33;">
+            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">จังหวัด</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Action Team</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รายละเอียด</th>
+            <th style="padding:8px 10px; text-align:right; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Plan Closed</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderGroupProblemByPlanDate(block) {
+    if (!block || !block.rows || !block.rows.length) return '';
+    const today = expTodayStr();
+    const cols = block.date_columns || [];
+    const head = cols.map(c => {
+      const isNoPlan = c.startsWith('(');
+      const isBackdated = !isNoPlan && c < today;
+      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+    }).join('');
+    const rows = block.rows.map((r, i) => {
+      const cells = cols.map(c => {
+        const count = r.counts[c] || 0;
+        const isNoPlan = c.startsWith('(');
+        const isBackdated = !isNoPlan && c < today;
+        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
+        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
+        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''}">${count || '–'}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
+        ${cells}
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div style="flex:2; min-width:360px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
+        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
+              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  function renderExecutiveSummary(data) {
+    const allTickets = (data.detail || []).flatMap(d => d.tickets);
+    const totalOverSla = data.total_over_sla || allTickets.length;
+
+    const provinceCounts = {};
+    let notTriaged = 0;
+    allTickets.forEach(t => {
+      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+      provinceCounts[p] = (provinceCounts[p] || 0) + 1;
+      if (t.group_problem === '(ยังไม่ระบุ)') notTriaged++;
+    });
+    const provincesAffected = Object.keys(provinceCounts).length;
+    const worstProvinceEntry = Object.entries(provinceCounts).sort((a, b) => b[1] - a[1])[0];
+    const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
+    const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
+
+    const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+
+    const card = (icon, label, value, sub, accent) => `
+      <div style="flex:1; min-width:170px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:14px 16px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;">${icon} ${label}</div>
+        <div style="font-size:26px; font-weight:800; line-height:1;">${value}</div>
+        ${sub ? `<div style="font-size:12px; color:var(--text2); margin-top:6px;">${sub}</div>` : ''}
+      </div>`;
+
+    const bookmarkBreakdownCard = `
+      <div style="flex:1.4; min-width:220px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
+        ${bookmarkTotals.map(b => `
+          <div style="margin-bottom:6px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
+              <span style="color:var(--text2);">${escapeHtml(b.bookmark)}</span>
+              <span style="font-weight:700; ${b.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${b.over_total}</span>
+            </div>
+            <div style="height:5px; background:var(--bg4); border-radius:3px; overflow:hidden;">
+              <div style="height:100%; width:${(b.over_total / maxBookmarkTotal) * 100}%; background:#7c3aed;"></div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+
+    el('p0-kpi-summary').innerHTML = `
+      <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px;">
+        ${card('🔴', 'Over SLA รวมทุกกลุ่ม', totalOverSla, 'จาก 4 กลุ่ม Bookmark ที่เกิน SLA', '#B23A3A')}
+        ${card('📍', 'จังหวัดที่มีปัญหา', provincesAffected, worstProvinceEntry ? `หนักสุด: ${escapeHtml(worstProvinceEntry[0])} (${worstProvinceEntry[1]} ticket)` : '', '#2563eb')}
+        ${card('⚠️', 'ยังไม่ได้ Triage', notTriaged, totalOverSla ? `${Math.round((notTriaged / totalOverSla) * 100)}% ของ Over SLA ทั้งหมด` : '', '#B45309')}
+        ${bookmarkBreakdownCard}
+      </div>`;
+  }
+
+  function render(data) {
+    renderExecutiveSummary(data);
+    const detailByBookmark = {};
+    (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
+    const provinceByBookmark = {};
+    (data.unspecified_by_province || []).forEach(d => { provinceByBookmark[d.bookmark] = d; });
+    const planDateByBookmark = {};
+    (data.group_problem_by_plan_date || []).forEach(d => { planDateByBookmark[d.bookmark] = d; });
+
+    const sections = (data.summary || []).map((block, i) => {
+      const detailBlock = detailByBookmark[block.bookmark];
+      const provinceBlock = provinceByBookmark[block.bookmark];
+      const planDateBlock = planDateByBookmark[block.bookmark];
+      const sectionId = `exp-section-${i}`;
+      const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlock);
+      const sideBySide = (provinceHtml || planDateHtml)
+        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
+        : '';
+      return `
+        <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
+          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
+            <span style="font-size:14px; font-weight:700;">${escapeHtml(block.bookmark)}</span>
+            <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+          </div>
+          <div id="${sectionId}" style="padding:10px 14px;">
+            ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${sideBySide}
+            ${detailBlock ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable(detailBlock, data.aging_colors)}</div>` : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+          </div>
+        </div>`;
+    }).join('');
+
+    el('p0-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
+  }
+
+  async function reload() {
+    try {
+      const data = await fetchData();
+      lastData = data;
+      render(data);
+      loaded = true;
+    } catch (e) {
+      console.error('Exclusive Pending load failed', e);
+    }
+  }
+
+  function buildExpLineSummaryText() {
+    if (!lastData) return '';
+    // "ไม่ครบ" หมายถึงยังไม่ได้ triage เลย - ใช้แค่ 3 ฟิลด์หลักที่บอกว่ามี
+    // คนเข้ามาวิเคราะห์ ticket นี้แล้วหรือยัง (Group Problem/Action Team/
+    // รายละเอียด). ไม่รวม Plan Closed Date เพราะเป็นขั้นตอนวางแผนที่กรอก
+    // ทีหลังแยกต่างหาก แทบไม่มีใครกรอกไม่ว่า ticket จะ triage แล้วหรือยัง
+    // เลย - เอามารวมด้วยทำให้แทบทุก ticket โดนนับว่า "ไม่ครบ" จนตัวเลข
+    // ไม่มีความหมาย (ขึ้น 100% เกือบทุกจังหวัด)
+    const isIncomplete = t => t.group_problem === '(ยังไม่ระบุ)'
+      || !String(t.action_team || '').trim()
+      || !String(t.detail || '').trim();
+
+    const groups = lastData.detail || []; // [{bookmark, tickets, total}, ...]
+    const allTickets = groups.flatMap(d => d.tickets);
+    const totalOverSla = lastData.total_over_sla || allTickets.length;
+
+    const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const lines = [];
+    lines.push(`📋 สรุป Exclusive Pending วันนี้ (${dateLabel})`);
+    lines.push('แยกตามกลุ่ม Bookmark');
+
+    let grandTotalIncomplete = 0;
+    groups.forEach(g => {
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`▶ ${g.bookmark} (Over SLA รวม: ${g.tickets.length} ticket)`);
+
+      const byProvince = {};       // province -> incomplete count
+      g.tickets.forEach(t => {
+        if (!isIncomplete(t)) return;
+        const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+        byProvince[p] = (byProvince[p] || 0) + 1;
+      });
+      const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b] - byProvince[a]);
+      const groupIncomplete = Object.values(byProvince).reduce((s, c) => s + c, 0);
+      grandTotalIncomplete += groupIncomplete;
+
+      if (!provinces.length) {
+        lines.push('✅ ไม่มี ticket ที่ข้อมูลไม่ครบเลย');
+      } else {
+        provinces.forEach(p => {
+          lines.push(`📍 ${p}: ${byProvince[p]} ticket ยังกรอกไม่ครบ`);
+        });
+      }
+    });
+
+    lines.push('━━━━━━━━━━━━━━');
+    lines.push(`รวมทุกกลุ่ม — Over SLA ทั้งหมด: ${totalOverSla} ticket`);
+    lines.push(`ข้อมูลไม่ครบรวม: ${grandTotalIncomplete} ticket`);
+    return lines.join('\n');
+  }
+
+  el('p0-line-summary').addEventListener('click', () => {
+    const text = buildExpLineSummaryText();
+    el('p0-line-text').value = text;
+    el('p0-line-copy-status').textContent = '';
+    el('p0-line-modal').style.display = 'block';
+  });
+
+  el('p0-line-copy-btn').addEventListener('click', async () => {
+    const textarea = el('p0-line-text');
+    const statusEl = el('p0-line-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
+
+  el('p0-reload').addEventListener('click', reload);
+  window.initP0OnlyTab = function () { if (!loaded) reload(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────

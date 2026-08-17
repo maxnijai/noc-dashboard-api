@@ -428,12 +428,15 @@ def _exclusive_bookmark_label(raw):
     return raw if raw in BOOKMARK_SORT_ORDER else "Others"
 
 
-def build_exclusive_pending_response(gs_client=None):
+def build_exclusive_pending_response(gs_client=None, priority_filter=None):
     """Morning-meeting view: how many pending tickets per Bookmark are stuck
     on which Group Problem, broken out by aging bucket - plus the full
     ticket-level list for anything already over SLA (aging buckets 1-4),
     so a team lead can answer CNO questions ticket-by-ticket without
-    switching tabs."""
+    switching tabs. `priority_filter` (e.g. "P0") restricts EVERYTHING -
+    matrix, province breakdowns, plan-date matrix, detail lists - to just
+    that priority, for a page like "P0 Only" that needs the exact same
+    view scoped down to the most urgent tickets."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
@@ -455,6 +458,9 @@ def build_exclusive_pending_response(gs_client=None):
             over_sla_day = float(over_sla_day)
         except (TypeError, ValueError):
             over_sla_day = 0
+        priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        if priority_filter and priority != priority_filter:
+            continue
         entries.append({
             "TICKETID": ticket_id,
             "SUBJECT": r.get("SUBJECT", ""),
@@ -462,7 +468,7 @@ def build_exclusive_pending_response(gs_client=None):
             "DISTRICT": r.get("DISTRICT", ""),
             "PROVINCE": r.get("PROVINCE", ""),
             "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
-            "priority": _classify_priority(r.get("TARGETFINISH"), now_dt),
+            "priority": priority,
             "Bookmark": _exclusive_bookmark_label(r.get("Bookmark")),
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,

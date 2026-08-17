@@ -2200,7 +2200,8 @@ def api_pending_ticket_update():
 def api_exclusive_pending():
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        data = build_exclusive_pending_response(gs_client)
+        priority_filter = request.args.get('priority') or None
+        data = build_exclusive_pending_response(gs_client, priority_filter=priority_filter)
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")
