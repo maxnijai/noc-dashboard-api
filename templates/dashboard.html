@@ -29,7 +29,10 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 
 /* Layout */
 .shell { display: flex; height: 100vh; overflow: hidden; }
-.sidebar { width: 220px; min-width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar { width: 220px; min-width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; transition: width .18s ease, min-width .18s ease, opacity .18s ease; }
+.shell.sidebar-collapsed .sidebar { width: 0; min-width: 0; opacity: 0; overflow: hidden; border-right: none; pointer-events: none; }
+.sidebar-toggle-btn { border:1px solid var(--border); background:var(--bg2); color:var(--text); border-radius:6px; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; }
+@media (max-width: 768px) { .sidebar-toggle-btn { display: none !important; } }
 .main { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 
 /* Header */
@@ -738,6 +741,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <!-- MAIN -->
 <div class="main">
   <div class="header">
+    <button class="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" title="ซ่อน/แสดงแถบด้านข้าง" style="margin-right:8px;">☰</button>
     <button class="mobile-menu-btn" onclick="toggleMobileSidebar(true)" aria-label="เมนู" style="border:1px solid var(--border); background:var(--bg2); color:var(--text); border-radius:6px; width:34px; height:34px; align-items:center; justify-content:center; margin-right:8px; cursor:pointer; font-size:16px;">☰</button>
     <div class="header-brand">
       <img src="data:image/png;base64,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" alt="BBTEC" class="header-brand-logo">
@@ -855,6 +859,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>Group Problem:
         <select id="ptk-group-problem-filter" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (แสดงเฉพาะรายการที่มีคนกรอกไว้)"></select>
       </label>
+      <label>Search Ticket:
+        <input type="text" id="ptk-ticket-search" placeholder="พิมพ์เลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
+      </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
       {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
@@ -912,6 +919,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <option value="P2">P2</option>
           </select>
         </label>
+        <input type="text" id="exp-ticket-search" placeholder="🔍 ค้นหาเลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
         <span id="exp-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
         <button id="exp-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
         <button id="exp-reload" class="btn-secondary">Refresh</button>
@@ -946,6 +954,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">เหมือนหน้า Exclusive Pending แต่กรองเฉพาะ Priority P0 ทุกกลุ่ม (ตรงกับคอลัมน์ Priority ในหน้า Pending Ticket) — โชว์ P0 ทั้งหมด ไม่จำกัดแค่ Over SLA</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <input type="text" id="p0-ticket-search" placeholder="🔍 ค้นหาเลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
         <span id="p0-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
         <button id="p0-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
         <button id="p0-reload" class="btn-secondary">Refresh</button>
@@ -3480,6 +3489,19 @@ function toggleMobileSidebar(open) {
   document.querySelector('.mobile-sidebar-backdrop').classList.toggle('mobile-open', open);
 }
 
+function toggleSidebarCollapse() {
+  const collapsed = document.querySelector('.shell').classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+}
+// Restore the collapsed state from last time, if any.
+try {
+  if (localStorage.getItem('sidebarCollapsed') === '1') {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelector('.shell').classList.add('sidebar-collapsed');
+    });
+  }
+} catch (e) {}
+
 // ===================== TREND CHART =====================
 
 function formatThaiDateLabel(dateStr) {
@@ -4410,8 +4432,15 @@ function renderPivot(ft) {
   let groupProblemOptions = [];
   let actionTeamOptions = [];
   let agingColors = {};
+  let lastTickets = [];
 
   function el(id) { return document.getElementById(id); }
+
+  function applyTicketSearch(tickets) {
+    const q = (el('ptk-ticket-search').value || '').trim().toLowerCase();
+    if (!q) return tickets;
+    return tickets.filter(t => (t.TICKETID || '').toLowerCase().includes(q));
+  }
 
   function selectedValues(sel) {
     return [...sel.selectedOptions].map(o => o.value).filter(Boolean);
@@ -4683,11 +4712,16 @@ function renderPivot(ft) {
         [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); });
       }
       renderRows(data.tickets);
+      lastTickets = data.tickets;
       loaded = true;
     } catch (e) {
       console.error('Pending ticket load failed', e);
     }
   }
+
+  el('ptk-ticket-search').addEventListener('input', () => {
+    renderRows(applyTicketSearch(lastTickets));
+  });
 
   el('ptk-reload').addEventListener('click', reload);
   el('ptk-reset-filters').addEventListener('click', () => {
@@ -4771,7 +4805,9 @@ function renderPivot(ft) {
     return data;
   }
 
-  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors) {
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader) {
+    rowKey = rowKey || 'province';
+    rowHeader = rowHeader || 'Province';
     const overSet = new Set(overKeys);
     const head = agingOrder.map(ag => {
       const isOver = overSet.has(ag);
@@ -4787,7 +4823,7 @@ function renderPivot(ft) {
         return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r.group_problem)}</td>
+        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r[rowKey])}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
@@ -4807,7 +4843,7 @@ function renderPivot(ft) {
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead>
             <tr style="border-bottom:2px solid var(--border2);">
-              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Group Problem</th>
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">${rowHeader}</th>
               ${head}
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
             </tr>
@@ -4892,6 +4928,42 @@ function renderPivot(ft) {
       </div>`;
   }
 
+  function computePlanDateMatrix(tickets) {
+    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
+    const dateSet = new Set();
+    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
+    const dateColumns = [...dateSet].sort();
+    dateColumns.push(NO_PLAN_DATE);
+    const matrix = {};
+    tickets.forEach(t => {
+      const col = t.plan_closed_date || NO_PLAN_DATE;
+      matrix[t.group_problem] = matrix[t.group_problem] || {};
+      matrix[t.group_problem][col] = (matrix[t.group_problem][col] || 0) + 1;
+    });
+    const rows = Object.entries(matrix).map(([gp, counts]) => ({
+      group_problem: gp, counts,
+      total: Object.values(counts).reduce((a, b) => a + b, 0),
+    })).sort((a, b) => b.total - a.total);
+    return rows.length ? { date_columns: dateColumns, rows } : null;
+  }
+
+  function computeProvinceMissing(tickets) {
+    const byProvince = {};
+    tickets.forEach(t => {
+      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+      const row = byProvince[p] || (byProvince[p] = { missing_group_problem: 0, missing_action_team: 0, missing_detail: 0, missing_plan_closed_date: 0 });
+      if (t.group_problem === '(ยังไม่ระบุ)') row.missing_group_problem++;
+      if (!String(t.action_team || '').trim()) row.missing_action_team++;
+      if (!String(t.detail || '').trim()) row.missing_detail++;
+      if (!String(t.plan_closed_date || '').trim()) row.missing_plan_closed_date++;
+    });
+    const rows = Object.entries(byProvince)
+      .map(([p, c]) => ({ province: p, ...c, total_missing: Object.values(c).reduce((a, b) => a + b, 0) }))
+      .filter(r => r.total_missing > 0)
+      .sort((a, b) => b.missing_group_problem - a.missing_group_problem || b.total_missing - a.total_missing);
+    return rows.length ? { provinces: rows } : null;
+  }
+
   function renderGroupProblemByPlanDate(block) {
     if (!block || !block.rows || !block.rows.length) return '';
     const today = expTodayStr();
@@ -4943,32 +5015,12 @@ function renderPivot(ft) {
   }
 
   function renderExecutiveSummary(data) {
-    const allTickets = (data.detail || []).flatMap(d => d.tickets);
-    const totalOverSla = data.total_over_sla || allTickets.length;
-
-    const provinceCounts = {};
-    let notTriaged = 0;
-    allTickets.forEach(t => {
-      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-      provinceCounts[p] = (provinceCounts[p] || 0) + 1;
-      if (t.group_problem === '(ยังไม่ระบุ)') notTriaged++;
-    });
-    const provincesAffected = Object.keys(provinceCounts).length;
-    const worstProvinceEntry = Object.entries(provinceCounts).sort((a, b) => b[1] - a[1])[0];
     const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
     const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
-
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const card = (icon, label, value, sub, accent) => `
-      <div style="flex:1; min-width:170px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:14px 16px;">
-        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;">${icon} ${label}</div>
-        <div style="font-size:26px; font-weight:800; line-height:1;">${value}</div>
-        ${sub ? `<div style="font-size:12px; color:var(--text2); margin-top:6px;">${sub}</div>` : ''}
-      </div>`;
-
     const bookmarkBreakdownCard = `
-      <div style="flex:1.4; min-width:220px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
+      <div style="max-width:420px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
         ${bookmarkTotals.map(b => `
           <div style="margin-bottom:6px;">
@@ -4984,13 +5036,10 @@ function renderPivot(ft) {
 
     el('exp-kpi-summary').innerHTML = `
       <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:12px;">
-        ${card('🔴', 'Over SLA รวมทุกกลุ่ม', totalOverSla, 'จาก 4 กลุ่ม Bookmark ที่เกิน SLA', '#B23A3A')}
-        ${card('📍', 'จังหวัดที่มีปัญหา', provincesAffected, worstProvinceEntry ? `หนักสุด: ${escapeHtml(worstProvinceEntry[0])} (${worstProvinceEntry[1]} ticket)` : '', '#2563eb')}
-        ${card('⚠️', 'ยังไม่ได้ Triage', notTriaged, totalOverSla ? `${Math.round((notTriaged / totalOverSla) * 100)}% ของ Over SLA ทั้งหมด` : '', '#B45309')}
-        ${bookmarkBreakdownCard}
-      </div>`;
+      ${bookmarkBreakdownCard}`;
   }
+
+  let sectionProvinceFilters = {}; // bookmark -> selected province, per-section (not global)
 
   function render(data) {
     renderExecutiveSummary(data);
@@ -5000,33 +5049,69 @@ function renderPivot(ft) {
     (data.unspecified_by_province || []).forEach(d => { provinceByBookmark[d.bookmark] = d; });
     const planDateByBookmark = {};
     (data.group_problem_by_plan_date || []).forEach(d => { planDateByBookmark[d.bookmark] = d; });
+    const searchQuery = (el('exp-ticket-search').value || '').trim().toLowerCase();
 
-    const sections = (data.summary || []).map((block, i) => {
+    const sections = (data.province_summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
-      const provinceBlock = provinceByBookmark[block.bookmark];
-      const planDateBlock = planDateByBookmark[block.bookmark];
+      const provinceFilter = sectionProvinceFilters[block.bookmark] || '';
       const sectionId = `exp-section-${i}`;
+
+      const provinceOptions = block.rows.map(r => r.province).sort((a, b) => a.localeCompare(b, 'th'));
+      const allTickets = detailBlock ? detailBlock.tickets : [];
+      const filteredTickets = allTickets.filter(t => {
+        const prov = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+        if (provinceFilter && prov !== provinceFilter) return false;
+        if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
+        return true;
+      });
+      const isFiltered = !!(provinceFilter || searchQuery);
+
+      const matrixBlock = provinceFilter
+        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === provinceFilter) }
+        : block;
+      const provinceBlock = provinceFilter ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
+      const planDateBlockComputed = provinceFilter ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
+
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlock);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed);
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
+
+      const detailHtml = filteredTickets.length
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket over SLA ใน Bookmark นี้'}</div>`;
+
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
-          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
-            <span style="font-size:14px; font-weight:700;">${escapeHtml(block.bookmark)}</span>
-            <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span style="font-size:14px; font-weight:700; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">${escapeHtml(block.bookmark)}</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text3);">จังหวัด:
+                <select onchange="filterExpSectionProvince('${block.bookmark.replace(/'/g, "\\'")}', this.value)" style="padding:2px 6px; font-size:11px;">
+                  <option value="">ทั้งหมด</option>
+                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === provinceFilter ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                </select>
+              </label>
+              <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+            </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
-            ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors)}
             ${sideBySide}
-            ${detailBlock ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable(detailBlock, data.aging_colors)}</div>` : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+            ${detailHtml}
           </div>
         </div>`;
     }).join('');
 
     el('exp-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
   }
+
+  window.filterExpSectionProvince = function (bookmark, province) {
+    sectionProvinceFilters[bookmark] = province;
+    if (lastData) render(lastData);
+  };
+  el('exp-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
 
   async function reload() {
     try {
@@ -5146,7 +5231,9 @@ function renderPivot(ft) {
     return data;
   }
 
-  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors) {
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader) {
+    rowKey = rowKey || 'province';
+    rowHeader = rowHeader || 'Province';
     const overSet = new Set(overKeys);
     const head = agingOrder.map(ag => {
       const isOver = overSet.has(ag);
@@ -5162,7 +5249,7 @@ function renderPivot(ft) {
         return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r.group_problem)}</td>
+        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r[rowKey])}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
@@ -5182,7 +5269,7 @@ function renderPivot(ft) {
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead>
             <tr style="border-bottom:2px solid var(--border2);">
-              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Group Problem</th>
+              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">${rowHeader}</th>
               ${head}
               <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); background:linear-gradient(180deg,var(--bg4),var(--bg3));">Over SLA รวม</th>
             </tr>
@@ -5267,6 +5354,42 @@ function renderPivot(ft) {
       </div>`;
   }
 
+  function computePlanDateMatrix(tickets) {
+    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
+    const dateSet = new Set();
+    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
+    const dateColumns = [...dateSet].sort();
+    dateColumns.push(NO_PLAN_DATE);
+    const matrix = {};
+    tickets.forEach(t => {
+      const col = t.plan_closed_date || NO_PLAN_DATE;
+      matrix[t.group_problem] = matrix[t.group_problem] || {};
+      matrix[t.group_problem][col] = (matrix[t.group_problem][col] || 0) + 1;
+    });
+    const rows = Object.entries(matrix).map(([gp, counts]) => ({
+      group_problem: gp, counts,
+      total: Object.values(counts).reduce((a, b) => a + b, 0),
+    })).sort((a, b) => b.total - a.total);
+    return rows.length ? { date_columns: dateColumns, rows } : null;
+  }
+
+  function computeProvinceMissing(tickets) {
+    const byProvince = {};
+    tickets.forEach(t => {
+      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+      const row = byProvince[p] || (byProvince[p] = { missing_group_problem: 0, missing_action_team: 0, missing_detail: 0, missing_plan_closed_date: 0 });
+      if (t.group_problem === '(ยังไม่ระบุ)') row.missing_group_problem++;
+      if (!String(t.action_team || '').trim()) row.missing_action_team++;
+      if (!String(t.detail || '').trim()) row.missing_detail++;
+      if (!String(t.plan_closed_date || '').trim()) row.missing_plan_closed_date++;
+    });
+    const rows = Object.entries(byProvince)
+      .map(([p, c]) => ({ province: p, ...c, total_missing: Object.values(c).reduce((a, b) => a + b, 0) }))
+      .filter(r => r.total_missing > 0)
+      .sort((a, b) => b.missing_group_problem - a.missing_group_problem || b.total_missing - a.total_missing);
+    return rows.length ? { provinces: rows } : null;
+  }
+
   function renderGroupProblemByPlanDate(block) {
     if (!block || !block.rows || !block.rows.length) return '';
     const today = expTodayStr();
@@ -5318,32 +5441,12 @@ function renderPivot(ft) {
   }
 
   function renderExecutiveSummary(data) {
-    const allTickets = (data.detail || []).flatMap(d => d.tickets);
-    const totalOverSla = data.total_over_sla || allTickets.length;
-
-    const provinceCounts = {};
-    let notTriaged = 0;
-    allTickets.forEach(t => {
-      const p = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-      provinceCounts[p] = (provinceCounts[p] || 0) + 1;
-      if (t.group_problem === '(ยังไม่ระบุ)') notTriaged++;
-    });
-    const provincesAffected = Object.keys(provinceCounts).length;
-    const worstProvinceEntry = Object.entries(provinceCounts).sort((a, b) => b[1] - a[1])[0];
     const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
     const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
-
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const card = (icon, label, value, sub, accent) => `
-      <div style="flex:1; min-width:170px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:14px 16px;">
-        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;">${icon} ${label}</div>
-        <div style="font-size:26px; font-weight:800; line-height:1;">${value}</div>
-        ${sub ? `<div style="font-size:12px; color:var(--text2); margin-top:6px;">${sub}</div>` : ''}
-      </div>`;
-
     const bookmarkBreakdownCard = `
-      <div style="flex:1.4; min-width:220px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
+      <div style="max-width:420px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
         ${bookmarkTotals.map(b => `
           <div style="margin-bottom:6px;">
@@ -5359,13 +5462,10 @@ function renderPivot(ft) {
 
     el('p0-kpi-summary').innerHTML = `
       <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:12px;">
-        ${card('🔴', 'Over SLA รวมทุกกลุ่ม', totalOverSla, 'จาก 4 กลุ่ม Bookmark ที่เกิน SLA', '#B23A3A')}
-        ${card('📍', 'จังหวัดที่มีปัญหา', provincesAffected, worstProvinceEntry ? `หนักสุด: ${escapeHtml(worstProvinceEntry[0])} (${worstProvinceEntry[1]} ticket)` : '', '#2563eb')}
-        ${card('⚠️', 'ยังไม่ได้ Triage', notTriaged, totalOverSla ? `${Math.round((notTriaged / totalOverSla) * 100)}% ของ Over SLA ทั้งหมด` : '', '#B45309')}
-        ${bookmarkBreakdownCard}
-      </div>`;
+      ${bookmarkBreakdownCard}`;
   }
+
+  let sectionProvinceFilters = {}; // bookmark -> selected province, per-section (not global)
 
   function render(data) {
     renderExecutiveSummary(data);
@@ -5375,33 +5475,69 @@ function renderPivot(ft) {
     (data.unspecified_by_province || []).forEach(d => { provinceByBookmark[d.bookmark] = d; });
     const planDateByBookmark = {};
     (data.group_problem_by_plan_date || []).forEach(d => { planDateByBookmark[d.bookmark] = d; });
+    const searchQuery = (el('p0-ticket-search').value || '').trim().toLowerCase();
 
-    const sections = (data.summary || []).map((block, i) => {
+    const sections = (data.province_summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
-      const provinceBlock = provinceByBookmark[block.bookmark];
-      const planDateBlock = planDateByBookmark[block.bookmark];
-      const sectionId = `exp-section-${i}`;
+      const provinceFilter = sectionProvinceFilters[block.bookmark] || '';
+      const sectionId = `p0-section-${i}`;
+
+      const provinceOptions = block.rows.map(r => r.province).sort((a, b) => a.localeCompare(b, 'th'));
+      const allTickets = detailBlock ? detailBlock.tickets : [];
+      const filteredTickets = allTickets.filter(t => {
+        const prov = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
+        if (provinceFilter && prov !== provinceFilter) return false;
+        if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
+        return true;
+      });
+      const isFiltered = !!(provinceFilter || searchQuery);
+
+      const matrixBlock = provinceFilter
+        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === provinceFilter) }
+        : block;
+      const provinceBlock = provinceFilter ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
+      const planDateBlockComputed = provinceFilter ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
+
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlock);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed);
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
+
+      const detailHtml = filteredTickets.length
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
+
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
-          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">
-            <span style="font-size:14px; font-weight:700;">${escapeHtml(block.bookmark)}</span>
-            <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+          <div style="padding:10px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span style="font-size:14px; font-weight:700; cursor:pointer;" onclick="document.getElementById('${sectionId}').classList.toggle('exp-collapsed')">${escapeHtml(block.bookmark)}</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text3);">จังหวัด:
+                <select onchange="filterP0SectionProvince('${block.bookmark.replace(/'/g, "\\'")}', this.value)" style="padding:2px 6px; font-size:11px;">
+                  <option value="">ทั้งหมด</option>
+                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === provinceFilter ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                </select>
+              </label>
+              <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
+            </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
-            ${renderSummaryTable(block, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors)}
             ${sideBySide}
-            ${detailBlock ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable(detailBlock, data.aging_colors)}</div>` : '<div style="padding:10px; color:var(--text3); font-size:12px;">ไม่มี ticket over SLA ใน Bookmark นี้</div>'}
+            ${detailHtml}
           </div>
         </div>`;
     }).join('');
 
     el('p0-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
   }
+
+  window.filterP0SectionProvince = function (bookmark, province) {
+    sectionProvinceFilters[bookmark] = province;
+    if (lastData) render(lastData);
+  };
+  el('p0-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
 
   async function reload() {
     try {

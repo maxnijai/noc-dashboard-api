@@ -513,6 +513,35 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         bookmark_total = sum(r["over_total"] for r in rows)
         summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
 
+    # Province x Aging_Flag_Group matrix - same shape/logic as the Group
+    # Problem matrix above, just grouped by PROVINCE instead. Built from
+    # the same full `entries` set (every aging bucket), independent of
+    # restrict_to_over_sla.
+    province_matrix = {}
+    for e in entries:
+        prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
+        (province_matrix.setdefault(e["Bookmark"], {})
+                         .setdefault(prov, {})
+                         .setdefault(e["Aging_Flag_Group"], 0))
+        province_matrix[e["Bookmark"]][prov][e["Aging_Flag_Group"]] += 1
+
+    province_summary_out = []
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        if bm not in province_matrix:
+            continue
+        rows = []
+        for prov, counts in province_matrix[bm].items():
+            if restrict_to_over_sla:
+                over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            else:
+                over_total = sum(counts.values())
+            rows.append({"province": prov, "over_total": over_total, "counts": {
+                ag: counts.get(ag, 0) for ag in AGING_ORDER
+            }})
+        rows.sort(key=lambda r: -r["over_total"])
+        bookmark_total = sum(r["over_total"] for r in rows)
+        province_summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
+
     # Detail: over-SLA aging buckets (1-4) only by default, matching the
     # normal Exclusive Pending view - unless restrict_to_over_sla is off
     # (P0 Only), in which case every entry that made it this far (already
@@ -589,6 +618,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         "over_aging_keys": OVER_24H_AGING_KEYS,
         "aging_colors": AGING_COLORS,
         "summary": summary_out,
+        "province_summary": province_summary_out,
         "detail": detail_out,
         "unspecified_by_province": unspecified_by_province_out,
         "group_problem_by_plan_date": group_problem_by_plan_date_out,
