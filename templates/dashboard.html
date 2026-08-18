@@ -862,6 +862,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
       {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
       <button id="ptk-migrate-workload" class="btn-secondary" title="รวมค่า Group Problem เก่า &quot;Workload - Assigning team access island/border area&quot; เป็น &quot;Workload - Assigning team access site&quot;">รวม Workload (ครั้งเดียว)</button>
+      <button id="ptk-debug-export" class="btn-secondary" title="ทดสอบ export ไป Google Sheet แบบรอผลทันที เพื่อดู error จริงถ้ามี">🔍 ทดสอบ Export ไป GGS</button>
       {% endif %}
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
@@ -4864,6 +4865,28 @@ function renderPivot(ft) {
       }
       btn.disabled = false;
       btn.textContent = 'รวม Workload (ครั้งเดียว)';
+    });
+  }
+
+  if (el('ptk-debug-export')) {
+    el('ptk-debug-export').addEventListener('click', async () => {
+      const btn = el('ptk-debug-export');
+      btn.disabled = true;
+      btn.textContent = 'กำลังทดสอบ...';
+      try {
+        const res = await fetch('/api/pending-ticket/debug-export', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          alert(`✅ Export สำเร็จ!\nจำนวนแถวที่ส่งไป: ${data.rows_exported}\ninsert_time: ${data.insert_time}`);
+        } else {
+          alert(`❌ Export ล้มเหลว:\n\n${data.error}\n\n--- Traceback ---\n${data.traceback || '(ไม่มี)'}`);
+          console.error('Export debug failed', data);
+        }
+      } catch (e) {
+        alert('เรียก API ไม่สำเร็จ: ' + e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = '🔍 ทดสอบ Export ไป GGS';
     });
   }
 

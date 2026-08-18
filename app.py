@@ -18,6 +18,8 @@ from pending_ticket import (
     save_work_log_entry,
     rename_group_problem_value,
     build_p0_snapshot_comparison,
+    _fetch_full_ticket_entries,
+    export_to_external_sheet,
 )
 import oncall
 import oncall_escalation
@@ -2510,6 +2512,25 @@ def api_rename_group_problem():
     except Exception as e:
         log.exception("rename-group-problem failed")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket/debug-export', methods=['POST'])
+def api_debug_export():
+    """Diagnostic: runs the mirror-sheet export SYNCHRONOUSLY (not in a
+    background thread) and returns the actual success/failure + error
+    message, since the normal background export swallows exceptions
+    silently (by design, so a slow/broken mirror never blocks the page) -
+    this is the only way to actually SEE why it might be failing."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    import traceback
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        entries = _fetch_full_ticket_entries(gs_client)
+        insert_time_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        export_to_external_sheet(gs_client, entries, insert_time_str)
+        return jsonify({'ok': True, 'rows_exported': len(entries), 'insert_time': insert_time_str})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
 
 @app.route('/')
 @app.route('/dashboard')
