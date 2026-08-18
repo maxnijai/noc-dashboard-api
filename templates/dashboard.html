@@ -4862,7 +4862,7 @@ function renderPivot(ft) {
     return data;
   }
 
-  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader) {
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader, bookmark, clickFn) {
     rowKey = rowKey || 'province';
     rowHeader = rowHeader || 'Province';
     const overSet = new Set(overKeys);
@@ -4871,16 +4871,22 @@ function renderPivot(ft) {
       const color = agingColors[ag] || '';
       return `<th style="padding:8px; text-align:center; font-size:11px; font-weight:700; background:${color}30; ${isOver ? 'color:#8B2E2E;' : 'color:var(--text2);'}">${ag}</th>`;
     }).join('');
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const rows = bookmarkBlock.rows.map((r, i) => {
       const cells = agingOrder.map(ag => {
         const count = r.counts[ag] || 0;
         const isOver = overSet.has(ag);
         const color = agingColors[ag] || '';
         const bg = count > 0 ? `${color}45` : (i % 2 ? 'var(--bg1)' : 'transparent');
-        return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
+        const clickable = clickFn && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','${esc1(ag)}')"` : '';
+        const cursor = clickable ? 'cursor:pointer;' : '';
+        return `<td${onclick} style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'}; ${cursor}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
+      const rowClickable = !!clickFn;
+      const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r[rowKey])}</td>
+        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(r[rowKey])}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
@@ -5021,10 +5027,11 @@ function renderPivot(ft) {
     return rows.length ? { provinces: rows } : null;
   }
 
-  function renderGroupProblemByPlanDate(block) {
+  function renderGroupProblemByPlanDate(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
     const today = expTodayStr();
     const cols = block.date_columns || [];
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
       const isNoPlan = c.startsWith('(');
       const isBackdated = !isNoPlan && c < today;
@@ -5038,7 +5045,9 @@ function renderPivot(ft) {
         const isBackdated = !isNoPlan && c < today;
         const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
         const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
-        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''}">${count || '–'}</td>`;
+        const clickable = clickFn && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
@@ -5096,7 +5105,11 @@ function renderPivot(ft) {
       ${bookmarkBreakdownCard}`;
   }
 
-  let sectionProvinceFilters = {}; // bookmark -> selected province, per-section (not global)
+  let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
+
+  function getSectionFilter(bookmark) {
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
+  }
 
   function render(data) {
     renderExecutiveSummary(data);
@@ -5110,34 +5123,54 @@ function renderPivot(ft) {
 
     const sections = (data.province_summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
-      const provinceFilter = sectionProvinceFilters[block.bookmark] || '';
+      const f = getSectionFilter(block.bookmark);
       const sectionId = `exp-section-${i}`;
 
       const provinceOptions = block.rows.map(r => r.province).sort((a, b) => a.localeCompare(b, 'th'));
       const allTickets = detailBlock ? detailBlock.tickets : [];
       const filteredTickets = allTickets.filter(t => {
         const prov = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-        if (provinceFilter && prov !== provinceFilter) return false;
+        if (f.province && prov !== f.province) return false;
+        if (f.aging && (t.Aging_Flag_Group || '') !== f.aging) return false;
+        if (f.groupProblem && (t.group_problem || '') !== f.groupProblem) return false;
+        if (f.planDate) {
+          const isNoPlan = f.planDate.startsWith('(');
+          const planDate = t.plan_closed_date || '';
+          if (isNoPlan ? !!planDate : planDate !== f.planDate) return false;
+        }
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(provinceFilter || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || searchQuery);
 
-      const matrixBlock = provinceFilter
-        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === provinceFilter) }
+      const matrixBlock = f.province
+        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
         : block;
-      const provinceBlock = provinceFilter ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
-      const planDateBlockComputed = provinceFilter ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
+      const provinceBlock = isFiltered ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
+      const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterExpPlanDateCell');
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
 
+      const chips = [];
+      if (f.province) chips.push(`จังหวัด: ${escapeHtml(f.province)}`);
+      if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
+      if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
+      if (f.planDate) chips.push(`Plan Date: ${escapeHtml(f.planDate)}`);
+      const chipBar = chips.length
+        ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px;">
+             <span style="color:var(--text3);">กรองอยู่:</span>
+             ${chips.map(c => `<span style="background:var(--bg4); padding:2px 8px; border-radius:20px; color:var(--text2);">${c}</span>`).join('')}
+             <a href="#" onclick="clearExpSectionFilters('${block.bookmark.replace(/'/g, "\\'")}'); return false;" style="color:var(--blue);">✕ ล้างตัวกรอง</a>
+           </div>`
+        : '';
+
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
-        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket over SLA ใน Bookmark นี้'}</div>`;
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket over SLA ใน Bookmark นี้'}</div>`;
 
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
@@ -5147,14 +5180,14 @@ function renderPivot(ft) {
               <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text3);">จังหวัด:
                 <select onchange="filterExpSectionProvince('${block.bookmark.replace(/'/g, "\\'")}', this.value)" style="padding:2px 6px; font-size:11px;">
                   <option value="">ทั้งหมด</option>
-                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === provinceFilter ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === f.province ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
                 </select>
               </label>
               <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
             </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
-            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterExpMatrixCell')}
             ${sideBySide}
             ${detailHtml}
           </div>
@@ -5165,7 +5198,26 @@ function renderPivot(ft) {
   }
 
   window.filterExpSectionProvince = function (bookmark, province) {
-    sectionProvinceFilters[bookmark] = province;
+    const f = getSectionFilter(bookmark);
+    f.province = province;
+    if (lastData) render(lastData);
+  };
+  window.filterExpMatrixCell = function (bookmark, province, aging) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && f.aging === aging;
+    f.province = same ? '' : province;
+    f.aging = same ? '' : aging;
+    if (lastData) render(lastData);
+  };
+  window.filterExpPlanDateCell = function (bookmark, groupProblem, planDate) {
+    const f = getSectionFilter(bookmark);
+    const same = f.groupProblem === groupProblem && f.planDate === planDate;
+    f.groupProblem = same ? '' : groupProblem;
+    f.planDate = same ? '' : planDate;
+    if (lastData) render(lastData);
+  };
+  window.clearExpSectionFilters = function (bookmark) {
+    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' };
     if (lastData) render(lastData);
   };
   el('exp-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
@@ -5288,7 +5340,7 @@ function renderPivot(ft) {
     return data;
   }
 
-  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader) {
+  function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader, bookmark, clickFn) {
     rowKey = rowKey || 'province';
     rowHeader = rowHeader || 'Province';
     const overSet = new Set(overKeys);
@@ -5297,16 +5349,22 @@ function renderPivot(ft) {
       const color = agingColors[ag] || '';
       return `<th style="padding:8px; text-align:center; font-size:11px; font-weight:700; background:${color}30; ${isOver ? 'color:#8B2E2E;' : 'color:var(--text2);'}">${ag}</th>`;
     }).join('');
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const rows = bookmarkBlock.rows.map((r, i) => {
       const cells = agingOrder.map(ag => {
         const count = r.counts[ag] || 0;
         const isOver = overSet.has(ag);
         const color = agingColors[ag] || '';
         const bg = count > 0 ? `${color}45` : (i % 2 ? 'var(--bg1)' : 'transparent');
-        return `<td style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'};">${count || '–'}</td>`;
+        const clickable = clickFn && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','${esc1(ag)}')"` : '';
+        const cursor = clickable ? 'cursor:pointer;' : '';
+        return `<td${onclick} style="padding:7px 8px; text-align:center; background:${bg}; font-weight:${isOver && count > 0 ? '700' : '400'}; ${cursor}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
+      const rowClickable = !!clickFn;
+      const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'};">${escapeHtml(r[rowKey])}</td>
+        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(r[rowKey])}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
       </tr>`;
@@ -5447,10 +5505,11 @@ function renderPivot(ft) {
     return rows.length ? { provinces: rows } : null;
   }
 
-  function renderGroupProblemByPlanDate(block) {
+  function renderGroupProblemByPlanDate(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
     const today = expTodayStr();
     const cols = block.date_columns || [];
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
       const isNoPlan = c.startsWith('(');
       const isBackdated = !isNoPlan && c < today;
@@ -5464,7 +5523,9 @@ function renderPivot(ft) {
         const isBackdated = !isNoPlan && c < today;
         const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
         const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
-        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''}">${count || '–'}</td>`;
+        const clickable = clickFn && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
@@ -5522,7 +5583,11 @@ function renderPivot(ft) {
       ${bookmarkBreakdownCard}`;
   }
 
-  let sectionProvinceFilters = {}; // bookmark -> selected province, per-section (not global)
+  let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
+
+  function getSectionFilter(bookmark) {
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
+  }
 
   function render(data) {
     renderExecutiveSummary(data);
@@ -5536,34 +5601,54 @@ function renderPivot(ft) {
 
     const sections = (data.province_summary || []).map((block, i) => {
       const detailBlock = detailByBookmark[block.bookmark];
-      const provinceFilter = sectionProvinceFilters[block.bookmark] || '';
+      const f = getSectionFilter(block.bookmark);
       const sectionId = `p0-section-${i}`;
 
       const provinceOptions = block.rows.map(r => r.province).sort((a, b) => a.localeCompare(b, 'th'));
       const allTickets = detailBlock ? detailBlock.tickets : [];
       const filteredTickets = allTickets.filter(t => {
         const prov = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
-        if (provinceFilter && prov !== provinceFilter) return false;
+        if (f.province && prov !== f.province) return false;
+        if (f.aging && (t.Aging_Flag_Group || '') !== f.aging) return false;
+        if (f.groupProblem && (t.group_problem || '') !== f.groupProblem) return false;
+        if (f.planDate) {
+          const isNoPlan = f.planDate.startsWith('(');
+          const planDate = t.plan_closed_date || '';
+          if (isNoPlan ? !!planDate : planDate !== f.planDate) return false;
+        }
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(provinceFilter || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || searchQuery);
 
-      const matrixBlock = provinceFilter
-        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === provinceFilter) }
+      const matrixBlock = f.province
+        ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
         : block;
-      const provinceBlock = provinceFilter ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
-      const planDateBlockComputed = provinceFilter ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
+      const provinceBlock = isFiltered ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
+      const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed);
+      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
 
+      const chips = [];
+      if (f.province) chips.push(`จังหวัด: ${escapeHtml(f.province)}`);
+      if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
+      if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
+      if (f.planDate) chips.push(`Plan Date: ${escapeHtml(f.planDate)}`);
+      const chipBar = chips.length
+        ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px;">
+             <span style="color:var(--text3);">กรองอยู่:</span>
+             ${chips.map(c => `<span style="background:var(--bg4); padding:2px 8px; border-radius:20px; color:var(--text2);">${c}</span>`).join('')}
+             <a href="#" onclick="clearP0SectionFilters('${block.bookmark.replace(/'/g, "\\'")}'); return false;" style="color:var(--blue);">✕ ล้างตัวกรอง</a>
+           </div>`
+        : '';
+
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
-        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
 
       return `
         <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);">
@@ -5573,14 +5658,14 @@ function renderPivot(ft) {
               <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text3);">จังหวัด:
                 <select onchange="filterP0SectionProvince('${block.bookmark.replace(/'/g, "\\'")}', this.value)" style="padding:2px 6px; font-size:11px;">
                   <option value="">ทั้งหมด</option>
-                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === provinceFilter ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === f.province ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
                 </select>
               </label>
               <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
             </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
-            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors)}
+            ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')}
             ${sideBySide}
             ${detailHtml}
           </div>
@@ -5591,7 +5676,26 @@ function renderPivot(ft) {
   }
 
   window.filterP0SectionProvince = function (bookmark, province) {
-    sectionProvinceFilters[bookmark] = province;
+    const f = getSectionFilter(bookmark);
+    f.province = province;
+    if (lastData) render(lastData);
+  };
+  window.filterP0MatrixCell = function (bookmark, province, aging) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && f.aging === aging;
+    f.province = same ? '' : province;
+    f.aging = same ? '' : aging;
+    if (lastData) render(lastData);
+  };
+  window.filterP0PlanDateCell = function (bookmark, groupProblem, planDate) {
+    const f = getSectionFilter(bookmark);
+    const same = f.groupProblem === groupProblem && f.planDate === planDate;
+    f.groupProblem = same ? '' : groupProblem;
+    f.planDate = same ? '' : planDate;
+    if (lastData) render(lastData);
+  };
+  window.clearP0SectionFilters = function (bookmark) {
+    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' };
     if (lastData) render(lastData);
   };
   el('p0-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
