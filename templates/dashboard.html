@@ -921,7 +921,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </label>
         <input type="text" id="exp-ticket-search" placeholder="🔍 ค้นหาเลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
         <span id="exp-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
-        <button id="exp-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
+        <button id="exp-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#06C755"/><path d="M12 5c-4.14 0-7.5 2.74-7.5 6.12 0 3.03 2.67 5.57 6.28 6.05.24.05.58.16.66.37.08.19.05.49.03.68l-.11.66c-.03.19-.15.75.65.41s4.32-2.55 5.89-4.36c1.09-1.19 1.6-2.4 1.6-3.81C19.5 7.74 16.14 5 12 5z" fill="white"/></svg>
+        </button>
         <button id="exp-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
@@ -959,7 +961,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="display:flex; align-items:center; gap:10px;">
         <input type="text" id="p0-ticket-search" placeholder="🔍 ค้นหาเลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
         <span id="p0-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
-        <button id="p0-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE">📋 สรุปส่ง LINE</button>
+        <button id="p0-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#06C755"/><path d="M12 5c-4.14 0-7.5 2.74-7.5 6.12 0 3.03 2.67 5.57 6.28 6.05.24.05.58.16.66.37.08.19.05.49.03.68l-.11.66c-.03.19-.15.75.65.41s4.32-2.55 5.89-4.36c1.09-1.19 1.6-2.4 1.6-3.81C19.5 7.74 16.14 5 12 5z" fill="white"/></svg>
+        </button>
         <button id="p0-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
@@ -1240,9 +1244,8 @@ async function loadP0SnapshotComparison(prefix) {
     }).join('');
     container.innerHTML = `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%; background:var(--bg1);">
-        <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-          <span>📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}) · ปัจจุบัน: ${data.current_generated_at}</span>
-          <a href="#" onclick="loadP0SnapshotComparison('${prefix}'); return false;" style="color:var(--blue);">🔄 โหลดใหม่</a>
+        <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
+          📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}) · ปัจจุบัน: ${data.current_generated_at}
         </div>
         <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
@@ -1332,6 +1335,20 @@ async function saveExDetailRow(ticketId, btn) {
 const CURRENT_USER_EMAIL = {{ (session.user_email or '') | tojson }};
 const EXCLUSIVE_EDIT_ALLOWED_EMAILS = ['saridphong_n@bbtec.co.th', 'natchawan.b@rfplusthailand.com'];
 const CAN_EDIT_FROM_EXCLUSIVE_VIEWS = EXCLUSIVE_EDIT_ALLOWED_EMAILS.includes(CURRENT_USER_EMAIL);
+
+// Thai -> English province names, used by the Province x Plan Closed Date
+// table on Exclusive Pending / P0 Only (NOR1/NOR2 coverage provinces only).
+const PROVINCE_EN_MAP = {
+  'เชียงใหม่': 'Chiang Mai', 'เชียงราย': 'Chiang Rai', 'แม่ฮ่องสอน': 'Mae Hong Son',
+  'ลำปาง': 'Lampang', 'ลำพูน': 'Lamphun', 'น่าน': 'Nan', 'พะเยา': 'Phayao',
+  'แพร่': 'Phrae', 'พิษณุโลก': 'Phitsanulok', 'เพชรบูรณ์': 'Phetchabun',
+  'กำแพงเพชร': 'Kamphaeng Phet', 'ตาก': 'Tak', 'สุโขทัย': 'Sukhothai',
+  'พิจิตร': 'Phichit', 'อุตรดิตถ์': 'Uttaradit',
+};
+function provinceEnLabel(th) {
+  const key = (th || '').trim();
+  return PROVINCE_EN_MAP[key] || key || '(Unspecified)';
+}
 
 let NOR1 = new Set();
 
@@ -5118,6 +5135,87 @@ function renderPivot(ft) {
     return rows.length ? { date_columns: dateColumns, rows } : null;
   }
 
+  function computeProvincePlanDateMatrix(tickets) {
+    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
+    const dateSet = new Set();
+    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
+    const dateColumns = [...dateSet].sort();
+    dateColumns.push(NO_PLAN_DATE);
+
+    const byRegionProvince = {}; // region -> provinceEn -> {date: count}
+    tickets.forEach(t => {
+      const region = t.Region || '(ไม่ระบุ Region)';
+      const provinceEn = provinceEnLabel(t.PROVINCE);
+      const col = t.plan_closed_date || NO_PLAN_DATE;
+      byRegionProvince[region] = byRegionProvince[region] || {};
+      byRegionProvince[region][provinceEn] = byRegionProvince[region][provinceEn] || {};
+      byRegionProvince[region][provinceEn][col] = (byRegionProvince[region][provinceEn][col] || 0) + 1;
+    });
+
+    const regionOrder = Object.keys(byRegionProvince).sort();
+    const rows = [];
+    regionOrder.forEach(region => {
+      const provinces = Object.keys(byRegionProvince[region]).sort();
+      const subtotalCounts = {};
+      provinces.forEach(prov => {
+        const counts = byRegionProvince[region][prov];
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        rows.push({ label: prov, counts, total });
+        dateColumns.forEach(c => { subtotalCounts[c] = (subtotalCounts[c] || 0) + (counts[c] || 0); });
+      });
+      const subtotalTotal = Object.values(subtotalCounts).reduce((a, b) => a + b, 0);
+      rows.push({ label: `${region} รวม`, counts: subtotalCounts, total: subtotalTotal, isSubtotal: true });
+    });
+    return rows.length ? { date_columns: dateColumns, rows } : null;
+  }
+
+  function renderProvinceByPlanDate(block) {
+    if (!block || !block.rows || !block.rows.length) return '';
+    const today = expTodayStr();
+    const cols = block.date_columns || [];
+    const head = cols.map(c => {
+      const isNoPlan = c.startsWith('(');
+      const isBackdated = !isNoPlan && c < today;
+      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+    }).join('');
+    const rows = block.rows.map((r, i) => {
+      const cells = cols.map(c => {
+        const count = r.counts[c] || 0;
+        const isNoPlan = c.startsWith('(');
+        const isBackdated = !isNoPlan && c < today;
+        const bg = r.isSubtotal ? '' : ((isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '');
+        const fg = (!r.isSubtotal && (isNoPlan || isBackdated) && count > 0) ? '#B23A3A' : '';
+        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''}">${count || '–'}</td>`;
+      }).join('');
+      const rowBg = r.isSubtotal ? 'var(--bg3)' : (i % 2 ? 'var(--bg1)' : 'transparent');
+      return `<tr style="border-top:1px solid var(--border); background:${rowBg};">
+        <td style="padding:7px 10px; min-width:160px; font-weight:${r.isSubtotal ? '700' : '600'};">${escapeHtml(r.label)}</td>
+        ${cells}
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+      </tr>`;
+    }).join('');
+    const nonSubtotalRows = block.rows.filter(r => !r.isSubtotal);
+    const totalCells = cols.map(c => {
+      const sum = nonSubtotalRows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = nonSubtotalRows.reduce((s, r) => s + (r.total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+      </tr>`;
+    return `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${rows}${totalRow}</tbody>
+      </table>`;
+  }
+
   function computeProvinceMissing(tickets) {
     const byProvince = {};
     tickets.forEach(t => {
@@ -5180,46 +5278,33 @@ function renderPivot(ft) {
         <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
-      <div style="flex:2; min-width:360px;">
-        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
-        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
-          <table style="border-collapse:collapse; font-size:12px; width:100%;">
-            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
-              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
-            </tr></thead>
-            <tbody>${rows}${totalRow}</tbody>
-          </table>
-        </div>
-      </div>`;
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${rows}${totalRow}</tbody>
+      </table>`;
   }
 
   function renderExecutiveSummary(data) {
-    const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
-    const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
+    const totalP0 = data.total_over_sla || 0;
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const bookmarkBreakdownCard = `
-      <div style="max-width:420px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
-        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
-        ${bookmarkTotals.map(b => `
-          <div style="margin-bottom:6px;">
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
-              <span style="color:var(--text2);">${escapeHtml(b.bookmark)}</span>
-              <span style="font-weight:700; ${b.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${b.over_total}</span>
-            </div>
-            <div style="height:5px; background:var(--bg4); border-radius:3px; overflow:hidden;">
-              <div style="height:100%; width:${(b.over_total / maxBookmarkTotal) * 100}%; background:#7c3aed;"></div>
-            </div>
-          </div>`).join('')}
+    const totalCard = `
+      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px; display:flex; flex-direction:column; justify-content:center;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">🔴 Total P0</div>
+        <div style="font-size:40px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px;">ticket ทั้งหมดที่เข้าเกณฑ์นี้</div>
       </div>`;
 
     el('exp-kpi-summary').innerHTML = `
       <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
-      ${bookmarkBreakdownCard}`;
+      ${totalCard}`;
   }
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
+  let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province', per-section
 
   function getSectionFilter(bookmark) {
     return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
@@ -5264,7 +5349,18 @@ function renderPivot(ft) {
       const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterExpPlanDateCell');
+      const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
+      const planDateInnerHtml = planMode === 'province'
+        ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets))
+        : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterExpPlanDateCell');
+      const planDateHtml = planDateInnerHtml ? `
+        <div style="flex:2; min-width:360px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planMode === 'province' ? 'Province × Plan Closed Date' : 'Group Problem × Plan Closed Date'}</span>
+            <a href="#" onclick="toggleExpPlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planMode === 'province' ? 'Group Problem' : 'Province'}</a>
+          </div>
+          <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
+        </div>` : '';
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
@@ -5332,6 +5428,10 @@ function renderPivot(ft) {
   };
   window.clearExpSectionFilters = function (bookmark) {
     sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' };
+    if (lastData) render(lastData);
+  };
+  window.toggleExpPlanDateMode = function (bookmark) {
+    sectionPlanDateMode[bookmark] = (sectionPlanDateMode[bookmark] || 'groupProblem') === 'groupProblem' ? 'province' : 'groupProblem';
     if (lastData) render(lastData);
   };
   el('exp-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
@@ -5418,7 +5518,7 @@ function renderPivot(ft) {
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
 
-  el('exp-reload').addEventListener('click', reload);
+  el('exp-reload').addEventListener('click', () => { reload(); loadP0SnapshotComparison('exp'); });
   el('exp-priority-filter').addEventListener('change', reload);
   window.initExclusivePendingTab = function () { if (!loaded) reload(); };
   window.__reloadExp = reload;
@@ -5634,6 +5734,87 @@ function renderPivot(ft) {
     return rows.length ? { date_columns: dateColumns, rows } : null;
   }
 
+  function computeProvincePlanDateMatrix(tickets) {
+    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
+    const dateSet = new Set();
+    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
+    const dateColumns = [...dateSet].sort();
+    dateColumns.push(NO_PLAN_DATE);
+
+    const byRegionProvince = {}; // region -> provinceEn -> {date: count}
+    tickets.forEach(t => {
+      const region = t.Region || '(ไม่ระบุ Region)';
+      const provinceEn = provinceEnLabel(t.PROVINCE);
+      const col = t.plan_closed_date || NO_PLAN_DATE;
+      byRegionProvince[region] = byRegionProvince[region] || {};
+      byRegionProvince[region][provinceEn] = byRegionProvince[region][provinceEn] || {};
+      byRegionProvince[region][provinceEn][col] = (byRegionProvince[region][provinceEn][col] || 0) + 1;
+    });
+
+    const regionOrder = Object.keys(byRegionProvince).sort();
+    const rows = [];
+    regionOrder.forEach(region => {
+      const provinces = Object.keys(byRegionProvince[region]).sort();
+      const subtotalCounts = {};
+      provinces.forEach(prov => {
+        const counts = byRegionProvince[region][prov];
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        rows.push({ label: prov, counts, total });
+        dateColumns.forEach(c => { subtotalCounts[c] = (subtotalCounts[c] || 0) + (counts[c] || 0); });
+      });
+      const subtotalTotal = Object.values(subtotalCounts).reduce((a, b) => a + b, 0);
+      rows.push({ label: `${region} รวม`, counts: subtotalCounts, total: subtotalTotal, isSubtotal: true });
+    });
+    return rows.length ? { date_columns: dateColumns, rows } : null;
+  }
+
+  function renderProvinceByPlanDate(block) {
+    if (!block || !block.rows || !block.rows.length) return '';
+    const today = expTodayStr();
+    const cols = block.date_columns || [];
+    const head = cols.map(c => {
+      const isNoPlan = c.startsWith('(');
+      const isBackdated = !isNoPlan && c < today;
+      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+    }).join('');
+    const rows = block.rows.map((r, i) => {
+      const cells = cols.map(c => {
+        const count = r.counts[c] || 0;
+        const isNoPlan = c.startsWith('(');
+        const isBackdated = !isNoPlan && c < today;
+        const bg = r.isSubtotal ? '' : ((isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '');
+        const fg = (!r.isSubtotal && (isNoPlan || isBackdated) && count > 0) ? '#B23A3A' : '';
+        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''}">${count || '–'}</td>`;
+      }).join('');
+      const rowBg = r.isSubtotal ? 'var(--bg3)' : (i % 2 ? 'var(--bg1)' : 'transparent');
+      return `<tr style="border-top:1px solid var(--border); background:${rowBg};">
+        <td style="padding:7px 10px; min-width:160px; font-weight:${r.isSubtotal ? '700' : '600'};">${escapeHtml(r.label)}</td>
+        ${cells}
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+      </tr>`;
+    }).join('');
+    const nonSubtotalRows = block.rows.filter(r => !r.isSubtotal);
+    const totalCells = cols.map(c => {
+      const sum = nonSubtotalRows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = nonSubtotalRows.reduce((s, r) => s + (r.total || 0), 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+      </tr>`;
+    return `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${rows}${totalRow}</tbody>
+      </table>`;
+  }
+
   function computeProvinceMissing(tickets) {
     const byProvince = {};
     tickets.forEach(t => {
@@ -5696,46 +5877,33 @@ function renderPivot(ft) {
         <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
-      <div style="flex:2; min-width:360px;">
-        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📅 Group Problem × Plan Closed Date</div>
-        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
-          <table style="border-collapse:collapse; font-size:12px; width:100%;">
-            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-              <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
-              <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
-            </tr></thead>
-            <tbody>${rows}${totalRow}</tbody>
-          </table>
-        </div>
-      </div>`;
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Group Problem</th>${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${rows}${totalRow}</tbody>
+      </table>`;
   }
 
   function renderExecutiveSummary(data) {
-    const bookmarkTotals = [...(data.summary || [])].sort((a, b) => b.over_total - a.over_total);
-    const maxBookmarkTotal = Math.max(1, ...bookmarkTotals.map(b => b.over_total));
+    const totalP0 = data.total_over_sla || 0;
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const bookmarkBreakdownCard = `
-      <div style="max-width:420px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #7c3aed; border-radius:var(--r); padding:14px 16px;">
-        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">📌 Over SLA แยกตามกลุ่ม</div>
-        ${bookmarkTotals.map(b => `
-          <div style="margin-bottom:6px;">
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:2px;">
-              <span style="color:var(--text2);">${escapeHtml(b.bookmark)}</span>
-              <span style="font-weight:700; ${b.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${b.over_total}</span>
-            </div>
-            <div style="height:5px; background:var(--bg4); border-radius:3px; overflow:hidden;">
-              <div style="height:100%; width:${(b.over_total / maxBookmarkTotal) * 100}%; background:#7c3aed;"></div>
-            </div>
-          </div>`).join('')}
+    const totalCard = `
+      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px; display:flex; flex-direction:column; justify-content:center;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">🔴 Total P0</div>
+        <div style="font-size:40px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px;">ticket ทั้งหมดที่เข้าเกณฑ์นี้</div>
       </div>`;
 
     el('p0-kpi-summary').innerHTML = `
       <div style="font-size:12px; color:var(--text3); margin-bottom:8px;">สรุปสำหรับผู้บริหาร — ${escapeHtml(dateLabel)}</div>
-      ${bookmarkBreakdownCard}`;
+      ${totalCard}`;
   }
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
+  let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province', per-section
 
   function getSectionFilter(bookmark) {
     return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
@@ -5780,7 +5948,18 @@ function renderPivot(ft) {
       const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
-      const planDateHtml = renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
+      const planDateInnerHtml = planMode === 'province'
+        ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets))
+        : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      const planDateHtml = planDateInnerHtml ? `
+        <div style="flex:2; min-width:360px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planMode === 'province' ? 'Province × Plan Closed Date' : 'Group Problem × Plan Closed Date'}</span>
+            <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planMode === 'province' ? 'Group Problem' : 'Province'}</a>
+          </div>
+          <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
+        </div>` : '';
       const sideBySide = (provinceHtml || planDateHtml)
         ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
         : '';
@@ -5848,6 +6027,10 @@ function renderPivot(ft) {
   };
   window.clearP0SectionFilters = function (bookmark) {
     sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' };
+    if (lastData) render(lastData);
+  };
+  window.toggleP0PlanDateMode = function (bookmark) {
+    sectionPlanDateMode[bookmark] = (sectionPlanDateMode[bookmark] || 'groupProblem') === 'groupProblem' ? 'province' : 'groupProblem';
     if (lastData) render(lastData);
   };
   el('p0-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
@@ -5934,7 +6117,7 @@ function renderPivot(ft) {
     setTimeout(() => { statusEl.textContent = ''; }, 2000);
   });
 
-  el('p0-reload').addEventListener('click', reload);
+  el('p0-reload').addEventListener('click', () => { reload(); loadP0SnapshotComparison('p0'); });
   window.initP0OnlyTab = function () { if (!loaded) reload(); };
   window.__reloadP0 = reload;
 })();

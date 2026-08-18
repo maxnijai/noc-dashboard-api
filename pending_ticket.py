@@ -476,6 +476,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "CINAME": r.get("CINAME", ""),
             "DISTRICT": r.get("DISTRICT", ""),
             "PROVINCE": r.get("PROVINCE", ""),
+            "Region": r.get("Region", ""),
             "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
             "priority": priority,
             "Bookmark": _exclusive_bookmark_label(r.get("Bookmark")),
