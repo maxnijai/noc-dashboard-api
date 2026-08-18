@@ -4885,21 +4885,26 @@ function renderPivot(ft) {
       }).join('');
       const rowClickable = !!clickFn;
       const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
+      const rowTotalOnclick = (rowClickable && r.over_total > 0) ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
         <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(r[rowKey])}</td>
         ${cells}
-        <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'} ${rowTotalOnclick ? 'cursor:pointer;' : ''}" title="${rowTotalOnclick ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${r.over_total}</td>
       </tr>`;
     }).join('');
     const totalCells = agingOrder.map(ag => {
       const sum = bookmarkBlock.rows.reduce((s, r) => s + (r.counts[ag] || 0), 0);
-      return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(ag)}')"` : '';
+      return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุกจังหวัดใน Aging นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = bookmarkBlock.rows.reduce((s, r) => s + (r.over_total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
         <td style="padding:7px 10px;">Total</td>
         ${totalCells}
-        <td style="padding:7px 10px; text-align:center; color:#B23A3A;">${grandTotal}</td>
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; color:#B23A3A; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
@@ -5049,21 +5054,27 @@ function renderPivot(ft) {
         const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','${esc1(c)}')"` : '';
         return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
+      const rowTotalClickable = clickFn && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','')"` : '';
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
         ${cells}
-        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.group_problem) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
     const totalCells = cols.map(c => {
       const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
-      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Group Problem ในวันนี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
         <td style="padding:7px 10px;">Total</td>
         ${totalCells}
-        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
       <div style="flex:2; min-width:360px;">
@@ -5363,21 +5374,26 @@ function renderPivot(ft) {
       }).join('');
       const rowClickable = !!clickFn;
       const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
+      const rowTotalOnclick = (rowClickable && r.over_total > 0) ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
         <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(r[rowKey])}</td>
         ${cells}
-        <td style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'}">${r.over_total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'} ${rowTotalOnclick ? 'cursor:pointer;' : ''}" title="${rowTotalOnclick ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${r.over_total}</td>
       </tr>`;
     }).join('');
     const totalCells = agingOrder.map(ag => {
       const sum = bookmarkBlock.rows.reduce((s, r) => s + (r.counts[ag] || 0), 0);
-      return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(ag)}')"` : '';
+      return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุกจังหวัดใน Aging นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = bookmarkBlock.rows.reduce((s, r) => s + (r.over_total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
         <td style="padding:7px 10px;">Total</td>
         ${totalCells}
-        <td style="padding:7px 10px; text-align:center; color:#B23A3A;">${grandTotal}</td>
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; color:#B23A3A; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
@@ -5527,21 +5543,27 @@ function renderPivot(ft) {
         const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','${esc1(c)}')"` : '';
         return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
+      const rowTotalClickable = clickFn && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.group_problem)}','')"` : '';
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; min-width:180px; font-weight:600;">${escapeHtml(r.group_problem)}</td>
         ${cells}
-        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.group_problem) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
     const totalCells = cols.map(c => {
       const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
-      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Group Problem ในวันนี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
         <td style="padding:7px 10px;">Total</td>
         ${totalCells}
-        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
       <div style="flex:2; min-width:360px;">
