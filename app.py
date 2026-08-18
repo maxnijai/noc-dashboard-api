@@ -2492,6 +2492,31 @@ def api_oncall_seed():
         log.exception("oncall seed failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/admin/add-user', methods=['POST'])
+def api_add_user():
+    """Adds a single login account without needing the SEED_USERS_TOKEN
+    (that token lives in Railway env vars, out of reach for normal admin
+    use) - session-gated to the same admin instead. Default password is
+    the last 4 digits of the phone number; the account is flagged to force
+    a password change on first login, same as every other seeding path."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get('email') or '').strip()
+    name = (payload.get('name') or '').strip()
+    phone = (payload.get('phone') or '').strip()
+    if not email:
+        return jsonify({'error': 'กรุณากรอกอีเมล'}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        created = auth.seed_user(gs_client, email, phone, name=name)
+        if not created:
+            return jsonify({'error': 'มีบัญชีนี้อยู่แล้ว (อีเมลซ้ำ)'}), 400
+        return jsonify({'ok': True, 'email': email})
+    except Exception as e:
+        log.exception("add-user failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/pending-ticket/rename-group-problem', methods=['POST'])
 def api_rename_group_problem():
     """One-time cleanup: renames every existing group_problem value in
