@@ -1197,6 +1197,7 @@ async function loadP0SnapshotComparison(prefix) {
         </div>
         <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
+    if (window.renderTotalP0Compare) window.renderTotalP0Compare(data);
   } catch (e) {
     console.error('Snapshot comparison load failed', e);
     container.innerHTML = `<div style="color:#B23A3A; font-size:12px; display:flex; align-items:center; gap:8px;">โหลดไม่สำเร็จ: ${e.message} <button onclick="loadP0SnapshotComparison('${prefix}')" class="btn-secondary">ลองใหม่</button></div>`;
@@ -5232,15 +5233,42 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  let cachedSnapshotData = null;
+
+  function renderTotalP0CompareInner(snapshotData) {
+    if (!snapshotData) {
+      return `<div style="font-size:12px; color:var(--text3);">กำลังโหลดเทียบกับเมื่อคืน...</div>`;
+    }
+    const totalSnapshot = snapshotData.groups.reduce((s, g) => s + g.snapshot_p0, 0);
+    const totalCurrent = snapshotData.groups.reduce((s, g) => s + g.current_p0, 0);
+    const diff = totalCurrent - totalSnapshot;
+    const diffColor = diff > 0 ? '#B23A3A' : (diff < 0 ? '#639922' : 'var(--text3)');
+    const diffArrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '–');
+    const diffLabel = (diff > 0 ? '+' : '') + diff;
+    return `
+      <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;">เทียบกับเมื่อคืน (01:15)</div>
+      <div style="font-size:26px; font-weight:800; line-height:1;">${totalSnapshot}</div>
+      <div style="font-size:13px; font-weight:700; color:${diffColor}; margin-top:8px;">${diffArrow} ${diffLabel}</div>`;
+  }
+
+  window.renderTotalP0Compare = function (data) {
+    cachedSnapshotData = data;
+    const targetEl = document.getElementById('p0-total-p0-compare');
+    if (targetEl) targetEl.innerHTML = renderTotalP0CompareInner(data);
+  };
+
   function renderExecutiveSummary(data) {
     const totalP0 = data.total_over_sla || 0;
     const dateLabel = new Date().toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
 
     const totalCard = `
-      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px; display:flex; flex-direction:column; justify-content:center;">
-        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">🔴 Total P0</div>
-        <div style="font-size:40px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
-        <div style="font-size:12px; color:var(--text2); margin-top:8px;">ticket ทั้งหมดที่เข้าเกณฑ์นี้</div>
+      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px; display:flex; align-items:stretch; gap:16px;">
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">🔴 Total P0</div>
+          <div style="font-size:40px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+          <div style="font-size:12px; color:var(--text2); margin-top:8px;">ticket ทั้งหมดที่เข้าเกณฑ์นี้</div>
+        </div>
+        <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px; display:flex; flex-direction:column; justify-content:center;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
       </div>`;
 
     el('p0-kpi-summary').innerHTML = `
