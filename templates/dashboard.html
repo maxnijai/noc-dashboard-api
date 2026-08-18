@@ -974,7 +974,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
         <button id="oc-add-note-column" class="btn-secondary" title="เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว)">+ คอลัมน์หมายเหตุ (ครั้งเดียว)</button>
         <button id="oc-repair-columns" class="btn-secondary" title="ซ่อมแนวคอลัมน์ที่เลื่อนผิดตำแหน่ง">🔧 ซ่อมแนวคอลัมน์</button>
-        <button id="oc-dup-shared-supeng" class="btn-secondary" title="คัดลอก Sup/Eng Zone: พิษณุโลก→อุตรดิตถ์, สุโขทัย→กำแพงเพชร">👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด</button>
+        <button id="oc-dup-shared-supeng" class="btn-secondary" title="คัดลอก Sup/Eng Zone: พิษณุโลก→อุตรดิตถ์, สุโขทัย→กำแพงเพชร, เพชรบูรณ์→พิจิตร">👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด</button>
         {% endif %}
         <span style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">
           <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#639922;"></span>Oncall
@@ -6173,8 +6173,9 @@ function renderPivot(ft) {
     const pairs = [
       { source_province: 'พิษณุโลก', target_province: 'อุตรดิตถ์' },
       { source_province: 'สุโขทัย', target_province: 'กำแพงเพชร' },
+      { source_province: 'เพชรบูรณ์', target_province: 'พิจิตร' },
     ];
-    if (!confirm('คัดลอก Sup/Eng Zone: พิษณุโลก → อุตรดิตถ์, สุโขทัย → กำแพงเพชร?\n\nคนที่มีอยู่แล้วในจังหวัดปลายทางจะไม่ถูกซ้ำ')) return;
+    if (!confirm('คัดลอก Sup/Eng Zone: พิษณุโลก → อุตรดิตถ์, สุโขทัย → กำแพงเพชร, เพชรบูรณ์ → พิจิตร?\n\nคนที่มีอยู่แล้วในจังหวัดปลายทางจะไม่ถูกซ้ำ')) return;
     const btn = el('oc-dup-shared-supeng');
     btn.disabled = true;
     btn.textContent = 'กำลังคัดลอก...';
