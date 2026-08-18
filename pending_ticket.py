@@ -296,15 +296,11 @@ def _multi_filter(entries, key, values):
     return [e for e in entries if str(e.get(key, "")).strip() in values_set]
 
 
-def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
-                                   severity_filter=None, district_filter=None, group_problem_filter=None,
-                                   aging_filter=None):
-    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
-    aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
-    filter, include everything in that dimension"."""
-    if gs_client is None:
-        _, gs_client = get_drive_and_sheets_clients()
-
+def _fetch_full_ticket_entries(gs_client):
+    """Builds the full, export-ready ticket entry list (every field
+    EXPORT_HEADER needs) - shared by build_pending_ticket_response and
+    the background-export trigger, so exporting doesn't depend on which
+    page's response function happens to call it."""
     all_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
     today = now_dt.date()
@@ -348,7 +344,40 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
                 pass
         return entry
 
-    all_entries = [build_entry(r) for r in scoped]
+    return [build_entry(r) for r in scoped]
+
+
+def trigger_background_export(gs_client, all_entries=None):
+    """Fire-and-forget mirror export to the external tracking sheet. Called
+    from EVERY page that shows live ticket data (Pending Ticket, P0 Only) -
+    not just Pending Ticket - so the mirror sheet stays fresh no matter
+    which page people are actually working from. Safe to call often: this
+    is exactly what was silently going stale before, because only Pending
+    Ticket's own response builder used to trigger it."""
+    if all_entries is None:
+        all_entries = _fetch_full_ticket_entries(gs_client)
+    export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _export_in_background(entries, insert_time_str):
+        try:
+            export_to_external_sheet(gs_client, entries, insert_time_str)
+        except Exception:
+            log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+
+    threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
+    return export_insert_time
+
+
+def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
+                                   severity_filter=None, district_filter=None, group_problem_filter=None,
+                                   aging_filter=None):
+    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
+    aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
+    filter, include everything in that dimension"."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    all_entries = _fetch_full_ticket_entries(gs_client)
     all_entries.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
 
     present_agings = {str(e.get("Aging_Flag_Group", "")).strip() for e in all_entries if e.get("Aging_Flag_Group")}
@@ -385,19 +414,15 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         str(e.get("group_problem", "")).strip() for e in all_entries if e.get("group_problem")
     })
 
-    # Mirrors the full table to an external tracking sheet. This write can be
-    # slow (700+ rows, full clear+rewrite) and the page doesn't need to wait
-    # on it, so it runs in the background instead of blocking the response -
-    # this was previously the single biggest contributor to page load time.
-    export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    # Mirrors the full table to an external tracking sheet - shared trigger
+    # used by every page that shows live ticket data, not just this one.
+    export_insert_time = trigger_background_export(gs_client, all_entries)
 
-    def _export_in_background(entries, insert_time_str):
-        try:
-            export_to_external_sheet(gs_client, entries, insert_time_str)
-        except Exception:
-            log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
-
-    threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
+    # fetch_live_rows is cached (short TTL), so this is cheap - just need
+    # the raw sheet's own insert_time stamp (not part of LIVE_COLUMNS) to
+    # show how fresh the SOURCE data is, separate from export_insert_time
+    # (when THIS export just ran).
+    all_rows = fetch_live_rows(gs_client)
 
     return {
         "total": len(matched_entries),
@@ -448,6 +473,13 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
     shows literally every P0 ticket, not just the ones already overdue."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
+
+    # Also mirrors the full ticket table to the external tracking sheet -
+    # same trigger Pending Ticket uses. Needed here too: P0 Only is where
+    # the team actually spends most of their time now, so if only Pending
+    # Ticket's own load triggered this, the mirror sheet would silently go
+    # stale on days nobody happens to open that specific tab.
+    trigger_background_export(gs_client)
 
     all_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
