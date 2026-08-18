@@ -483,6 +483,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
             "action_team": wl.get("action_team", ""),
             "detail": wl.get("detail", ""),
+            "image_link": wl.get("image_link", ""),  # preserved so saving from this page never blanks it out
             "plan_closed_date": wl.get("plan_closed_date", ""),
             "over_sla_day": over_sla_day,
         })
@@ -634,6 +635,11 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         # is just when THIS response was built. Same field Pending Ticket
         # shows, so people can tell how fresh the underlying ticket data is.
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
+        # Needed so Exclusive Pending / P0 Only can offer the same inline
+        # edit dropdowns Pending Ticket uses, for the small set of people
+        # allowed to edit from these pages too.
+        "group_problem_options": GROUP_PROBLEM_OPTIONS,
+        "action_team_options": ACTION_TEAM_OPTIONS,
     }
 
 

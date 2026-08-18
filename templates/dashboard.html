@@ -1256,6 +1256,83 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
 });
 
+// ── Inline editing on Exclusive Pending / P0 Only detail tables ────────────
+// Only rendered at all for the small allow-list (CAN_EDIT_FROM_EXCLUSIVE_VIEWS,
+// checked when the table is built), but the save/validate logic itself is
+// shared globally so both pages' tables can use the same handlers.
+function markExDirty(fieldEl) {
+  const row = fieldEl.closest('tr');
+  const btn = row && row.querySelector('.exd-save-btn');
+  if (btn) { btn.disabled = false; }
+}
+
+async function saveExDetailRow(ticketId, btn) {
+  const row = btn.closest('tr');
+  const groupProblemEl = row.querySelector('.exd-group-problem');
+  const actionTeamEl = row.querySelector('.exd-action-team');
+  const detailEl = row.querySelector('.exd-detail');
+  const planDateEl = row.querySelector('.exd-plan-date');
+  [groupProblemEl, actionTeamEl, detailEl, planDateEl].forEach(el => { el.style.outline = ''; el.style.background = ''; });
+
+  if (!groupProblemEl.value) {
+    groupProblemEl.style.outline = '2px solid #dc2626'; groupProblemEl.style.background = '#fee2e2';
+    alert('กรุณาเลือก Group Problem ห้ามว่างครับ'); return;
+  }
+  if (!actionTeamEl.value) {
+    actionTeamEl.style.outline = '2px solid #dc2626'; actionTeamEl.style.background = '#fee2e2';
+    alert('กรุณาเลือก Action Team ห้ามว่างครับ'); return;
+  }
+  const detailVal = detailEl.value.trim();
+  if (!detailVal || !detailVal.includes('/')) {
+    detailEl.style.outline = '2px solid #dc2626'; detailEl.style.background = '#fee2e2';
+    alert('กรุณากรอกรายละเอียดตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมีเครื่องหมาย / คั่น)'); return;
+  }
+  const planDateVal = planDateEl.value;
+  if (!planDateVal) {
+    planDateEl.style.outline = '2px solid #dc2626'; planDateEl.style.background = '#fee2e2';
+    alert('กรุณากรอก Plan Closed Date ห้ามว่างครับ'); return;
+  }
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  if (planDateVal < todayStr) {
+    planDateEl.style.outline = '2px solid #dc2626'; planDateEl.style.background = '#fee2e2';
+    alert('Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบันครับ'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await fetch('/api/pending-ticket/update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticket_id: ticketId, group_problem: groupProblemEl.value, action_team: actionTeamEl.value,
+        detail: detailVal, plan_closed_date: planDateVal, image_link: row.dataset.imageLink || '',
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'save failed');
+    }
+    // Full refresh so the matrix/plan-date/province tables (which are
+    // aggregated from this same edit) stay consistent, on whichever of
+    // Exclusive Pending / P0 Only is currently active.
+    if (window.__reloadExp) window.__reloadExp();
+    if (window.__reloadP0) window.__reloadP0();
+  } catch (e) {
+    console.error('Save detail row failed', e);
+    alert('บันทึกไม่สำเร็จ: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+}
+
+// Current logged-in user's email, and the small allow-list of people who
+// can edit Group Problem/Action Team/รายละเอียด/Plan Closed Date directly
+// from Exclusive Pending / P0 Only (not just Pending Ticket). Everyone else
+// still sees these as read-only text on those two pages.
+const CURRENT_USER_EMAIL = {{ (session.user_email or '') | tojson }};
+const EXCLUSIVE_EDIT_ALLOWED_EMAILS = ['saridphong_n@bbtec.co.th', 'natchawan.b@rfplusthailand.com'];
+const CAN_EDIT_FROM_EXCLUSIVE_VIEWS = EXCLUSIVE_EDIT_ALLOWED_EMAILS.includes(CURRENT_USER_EMAIL);
+
 let NOR1 = new Set();
 
 function setRankType(t) {
@@ -4921,24 +4998,49 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  function renderDetailTable(detailBlock, agingColors) {
+  function optionsHtmlEx(options, selected) {
+    return '<option value=""></option>' + (options || []).map(o =>
+      `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}>${o}</option>`
+    ).join('');
+  }
+
+  function renderDetailTable(detailBlock, agingColors, groupProblemOptions, actionTeamOptions) {
     const today = expTodayStr();
+    const canEdit = CAN_EDIT_FROM_EXCLUSIVE_VIEWS;
     const rows = detailBlock.tickets.map(t => {
       const agColor = agingColors[t.Aging_Flag_Group] || '';
       const planDate = t.plan_closed_date || '';
       const isBackdated = planDate && planDate < today;
+      const tid = escapeHtml(t.TICKETID);
+      const editCells = canEdit ? `
+        <td style="padding:4px 6px; min-width:200px;">
+          <select class="exd-field exd-group-problem" onchange="markExDirty(this)" style="width:100%; font-size:12px;">${optionsHtmlEx(groupProblemOptions, t.group_problem)}</select>
+        </td>
+        <td style="padding:4px 6px; min-width:120px;">
+          <select class="exd-field exd-action-team" onchange="markExDirty(this)" style="width:100%; font-size:12px;">${optionsHtmlEx(actionTeamOptions, t.action_team)}</select>
+        </td>
+        <td style="padding:4px 6px; min-width:220px;">
+          <textarea class="exd-field exd-detail" oninput="markExDirty(this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; font-size:12px; resize:vertical;">${escapeHtml(t.detail)}</textarea>
+        </td>
+        <td style="padding:4px 6px; min-width:130px;">
+          <input type="date" class="exd-field exd-plan-date" value="${escapeHtml(planDate)}" onchange="markExDirty(this)" style="width:100%; font-size:12px;">
+        </td>
+        <td style="padding:4px 6px; min-width:70px;">
+          <button class="btn-secondary exd-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveExDetailRow('${tid}', this)" disabled>Save</button>
+        </td>` : `
+        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
+        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>`;
       return `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+      <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}" data-image-link="${escapeHtml(t.image_link || '')}">
+        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${tid}</td>
         <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
-        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
-        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
-        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>
+        ${editCells}
       </tr>`;
     }).join('');
     return `
@@ -4956,6 +5058,7 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
               <th style="padding:6px 8px; text-align:left;">Plan Closed Date</th>
+              ${canEdit ? '<th style="padding:6px 8px; text-align:left;">Save</th>' : ''}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -5180,7 +5283,7 @@ function renderPivot(ft) {
         : '';
 
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
         : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket over SLA ใน Bookmark นี้'}</div>`;
 
       return `
@@ -5318,6 +5421,7 @@ function renderPivot(ft) {
   el('exp-reload').addEventListener('click', reload);
   el('exp-priority-filter').addEventListener('change', reload);
   window.initExclusivePendingTab = function () { if (!loaded) reload(); };
+  window.__reloadExp = reload;
 })();
 
 // ── P0 ONLY (same as Exclusive Pending, hardcoded to Priority P0) ──────────
@@ -5410,24 +5514,49 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  function renderDetailTable(detailBlock, agingColors) {
+  function optionsHtmlEx(options, selected) {
+    return '<option value=""></option>' + (options || []).map(o =>
+      `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}>${o}</option>`
+    ).join('');
+  }
+
+  function renderDetailTable(detailBlock, agingColors, groupProblemOptions, actionTeamOptions) {
     const today = expTodayStr();
+    const canEdit = CAN_EDIT_FROM_EXCLUSIVE_VIEWS;
     const rows = detailBlock.tickets.map(t => {
       const agColor = agingColors[t.Aging_Flag_Group] || '';
       const planDate = t.plan_closed_date || '';
       const isBackdated = planDate && planDate < today;
+      const tid = escapeHtml(t.TICKETID);
+      const editCells = canEdit ? `
+        <td style="padding:4px 6px; min-width:200px;">
+          <select class="exd-field exd-group-problem" onchange="markExDirty(this)" style="width:100%; font-size:12px;">${optionsHtmlEx(groupProblemOptions, t.group_problem)}</select>
+        </td>
+        <td style="padding:4px 6px; min-width:120px;">
+          <select class="exd-field exd-action-team" onchange="markExDirty(this)" style="width:100%; font-size:12px;">${optionsHtmlEx(actionTeamOptions, t.action_team)}</select>
+        </td>
+        <td style="padding:4px 6px; min-width:220px;">
+          <textarea class="exd-field exd-detail" oninput="markExDirty(this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; font-size:12px; resize:vertical;">${escapeHtml(t.detail)}</textarea>
+        </td>
+        <td style="padding:4px 6px; min-width:130px;">
+          <input type="date" class="exd-field exd-plan-date" value="${escapeHtml(planDate)}" onchange="markExDirty(this)" style="width:100%; font-size:12px;">
+        </td>
+        <td style="padding:4px 6px; min-width:70px;">
+          <button class="btn-secondary exd-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveExDetailRow('${tid}', this)" disabled>Save</button>
+        </td>` : `
+        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
+        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>`;
       return `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+      <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}" data-image-link="${escapeHtml(t.image_link || '')}">
+        <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${tid}</td>
         <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
-        <td style="padding:6px 8px; min-width:200px;">${escapeHtml(t.group_problem)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.action_team)}</td>
-        <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
-        <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>
+        ${editCells}
       </tr>`;
     }).join('');
     return `
@@ -5445,6 +5574,7 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
               <th style="padding:6px 8px; text-align:left;">Plan Closed Date</th>
+              ${canEdit ? '<th style="padding:6px 8px; text-align:left;">Save</th>' : ''}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -5669,7 +5799,7 @@ function renderPivot(ft) {
         : '';
 
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors)}</div>`
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
         : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
 
       return `
@@ -5806,6 +5936,7 @@ function renderPivot(ft) {
 
   el('p0-reload').addEventListener('click', reload);
   window.initP0OnlyTab = function () { if (!loaded) reload(); };
+  window.__reloadP0 = reload;
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
