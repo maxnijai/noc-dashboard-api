@@ -28,7 +28,7 @@ import threading
 import time
 from datetime import datetime, date
 
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS, DRIVE_FOLDER_ID
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -409,41 +409,6 @@ def build_pending_ticket_xlsx(matched_entries):
     wb.save(buf)
     buf.seek(0)
     return buf.read()
-
-
-def export_pending_ticket_to_new_gsheet(gs_client, matched_entries, created_by_email=None):
-    """Creates a brand new standalone Google Sheet with the given ticket
-    entries (for the on-demand 'Export Google Sheet' button - distinct from
-    the always-on background mirror export to a fixed sheet). Shared with
-    the requesting user if an email is given, and made link-viewable so
-    it's easy to forward.
-
-    Created inside the same Drive folder the nightly/hourly backups already
-    live in (DRIVE_FOLDER_ID) rather than the service account's own "My
-    Drive" root - a bare service account has ~0 personal storage quota, so
-    creating a file with no folder_id fails with "Drive storage quota
-    exceeded". That folder is already proven writable/readable by this
-    service account, and being a shared folder (not personal "My Drive"),
-    files inside it draw on the folder owner's/Shared Drive's quota
-    instead."""
-    from datetime import datetime as _dt
-    title = f"Pending Ticket Export {_dt.now().strftime('%Y-%m-%d %H%M')}"
-    sh = gs_client.create(title, folder_id=DRIVE_FOLDER_ID)
-    ws = sh.sheet1
-    ws.update_title("Pending Ticket")
-    rows = [_ticket_to_export_row(t) for t in matched_entries]
-    ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
-    ws.freeze(rows=1)
-    try:
-        sh.share(None, perm_type="anyone", role="reader")  # anyone with the link can view
-    except Exception:
-        log.exception("Could not set link-sharing on export sheet - continuing anyway")
-    if created_by_email:
-        try:
-            sh.share(created_by_email, perm_type="user", role="writer", notify=False)
-        except Exception:
-            log.exception("Could not share export sheet with %s - continuing anyway", created_by_email)
-    return sh.url
 
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,

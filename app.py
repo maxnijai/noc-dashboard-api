@@ -19,7 +19,6 @@ from pending_ticket import (
     rename_group_problem_value,
     build_p0_snapshot_comparison,
     build_pending_ticket_xlsx,
-    export_pending_ticket_to_new_gsheet,
 )
 import oncall
 import oncall_escalation
@@ -2185,21 +2184,6 @@ def api_pending_ticket_export_excel():
         )
     except Exception as e:
         log.exception("pending-ticket export-excel failed")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/pending-ticket/export-gsheet', methods=['POST'])
-def api_pending_ticket_export_gsheet():
-    """Creates a brand new standalone Google Sheet with the currently-
-    filtered Pending Ticket table and returns its URL - separate from the
-    always-on background mirror sheet, this is a fresh snapshot the person
-    can share on demand."""
-    try:
-        _, gs_client = get_drive_and_sheets_clients()
-        data = build_pending_ticket_response(gs_client, **_pending_ticket_filters_from_request())
-        url = export_pending_ticket_to_new_gsheet(gs_client, data.get('tickets', []), created_by_email=session.get('user_email'))
-        return jsonify({'url': url})
-    except Exception as e:
-        log.exception("pending-ticket export-gsheet failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/pending-ticket/update', methods=['POST'])
