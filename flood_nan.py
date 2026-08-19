@@ -25,9 +25,10 @@ import logging
 import threading
 import time
 import uuid
+from datetime import timedelta
 
-from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES, _exclusive_bookmark_label
-from pending_trend import get_drive_and_sheets_clients, bangkok_now
+from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES, _exclusive_bookmark_label, fetch_live_rows
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_nightly_file, download_xlsx_as_rows
 from realtime_monitor import REALTIME_SHEET_ID
 
 log = logging.getLogger(__name__)
@@ -163,6 +164,34 @@ def _last_classification_segment(raw):
     return parts[-1] if parts else raw
 
 
+PRIORITY_SITES = [
+    ("NAN0006", "RF Priority", ""),
+    ("NAN0007", "RF Priority", ""),
+    ("NAN0035", "RF Priority", ""),
+    ("NAN0045", "RF Priority", ""),
+    ("NAN0061", "RF Priority", ""),
+    ("NAN0062", "RF Priority", ""),
+    ("NAN0074", "RF Priority", ""),
+    ("NAN0080", "RF Priority", ""),
+    ("NAN1604", "RF Priority", ""),
+    ("NAN1605", "RF Priority", ""),
+    ("NAN1616", "RF Priority", ""),
+    ("NAN6756", "RF Priority", ""),
+    ("NAN6763", "RF Priority", ""),
+    ("NAN6807", "RF Priority", ""),
+    ("NAN6818", "RF Priority", ""),
+    ("NAN7182", "RF Priority", ""),
+    ("NAN1605", "Evacuation Center", "หอประชุมอำเภอปัว, หอประชุมเทศบาลตำบลปัว"),
+    ("NAN0046", "Evacuation Center", "หอประชุมโรงเรียนชุมชนศิลาเพชร"),
+    ("NAN0137", "Evacuation Center", "วัดป่าเหมือด"),
+    ("NAN7667", "Evacuation Center", "วัดป่าเหมือด"),
+    ("NAN1803", "Evacuation Center", "บริเวณ 3 แยกทางเข้าบ้านดอนไชย"),
+    ("NAN7229", "Evacuation Center", "อบต วรนคร"),
+    ("NAN0169", "Evacuation Center", "อบต วรนคร"),
+    ("NAN7668", "Evacuation Center", "โรงเรียนบ้านเสี้ยว"),
+]
+
+
 def build_flood_nan_response(gs_client=None):
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
@@ -281,8 +310,24 @@ def build_flood_nan_response(gs_client=None):
 
     insert_time = all_entries[0].get("insert_time") if all_entries else None
 
+    # Priority sites (second map) - RF Priority / Evacuation Center, from a
+    # hand-curated list. Looked up from the already-built site_markers
+    # (same ticket-match/color data), grouped since one site can appear
+    # under more than one category (e.g. NAN1605 is both).
+    site_markers_by_id = {s["location_id"].upper(): s for s in site_markers}
+    priority_categories_by_id = {}
+    for code, category, detail in PRIORITY_SITES:
+        priority_categories_by_id.setdefault(code.upper(), []).append({"category": category, "detail": detail})
+    priority_sites = []
+    for code, categories in priority_categories_by_id.items():
+        base = site_markers_by_id.get(code)
+        if base is None:
+            continue
+        priority_sites.append({**base, "priority_categories": categories})
+
     return {
         "sites": site_markers,
+        "priority_sites": priority_sites,
         "tickets": nan_tickets,
         "classification": {
             "severities": CLASSIFICATION_SEVERITIES,
@@ -390,3 +435,108 @@ def set_site_remark(gs_client, location_id, remark, updated_by):
     else:
         ws.append_row([location_id, remark, updated_by, updated_at])
     return {"location_id": location_id, "remark": remark, "updated_by": updated_by, "updated_at": updated_at}
+
+
+# ── Trend charts: from nightly backups, scoped to Nan ───────────────────
+# Each day's classification result is cached forever once computed (past
+# days never change) - only today's point is ever freshly fetched from the
+# live sheet. This keeps repeat requests fast even though the first look
+# at a given day requires downloading and parsing a full ~5MB backup file.
+
+_nan_trend_day_cache = {}
+_nan_trend_cache_lock = threading.Lock()
+
+TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2", "NSA3", "NSA4"]
+
+
+def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
+    """rows: raw ticket row dicts (from fetch_live_rows or a downloaded
+    backup snapshot - same shape either way). Returns (category_counts,
+    sa_mobile_by_district) for tickets matched to a Nan site, the same
+    CINAME-or-SUBJECT matching used for the main map."""
+    counts = {k: 0 for k in TREND_CATEGORIES}
+    sa_mobile_by_district = {}
+    for r in rows:
+        sev = str(r.get("SEVERITY", "")).strip()
+        if sev not in ALLOWED_SEVERITIES:
+            continue
+        ciname = str(r.get("CINAME", "")).strip().upper()
+        subject = str(r.get("SUBJECT", "")).upper()
+        matched = ciname in nan_ids_upper or any(loc in subject for loc in nan_ids_upper)
+        if not matched:
+            continue
+        bm = _exclusive_bookmark_label(r.get("Bookmark"))
+        if bm == "7.MB with SA1-4":
+            counts["SA Mobile"] += 1
+            district = str(r.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
+            sa_mobile_by_district[district] = sa_mobile_by_district.get(district, 0) + 1
+        elif bm == "4.FBB with SA1-4":
+            counts["SA Online"] += 1
+        if sev in ("NSA1", "NSA2"):
+            counts["NSA1-2"] += 1
+        elif sev == "NSA3":
+            counts["NSA3"] += 1
+        elif sev == "NSA4":
+            counts["NSA4"] += 1
+    return counts, sa_mobile_by_district
+
+
+def _get_day_classification(gs_client, drive_service, nan_ids_upper, day, today):
+    """Cached per-date lookup - today always refetched live, past days
+    cached forever once computed (a nightly backup for a finished day
+    never changes)."""
+    date_str = day.strftime("%Y-%m-%d")
+    if day == today:
+        rows = fetch_live_rows(gs_client)
+        return _classify_nan_tickets_for_trend(rows, nan_ids_upper)
+
+    with _nan_trend_cache_lock:
+        cached = _nan_trend_day_cache.get(date_str)
+    if cached is not None:
+        return cached
+
+    file_info = find_nightly_file(drive_service, day)
+    if file_info is None:
+        result = ({k: None for k in TREND_CATEGORIES}, {})
+    else:
+        file_id, _matched_dt, _filename = file_info
+        backup_rows = download_xlsx_as_rows(drive_service, file_id)
+        result = _classify_nan_tickets_for_trend(backup_rows, nan_ids_upper)
+
+    with _nan_trend_cache_lock:
+        _nan_trend_day_cache[date_str] = result
+    return result
+
+
+def build_nan_trends(gs_client, drive_service, days=5, district_days=2):
+    """Returns both trend charts in one pass (they need the same per-day
+    downloads, so computing them together avoids fetching each backup
+    file twice): the 5-category ticket count trend, and the SA-Mobile-only
+    per-district trend for the most recent `district_days` of that range."""
+    sites = fetch_nan_sites(gs_client)
+    nan_ids_upper = {s["location_id"].upper() for s in sites}
+    today = bangkok_now().date()
+    all_days = [today - timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
+
+    dates = []
+    category_series = {k: [] for k in TREND_CATEGORIES}
+    district_by_date = {}
+    for day in all_days:
+        date_str = day.strftime("%Y-%m-%d")
+        dates.append(date_str)
+        counts, dist_counts = _get_day_classification(gs_client, drive_service, nan_ids_upper, day, today)
+        for k in TREND_CATEGORIES:
+            category_series[k].append(counts.get(k))
+        district_by_date[date_str] = dist_counts
+
+    district_dates = dates[-district_days:] if district_days < len(dates) else dates
+    all_districts = sorted({d for date_str in district_dates for d in district_by_date[date_str]})
+    district_series = {
+        d: [district_by_date[date_str].get(d, 0) for date_str in district_dates]
+        for d in all_districts
+    }
+
+    return {
+        "ticket_trend": {"dates": dates, "series": category_series},
+        "district_trend_sa_mobile": {"dates": district_dates, "districts": all_districts, "series": district_series},
+    }

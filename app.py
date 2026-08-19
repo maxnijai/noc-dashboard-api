@@ -2276,6 +2276,21 @@ def api_flood_nan_site_remark():
         log.exception("flood-nan site-remark failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/flood-nan/trends')
+def api_flood_nan_trends():
+    """5-day Nan ticket-count trend (SA Mobile/SA Online/NSA1-2/NSA3/NSA4)
+    plus a 2-day SA-Mobile-only District trend, both built from the
+    nightly ~01:15 Drive backups (today's point uses live data instead).
+    Can be slow on a cold cache - each not-yet-cached day means
+    downloading and parsing a full backup file."""
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        data = flood_nan.build_nan_trends(gs_client, drive_service, days=5, district_days=2)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("flood-nan trends API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/p0-snapshot-comparison')
 def api_p0_snapshot_comparison():
     """P0 count right now vs P0 count at ~01:15 today (from the Drive backup

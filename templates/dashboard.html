@@ -46,6 +46,8 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 .header-brand-sub { font-size:11px; color:var(--text3); letter-spacing:.2px; margin-top:2px; }
 .leaflet-tooltip.boundary-team-tooltip { background: linear-gradient(180deg, rgba(28,33,40,.98), rgba(13,17,23,.98)); color: var(--text); border:1px solid rgba(88,166,255,.32); box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03) inset; border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; letter-spacing:.2px; }
 .leaflet-tooltip.boundary-team-tooltip:before { border-top-color: rgba(18,24,31,.98) !important; }
+.leaflet-tooltip.fn-remark-tooltip { background: linear-gradient(180deg, rgba(31,111,235,.97), rgba(15,58,130,.97)); color: #fff; border:1px solid rgba(255,255,255,.25); box-shadow: 0 6px 18px rgba(0,0,0,.35); border-radius:8px; padding:6px 9px; }
+.leaflet-tooltip.fn-remark-tooltip:before { border-top-color: rgba(15,58,130,.97) !important; }
 .leaflet-popup-content-wrapper { background: linear-gradient(180deg, rgba(22,27,34,.99), rgba(13,17,23,.99)); color: var(--text); border:1px solid rgba(88,166,255,.18); border-radius:12px; box-shadow: 0 12px 36px rgba(0,0,0,.35); }
 .leaflet-popup-tip { background: rgba(18,24,31,.99); }
 
@@ -105,6 +107,8 @@ tbody .oe-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 #fn-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map-wrap.rm-map-fullscreen #fn-map { height: calc(100vh - 32px) !important; }
+#fn-map2-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#fn-map2-wrap.rm-map-fullscreen #fn-map2 { height: calc(100vh - 32px) !important; }
 
 /* Content */
 .content { padding: 20px; flex: 1; }
@@ -1064,9 +1068,41 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span id="fn-filter-chip" style="font-size:11px; margin-left:8px;"></span>
     </div>
 
-    <div id="fn-map-wrap" style="position:relative;">
-      <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-      <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:14px;"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
+      <div style="flex:1; min-width:320px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">🗺️ แผนที่ Ticket ตาม Severity</div>
+        <div id="fn-map-wrap" style="position:relative;">
+          <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
+      </div>
+      <div style="flex:1; min-width:320px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">📍 แผนที่ไซต์สำคัญ (RF Priority / Evacuation Center)</div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:6px; font-size:11px;">
+          <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 0l4 8-4 8-4-8z" fill="#8b949e"/></svg> RF Priority</span>
+          <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 14V6l6-4 6 4v8H2z" fill="#8b949e"/></svg> Evacuation Center</span>
+          <span style="color:var(--text3);">สีจุดตาม Severity เหมือนแผนที่หลัก</span>
+        </div>
+        <div id="fn-map2-wrap" style="position:relative;">
+          <button id="fn-map2-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div id="fn-map2" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Ticket น่าน (5 วันย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
+      <div id="fn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:6px;"></div>
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+        <canvas id="fn-trend-chart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend District — SA Mobile เท่านั้น (2 วันย้อนหลัง)</div>
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+        <canvas id="fn-district-trend-chart" height="90"></canvas>
+      </div>
     </div>
 
     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px;">
@@ -6471,6 +6507,8 @@ function renderPivot(ft) {
   let map = null;
   let markerLayer = null;
   let manualMarkerLayer = null;
+  let map2 = null;
+  let map2Layer = null;
   let lastData = null;
   let manualMarkers = [];
   let addMarkerMode = false;
@@ -6590,6 +6628,81 @@ function renderPivot(ft) {
     });
   }
 
+  function ensureMap2() {
+    if (map2) return;
+    map2 = L.map('fn-map2', { zoomControl: true, preferCanvas: true }).setView([18.78, 100.9], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+    }).addTo(map2);
+    map2Layer = L.layerGroup().addTo(map2);
+
+    const wrap2 = el('fn-map2-wrap');
+    const expandBtn2 = el('fn-map2-expand');
+    expandBtn2.addEventListener('click', () => {
+      const isFull = wrap2.classList.toggle('rm-map-fullscreen');
+      expandBtn2.textContent = isFull ? '✕' : '⛶';
+      expandBtn2.title = isFull ? 'ปิดโหมดเต็มจอ' : 'ขยายเต็มจอ';
+      setTimeout(() => map2.invalidateSize(), 100);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && wrap2.classList.contains('rm-map-fullscreen')) {
+        wrap2.classList.remove('rm-map-fullscreen');
+        expandBtn2.textContent = '⛶';
+        expandBtn2.title = 'ขยายเต็มจอ';
+        setTimeout(() => map2.invalidateSize(), 100);
+      }
+    });
+  }
+
+  function priorityDivIcon(color, category) {
+    const fill = color || '#8b949e';
+    // Diamond for RF Priority, house-shape for Evacuation Center - shape
+    // carries the category, fill color still follows ticket severity.
+    const shape = category === 'Evacuation Center'
+      ? `<path d="M2 15V7l7-5 7 5v8H2z" fill="${fill}" stroke="#fff" stroke-width="1.4"/>`
+      : `<path d="M9 0l7 9-7 9-7-9z" fill="${fill}" stroke="#fff" stroke-width="1.4"/>`;
+    return L.divIcon({
+      className: '', iconSize: [26, 26], iconAnchor: [13, 18], popupAnchor: [0, -16],
+      html: `<svg width="26" height="26" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">${shape}</svg>`,
+    });
+  }
+
+  function priorityPopupHtml(site) {
+    const cats = (site.priority_categories || []).map(c => `${escapeHtml(c.category)}${c.detail ? ' — ' + escapeHtml(c.detail) : ''}`).join('<br>');
+    const rows = (site.tickets || []).map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:3px 6px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:3px 6px;">${escapeHtml(t.SEVERITY)}</td>
+        <td style="padding:3px 6px;">${escapeHtml(t.CREATIONDATE)}</td>
+      </tr>`).join('');
+    const ticketTable = site.tickets && site.tickets.length ? `
+      <table style="border-collapse:collapse; font-size:11px; margin-top:6px;">
+        <thead><tr style="font-weight:700;"><td style="padding:3px 6px;">Ticket</td><td style="padding:3px 6px;">Sev</td><td style="padding:3px 6px;">Created</td></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
+    return `<div style="min-width:200px;">
+      <b>${escapeHtml(site.location_id)}</b><br>
+      <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)}</span><br>
+      <div style="font-size:11px; margin-top:4px; padding:4px 6px; background:var(--bg3); border-radius:6px;">${cats}</div>
+      ${ticketTable}
+    </div>`;
+  }
+
+  function renderMap2(prioritySites) {
+    ensureMap2();
+    map2Layer.clearLayers();
+    (prioritySites || []).forEach(s => {
+      if (s.lat == null || s.lon == null) return;
+      const cats = s.priority_categories || [];
+      const mainCategory = cats.some(c => c.category === 'Evacuation Center') ? 'Evacuation Center' : 'RF Priority';
+      L.marker([s.lat, s.lon], { icon: priorityDivIcon(s.color, mainCategory) })
+        .bindPopup(priorityPopupHtml(s))
+        .addTo(map2Layer);
+    });
+    setTimeout(() => { if (map2) map2.invalidateSize(); }, 50);
+  }
+
+
   function dnDivIcon(color) {
     const fill = color || '#1f6feb';
     return L.divIcon({
@@ -6683,6 +6796,12 @@ function renderPivot(ft) {
       marker.bindPopup(popupHtml(s));
       marker.on('popupopen', () => { popupOpenFor = s.location_id; });
       marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; });
+      if (s.is_dn && s.remark && s.remark.remark) {
+        marker.bindTooltip(
+          `<div style="font-size:11px; max-width:200px; white-space:normal; line-height:1.4;">📝 ${escapeHtml(s.remark.remark)}<br><span style="opacity:.7; font-size:10px;">${escapeHtml(s.remark.updated_by)} · ${escapeHtml(s.remark.updated_at)}</span></div>`,
+          { permanent: true, direction: 'top', offset: [0, -34], className: 'fn-remark-tooltip' }
+        );
+      }
       marker.addTo(markerLayer);
       if (popupOpenFor === s.location_id) {
         setTimeout(() => marker.openPopup(), 60);
@@ -6894,6 +7013,62 @@ function renderPivot(ft) {
     }
   }
 
+  let trendChart = null;
+  let districtTrendChart = null;
+
+  async function loadTrends() {
+    const statusEl = el('fn-trend-status');
+    statusEl.textContent = 'กำลังโหลด trend... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)';
+    try {
+      const res = await fetch('/api/flood-nan/trends');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      renderTrendChart(data.ticket_trend);
+      renderDistrictTrendChart(data.district_trend_sa_mobile);
+      statusEl.textContent = '';
+    } catch (e) {
+      console.error('Flood NAN trends load failed', e);
+      statusEl.textContent = 'โหลด trend ไม่สำเร็จ: ' + e.message;
+    }
+  }
+
+  function renderTrendChart(trend) {
+    if (!trend) return;
+    const ctx = el('fn-trend-chart').getContext('2d');
+    const colors = { 'SA Mobile': '#E24B4A', 'SA Online': '#1f6feb', 'NSA1-2': '#EF9F27', 'NSA3': '#F5C518', 'NSA4': '#a371f7' };
+    const datasets = Object.keys(trend.series).map(key => ({
+      label: key, data: trend.series[key], borderColor: colors[key] || '#8b949e',
+      backgroundColor: (colors[key] || '#8b949e') + '33', tension: 0.25, spanGaps: true,
+    }));
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: trend.dates, datasets },
+      options: {
+        responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function renderDistrictTrendChart(trend) {
+    if (!trend) return;
+    const ctx = el('fn-district-trend-chart').getContext('2d');
+    const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922'];
+    const datasets = trend.districts.map((d, i) => ({
+      label: d, data: trend.series[d], backgroundColor: palette[i % palette.length],
+    }));
+    if (districtTrendChart) districtTrendChart.destroy();
+    districtTrendChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: trend.dates, datasets },
+      options: {
+        responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
+        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
   async function reload() {
     el('fn-status').textContent = 'กำลังโหลด...';
     try {
@@ -6902,6 +7077,7 @@ function renderPivot(ft) {
       const data = await res.json();
       lastData = data;
       renderMap(data.sites || []);
+      renderMap2(data.priority_sites || []);
       renderClassification(data.classification);
       renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่', 'classification');
       renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District', 'district');
@@ -6912,6 +7088,7 @@ function renderPivot(ft) {
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
       loaded = true;
       loadManualMarkers();
+      loadTrends();
     } catch (e) {
       console.error('Flood NAN load failed', e);
       el('fn-status').textContent = '';
