@@ -28,7 +28,7 @@ import threading
 import time
 from datetime import datetime, date
 
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS, DRIVE_FOLDER_ID
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -416,10 +416,19 @@ def export_pending_ticket_to_new_gsheet(gs_client, matched_entries, created_by_e
     entries (for the on-demand 'Export Google Sheet' button - distinct from
     the always-on background mirror export to a fixed sheet). Shared with
     the requesting user if an email is given, and made link-viewable so
-    it's easy to forward."""
+    it's easy to forward.
+
+    Created inside the same Drive folder the nightly/hourly backups already
+    live in (DRIVE_FOLDER_ID) rather than the service account's own "My
+    Drive" root - a bare service account has ~0 personal storage quota, so
+    creating a file with no folder_id fails with "Drive storage quota
+    exceeded". That folder is already proven writable/readable by this
+    service account, and being a shared folder (not personal "My Drive"),
+    files inside it draw on the folder owner's/Shared Drive's quota
+    instead."""
     from datetime import datetime as _dt
     title = f"Pending Ticket Export {_dt.now().strftime('%Y-%m-%d %H%M')}"
-    sh = gs_client.create(title)
+    sh = gs_client.create(title, folder_id=DRIVE_FOLDER_ID)
     ws = sh.sheet1
     ws.update_title("Pending Ticket")
     rows = [_ticket_to_export_row(t) for t in matched_entries]
