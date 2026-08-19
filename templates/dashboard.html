@@ -1045,19 +1045,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
     </div>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px; overflow:hidden;">
-      <div style="padding:8px 14px; background:var(--bg3); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <span style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;">🌊 สถานการณ์น้ำจังหวัดน่าน (Live จาก สสน.)</span>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <a href="https://nan.thaiwater.net/wl" target="_blank" rel="noopener" style="font-size:12px; color:var(--blue);">เปิดเต็มจอในแท็บใหม่ ↗</a>
-          <button id="fn-water-toggle" class="btn-secondary" style="font-size:11px; padding:3px 8px;">ย่อ/ขยาย</button>
+    <a href="https://nan.thaiwater.net/wl" target="_blank" rel="noopener" style="display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px; padding:14px 18px; background:var(--bg2); text-decoration:none; color:inherit;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:22px;">🌊</span>
+        <div>
+          <div style="font-size:13px; font-weight:700;">สถานการณ์น้ำจังหวัดน่าน — สสน. (Live)</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:2px;">ระดับน้ำสถานีต่างๆ ในจังหวัดน่าน อัปเดตสดจากสถาบันสารสนเทศทรัพยากรน้ำ · เว็บนี้ไม่ยอมให้ฝังในหน้าอื่น ต้องเปิดแยก</div>
         </div>
       </div>
-      <div id="fn-water-body">
-        <iframe src="https://nan.thaiwater.net/wl" style="width:100%; height:500px; border:none; display:block;" loading="lazy" title="สถานการณ์น้ำจังหวัดน่าน - สสน."></iframe>
-        <div style="padding:6px 14px; font-size:11px; color:var(--text3); background:var(--bg1);">ข้อมูลจากเว็บสาธารณะของสถาบันสารสนเทศทรัพยากรน้ำ (สสน.) — อัปเดตสดตามต้นทาง ถ้าไม่ขึ้นในกรอบนี้ ให้กด "เปิดเต็มจอในแท็บใหม่" ด้านบนแทน</div>
-      </div>
-    </div>
+      <span style="font-size:12px; color:var(--blue); white-space:nowrap;">เปิดดู ↗</span>
+    </a>
 
     <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
       <span style="font-size:12px; color:var(--text3);">ไปยังพิกัด:</span>
@@ -6901,12 +6898,6 @@ function renderPivot(ft) {
     L.popup().setLatLng([lat, lon]).setContent(`📍 ${lat}, ${lon}`).openOn(map);
   });
   el('fn-goto-lon').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('fn-goto-btn').click(); });
-  if (el('fn-water-toggle')) {
-    el('fn-water-toggle').addEventListener('click', () => {
-      const body = el('fn-water-body');
-      body.style.display = body.style.display === 'none' ? '' : 'none';
-    });
-  }
   el('fn-ticket-only-toggle').addEventListener('click', () => {
     ticketOnly = !ticketOnly;
     const btn = el('fn-ticket-only-toggle');
