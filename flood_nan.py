@@ -437,6 +437,17 @@ def set_site_remark(gs_client, location_id, remark, updated_by):
     return {"location_id": location_id, "remark": remark, "updated_by": updated_by, "updated_at": updated_at}
 
 
+def delete_site_remark(gs_client, location_id):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_site_remarks_tab(sh)
+    location_id = location_id.strip().upper()
+    cell = ws.find(location_id, in_column=1)
+    if cell is None:
+        return False
+    ws.delete_rows(cell.row)
+    return True
+
+
 # ── Trend charts: hourly, from backups, scoped to Nan ───────────────────
 # Each hour's classification result is cached forever once computed (a
 # finished hour's backup never changes) - only the CURRENT hour is ever

@@ -6763,7 +6763,10 @@ function renderPivot(ft) {
           <div style="font-size:12px; white-space:pre-wrap; background:var(--bg3); padding:6px 8px; border-radius:6px;">${escapeHtml(site.remark.remark)}</div>
           <div style="font-size:10px; color:var(--text3); margin-top:4px;">โดย ${escapeHtml(site.remark.updated_by)} · ${escapeHtml(site.remark.updated_at)}</div>
         ` : `<div style="font-size:11px; color:var(--text3);">ยังไม่มี Remark</div>`}
-        <button onclick="window.__fnAddSiteRemark('${site.location_id.replace(/'/g, "\\'")}')" class="btn-secondary" style="margin-top:6px; font-size:11px; padding:3px 8px;">📝 ${site.remark && site.remark.remark ? 'แก้ไข' : 'เพิ่ม'} Remark</button>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <button onclick="window.__fnAddSiteRemark('${site.location_id.replace(/'/g, "\\'")}')" class="btn-secondary" style="font-size:11px; padding:3px 8px;">📝 ${site.remark && site.remark.remark ? 'แก้ไข' : 'เพิ่ม'} Remark</button>
+          ${site.remark && site.remark.remark ? `<button onclick="window.__fnClearSiteRemark('${site.location_id.replace(/'/g, "\\'")}')" class="btn-secondary" style="font-size:11px; padding:3px 8px;">🗑️ ล้าง Remark</button>` : ''}
+        </div>
       </div>` : '';
     return `<div style="min-width:220px;">
       <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#1f6feb; font-weight:700;">💧 DN</span>' : ''}<br>
@@ -6784,6 +6787,19 @@ function renderPivot(ft) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+      popupOpenFor = locationId;
+      reload();
+    } catch (e) {
+      alert('❌ ' + e.message);
+    }
+  };
+
+  window.__fnClearSiteRemark = async function (locationId) {
+    if (!confirm('ล้าง Remark ของไซต์นี้?')) return;
+    try {
+      const res = await fetch('/api/flood-nan/site-remark/' + encodeURIComponent(locationId), { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'ล้างไม่สำเร็จ');
       popupOpenFor = locationId;
       reload();
     } catch (e) {

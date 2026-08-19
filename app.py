@@ -2276,6 +2276,18 @@ def api_flood_nan_site_remark():
         log.exception("flood-nan site-remark failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/flood-nan/site-remark/<location_id>', methods=['DELETE'])
+def api_flood_nan_delete_site_remark(location_id):
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        deleted = flood_nan.delete_site_remark(gs_client, location_id)
+        if not deleted:
+            return jsonify({'error': 'not found'}), 404
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.exception("flood-nan delete site-remark failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/flood-nan/trends')
 def api_flood_nan_trends():
     """24-hour Nan ticket-count trend (SA Mobile/SA Online/NSA1-2/NSA3/NSA4)
