@@ -21,6 +21,7 @@ from pending_ticket import (
 )
 import oncall
 import oncall_escalation
+import flood_nan
 import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -2207,6 +2208,20 @@ def api_exclusive_pending():
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/flood-nan')
+def api_flood_nan():
+    """Every known Nan-province site plotted on a map, color-coded by the
+    worst open ticket severity matched to that site (LOCATION ID ==
+    CINAME), plus a Nan-only ticket detail table and a severity x Bookmark
+    classification matrix."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = flood_nan.build_flood_nan_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("flood-nan API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-snapshot-comparison')
