@@ -26,7 +26,7 @@ import threading
 import time
 import uuid
 
-from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES
+from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES, _exclusive_bookmark_label
 from pending_trend import get_drive_and_sheets_clients, bangkok_now
 from realtime_monitor import REALTIME_SHEET_ID
 
@@ -170,6 +170,12 @@ def build_flood_nan_response(gs_client=None):
 
     # Only tickets with a real severity are relevant to plot/count.
     live_entries = [t for t in all_entries if str(t.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES]
+    # Relabel Bookmark the same way Exclusive Pending / P0 Only do (raw
+    # values only ever cover the 3 named categories - anything else,
+    # including every NSA3/NSA4 ticket, needs this to land in the "NSA3-4"
+    # catch-all instead of never matching anything downstream).
+    for t in live_entries:
+        t["Bookmark"] = _exclusive_bookmark_label(t.get("Bookmark"))
     tickets_by_ciname = {}
     for t in live_entries:
         ciname = str(t.get("CINAME", "")).strip().upper()
@@ -220,8 +226,7 @@ def build_flood_nan_response(gs_client=None):
         sev = str(t.get("SEVERITY", "")).strip()
         if sev not in CLASSIFICATION_SEVERITIES:
             continue
-        bm_raw = str(t.get("Bookmark", "")).strip()
-        label = bookmark_lookup.get(bm_raw)
+        label = bookmark_lookup.get(str(t.get("Bookmark", "")).strip())
         if label:
             matrix[sev][label] += 1
 

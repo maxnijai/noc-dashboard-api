@@ -6629,7 +6629,7 @@ function renderPivot(ft) {
   function renderMap(sites) {
     ensureMap();
     markerLayer.clearLayers();
-    let visible = ticketOnly ? sites.filter(s => s.color) : sites;
+    let visible = ticketOnly ? sites.filter(s => s.color || s.is_dn) : sites;
     if (isFilterActive()) visible = visible.filter(siteMatchesFilter);
     visible.forEach(s => {
       if (s.lat == null || s.lon == null) return;
