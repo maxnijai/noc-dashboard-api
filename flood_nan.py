@@ -54,7 +54,7 @@ CLASSIFICATION_BOOKMARKS = [
     ("NSA1-2", "3. All NW Incident NSA1-2"),
     ("NSA3-4", "NSA3-4"),
 ]
-CLASSIFICATION_SEVERITIES = ["SA1", "SA2", "SA3", "SA4"]
+CLASSIFICATION_SEVERITIES = ["SA1", "SA2", "SA3", "SA4", "NSA1", "NSA2", "NSA3", "NSA4"]
 
 _site_cache = {"data": None, "ts": 0}
 _cache_lock = threading.Lock()
