@@ -210,7 +210,7 @@ def build_flood_nan_response(gs_client=None):
                 "CREATIONDATE": t.get("CREATIONDATE", ""), "CINAME": t.get("CINAME", ""),
                 "DISTRICT": t.get("DISTRICT", ""), "SUBDISTRICT": t.get("SUBDISTRICT", ""),
                 "SUBJECT": t.get("SUBJECT", ""), "Bookmark": t.get("Bookmark", ""),
-                "CLASSIFICATION": t.get("CLASSIFICATION", ""),
+                "CLASSIFICATION": t.get("CLASSIFICATION", ""), "Subimpact": t.get("Subimpact", ""),
             } for t in matches],
         })
         for t in matches:
@@ -229,6 +229,24 @@ def build_flood_nan_response(gs_client=None):
         label = bookmark_lookup.get(str(t.get("Bookmark", "")).strip())
         if label:
             matrix[sev][label] += 1
+
+    # Subimpact breakdown per severity row - inserted into the same
+    # Severity x Bookmark table as an extra column, since Subimpact is a
+    # sub-category of what's already broken out by severity there.
+    subimpact_by_severity = {sev: {} for sev in CLASSIFICATION_SEVERITIES}
+    for t in nan_tickets:
+        sev = str(t.get("SEVERITY", "")).strip()
+        if sev not in CLASSIFICATION_SEVERITIES:
+            continue
+        sub = str(t.get("Subimpact", "")).strip() or "(ไม่ระบุ)"
+        subimpact_by_severity[sev][sub] = subimpact_by_severity[sev].get(sub, 0) + 1
+    subimpact_by_severity = {
+        sev: sorted(
+            [{"label": k, "total": v} for k, v in vals.items()],
+            key=lambda r: r["total"], reverse=True,
+        )
+        for sev, vals in subimpact_by_severity.items()
+    }
 
     # CLASSIFICATION summary - last (most specific) segment, counted.
     classification_totals = {}
@@ -255,6 +273,18 @@ def build_flood_nan_response(gs_client=None):
     # sites to check first (important/generator-equipped AND affected).
     dn_sites_with_tickets = [s for s in site_markers if s["is_dn"] and s["tickets"]]
 
+    # Unique SITE count per Bookmark group - distinct from the ticket-count
+    # matrix above, since one site can have several open tickets and a
+    # ticket-count view would overstate how many physical sites are
+    # actually affected.
+    affected_sites = [s for s in site_markers if s["tickets"]]
+    unique_sites_by_bookmark = []
+    for label, raw in CLASSIFICATION_BOOKMARKS:
+        count = sum(1 for s in affected_sites if any(t.get("Bookmark") == raw for t in s["tickets"]))
+        unique_sites_by_bookmark.append({"bookmark": label, "total": count})
+
+    insert_time = all_entries[0].get("insert_time") if all_entries else None
+
     return {
         "sites": site_markers,
         "tickets": nan_tickets,
@@ -263,9 +293,13 @@ def build_flood_nan_response(gs_client=None):
             "bookmarks": [label for label, _ in CLASSIFICATION_BOOKMARKS],
             "matrix": matrix,
         },
+        "subimpact_by_severity": subimpact_by_severity,
         "classification_summary": classification_summary,
         "district_summary": district_summary,
         "dn_sites_with_tickets": dn_sites_with_tickets,
+        "unique_sites_by_bookmark": unique_sites_by_bookmark,
+        "unique_sites_affected": len(affected_sites),
+        "insert_time": insert_time,
         "total_sites": len(site_markers),
         "total_tickets": len(nan_tickets),
     }

@@ -43,7 +43,7 @@ BOOKMARK_SORT_ORDER = ["7.MB with SA1-4", "4.FBB with SA1-4", "3. All NW Inciden
 LIVE_COLUMNS = [
     "TICKETID", "CREATIONDATE", "TARGETFINISH", "SEVERITY", "SUBJECT", "CINAME",
     "TRUEOWNERGROUP", "Bookmark", "Aging_Flag_Group", "SUBDISTRICT", "DISTRICT",
-    "Tech_Team", "Tech_Status", "CLASSIFICATION",
+    "Tech_Team", "Tech_Status", "CLASSIFICATION", "Subimpact",
 ]
 
 GROUP_PROBLEM_OPTIONS = [
