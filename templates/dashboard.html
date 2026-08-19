@@ -1097,7 +1097,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:6px;">📈 Trend Ticket น่าน (24 ชั่วโมงย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+        <div style="font-size:13px; font-weight:700;">📈 Trend Ticket น่าน (24 ชั่วโมงย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
+        <button id="fn-trend-reload" class="btn-secondary" style="font-size:11px; padding:3px 10px;">🔄 รีเฟรช Trend</button>
+      </div>
       <div id="fn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:8px;"></div>
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-trend-chart" height="90"></canvas>
@@ -7131,7 +7134,6 @@ function renderPivot(ft) {
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
       loaded = true;
       loadManualMarkers();
-      loadTrends();
     } catch (e) {
       console.error('Flood NAN load failed', e);
       el('fn-status').textContent = '';
@@ -7149,6 +7151,7 @@ function renderPivot(ft) {
     L.popup().setLatLng([lat, lon]).setContent(`📍 ${lat}, ${lon}`).openOn(map);
   });
   el('fn-goto-lon').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('fn-goto-btn').click(); });
+  if (el('fn-trend-reload')) el('fn-trend-reload').addEventListener('click', loadTrends);
   el('fn-ticket-only-toggle').addEventListener('click', () => {
     ticketOnly = !ticketOnly;
     const btn = el('fn-ticket-only-toggle');
@@ -7166,7 +7169,11 @@ function renderPivot(ft) {
     ensureMap();
     if (map) map.getContainer().style.cursor = addMarkerMode ? 'crosshair' : '';
   });
-  window.initFloodNanTab = function () { if (!loaded) reload(); };
+  let trendsLoaded = false;
+  window.initFloodNanTab = function () {
+    if (!loaded) reload();
+    if (!trendsLoaded) { trendsLoaded = true; loadTrends(); }
+  };
 })();
 </script>
 </body>

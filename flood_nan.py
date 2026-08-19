@@ -356,7 +356,17 @@ def _ensure_markers_tab(spreadsheet):
         return ws
 
 
-def list_manual_markers(gs_client):
+_manual_markers_cache = {"data": None, "ts": 0}
+_manual_markers_lock = threading.Lock()
+MANUAL_MARKERS_CACHE_TTL_SECONDS = 20
+
+
+def list_manual_markers(gs_client, use_cache=True):
+    now = time.monotonic()
+    if use_cache:
+        with _manual_markers_lock:
+            if _manual_markers_cache["data"] is not None and (now - _manual_markers_cache["ts"]) < MANUAL_MARKERS_CACHE_TTL_SECONDS:
+                return _manual_markers_cache["data"]
     sh = gs_client.open_by_key(REALTIME_SHEET_ID)
     ws = _ensure_markers_tab(sh)
     rows = ws.get_all_values()[1:]
@@ -373,7 +383,17 @@ def list_manual_markers(gs_client):
             "id": padded[0], "lat": lat, "lon": lon, "remark": padded[3],
             "created_by": padded[4], "created_at": padded[5],
         })
+    if use_cache:
+        with _manual_markers_lock:
+            _manual_markers_cache["data"] = out
+            _manual_markers_cache["ts"] = now
     return out
+
+
+def _invalidate_manual_markers_cache():
+    with _manual_markers_lock:
+        _manual_markers_cache["data"] = None
+        _manual_markers_cache["ts"] = 0
 
 
 def add_manual_marker(gs_client, lat, lon, remark, created_by):
@@ -382,6 +402,7 @@ def add_manual_marker(gs_client, lat, lon, remark, created_by):
     marker_id = uuid.uuid4().hex[:12]
     created_at = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     ws.append_row([marker_id, lat, lon, remark, created_by, created_at])
+    _invalidate_manual_markers_cache()
     return {"id": marker_id, "lat": lat, "lon": lon, "remark": remark, "created_by": created_by, "created_at": created_at}
 
 
@@ -392,6 +413,7 @@ def delete_manual_marker(gs_client, marker_id):
     if cell is None:
         return False
     ws.delete_rows(cell.row)
+    _invalidate_manual_markers_cache()
     return True
 
 
@@ -408,8 +430,18 @@ def _ensure_site_remarks_tab(spreadsheet):
         return ws
 
 
-def get_site_remarks(gs_client):
+_site_remarks_cache = {"data": None, "ts": 0}
+_site_remarks_lock = threading.Lock()
+SITE_REMARKS_CACHE_TTL_SECONDS = 30
+
+
+def get_site_remarks(gs_client, use_cache=True):
     """Returns {LOCATION_ID (upper): {remark, updated_by, updated_at}}."""
+    now = time.monotonic()
+    if use_cache:
+        with _site_remarks_lock:
+            if _site_remarks_cache["data"] is not None and (now - _site_remarks_cache["ts"]) < SITE_REMARKS_CACHE_TTL_SECONDS:
+                return _site_remarks_cache["data"]
     sh = gs_client.open_by_key(REALTIME_SHEET_ID)
     ws = _ensure_site_remarks_tab(sh)
     rows = ws.get_all_values()[1:]
@@ -421,7 +453,17 @@ def get_site_remarks(gs_client):
         out[padded[0].strip().upper()] = {
             "remark": padded[1], "updated_by": padded[2], "updated_at": padded[3],
         }
+    if use_cache:
+        with _site_remarks_lock:
+            _site_remarks_cache["data"] = out
+            _site_remarks_cache["ts"] = now
     return out
+
+
+def _invalidate_site_remarks_cache():
+    with _site_remarks_lock:
+        _site_remarks_cache["data"] = None
+        _site_remarks_cache["ts"] = 0
 
 
 def set_site_remark(gs_client, location_id, remark, updated_by):
@@ -434,6 +476,7 @@ def set_site_remark(gs_client, location_id, remark, updated_by):
         ws.update(f"B{cell.row}:D{cell.row}", [[remark, updated_by, updated_at]])
     else:
         ws.append_row([location_id, remark, updated_by, updated_at])
+    _invalidate_site_remarks_cache()
     return {"location_id": location_id, "remark": remark, "updated_by": updated_by, "updated_at": updated_at}
 
 
@@ -445,6 +488,7 @@ def delete_site_remark(gs_client, location_id):
     if cell is None:
         return False
     ws.delete_rows(cell.row)
+    _invalidate_site_remarks_cache()
     return True
 
 
