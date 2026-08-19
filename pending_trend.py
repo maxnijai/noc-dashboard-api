@@ -120,16 +120,18 @@ REQUIRED_COLUMNS = ["Region", "SEVERITY", "TRUEOWNERGROUP", "Aging_Flag_Group", 
 # ---------------------------------------------------------------------------
 
 def get_drive_and_sheets_clients():
-    """Single service-account credential, scoped for both Sheets (read) and Drive (read).
-    NOTE: the existing get_client() in app.py only requests the spreadsheets.readonly
-    scope - extend it (or use this standalone function) so the same service account
-    can also list/download files from the Sheet_Backups folder."""
+    """Single service-account credential, scoped for Sheets (read+write) and
+    Drive (read+write). Was drive.readonly - just needed to list/download
+    files from the Sheet_Backups folder - but creating a brand new Google
+    Sheet (the on-demand Pending Ticket export button) goes through the
+    Drive API too and needs write access to make a new file, so this is
+    the full 'drive' scope now, not just 'drive.readonly'."""
     info = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
     creds = Credentials.from_service_account_info(
         info,
         scopes=[
             "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive.readonly",
+            "https://www.googleapis.com/auth/drive",
         ],
     )
     gs_client = gspread.authorize(creds)
