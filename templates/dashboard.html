@@ -1029,6 +1029,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ในจังหวัดน่าน แยกสีตาม Severity ของ ticket ที่เปิดอยู่ (จับคู่ LOCATION ID = CINAME)</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <button id="fn-ticket-only-toggle" class="btn-secondary" title="ซ่อนไซต์ที่ไม่มี ticket เปิดอยู่">🔍 แสดงเฉพาะไซต์ที่มี Ticket</button>
         <button id="fn-add-marker-toggle" class="btn-secondary" title="เปิดโหมดแล้วคลิกบนแผนที่เพื่อปักหมุด Remark">📍 โหมดเพิ่มหมุด</button>
         <button id="fn-reload" class="btn-secondary">Refresh</button>
         <span id="fn-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
@@ -6442,6 +6443,7 @@ function renderPivot(ft) {
   let lastData = null;
   let manualMarkers = [];
   let addMarkerMode = false;
+  let ticketOnly = false;
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -6544,7 +6546,8 @@ function renderPivot(ft) {
   function renderMap(sites) {
     ensureMap();
     markerLayer.clearLayers();
-    sites.forEach(s => {
+    const visible = ticketOnly ? sites.filter(s => s.color) : sites;
+    visible.forEach(s => {
       if (s.lat == null || s.lon == null) return;
       if (s.is_dn) {
         L.marker([s.lat, s.lon], { icon: dnDivIcon(s.color) }).bindPopup(popupHtml(s)).addTo(markerLayer);
@@ -6692,6 +6695,14 @@ function renderPivot(ft) {
   }
 
   el('fn-reload').addEventListener('click', reload);
+  el('fn-ticket-only-toggle').addEventListener('click', () => {
+    ticketOnly = !ticketOnly;
+    const btn = el('fn-ticket-only-toggle');
+    btn.textContent = ticketOnly ? '🔍 แสดงทุกไซต์' : '🔍 แสดงเฉพาะไซต์ที่มี Ticket';
+    btn.style.background = ticketOnly ? '#E24B4A' : '';
+    btn.style.color = ticketOnly ? '#fff' : '';
+    if (lastData) renderMap(lastData.sites || []);
+  });
   el('fn-add-marker-toggle').addEventListener('click', () => {
     addMarkerMode = !addMarkerMode;
     const btn = el('fn-add-marker-toggle');
