@@ -511,10 +511,12 @@ TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2", "NSA3", "NSA4"]
 def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
     """rows: raw ticket row dicts (from fetch_live_rows or a downloaded
     backup snapshot - same shape either way). Returns (category_counts,
-    sa_mobile_by_district) for tickets matched to a Nan site, the same
-    CINAME-or-SUBJECT matching used for the main map."""
+    sa_mobile_by_district, sa_mobile_by_classification) for tickets matched
+    to a Nan site, the same CINAME-or-SUBJECT matching used for the main
+    map."""
     counts = {k: 0 for k in TREND_CATEGORIES}
     sa_mobile_by_district = {}
+    sa_mobile_by_classification = {}
     for r in rows:
         sev = str(r.get("SEVERITY", "")).strip()
         if sev not in ALLOWED_SEVERITIES:
@@ -529,6 +531,8 @@ def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
             counts["SA Mobile"] += 1
             district = str(r.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
             sa_mobile_by_district[district] = sa_mobile_by_district.get(district, 0) + 1
+            cat = _last_classification_segment(r.get("CLASSIFICATION"))
+            sa_mobile_by_classification[cat] = sa_mobile_by_classification.get(cat, 0) + 1
         elif bm == "4.FBB with SA1-4":
             counts["SA Online"] += 1
         if sev in ("NSA1", "NSA2"):
@@ -537,7 +541,7 @@ def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
             counts["NSA3"] += 1
         elif sev == "NSA4":
             counts["NSA4"] += 1
-    return counts, sa_mobile_by_district
+    return counts, sa_mobile_by_district, sa_mobile_by_classification
 
 
 def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour):
@@ -558,7 +562,7 @@ def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, c
     search_target = hour_dt.replace(minute=29)
     file_info = find_closest_file(drive_service, search_target, window_minutes=25)
     if file_info is None:
-        result = ({k: None for k in TREND_CATEGORIES}, {})
+        result = ({k: None for k in TREND_CATEGORIES}, {}, {})
     else:
         file_id, _matched_dt, _filename = file_info
         backup_rows = download_xlsx_as_rows(drive_service, file_id)
@@ -569,11 +573,13 @@ def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, c
     return result
 
 
-def build_nan_trends(gs_client, drive_service, hours=24):
-    """Returns both trend charts in one pass (they need the same per-hour
+def build_nan_trends(gs_client, drive_service, hours=24, top_classifications=6):
+    """Returns three trend charts in one pass (they need the same per-hour
     downloads, so computing them together avoids fetching each backup file
-    twice): the 5-category hourly ticket count trend, and the SA-Mobile-only
-    per-district hourly trend, both over the last `hours` hours."""
+    3x): the 5-category hourly ticket count trend, the SA-Mobile-only
+    per-district hourly trend, and the SA-Mobile-only per-Classification
+    hourly trend (top N categories by total volume, rest folded into
+    'Other'), all over the last `hours` hours."""
     sites = fetch_nan_sites(gs_client)
     nan_ids_upper = {s["location_id"].upper() for s in sites}
     current_hour = bangkok_now().replace(minute=0, second=0, microsecond=0)
@@ -582,13 +588,15 @@ def build_nan_trends(gs_client, drive_service, hours=24):
     labels = []
     category_series = {k: [] for k in TREND_CATEGORIES}
     district_by_hour = {}
+    classification_by_hour = {}
     for hour_dt in all_hours:
         hour_key = hour_dt.strftime("%Y-%m-%dT%H:00")
         labels.append(hour_key)
-        counts, dist_counts = _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour)
+        counts, dist_counts, class_counts = _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour)
         for k in TREND_CATEGORIES:
             category_series[k].append(counts.get(k))
         district_by_hour[hour_key] = dist_counts
+        classification_by_hour[hour_key] = class_counts
 
     all_districts = sorted({d for hour_key in labels for d in district_by_hour[hour_key]})
     district_series = {
@@ -596,8 +604,29 @@ def build_nan_trends(gs_client, drive_service, hours=24):
         for d in all_districts
     }
 
+    # Pick the top-N Classification categories by total volume across the
+    # whole window, folding everything else into "Other" - an unbounded
+    # categorical field would otherwise produce an unreadable number of lines.
+    classification_totals = {}
+    for hour_key in labels:
+        for cat, n in classification_by_hour[hour_key].items():
+            classification_totals[cat] = classification_totals.get(cat, 0) + (n or 0)
+    top_cats = [c for c, _ in sorted(classification_totals.items(), key=lambda kv: kv[1], reverse=True)[:top_classifications]]
+    has_other = len(classification_totals) > len(top_cats)
+    classification_series = {
+        cat: [classification_by_hour[hour_key].get(cat, 0) for hour_key in labels]
+        for cat in top_cats
+    }
+    if has_other:
+        other_cats = set(classification_totals) - set(top_cats)
+        classification_series["Other"] = [
+            sum(classification_by_hour[hour_key].get(c, 0) for c in other_cats)
+            for hour_key in labels
+        ]
+
     return {
         "ticket_trend": {"dates": labels, "series": category_series},
         "district_trend_sa_mobile": {"dates": labels, "districts": all_districts, "series": district_series},
+        "classification_trend_sa_mobile": {"dates": labels, "categories": list(classification_series.keys()), "series": classification_series},
     }
 

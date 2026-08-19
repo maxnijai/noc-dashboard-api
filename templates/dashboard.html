@@ -1115,6 +1115,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Classification — SA Mobile เท่านั้น (24 ชั่วโมงย้อนหลัง)</div>
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+        <canvas id="fn-classification-trend-chart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="display:flex; flex-wrap:wrap; gap:16px;">
         <div style="flex:1; min-width:280px;">
           <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
@@ -7093,6 +7100,7 @@ function renderPivot(ft) {
 
   let trendChart = null;
   let districtTrendChart = null;
+  let classificationTrendChart = null;
 
   async function loadTrends() {
     const statusEl = el('fn-trend-status');
@@ -7103,6 +7111,7 @@ function renderPivot(ft) {
       const data = await res.json();
       renderTrendChart(data.ticket_trend);
       renderDistrictTrendChart(data.district_trend_sa_mobile);
+      renderClassificationTrendChart(data.classification_trend_sa_mobile);
       statusEl.textContent = '';
     } catch (e) {
       console.error('Flood NAN trends load failed', e);
@@ -7150,6 +7159,26 @@ function renderPivot(ft) {
       data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
+      },
+    });
+  }
+
+  function renderClassificationTrendChart(trend) {
+    if (!trend) return;
+    const ctx = el('fn-classification-trend-chart').getContext('2d');
+    const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922'];
+    const datasets = trend.categories.map((c, i) => ({
+      label: c, data: trend.series[c], borderColor: c === 'Other' ? '#8b949e' : palette[i % palette.length],
+      backgroundColor: (c === 'Other' ? '#8b949e' : palette[i % palette.length]) + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
+      borderDash: c === 'Other' ? [4, 3] : undefined,
+    }));
+    if (classificationTrendChart) classificationTrendChart.destroy();
+    classificationTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: trend.dates.map(formatHourLabel), datasets },
+      options: {
+        responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }, datalabels: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
       },
     });
