@@ -1029,6 +1029,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ในจังหวัดน่าน แยกสีตาม Severity ของ ticket ที่เปิดอยู่ (จับคู่ LOCATION ID = CINAME)</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <button id="fn-add-marker-toggle" class="btn-secondary" title="เปิดโหมดแล้วคลิกบนแผนที่เพื่อปักหมุด Remark">📍 โหมดเพิ่มหมุด</button>
         <button id="fn-reload" class="btn-secondary">Refresh</button>
         <span id="fn-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
       </div>
@@ -1039,7 +1040,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block;"></span> NSA1-2</span>
       <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#F5C518;display:inline-block;"></span> NSA3-4</span>
       <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b949e;display:inline-block;"></span> ไม่มี ticket เปิดอยู่</span>
-      <span style="display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 0l2 5 5.5.5-4 3.8L12.7 15 8 12l-4.7 3 1.2-5.7-4-3.8L6 5z" fill="#a371f7"/></svg> ไซต์สำคัญ (DN)</span>
+      <span style="display:flex; align-items:center; gap:5px;"><svg width="14" height="17" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#1f6feb"/><path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/></svg> ไซต์สำคัญ (DN)</span>
+      <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
     </div>
 
     <div id="fn-map-wrap" style="position:relative;">
@@ -1047,8 +1049,20 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="fn-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:14px;"></div>
     </div>
 
-    <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
-    <div id="fn-classification" style="margin-bottom:18px;"></div>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px;">
+      <div style="flex:1; min-width:280px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
+        <div id="fn-classification"></div>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗂️ Classification (สรุปตามหมวดหมู่)</div>
+        <div id="fn-classification-summary"></div>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 District × จำนวน Ticket</div>
+        <div id="fn-district-summary"></div>
+      </div>
+    </div>
 
     <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
     <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
@@ -6424,7 +6438,10 @@ function renderPivot(ft) {
   let loaded = false;
   let map = null;
   let markerLayer = null;
+  let manualMarkerLayer = null;
   let lastData = null;
+  let manualMarkers = [];
+  let addMarkerMode = false;
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -6446,6 +6463,14 @@ function renderPivot(ft) {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+    manualMarkerLayer = L.layerGroup().addTo(map);
+
+    map.on('click', (e) => {
+      if (!addMarkerMode) return;
+      const remark = prompt('ข้อความ Remark สำหรับหมุดนี้:');
+      if (remark === null || !remark.trim()) return;
+      addManualMarker(e.latlng.lat, e.latlng.lng, remark.trim());
+    });
 
     const wrap = el('fn-map-wrap');
     const expandBtn = el('fn-map-expand');
@@ -6467,8 +6492,21 @@ function renderPivot(ft) {
 
   function dnDivIcon() {
     return L.divIcon({
-      className: '', iconSize: [22, 22], iconAnchor: [11, 11],
-      html: `<svg width="22" height="22" viewBox="0 0 16 16"><path d="M8 0l2 5 5.5.5-4 3.8L12.7 15 8 12l-4.7 3 1.2-5.7-4-3.8L6 5z" fill="#a371f7" stroke="#fff" stroke-width="0.5"/></svg>`,
+      className: '', iconSize: [34, 42], iconAnchor: [17, 42], popupAnchor: [0, -38],
+      html: `<svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#1f6feb" stroke="#fff" stroke-width="2"/>
+        <path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/>
+      </svg>`,
+    });
+  }
+
+  function manualDivIcon() {
+    return L.divIcon({
+      className: '', iconSize: [26, 32], iconAnchor: [13, 32], popupAnchor: [0, -28],
+      html: `<svg width="26" height="32" viewBox="0 0 26 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 0C5.8 0 0 5.8 0 13c0 9.7 13 19 13 19s13-9.3 13-19C26 5.8 20.2 0 13 0z" fill="#ff7b72" stroke="#fff" stroke-width="1.6"/>
+        <circle cx="13" cy="13" r="4" fill="#fff"/>
+      </svg>`,
     });
   }
 
@@ -6487,10 +6525,18 @@ function renderPivot(ft) {
         <tbody>${rows}</tbody>
       </table>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
     return `<div style="min-width:220px;">
-      <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#a371f7;">★ DN</span>' : ''}<br>
+      <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#1f6feb; font-weight:700;">💧 DN</span>' : ''}<br>
       <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)} / ${escapeHtml(site.name_th)}</span><br>
       <span style="font-size:11px;">CINAME: ${escapeHtml(site.location_id)}</span>
       ${ticketTable}
+    </div>`;
+  }
+
+  function manualPopupHtml(m) {
+    return `<div style="min-width:180px;">
+      <div style="font-size:12px; white-space:pre-wrap;">${escapeHtml(m.remark)}</div>
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">โดย ${escapeHtml(m.created_by)} · ${escapeHtml(m.created_at)}</div>
+      <button onclick="deleteFloodNanMarker('${m.id}')" class="btn-secondary" style="margin-top:6px; font-size:11px; padding:3px 8px;">🗑️ ลบหมุดนี้</button>
     </div>`;
   }
 
@@ -6510,6 +6556,42 @@ function renderPivot(ft) {
     });
     setTimeout(() => { if (map) map.invalidateSize(); }, 50);
   }
+
+  function renderManualMarkers() {
+    ensureMap();
+    manualMarkerLayer.clearLayers();
+    manualMarkers.forEach(m => {
+      L.marker([m.lat, m.lon], { icon: manualDivIcon() }).bindPopup(manualPopupHtml(m)).addTo(manualMarkerLayer);
+    });
+  }
+
+  async function addManualMarker(lat, lon, remark) {
+    try {
+      const res = await fetch('/api/flood-nan/markers', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lon, remark }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'เพิ่มหมุดไม่สำเร็จ');
+      manualMarkers.push(data.marker);
+      renderManualMarkers();
+    } catch (e) {
+      alert('❌ ' + e.message);
+    }
+  }
+
+  window.deleteFloodNanMarker = async function (id) {
+    if (!confirm('ลบหมุด Remark นี้?')) return;
+    try {
+      const res = await fetch('/api/flood-nan/markers/' + encodeURIComponent(id), { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'ลบไม่สำเร็จ');
+      manualMarkers = manualMarkers.filter(m => m.id !== id);
+      renderManualMarkers();
+    } catch (e) {
+      alert('❌ ' + e.message);
+    }
+  };
 
   function renderClassification(cls) {
     if (!cls) { el('fn-classification').innerHTML = ''; return; }
@@ -6535,6 +6617,26 @@ function renderPivot(ft) {
       </div>`;
   }
 
+  function renderSimpleCountTable(containerId, rows, labelKey, labelHeader) {
+    const container = el(containerId);
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const body = rows.map((r, i) => `
+      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:6px 10px;">${escapeHtml(r[labelKey])}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:700; color:#E24B4A;">${r.total}</td>
+      </tr>`).join('');
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04); max-height:280px; overflow-y:auto;">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">${labelHeader}</th>
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+
   function renderDetailTable(tickets) {
     const table = el('fn-detail-table');
     const thead = table.querySelector('thead');
@@ -6555,6 +6657,17 @@ function renderPivot(ft) {
     }).join('');
   }
 
+  async function loadManualMarkers() {
+    try {
+      const res = await fetch('/api/flood-nan/markers');
+      const data = await res.json();
+      manualMarkers = data.markers || [];
+      renderManualMarkers();
+    } catch (e) {
+      console.error('Load manual markers failed', e);
+    }
+  }
+
   async function reload() {
     el('fn-status').textContent = 'กำลังโหลด...';
     try {
@@ -6564,9 +6677,12 @@ function renderPivot(ft) {
       lastData = data;
       renderMap(data.sites || []);
       renderClassification(data.classification);
+      renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่');
+      renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District');
       renderDetailTable(data.tickets || []);
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket`;
       loaded = true;
+      loadManualMarkers();
     } catch (e) {
       console.error('Flood NAN load failed', e);
       el('fn-status').textContent = '';
@@ -6575,6 +6691,15 @@ function renderPivot(ft) {
   }
 
   el('fn-reload').addEventListener('click', reload);
+  el('fn-add-marker-toggle').addEventListener('click', () => {
+    addMarkerMode = !addMarkerMode;
+    const btn = el('fn-add-marker-toggle');
+    btn.textContent = addMarkerMode ? '📍 คลิกบนแผนที่เพื่อปักหมุด...' : '📍 โหมดเพิ่มหมุด';
+    btn.style.background = addMarkerMode ? '#1f6feb' : '';
+    btn.style.color = addMarkerMode ? '#fff' : '';
+    ensureMap();
+    if (map) map.getContainer().style.cursor = addMarkerMode ? 'crosshair' : '';
+  });
   window.initFloodNanTab = function () { if (!loaded) reload(); };
 })();
 </script>

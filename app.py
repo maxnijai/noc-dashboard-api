@@ -2224,6 +2224,40 @@ def api_flood_nan():
         log.exception("flood-nan API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/flood-nan/markers', methods=['GET', 'POST'])
+def api_flood_nan_markers():
+    """GET: list manually-placed remark pins. POST: add one (lat, lon,
+    remark required) - anyone logged in can add, same as other freeform
+    notes elsewhere in the app."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        if request.method == 'GET':
+            return jsonify({'markers': flood_nan.list_manual_markers(gs_client)})
+        payload = request.get_json(silent=True) or {}
+        lat = payload.get('lat')
+        lon = payload.get('lon')
+        remark = (payload.get('remark') or '').strip()
+        if lat is None or lon is None or not remark:
+            return jsonify({'error': 'lat, lon, remark are required'}), 400
+        created_by = session.get('user_name') or session.get('user_email') or ''
+        marker = flood_nan.add_manual_marker(gs_client, float(lat), float(lon), remark, created_by)
+        return jsonify({'marker': marker})
+    except Exception as e:
+        log.exception("flood-nan markers API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/flood-nan/markers/<marker_id>', methods=['DELETE'])
+def api_flood_nan_delete_marker(marker_id):
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        deleted = flood_nan.delete_manual_marker(gs_client, marker_id)
+        if not deleted:
+            return jsonify({'error': 'not found'}), 404
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.exception("flood-nan delete marker failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/p0-snapshot-comparison')
 def api_p0_snapshot_comparison():
     """P0 count right now vs P0 count at ~01:15 today (from the Drive backup

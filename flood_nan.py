@@ -1,7 +1,8 @@
 """Flood NAN Monitoring: plots every known site in Nan province on a map,
 color-coded by the worst open ticket severity found for that site (matched
-by LOCATION ID == CINAME against the live Pending Ticket data), with a
-distinct marker for "DN" (important/generator-equipped) sites.
+by LOCATION ID == CINAME, or LOCATION ID appearing inside SUBJECT, against
+the live Pending Ticket data), with a distinct marker for "DN"
+(important/generator-equipped) sites, plus manually-placed remark pins.
 
 Site master data comes from a SEPARATE Google Sheet (not the main
 REALTIME_SHEET_ID) - a manually maintained inventory of every physical
@@ -14,14 +15,20 @@ site, one sheet ("ชีต1") with three stacked tables:
      literal "DN" col C) enumerating which Nan sites are flagged important.
 Both table 1's own "Type Site" == "DN" rows AND table 3's list count as
 DN sites - the two overlap for some codes but not entirely.
+
+Manual remark pins are stored in their own tab ("FloodNanMarkers") inside
+REALTIME_SHEET_ID, next to TicketWorkLog - not on the foreign site-master
+sheet, which this feature only ever reads from, never writes to.
 """
 
 import logging
 import threading
 import time
+import uuid
 
 from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES
-from pending_trend import get_drive_and_sheets_clients
+from pending_trend import get_drive_and_sheets_clients, bangkok_now
+from realtime_monitor import REALTIME_SHEET_ID
 
 log = logging.getLogger(__name__)
 
@@ -38,8 +45,8 @@ SEVERITY_COLOR = {
 # tickets with different severities.
 SEVERITY_RANK = {"SA1": 0, "SA2": 0, "SA3": 0, "SA4": 0, "NSA1": 1, "NSA2": 1, "NSA3": 2, "NSA4": 2}
 
-# The 4 Bookmark buckets used for the classification matrix - same labels
-# Exclusive Pending / P0 Only use (see pending_ticket.py's
+# The 4 Bookmark buckets used for the severity x bookmark matrix - same
+# labels Exclusive Pending / P0 Only use (see pending_ticket.py's
 # EXCLUSIVE_BOOKMARK_ORDER), just relabeled here per the request wording.
 CLASSIFICATION_BOOKMARKS = [
     ("SA Mobile", "7.MB with SA1-4"),
@@ -52,6 +59,9 @@ CLASSIFICATION_SEVERITIES = ["SA1", "SA2", "SA3", "SA4"]
 _site_cache = {"data": None, "ts": 0}
 _cache_lock = threading.Lock()
 SITE_CACHE_TTL_SECONDS = 600  # site master rarely changes - safe to cache for a while
+
+MANUAL_MARKERS_TAB = "FloodNanMarkers"
+MANUAL_MARKERS_HEADER = ["id", "lat", "lon", "remark", "created_by", "created_at"]
 
 
 def _to_float(v):
@@ -132,6 +142,18 @@ def fetch_nan_sites(gs_client, use_cache=True):
     return sites
 
 
+def _last_classification_segment(raw):
+    """CLASSIFICATION values are backslash-delimited hierarchies, e.g.
+    'NOC-NW-BROADBAND \\ FTTH ODN-SPLITTER L2 \\ SERVICE QUALITY DEGRADE' -
+    the last segment is the specific, meaningful part; the earlier segments
+    are just broad category scaffolding that repeats across many tickets."""
+    raw = str(raw or "").strip()
+    if not raw:
+        return "(ไม่ระบุ)"
+    parts = [p.strip() for p in raw.replace("\\\\", "\\").split("\\") if p.strip()]
+    return parts[-1] if parts else raw
+
+
 def build_flood_nan_response(gs_client=None):
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
@@ -139,21 +161,29 @@ def build_flood_nan_response(gs_client=None):
     sites = fetch_nan_sites(gs_client)
     all_entries = _fetch_full_ticket_entries(gs_client)
 
+    # Only tickets with a real severity are relevant to plot/count.
+    live_entries = [t for t in all_entries if str(t.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES]
     tickets_by_ciname = {}
-    for t in all_entries:
-        severity = str(t.get("SEVERITY", "")).strip()
-        if severity not in ALLOWED_SEVERITIES:
-            continue
+    for t in live_entries:
         ciname = str(t.get("CINAME", "")).strip().upper()
-        if not ciname:
-            continue
-        tickets_by_ciname.setdefault(ciname, []).append(t)
+        if ciname:
+            tickets_by_ciname.setdefault(ciname, []).append(t)
 
     site_markers = []
     matched_ticket_ids = set()
     nan_tickets = []
     for s in sites:
-        matches = tickets_by_ciname.get(s["location_id"].upper(), [])
+        loc_upper = s["location_id"].upper()
+        # 1) exact CINAME match, 2) LOCATION ID appearing inside SUBJECT text
+        # (tickets often embed the site code in the subject line even when
+        # CINAME itself doesn't match, e.g. "[U05][NW] CMI0233 : ...").
+        by_ciname = tickets_by_ciname.get(loc_upper, [])
+        by_ciname_ids = {m.get("TICKETID") for m in by_ciname}
+        by_subject = [
+            t for t in live_entries
+            if loc_upper in str(t.get("SUBJECT", "")).upper() and t.get("TICKETID") not in by_ciname_ids
+        ]
+        matches = by_ciname + by_subject
         color = None
         if matches:
             best = min(matches, key=lambda t: SEVERITY_RANK.get(str(t.get("SEVERITY", "")).strip(), 9))
@@ -175,8 +205,7 @@ def build_flood_nan_response(gs_client=None):
                 matched_ticket_ids.add(tid)
                 nan_tickets.append(t)
 
-    # Classification matrix: rows = SA1-4 severities, columns = the 4
-    # Bookmark buckets, counted across the Nan-site-matched ticket set.
+    # Severity x Bookmark matrix (SA1-4 rows x SA Mobile/Online/NSA1-2/NSA3-4).
     matrix = {sev: {label: 0 for label, _ in CLASSIFICATION_BOOKMARKS} for sev in CLASSIFICATION_SEVERITIES}
     bookmark_lookup = {raw: label for label, raw in CLASSIFICATION_BOOKMARKS}
     for t in nan_tickets:
@@ -188,6 +217,26 @@ def build_flood_nan_response(gs_client=None):
         if label:
             matrix[sev][label] += 1
 
+    # CLASSIFICATION summary - last (most specific) segment, counted.
+    classification_totals = {}
+    for t in nan_tickets:
+        cat = _last_classification_segment(t.get("CLASSIFICATION"))
+        classification_totals[cat] = classification_totals.get(cat, 0) + 1
+    classification_summary = sorted(
+        [{"category": cat, "total": total} for cat, total in classification_totals.items()],
+        key=lambda r: r["total"], reverse=True,
+    )
+
+    # District summary - ticket count per DISTRICT.
+    district_totals = {}
+    for t in nan_tickets:
+        d = str(t.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
+        district_totals[d] = district_totals.get(d, 0) + 1
+    district_summary = sorted(
+        [{"district": d, "total": total} for d, total in district_totals.items()],
+        key=lambda r: r["total"], reverse=True,
+    )
+
     return {
         "sites": site_markers,
         "tickets": nan_tickets,
@@ -196,6 +245,58 @@ def build_flood_nan_response(gs_client=None):
             "bookmarks": [label for label, _ in CLASSIFICATION_BOOKMARKS],
             "matrix": matrix,
         },
+        "classification_summary": classification_summary,
+        "district_summary": district_summary,
         "total_sites": len(site_markers),
         "total_tickets": len(nan_tickets),
     }
+
+
+# ── Manual remark pins ──────────────────────────────────────────────────
+
+def _ensure_markers_tab(spreadsheet):
+    try:
+        return spreadsheet.worksheet(MANUAL_MARKERS_TAB)
+    except Exception:
+        ws = spreadsheet.add_worksheet(title=MANUAL_MARKERS_TAB, rows=1000, cols=len(MANUAL_MARKERS_HEADER))
+        ws.append_row(MANUAL_MARKERS_HEADER)
+        return ws
+
+
+def list_manual_markers(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_markers_tab(sh)
+    rows = ws.get_all_values()[1:]
+    out = []
+    for row in rows:
+        if not row or not row[0]:
+            continue
+        padded = row + [""] * (len(MANUAL_MARKERS_HEADER) - len(row))
+        lat = _to_float(padded[1])
+        lon = _to_float(padded[2])
+        if lat is None or lon is None:
+            continue
+        out.append({
+            "id": padded[0], "lat": lat, "lon": lon, "remark": padded[3],
+            "created_by": padded[4], "created_at": padded[5],
+        })
+    return out
+
+
+def add_manual_marker(gs_client, lat, lon, remark, created_by):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_markers_tab(sh)
+    marker_id = uuid.uuid4().hex[:12]
+    created_at = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    ws.append_row([marker_id, lat, lon, remark, created_by, created_at])
+    return {"id": marker_id, "lat": lat, "lon": lon, "remark": remark, "created_by": created_by, "created_at": created_at}
+
+
+def delete_manual_marker(gs_client, marker_id):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_markers_tab(sh)
+    cell = ws.find(marker_id, in_column=1)
+    if cell is None:
+        return False
+    ws.delete_rows(cell.row)
+    return True
