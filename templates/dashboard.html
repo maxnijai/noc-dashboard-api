@@ -46,7 +46,7 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 .header-brand-sub { font-size:11px; color:var(--text3); letter-spacing:.2px; margin-top:2px; }
 .leaflet-tooltip.boundary-team-tooltip { background: linear-gradient(180deg, rgba(28,33,40,.98), rgba(13,17,23,.98)); color: var(--text); border:1px solid rgba(88,166,255,.32); box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03) inset; border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; letter-spacing:.2px; }
 .leaflet-tooltip.boundary-team-tooltip:before { border-top-color: rgba(18,24,31,.98) !important; }
-.leaflet-tooltip.fn-remark-tooltip { background: linear-gradient(180deg, rgba(31,111,235,.97), rgba(15,58,130,.97)); color: #fff; border:1px solid rgba(255,255,255,.25); box-shadow: 0 6px 18px rgba(0,0,0,.35); border-radius:8px; padding:6px 9px; }
+.leaflet-tooltip.fn-remark-tooltip { background: linear-gradient(180deg, rgba(31,111,235,.97), rgba(15,58,130,.97)); color: #fff; border:1px solid rgba(255,255,255,.25); box-shadow: 0 4px 10px rgba(0,0,0,.3); border-radius:12px; padding:3px 8px; }
 .leaflet-tooltip.fn-remark-tooltip:before { border-top-color: rgba(15,58,130,.97) !important; }
 .leaflet-popup-content-wrapper { background: linear-gradient(180deg, rgba(22,27,34,.99), rgba(13,17,23,.99)); color: var(--text); border:1px solid rgba(88,166,255,.18); border-radius:12px; box-shadow: 0 12px 36px rgba(0,0,0,.35); }
 .leaflet-popup-tip { background: rgba(18,24,31,.99); }
@@ -1024,7 +1024,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
   <!-- FLOOD NAN MONITORING -->
   <div class="page" id="page-floodnan">
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
       <div>
         <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
@@ -1040,16 +1040,27 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px; font-size:12px;">
-      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block;"></span> SA1-4</span>
-      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block;"></span> NSA1-2</span>
-      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#F5C518;display:inline-block;"></span> NSA3-4</span>
-      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b949e;display:inline-block;"></span> ไม่มี ticket เปิดอยู่</span>
-      <span style="display:flex; align-items:center; gap:5px;"><svg width="14" height="17" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#1f6feb"/><path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/></svg> ไซต์สำคัญ (DN)</span>
-      <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:12px;">
+          <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block;"></span> SA1-4</span>
+          <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block;"></span> NSA1-2</span>
+          <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#F5C518;display:inline-block;"></span> NSA3-4</span>
+          <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b949e;display:inline-block;"></span> ไม่มี ticket เปิดอยู่</span>
+          <span style="display:flex; align-items:center; gap:5px;"><svg width="14" height="17" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#1f6feb"/><path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/></svg> ไซต์สำคัญ (DN)</span>
+          <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="font-size:12px; color:var(--text3);">ไปยังพิกัด:</span>
+          <input id="fn-goto-lat" type="text" placeholder="Lat เช่น 18.7809" style="width:120px; padding:4px 8px; font-size:12px;">
+          <input id="fn-goto-lon" type="text" placeholder="Lon เช่น 100.7729" style="width:120px; padding:4px 8px; font-size:12px;">
+          <button id="fn-goto-btn" class="btn-secondary" style="font-size:12px; padding:4px 10px;">🎯 ไป</button>
+        </div>
+      </div>
+      <div id="fn-filter-chip" style="font-size:11px; margin-top:8px;"></div>
     </div>
 
-    <a href="https://nan.thaiwater.net/wl" target="_blank" rel="noopener" style="display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px; padding:14px 18px; background:var(--bg2); text-decoration:none; color:inherit;">
+    <a href="https://nan.thaiwater.net/wl" target="_blank" rel="noopener" style="display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; padding:14px 18px; background:var(--bg2); text-decoration:none; color:inherit;">
       <div style="display:flex; align-items:center; gap:12px;">
         <span style="font-size:22px;">🌊</span>
         <div>
@@ -1060,84 +1071,85 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:12px; color:var(--blue); white-space:nowrap;">เปิดดู ↗</span>
     </a>
 
-    <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
-      <span style="font-size:12px; color:var(--text3);">ไปยังพิกัด:</span>
-      <input id="fn-goto-lat" type="text" placeholder="Lat เช่น 18.7809" style="width:130px; padding:4px 8px; font-size:12px;">
-      <input id="fn-goto-lon" type="text" placeholder="Lon เช่น 100.7729" style="width:130px; padding:4px 8px; font-size:12px;">
-      <button id="fn-goto-btn" class="btn-secondary" style="font-size:12px; padding:4px 10px;">🎯 ไป</button>
-      <span id="fn-filter-chip" style="font-size:11px; margin-left:8px;"></span>
-    </div>
-
-    <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
-      <div style="flex:1; min-width:320px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">🗺️ แผนที่ Ticket ตาม Severity</div>
-        <div id="fn-map-wrap" style="position:relative;">
-          <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-          <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:16px;">
+        <div style="flex:1; min-width:320px;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket ตาม Severity</div>
+          <div id="fn-map-wrap" style="position:relative;">
+            <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+            <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+          </div>
         </div>
-      </div>
-      <div style="flex:1; min-width:320px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:6px;">📍 แผนที่ไซต์สำคัญ (RF Priority / Evacuation Center)</div>
-        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:6px; font-size:11px;">
-          <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 0l4 8-4 8-4-8z" fill="#8b949e"/></svg> RF Priority</span>
-          <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 14V6l6-4 6 4v8H2z" fill="#8b949e"/></svg> Evacuation Center</span>
-          <span style="color:var(--text3);">สีจุดตาม Severity เหมือนแผนที่หลัก</span>
-        </div>
-        <div id="fn-map2-wrap" style="position:relative;">
-          <button id="fn-map2-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-          <div id="fn-map2" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        <div style="flex:1; min-width:320px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <div style="font-size:13px; font-weight:700;">📍 แผนที่ไซต์สำคัญ (RF Priority / Evacuation Center)</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:11px;">
+              <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M8 0l4 8-4 8-4-8z" fill="#8b949e"/></svg> RF Priority</span>
+              <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 16 16"><path d="M2 14V6l6-4 6 4v8H2z" fill="#8b949e"/></svg> Evacuation Center</span>
+            </div>
+          </div>
+          <div id="fn-map2-wrap" style="position:relative;">
+            <button id="fn-map2-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+            <div id="fn-map2" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div style="margin-bottom:18px;">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Ticket น่าน (5 วันย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
-      <div id="fn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:6px;"></div>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:6px;">📈 Trend Ticket น่าน (24 ชั่วโมงย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
+      <div id="fn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:8px;"></div>
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-trend-chart" height="90"></canvas>
       </div>
     </div>
 
-    <div style="margin-bottom:18px;">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend District — SA Mobile เท่านั้น (2 วันย้อนหลัง)</div>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend District — SA Mobile เท่านั้น (24 ชั่วโมงย้อนหลัง)</div>
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-district-trend-chart" height="90"></canvas>
       </div>
     </div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px;">
-      <div style="flex:1; min-width:280px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
-        <div id="fn-classification"></div>
-      </div>
-      <div style="flex:1; min-width:220px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗂️ Classification (สรุปตามหมวดหมู่)</div>
-        <div id="fn-classification-summary"></div>
-      </div>
-      <div style="flex:1; min-width:220px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 District × จำนวน Ticket</div>
-        <div id="fn-district-summary"></div>
-      </div>
-      <div style="flex:1; min-width:220px;">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🏗️ จำนวนไซต์ (Unique) ที่กระทบจริง</div>
-        <div id="fn-unique-sites"></div>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:16px;">
+        <div style="flex:1; min-width:280px;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
+          <div id="fn-classification"></div>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗂️ Classification (สรุปตามหมวดหมู่)</div>
+          <div id="fn-classification-summary"></div>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 District × จำนวน Ticket</div>
+          <div id="fn-district-summary"></div>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🏗️ จำนวนไซต์ (Unique) ที่กระทบจริง</div>
+          <div id="fn-unique-sites"></div>
+        </div>
       </div>
     </div>
 
-    <div style="font-size:13px; font-weight:700; margin-bottom:8px;">💧 DN sites ที่มี Ticket เปิดอยู่</div>
-    <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:18px;">
-      <table id="fn-dn-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">💧 DN sites ที่มี Ticket เปิดอยู่</div>
+      <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="fn-dn-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
 
-    <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
-    <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
-      <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
+      <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -6797,9 +6809,10 @@ function renderPivot(ft) {
       marker.on('popupopen', () => { popupOpenFor = s.location_id; });
       marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; });
       if (s.is_dn && s.remark && s.remark.remark) {
+        const preview = s.remark.remark.length > 28 ? s.remark.remark.slice(0, 28) + '…' : s.remark.remark;
         marker.bindTooltip(
-          `<div style="font-size:11px; max-width:200px; white-space:normal; line-height:1.4;">📝 ${escapeHtml(s.remark.remark)}<br><span style="opacity:.7; font-size:10px;">${escapeHtml(s.remark.updated_by)} · ${escapeHtml(s.remark.updated_at)}</span></div>`,
-          { permanent: true, direction: 'top', offset: [0, -34], className: 'fn-remark-tooltip' }
+          `<span style="font-size:10px; white-space:nowrap;">📝 ${escapeHtml(preview)}</span>`,
+          { permanent: true, direction: 'top', offset: [0, -30], className: 'fn-remark-tooltip' }
         );
       }
       marker.addTo(markerLayer);
@@ -7018,7 +7031,7 @@ function renderPivot(ft) {
 
   async function loadTrends() {
     const statusEl = el('fn-trend-status');
-    statusEl.textContent = 'กำลังโหลด trend... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)';
+    statusEl.textContent = 'กำลังโหลด trend... (รอบแรกอาจใช้เวลาถึง 1-2 นาที เพราะต้องดึงไฟล์ backup ย้อนหลังทีละชั่วโมง รอบต่อไปจะเร็วขึ้นมากเพราะมีการ cache ไว้)';
     try {
       const res = await fetch('/api/flood-nan/trends');
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
@@ -7032,21 +7045,28 @@ function renderPivot(ft) {
     }
   }
 
+  function formatHourLabel(hourKey) {
+    // "2026-08-19T14:00" -> "19/08 14:00"
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):00$/.exec(hourKey);
+    if (!m) return hourKey;
+    return `${m[3]}/${m[2]} ${m[4]}:00`;
+  }
+
   function renderTrendChart(trend) {
     if (!trend) return;
     const ctx = el('fn-trend-chart').getContext('2d');
     const colors = { 'SA Mobile': '#E24B4A', 'SA Online': '#1f6feb', 'NSA1-2': '#EF9F27', 'NSA3': '#F5C518', 'NSA4': '#a371f7' };
     const datasets = Object.keys(trend.series).map(key => ({
       label: key, data: trend.series[key], borderColor: colors[key] || '#8b949e',
-      backgroundColor: (colors[key] || '#8b949e') + '33', tension: 0.25, spanGaps: true,
+      backgroundColor: (colors[key] || '#8b949e') + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
     }));
     if (trendChart) trendChart.destroy();
     trendChart = new Chart(ctx, {
       type: 'line',
-      data: { labels: trend.dates, datasets },
+      data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
       },
     });
   }
@@ -7056,15 +7076,16 @@ function renderPivot(ft) {
     const ctx = el('fn-district-trend-chart').getContext('2d');
     const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922'];
     const datasets = trend.districts.map((d, i) => ({
-      label: d, data: trend.series[d], backgroundColor: palette[i % palette.length],
+      label: d, data: trend.series[d], borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length] + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
     }));
     if (districtTrendChart) districtTrendChart.destroy();
     districtTrendChart = new Chart(ctx, {
-      type: 'bar',
-      data: { labels: trend.dates, datasets },
+      type: 'line',
+      data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
-        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
       },
     });
   }

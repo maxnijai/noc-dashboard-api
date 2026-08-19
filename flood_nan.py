@@ -28,7 +28,7 @@ import uuid
 from datetime import timedelta
 
 from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES, _exclusive_bookmark_label, fetch_live_rows
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_nightly_file, download_xlsx_as_rows
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_nightly_file, download_xlsx_as_rows, find_closest_file
 from realtime_monitor import REALTIME_SHEET_ID
 
 log = logging.getLogger(__name__)
@@ -437,13 +437,15 @@ def set_site_remark(gs_client, location_id, remark, updated_by):
     return {"location_id": location_id, "remark": remark, "updated_by": updated_by, "updated_at": updated_at}
 
 
-# ── Trend charts: from nightly backups, scoped to Nan ───────────────────
-# Each day's classification result is cached forever once computed (past
-# days never change) - only today's point is ever freshly fetched from the
-# live sheet. This keeps repeat requests fast even though the first look
-# at a given day requires downloading and parsing a full ~5MB backup file.
+# ── Trend charts: hourly, from backups, scoped to Nan ───────────────────
+# Each hour's classification result is cached forever once computed (a
+# finished hour's backup never changes) - only the CURRENT hour is ever
+# freshly fetched from the live sheet. First load over a 24h cold cache
+# means downloading up to 24 backup files sequentially (slow, possibly a
+# minute or more); every load after that is fast since almost every hour
+# is already cached.
 
-_nan_trend_day_cache = {}
+_nan_trend_hour_cache = {}
 _nan_trend_cache_lock = threading.Lock()
 
 TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2", "NSA3", "NSA4"]
@@ -481,21 +483,23 @@ def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
     return counts, sa_mobile_by_district
 
 
-def _get_day_classification(gs_client, drive_service, nan_ids_upper, day, today):
-    """Cached per-date lookup - today always refetched live, past days
-    cached forever once computed (a nightly backup for a finished day
-    never changes)."""
-    date_str = day.strftime("%Y-%m-%d")
-    if day == today:
+def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour):
+    """Cached per-hour lookup - the current hour always refetched live,
+    every past hour cached forever once computed. Backup files land near
+    :29 past each hour (same pattern run_hourly_job already relies on), so
+    search a window around hour_dt + 29 min."""
+    hour_key = hour_dt.strftime("%Y-%m-%dT%H:00")
+    if hour_dt == current_hour:
         rows = fetch_live_rows(gs_client)
         return _classify_nan_tickets_for_trend(rows, nan_ids_upper)
 
     with _nan_trend_cache_lock:
-        cached = _nan_trend_day_cache.get(date_str)
+        cached = _nan_trend_hour_cache.get(hour_key)
     if cached is not None:
         return cached
 
-    file_info = find_nightly_file(drive_service, day)
+    search_target = hour_dt.replace(minute=29)
+    file_info = find_closest_file(drive_service, search_target, window_minutes=25)
     if file_info is None:
         result = ({k: None for k in TREND_CATEGORIES}, {})
     else:
@@ -504,39 +508,39 @@ def _get_day_classification(gs_client, drive_service, nan_ids_upper, day, today)
         result = _classify_nan_tickets_for_trend(backup_rows, nan_ids_upper)
 
     with _nan_trend_cache_lock:
-        _nan_trend_day_cache[date_str] = result
+        _nan_trend_hour_cache[hour_key] = result
     return result
 
 
-def build_nan_trends(gs_client, drive_service, days=5, district_days=2):
-    """Returns both trend charts in one pass (they need the same per-day
-    downloads, so computing them together avoids fetching each backup
-    file twice): the 5-category ticket count trend, and the SA-Mobile-only
-    per-district trend for the most recent `district_days` of that range."""
+def build_nan_trends(gs_client, drive_service, hours=24):
+    """Returns both trend charts in one pass (they need the same per-hour
+    downloads, so computing them together avoids fetching each backup file
+    twice): the 5-category hourly ticket count trend, and the SA-Mobile-only
+    per-district hourly trend, both over the last `hours` hours."""
     sites = fetch_nan_sites(gs_client)
     nan_ids_upper = {s["location_id"].upper() for s in sites}
-    today = bangkok_now().date()
-    all_days = [today - timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
+    current_hour = bangkok_now().replace(minute=0, second=0, microsecond=0)
+    all_hours = [current_hour - timedelta(hours=i) for i in range(hours - 1, -1, -1)]  # oldest -> newest
 
-    dates = []
+    labels = []
     category_series = {k: [] for k in TREND_CATEGORIES}
-    district_by_date = {}
-    for day in all_days:
-        date_str = day.strftime("%Y-%m-%d")
-        dates.append(date_str)
-        counts, dist_counts = _get_day_classification(gs_client, drive_service, nan_ids_upper, day, today)
+    district_by_hour = {}
+    for hour_dt in all_hours:
+        hour_key = hour_dt.strftime("%Y-%m-%dT%H:00")
+        labels.append(hour_key)
+        counts, dist_counts = _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour)
         for k in TREND_CATEGORIES:
             category_series[k].append(counts.get(k))
-        district_by_date[date_str] = dist_counts
+        district_by_hour[hour_key] = dist_counts
 
-    district_dates = dates[-district_days:] if district_days < len(dates) else dates
-    all_districts = sorted({d for date_str in district_dates for d in district_by_date[date_str]})
+    all_districts = sorted({d for hour_key in labels for d in district_by_hour[hour_key]})
     district_series = {
-        d: [district_by_date[date_str].get(d, 0) for date_str in district_dates]
+        d: [district_by_hour[hour_key].get(d, 0) for hour_key in labels]
         for d in all_districts
     }
 
     return {
-        "ticket_trend": {"dates": dates, "series": category_series},
-        "district_trend_sa_mobile": {"dates": district_dates, "districts": all_districts, "series": district_series},
+        "ticket_trend": {"dates": labels, "series": category_series},
+        "district_trend_sa_mobile": {"dates": labels, "districts": all_districts, "series": district_series},
     }
+

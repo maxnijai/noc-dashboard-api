@@ -2278,14 +2278,14 @@ def api_flood_nan_site_remark():
 
 @app.route('/api/flood-nan/trends')
 def api_flood_nan_trends():
-    """5-day Nan ticket-count trend (SA Mobile/SA Online/NSA1-2/NSA3/NSA4)
-    plus a 2-day SA-Mobile-only District trend, both built from the
-    nightly ~01:15 Drive backups (today's point uses live data instead).
-    Can be slow on a cold cache - each not-yet-cached day means
-    downloading and parsing a full backup file."""
+    """24-hour Nan ticket-count trend (SA Mobile/SA Online/NSA1-2/NSA3/NSA4)
+    plus a 24-hour SA-Mobile-only District trend, both built from the
+    hourly ~:29-past Drive backups (the current hour uses live data
+    instead). Can be slow on a cold cache - each not-yet-cached hour means
+    downloading and parsing a full backup file, up to 24 times."""
     try:
         drive_service, gs_client = get_drive_and_sheets_clients()
-        data = flood_nan.build_nan_trends(gs_client, drive_service, days=5, district_days=2)
+        data = flood_nan.build_nan_trends(gs_client, drive_service, hours=24)
         return jsonify(data)
     except Exception as e:
         log.exception("flood-nan trends API failed")
