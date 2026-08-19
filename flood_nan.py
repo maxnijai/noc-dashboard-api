@@ -109,7 +109,14 @@ def fetch_nan_sites(gs_client, use_cache=True):
             name_en = row[7] if len(row) > 7 else ""
             name_th = row[8] if len(row) > 8 else ""
             district_e = row[24] if len(row) > 24 else ""
-            district_t = row[25] if len(row) > 25 else ""
+            # Ticket data's own DISTRICT field never has the "อำเภอ" prefix
+            # (e.g. "แม่จริม"), but this site sheet's DISTRICT_T column always
+            # does (e.g. "อำเภอแม่จริม") - strip it here so site<->ticket
+            # district matching (and the click-to-filter feature) works with
+            # simple string equality instead of silently never matching.
+            district_t = (row[25] if len(row) > 25 else "").strip()
+            if district_t.startswith("อำเภอ"):
+                district_t = district_t[len("อำเภอ"):].strip()
             subdistrict_e = row[26] if len(row) > 26 else ""
             subdistrict_t = row[27] if len(row) > 27 else ""
             lat = _to_float(row[28]) if len(row) > 28 else None
@@ -238,6 +245,11 @@ def build_flood_nan_response(gs_client=None):
         key=lambda r: r["total"], reverse=True,
     )
 
+    # DN sites with at least one matched ticket - a focused subset of
+    # site_markers, kept separate since these are the highest-priority
+    # sites to check first (important/generator-equipped AND affected).
+    dn_sites_with_tickets = [s for s in site_markers if s["is_dn"] and s["tickets"]]
+
     return {
         "sites": site_markers,
         "tickets": nan_tickets,
@@ -248,6 +260,7 @@ def build_flood_nan_response(gs_client=None):
         },
         "classification_summary": classification_summary,
         "district_summary": district_summary,
+        "dn_sites_with_tickets": dn_sites_with_tickets,
         "total_sites": len(site_markers),
         "total_tickets": len(nan_tickets),
     }

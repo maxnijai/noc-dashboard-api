@@ -1073,6 +1073,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
 
+    <div style="font-size:13px; font-weight:700; margin-bottom:8px;">💧 DN sites ที่มี Ticket เปิดอยู่</div>
+    <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:18px;">
+      <table id="fn-dn-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
     <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
       <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
@@ -6684,18 +6692,32 @@ function renderPivot(ft) {
         const onclick = clickable ? ` onclick="window.__fnFilterSevBookmark('${sev}', '${b.replace(/'/g, "\\'")}')"` : '';
         return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${isActive ? 'background:#E24B4A33;' : ''} ${count > 0 ? 'font-weight:700; color:#E24B4A;' : ''}">${count || '–'}</td>`;
       }).join('');
+      const rowTotal = cls.bookmarks.reduce((s, b) => s + ((cls.matrix[sev] || {})[b] || 0), 0);
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; font-weight:600;">${escapeHtml(sev)}</td>
         ${cells}
+        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${rowTotal || '–'}</td>
       </tr>`;
     }).join('');
+    const totalCells = cls.bookmarks.map(b => {
+      const sum = cls.severities.reduce((s, sev) => s + ((cls.matrix[sev] || {})[b] || 0), 0);
+      return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = cls.severities.reduce((s, sev) => s + cls.bookmarks.reduce((s2, b) => s2 + ((cls.matrix[sev] || {})[b] || 0), 0), 0);
     el('fn-classification').innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
             <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Severity</th>${head}
+            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}
+            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+              <td style="padding:7px 10px;">Total</td>
+              ${totalCells}
+              <td style="padding:7px 10px; text-align:center; color:#E24B4A;">${grandTotal}</td>
+            </tr>
+          </tbody>
         </table>
       </div>`;
   }
@@ -6722,6 +6744,7 @@ function renderPivot(ft) {
         <td style="padding:6px 10px; text-align:center; font-weight:700; color:#E24B4A;">${r.total}</td>
       </tr>`;
     }).join('');
+    const grandTotal = rows.reduce((s, r) => s + (r.total || 0), 0);
     container.innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04); max-height:280px; overflow-y:auto;">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -6729,7 +6752,12 @@ function renderPivot(ft) {
             <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">${labelHeader}</th>
             <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket</th>
           </tr></thead>
-          <tbody>${body}</tbody>
+          <tbody>${body}
+            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+              <td style="padding:6px 10px;">Total</td>
+              <td style="padding:6px 10px; text-align:center; color:#E24B4A;">${grandTotal}</td>
+            </tr>
+          </tbody>
         </table>
       </div>`;
   }
@@ -6752,6 +6780,35 @@ function renderPivot(ft) {
         return `<td style="padding:6px 8px;">${escapeHtml(t[key])}</td>`;
       }).join('')}</tr>`;
     }).join('');
+  }
+
+  function renderDnTable(dnSites) {
+    const table = el('fn-dn-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const cols = ['LOCATION ID', 'Name', 'District', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
+    const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
+    if (!dnSites || !dnSites.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีไซต์ DN ที่มี ticket เปิดอยู่ตอนนี้</td></tr>`;
+      return;
+    }
+    const rows = [];
+    dnSites.forEach(s => {
+      (s.tickets || []).forEach((t, i) => {
+        const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
+        rows.push(`<tr style="border-top:1px solid var(--border);">
+          <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.name_en) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.district_e) : ''}</td>
+          <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
+          <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
+          <td style="padding:6px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
+          <td style="padding:6px 8px; white-space:normal;">${escapeHtml(t.SUBJECT)}</td>
+        </tr>`);
+      });
+    });
+    tbody.innerHTML = rows.join('');
   }
 
   async function loadManualMarkers() {
@@ -6777,6 +6834,7 @@ function renderPivot(ft) {
       renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่', 'classification');
       renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District', 'district');
       renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
+      renderDnTable(data.dn_sites_with_tickets || []);
       renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket`;
       loaded = true;
