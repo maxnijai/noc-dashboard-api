@@ -870,6 +870,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </label>
       <button id="ptk-reload" class="btn-secondary">Refresh</button>
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
+      <button id="ptk-export-excel" class="btn-secondary" title="ดาวน์โหลดตารางที่กรองอยู่ตอนนี้เป็น Excel">📥 Export Excel</button>
+      <button id="ptk-export-gsheet" class="btn-secondary" title="สร้าง Google Sheet ใหม่จากตารางที่กรองอยู่ตอนนี้">📤 Export Google Sheet</button>
       {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
       <button id="ptk-migrate-workload" class="btn-secondary" title="รวมค่า Group Problem เก่า &quot;Workload - Assigning team access island/border area&quot; เป็น &quot;Workload - Assigning team access site&quot;">รวม Workload (ครั้งเดียว)</button>
       {% endif %}
@@ -4713,6 +4715,23 @@ function renderPivot(ft) {
     ).join('');
   }
 
+  function buildPendingTicketParams() {
+    const aging = selectedValues(el('ptk-aging'));
+    const bookmark = selectedValues(el('ptk-bookmark'));
+    const trueowner = selectedValues(el('ptk-trueowner'));
+    const severity = selectedValues(el('ptk-severity'));
+    const district = selectedValues(el('ptk-district'));
+    const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
+    const params = new URLSearchParams();
+    if (aging.length) params.set('aging', aging.join(','));
+    if (bookmark.length) params.set('bookmark', bookmark.join(','));
+    if (trueowner.length) params.set('trueowner', trueowner.join(','));
+    if (severity.length) params.set('severity', severity.join(','));
+    if (district.length) params.set('district', district.join(','));
+    if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
+    return params;
+  }
+
   async function fetchData() {
     const aging = selectedValues(el('ptk-aging'));
     let bookmark = selectedValues(el('ptk-bookmark'));
@@ -5003,6 +5022,28 @@ function renderPivot(ft) {
   el('ptk-severity').addEventListener('change', reload);
   el('ptk-district').addEventListener('change', reload);
   el('ptk-group-problem-filter').addEventListener('change', reload);
+
+  el('ptk-export-excel').addEventListener('click', () => {
+    const params = buildPendingTicketParams();
+    window.location.href = `/api/pending-ticket/export-excel?${params.toString()}`;
+  });
+
+  el('ptk-export-gsheet').addEventListener('click', async () => {
+    const btn = el('ptk-export-gsheet');
+    btn.disabled = true;
+    btn.textContent = 'กำลังสร้าง Google Sheet...';
+    try {
+      const params = buildPendingTicketParams();
+      const res = await fetch(`/api/pending-ticket/export-gsheet?${params.toString()}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'สร้างไม่สำเร็จ');
+      window.open(data.url, '_blank');
+    } catch (e) {
+      alert('❌ Export Google Sheet ไม่สำเร็จ: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = '📤 Export Google Sheet';
+  });
 
   if (el('ptk-migrate-workload')) {
     el('ptk-migrate-workload').addEventListener('click', async () => {

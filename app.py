@@ -1,6 +1,6 @@
 import os, json, logging, threading, time, re, math, secrets
 from datetime import datetime, timedelta, date
-from flask import Flask, jsonify, render_template, send_from_directory, request, session, redirect, url_for
+from flask import Flask, jsonify, render_template, send_from_directory, request, session, redirect, url_for, Response
 from flask_cors import CORS
 import gspread
 from google.oauth2.service_account import Credentials
@@ -18,6 +18,8 @@ from pending_ticket import (
     save_work_log_entry,
     rename_group_problem_value,
     build_p0_snapshot_comparison,
+    build_pending_ticket_xlsx,
+    export_pending_ticket_to_new_gsheet,
 )
 import oncall
 import oncall_escalation
@@ -2154,6 +2156,50 @@ def api_pending_ticket():
         return jsonify(data)
     except Exception as e:
         log.exception("pending-ticket API failed")
+        return jsonify({'error': str(e)}), 500
+
+def _pending_ticket_filters_from_request():
+    def multi(name):
+        val = request.args.get(name) or None
+        return [v.strip() for v in val.split(',') if v.strip()] if val else None
+    return dict(
+        bookmark_filter=multi('bookmark'), trueowner_filter=multi('trueowner'),
+        severity_filter=multi('severity'), district_filter=multi('district'),
+        group_problem_filter=multi('group_problem'), aging_filter=multi('aging'),
+    )
+
+@app.route('/api/pending-ticket/export-excel')
+def api_pending_ticket_export_excel():
+    """Downloads the currently-filtered Pending Ticket table as .xlsx -
+    same filters (bookmark/trueowner/severity/district/group_problem/aging)
+    as the main table, same columns as the mirror sheet export."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_pending_ticket_response(gs_client, **_pending_ticket_filters_from_request())
+        xlsx_bytes = build_pending_ticket_xlsx(data.get('tickets', []))
+        filename = f"pending-ticket-{bangkok_now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+        return Response(
+            xlsx_bytes,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        log.exception("pending-ticket export-excel failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket/export-gsheet', methods=['POST'])
+def api_pending_ticket_export_gsheet():
+    """Creates a brand new standalone Google Sheet with the currently-
+    filtered Pending Ticket table and returns its URL - separate from the
+    always-on background mirror sheet, this is a fresh snapshot the person
+    can share on demand."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_pending_ticket_response(gs_client, **_pending_ticket_filters_from_request())
+        url = export_pending_ticket_to_new_gsheet(gs_client, data.get('tickets', []), created_by_email=session.get('user_email'))
+        return jsonify({'url': url})
+    except Exception as e:
+        log.exception("pending-ticket export-gsheet failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/pending-ticket/update', methods=['POST'])

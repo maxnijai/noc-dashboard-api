@@ -265,13 +265,11 @@ def _get_export_worksheet(gs_client):
     return sh.sheet1
 
 
-def export_to_external_sheet(gs_client, tickets, insert_time_str):
-    """Mirrors the full current Pending Ticket table (exactly what's on the
-    web page) into the external sheet, overwriting whatever was there before.
-    Called once per build_pending_ticket_response(), so it stays in sync
-    every time the tab is loaded or refreshed."""
-    ws = _get_export_worksheet(gs_client)
-    rows = [[
+def _ticket_to_export_row(t, insert_time_str=""):
+    """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
+    by the external mirror export and the on-demand Excel/Google Sheet
+    export buttons, so all three always produce the same column layout."""
+    return [
         t.get("TICKETID", ""), t.get("CINAME", ""), t.get("SUBJECT", ""), t.get("priority", ""),
         t.get("CREATIONDATE", ""), t.get("TARGETFINISH", ""), t.get("SEVERITY", ""),
         t.get("TRUEOWNERGROUP", ""), t.get("Bookmark", ""), t.get("Aging_Flag_Group", ""),
@@ -279,7 +277,16 @@ def export_to_external_sheet(gs_client, tickets, insert_time_str):
         t.get("nano", ""), t.get("group_problem", ""), t.get("action_team", ""), t.get("detail", ""),
         t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
         insert_time_str,
-    ] for t in tickets]
+    ]
+
+
+def export_to_external_sheet(gs_client, tickets, insert_time_str):
+    """Mirrors the full current Pending Ticket table (exactly what's on the
+    web page) into the external sheet, overwriting whatever was there before.
+    Called once per build_pending_ticket_response(), so it stays in sync
+    every time the tab is loaded or refreshed."""
+    ws = _get_export_worksheet(gs_client)
+    rows = [_ticket_to_export_row(t, insert_time_str) for t in tickets]
     ws.clear()
     ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
     log.info("Exported %d rows to external Pending Ticket mirror sheet", len(rows))
@@ -367,6 +374,67 @@ def trigger_background_export(gs_client, all_entries=None):
 
     threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
     return export_insert_time
+
+
+def build_pending_ticket_xlsx(matched_entries):
+    """Builds an in-memory .xlsx workbook of the given ticket entries (same
+    EXPORT_HEADER columns as the mirror sheet), for the on-demand Excel
+    export button - not written to disk, returned as bytes for a Flask
+    file download response."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pending Ticket"
+    ws.append(EXPORT_HEADER)
+    header_fill = PatternFill(start_color="1F6FEB", end_color="1F6FEB", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    rows = [_ticket_to_export_row(t) for t in matched_entries]
+    for row in rows:
+        ws.append(row)
+    for i, header in enumerate(EXPORT_HEADER, start=1):
+        col_letter = get_column_letter(i)
+        max_len = max([len(str(header))] + [len(str(row[i - 1])) for row in rows] or [10])
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+def export_pending_ticket_to_new_gsheet(gs_client, matched_entries, created_by_email=None):
+    """Creates a brand new standalone Google Sheet with the given ticket
+    entries (for the on-demand 'Export Google Sheet' button - distinct from
+    the always-on background mirror export to a fixed sheet). Shared with
+    the requesting user if an email is given, and made link-viewable so
+    it's easy to forward."""
+    from datetime import datetime as _dt
+    title = f"Pending Ticket Export {_dt.now().strftime('%Y-%m-%d %H%M')}"
+    sh = gs_client.create(title)
+    ws = sh.sheet1
+    ws.update_title("Pending Ticket")
+    rows = [_ticket_to_export_row(t) for t in matched_entries]
+    ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
+    ws.freeze(rows=1)
+    try:
+        sh.share(None, perm_type="anyone", role="reader")  # anyone with the link can view
+    except Exception:
+        log.exception("Could not set link-sharing on export sheet - continuing anyway")
+    if created_by_email:
+        try:
+            sh.share(created_by_email, perm_type="user", role="writer", notify=False)
+        except Exception:
+            log.exception("Could not share export sheet with %s - continuing anyway", created_by_email)
+    return sh.url
 
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
