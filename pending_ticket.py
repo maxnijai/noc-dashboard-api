@@ -327,6 +327,7 @@ def _fetch_full_ticket_entries(gs_client):
         entry["over_sla_day"] = over_sla_day
         entry["priority"] = _classify_priority(r.get("TARGETFINISH"), now_dt)
         entry["nano"] = nano
+        entry["insert_time"] = r.get("insert_time", "")
         wl = work_log.get(ticket_id, {})
         entry["group_problem"] = wl.get("group_problem", "")
         entry["action_team"] = wl.get("action_team", "")

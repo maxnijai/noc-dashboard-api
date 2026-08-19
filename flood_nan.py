@@ -191,12 +191,13 @@ def build_flood_nan_response(gs_client=None):
         site_markers.append({
             "location_id": s["location_id"], "name_en": s["name_en"], "name_th": s["name_th"],
             "lat": s["lat"], "lon": s["lon"], "is_dn": s["is_dn"], "color": color,
-            "district_e": s["district_e"], "subdistrict_e": s["subdistrict_e"],
+            "district_e": s["district_e"], "district_t": s["district_t"], "subdistrict_e": s["subdistrict_e"],
             "tickets": [{
                 "TICKETID": t.get("TICKETID", ""), "SEVERITY": t.get("SEVERITY", ""),
                 "CREATIONDATE": t.get("CREATIONDATE", ""), "CINAME": t.get("CINAME", ""),
                 "DISTRICT": t.get("DISTRICT", ""), "SUBDISTRICT": t.get("SUBDISTRICT", ""),
-                "SUBJECT": t.get("SUBJECT", ""),
+                "SUBJECT": t.get("SUBJECT", ""), "Bookmark": t.get("Bookmark", ""),
+                "CLASSIFICATION": t.get("CLASSIFICATION", ""),
             } for t in matches],
         })
         for t in matches:

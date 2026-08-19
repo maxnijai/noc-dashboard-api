@@ -1045,6 +1045,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
     </div>
 
+    <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+      <span style="font-size:12px; color:var(--text3);">ไปยังพิกัด:</span>
+      <input id="fn-goto-lat" type="text" placeholder="Lat เช่น 18.7809" style="width:130px; padding:4px 8px; font-size:12px;">
+      <input id="fn-goto-lon" type="text" placeholder="Lon เช่น 100.7729" style="width:130px; padding:4px 8px; font-size:12px;">
+      <button id="fn-goto-btn" class="btn-secondary" style="font-size:12px; padding:4px 10px;">🎯 ไป</button>
+      <span id="fn-filter-chip" style="font-size:11px; margin-left:8px;"></span>
+    </div>
+
     <div id="fn-map-wrap" style="position:relative;">
       <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
       <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border); margin-bottom:14px;"></div>
@@ -6444,6 +6452,72 @@ function renderPivot(ft) {
   let manualMarkers = [];
   let addMarkerMode = false;
   let ticketOnly = false;
+  let filterState = { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
+
+  const BOOKMARK_LABEL_TO_RAW = {
+    'SA Mobile': '7.MB with SA1-4',
+    'Online': '4.FBB with SA1-4',
+    'NSA1-2': '3. All NW Incident NSA1-2',
+    'NSA3-4': 'NSA3-4',
+  };
+
+  function lastClassificationSegment(raw) {
+    raw = (raw || '').trim();
+    if (!raw) return '(ไม่ระบุ)';
+    const parts = raw.replace(/\\\\/g, '\\').split('\\').map(p => p.trim()).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : raw;
+  }
+
+  function isFilterActive() {
+    return !!(filterState.district || filterState.classification || filterState.severity || filterState.bookmarkRaw);
+  }
+
+  function ticketMatchesFilter(t) {
+    if (filterState.district && String(t.DISTRICT || '').trim() !== filterState.district) return false;
+    if (filterState.classification && lastClassificationSegment(t.CLASSIFICATION) !== filterState.classification) return false;
+    if (filterState.severity && String(t.SEVERITY || '').trim() !== filterState.severity) return false;
+    if (filterState.bookmarkRaw && String(t.Bookmark || '').trim() !== filterState.bookmarkRaw) return false;
+    return true;
+  }
+
+  function siteMatchesFilter(s) {
+    if (filterState.district) return (s.district_t || '').trim() === filterState.district;
+    if (filterState.classification || filterState.severity || filterState.bookmarkRaw) {
+      return (s.tickets || []).some(ticketMatchesFilter);
+    }
+    return true;
+  }
+
+  function setFilter(newFilter) {
+    // Clicking the same filter again clears it (toggle)
+    const same = JSON.stringify({ ...filterState, ...newFilter }) === JSON.stringify(filterState);
+    filterState = same
+      ? { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null }
+      : { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null, ...newFilter };
+    rerenderFiltered();
+  }
+
+  function renderFilterChip() {
+    const chip = el('fn-filter-chip');
+    if (!isFilterActive()) { chip.innerHTML = ''; return; }
+    let label = '';
+    if (filterState.district) label = `District: ${filterState.district}`;
+    else if (filterState.classification) label = `Classification: ${filterState.classification}`;
+    else if (filterState.severity || filterState.bookmarkRaw) label = `${filterState.severity || ''} ${filterState.bookmarkLabel ? '× ' + filterState.bookmarkLabel : ''}`.trim();
+    chip.innerHTML = `<span style="background:var(--bg4); padding:3px 10px; border-radius:20px; color:var(--text2);">กรองอยู่: ${escapeHtml(label)}</span> <a href="#" onclick="window.__fnClearFilter(); return false;" style="color:var(--blue); margin-left:6px;">✕ ล้าง</a>`;
+  }
+
+  function rerenderFiltered() {
+    if (!lastData) return;
+    renderMap(lastData.sites || []);
+    renderDetailTable((lastData.tickets || []).filter(ticketMatchesFilter));
+    renderFilterChip();
+  }
+
+  window.__fnClearFilter = function () {
+    filterState = { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
+    rerenderFiltered();
+  };
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -6456,6 +6530,7 @@ function renderPivot(ft) {
     ['CREATIONDATE', 'CREATIONDATE'], ['TARGETFINISH', 'TARGETFINISH'],
     ['Aging_Flag_Group', 'Aging_Flag_Group'], ['SUBJECT', 'SUBJECT'], ['CINAME', 'CINAME'],
     ['Bookmark', 'Bookmark'], ['DISTRICT', 'DISTRICT'], ['SUBDISTRICT', 'SUBDISTRICT'],
+    ['insert_time', 'insert_time'],
   ];
 
   function ensureMap() {
@@ -6546,7 +6621,8 @@ function renderPivot(ft) {
   function renderMap(sites) {
     ensureMap();
     markerLayer.clearLayers();
-    const visible = ticketOnly ? sites.filter(s => s.color) : sites;
+    let visible = ticketOnly ? sites.filter(s => s.color) : sites;
+    if (isFilterActive()) visible = visible.filter(siteMatchesFilter);
     visible.forEach(s => {
       if (s.lat == null || s.lon == null) return;
       if (s.is_dn) {
@@ -6603,7 +6679,10 @@ function renderPivot(ft) {
     const rows = cls.severities.map((sev, i) => {
       const cells = cls.bookmarks.map(b => {
         const count = (cls.matrix[sev] || {})[b] || 0;
-        return `<td style="padding:7px 8px; text-align:center; ${count > 0 ? 'font-weight:700; color:#E24B4A;' : ''}">${count || '–'}</td>`;
+        const clickable = count > 0;
+        const isActive = filterState.severity === sev && filterState.bookmarkLabel === b;
+        const onclick = clickable ? ` onclick="window.__fnFilterSevBookmark('${sev}', '${b.replace(/'/g, "\\'")}')"` : '';
+        return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${isActive ? 'background:#E24B4A33;' : ''} ${count > 0 ? 'font-weight:700; color:#E24B4A;' : ''}">${count || '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; font-weight:600;">${escapeHtml(sev)}</td>
@@ -6621,14 +6700,28 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  function renderSimpleCountTable(containerId, rows, labelKey, labelHeader) {
+  window.__fnFilterSevBookmark = function (sev, bookmarkLabel) {
+    setFilter({ severity: sev, bookmarkRaw: BOOKMARK_LABEL_TO_RAW[bookmarkLabel] || null, bookmarkLabel });
+  };
+  window.__fnFilterDistrict = function (district) {
+    setFilter({ district });
+  };
+  window.__fnFilterClassification = function (category) {
+    setFilter({ classification: category });
+  };
+
+  function renderSimpleCountTable(containerId, rows, labelKey, labelHeader, filterFn) {
     const container = el(containerId);
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const body = rows.map((r, i) => `
-      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+    const body = rows.map((r, i) => {
+      const isActive = filterFn === 'district' ? filterState.district === r[labelKey] : filterState.classification === r[labelKey];
+      const handler = filterFn === 'district' ? `window.__fnFilterDistrict('${String(r[labelKey]).replace(/'/g, "\\'")}')` : `window.__fnFilterClassification('${String(r[labelKey]).replace(/'/g, "\\'")}')`;
+      return `
+      <tr onclick="${handler}" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
         <td style="padding:6px 10px;">${escapeHtml(r[labelKey])}</td>
         <td style="padding:6px 10px; text-align:center; font-weight:700; color:#E24B4A;">${r.total}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     container.innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04); max-height:280px; overflow-y:auto;">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -6681,9 +6774,10 @@ function renderPivot(ft) {
       lastData = data;
       renderMap(data.sites || []);
       renderClassification(data.classification);
-      renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่');
-      renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District');
-      renderDetailTable(data.tickets || []);
+      renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่', 'classification');
+      renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District', 'district');
+      renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
+      renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket`;
       loaded = true;
       loadManualMarkers();
@@ -6695,6 +6789,15 @@ function renderPivot(ft) {
   }
 
   el('fn-reload').addEventListener('click', reload);
+  el('fn-goto-btn').addEventListener('click', () => {
+    const lat = parseFloat(el('fn-goto-lat').value);
+    const lon = parseFloat(el('fn-goto-lon').value);
+    if (isNaN(lat) || isNaN(lon)) { alert('กรุณากรอก Lat/Lon เป็นตัวเลขให้ครบ'); return; }
+    ensureMap();
+    map.flyTo([lat, lon], 15, { duration: 1 });
+    L.popup().setLatLng([lat, lon]).setContent(`📍 ${lat}, ${lon}`).openOn(map);
+  });
+  el('fn-goto-lon').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('fn-goto-btn').click(); });
   el('fn-ticket-only-toggle').addEventListener('click', () => {
     ticketOnly = !ticketOnly;
     const btn = el('fn-ticket-only-toggle');
