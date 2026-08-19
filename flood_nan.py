@@ -324,10 +324,12 @@ def build_flood_nan_response(gs_client=None):
         if base is None:
             continue
         priority_sites.append({**base, "priority_categories": categories})
+    priority_sites_with_tickets = [s for s in priority_sites if s["tickets"]]
 
     return {
         "sites": site_markers,
         "priority_sites": priority_sites,
+        "priority_sites_with_tickets": priority_sites_with_tickets,
         "tickets": nan_tickets,
         "classification": {
             "severities": CLASSIFICATION_SEVERITIES,

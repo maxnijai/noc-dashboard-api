@@ -1146,6 +1146,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 RF Priority / Evacuation Center ที่มี Ticket เปิดอยู่</div>
+      <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="fn-priority-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
       <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
@@ -6690,17 +6700,18 @@ function renderPivot(ft) {
 
   function priorityPopupHtml(site) {
     const cats = (site.priority_categories || []).map(c => `${escapeHtml(c.category)}${c.detail ? ' — ' + escapeHtml(c.detail) : ''}`).join('<br>');
-    const rows = (site.tickets || []).map(t => `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:3px 6px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.SEVERITY)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.CREATIONDATE)}</td>
-      </tr>`).join('');
-    const ticketTable = site.tickets && site.tickets.length ? `
-      <table style="border-collapse:collapse; font-size:11px; margin-top:6px;">
-        <thead><tr style="font-weight:700;"><td style="padding:3px 6px;">Ticket</td><td style="padding:3px 6px;">Sev</td><td style="padding:3px 6px;">Created</td></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
+    const sevColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
+    const sevCounts = {};
+    (site.tickets || []).forEach(t => {
+      const sev = String(t.SEVERITY || '').trim() || '(ไม่ระบุ)';
+      sevCounts[sev] = (sevCounts[sev] || 0) + 1;
+    });
+    const sevOrder = ['SA1', 'SA2', 'SA3', 'SA4', 'NSA1', 'NSA2', 'NSA3', 'NSA4'];
+    const sevKeys = Object.keys(sevCounts).sort((a, b) => sevOrder.indexOf(a) - sevOrder.indexOf(b));
+    const ticketTable = sevKeys.length ? `
+      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+        ${sevKeys.map(sev => `<span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; background:${sevColors[sev] || '#8b949e'}33; color:${sevColors[sev] || 'var(--text2)'};">${escapeHtml(sev)}: ${sevCounts[sev]}</span>`).join('')}
+      </div>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
     return `<div style="min-width:200px;">
       <b>${escapeHtml(site.location_id)}</b><br>
       <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)}</span><br>
@@ -6746,19 +6757,18 @@ function renderPivot(ft) {
   }
 
   function popupHtml(site) {
-    const rows = (site.tickets || []).map(t => `
-      <tr style="border-top:1px solid var(--border);">
-        <td style="padding:3px 6px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.SEVERITY)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.CREATIONDATE)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.DISTRICT)}</td>
-        <td style="padding:3px 6px;">${escapeHtml(t.SUBDISTRICT)}</td>
-      </tr>`).join('');
-    const ticketTable = site.tickets && site.tickets.length ? `
-      <table style="border-collapse:collapse; font-size:11px; margin-top:6px;">
-        <thead><tr style="font-weight:700;"><td style="padding:3px 6px;">Ticket</td><td style="padding:3px 6px;">Sev</td><td style="padding:3px 6px;">Created</td><td style="padding:3px 6px;">District</td><td style="padding:3px 6px;">Subdistrict</td></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
+    const sevColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
+    const sevCounts = {};
+    (site.tickets || []).forEach(t => {
+      const sev = String(t.SEVERITY || '').trim() || '(ไม่ระบุ)';
+      sevCounts[sev] = (sevCounts[sev] || 0) + 1;
+    });
+    const sevOrder = ['SA1', 'SA2', 'SA3', 'SA4', 'NSA1', 'NSA2', 'NSA3', 'NSA4'];
+    const sevKeys = Object.keys(sevCounts).sort((a, b) => sevOrder.indexOf(a) - sevOrder.indexOf(b));
+    const ticketTable = sevKeys.length ? `
+      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+        ${sevKeys.map(sev => `<span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; background:${sevColors[sev] || '#8b949e'}33; color:${sevColors[sev] || 'var(--text2)'};">${escapeHtml(sev)}: ${sevCounts[sev]}</span>`).join('')}
+      </div>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
     const remarkSection = site.is_dn ? `
       <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border2);">
         ${site.remark && site.remark.remark ? `
@@ -6831,8 +6841,8 @@ function renderPivot(ft) {
         ? L.marker([s.lat, s.lon], { icon: dnDivIcon(s.color) })
         : L.circleMarker([s.lat, s.lon], { radius: s.color ? 7 : 4, color: s.color || '#8b949e', fillColor: s.color || '#8b949e', fillOpacity: 0.85, weight: 1 });
       marker.bindPopup(popupHtml(s));
-      marker.on('popupopen', () => { popupOpenFor = s.location_id; });
-      marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; });
+      marker.on('popupopen', () => { popupOpenFor = s.location_id; marker.closeTooltip(); });
+      marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; marker.openTooltip(); });
       if (s.is_dn && s.remark && s.remark.remark) {
         const preview = s.remark.remark.length > 28 ? s.remark.remark.slice(0, 28) + '…' : s.remark.remark;
         marker.bindTooltip(
@@ -7040,6 +7050,36 @@ function renderPivot(ft) {
     tbody.innerHTML = rows.join('');
   }
 
+  function renderPriorityTable(prioritySites) {
+    const table = el('fn-priority-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const cols = ['LOCATION ID', 'Name', 'ประเภท', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
+    const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
+    if (!prioritySites || !prioritySites.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีไซต์สำคัญที่มี ticket เปิดอยู่ตอนนี้</td></tr>`;
+      return;
+    }
+    const rows = [];
+    prioritySites.forEach(s => {
+      const catLabel = (s.priority_categories || []).map(c => c.category).join(', ');
+      (s.tickets || []).forEach((t, i) => {
+        const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
+        rows.push(`<tr style="border-top:1px solid var(--border);">
+          <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.name_en) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(catLabel) : ''}</td>
+          <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
+          <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
+          <td style="padding:6px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
+          <td style="padding:6px 8px; white-space:normal;">${escapeHtml(t.SUBJECT)}</td>
+        </tr>`);
+      });
+    });
+    tbody.innerHTML = rows.join('');
+  }
+
   async function loadManualMarkers() {
     try {
       const res = await fetch('/api/flood-nan/markers');
@@ -7130,6 +7170,7 @@ function renderPivot(ft) {
       renderUniqueSitesTable(data.unique_sites_by_bookmark, data.unique_sites_affected);
       renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
       renderDnTable(data.dn_sites_with_tickets || []);
+      renderPriorityTable(data.priority_sites_with_tickets || []);
       renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
       loaded = true;
