@@ -210,7 +210,7 @@ def build_flood_nan_response(gs_client=None):
                 "CREATIONDATE": t.get("CREATIONDATE", ""), "CINAME": t.get("CINAME", ""),
                 "DISTRICT": t.get("DISTRICT", ""), "SUBDISTRICT": t.get("SUBDISTRICT", ""),
                 "SUBJECT": t.get("SUBJECT", ""), "Bookmark": t.get("Bookmark", ""),
-                "CLASSIFICATION": t.get("CLASSIFICATION", ""), "Subimpact": t.get("Subimpact", ""),
+                "CLASSIFICATION": t.get("CLASSIFICATION", ""),
             } for t in matches],
         })
         for t in matches:
@@ -229,24 +229,6 @@ def build_flood_nan_response(gs_client=None):
         label = bookmark_lookup.get(str(t.get("Bookmark", "")).strip())
         if label:
             matrix[sev][label] += 1
-
-    # Subimpact breakdown per severity row - inserted into the same
-    # Severity x Bookmark table as an extra column, since Subimpact is a
-    # sub-category of what's already broken out by severity there.
-    subimpact_by_severity = {sev: {} for sev in CLASSIFICATION_SEVERITIES}
-    for t in nan_tickets:
-        sev = str(t.get("SEVERITY", "")).strip()
-        if sev not in CLASSIFICATION_SEVERITIES:
-            continue
-        sub = str(t.get("Subimpact", "")).strip() or "(ไม่ระบุ)"
-        subimpact_by_severity[sev][sub] = subimpact_by_severity[sev].get(sub, 0) + 1
-    subimpact_by_severity = {
-        sev: sorted(
-            [{"label": k, "total": v} for k, v in vals.items()],
-            key=lambda r: r["total"], reverse=True,
-        )
-        for sev, vals in subimpact_by_severity.items()
-    }
 
     # CLASSIFICATION summary - last (most specific) segment, counted.
     classification_totals = {}
@@ -276,8 +258,18 @@ def build_flood_nan_response(gs_client=None):
     # Unique SITE count per Bookmark group - distinct from the ticket-count
     # matrix above, since one site can have several open tickets and a
     # ticket-count view would overstate how many physical sites are
-    # actually affected.
-    affected_sites = [s for s in site_markers if s["tickets"]]
+    # actually affected. Uses ONLY exact CINAME matches (not the looser
+    # SUBJECT-text matching used for the map/detail views) - a single
+    # ticket can legitimately mention multiple site codes in its subject
+    # (e.g. a fiber link ticket naming both endpoints), which would let one
+    # ticket inflate the count across several sites and made this number
+    # come out larger than the ticket count it's meant to be bounded by.
+    affected_sites = []
+    for s in sites:
+        loc_upper = s["location_id"].upper()
+        exact_matches = tickets_by_ciname.get(loc_upper, [])
+        if exact_matches:
+            affected_sites.append({"location_id": s["location_id"], "tickets": exact_matches})
     unique_sites_by_bookmark = []
     for label, raw in CLASSIFICATION_BOOKMARKS:
         count = sum(1 for s in affected_sites if any(t.get("Bookmark") == raw for t in s["tickets"]))
@@ -293,7 +285,6 @@ def build_flood_nan_response(gs_client=None):
             "bookmarks": [label for label, _ in CLASSIFICATION_BOOKMARKS],
             "matrix": matrix,
         },
-        "subimpact_by_severity": subimpact_by_severity,
         "classification_summary": classification_summary,
         "district_summary": district_summary,
         "dn_sites_with_tickets": dn_sites_with_tickets,

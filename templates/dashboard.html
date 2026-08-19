@@ -6685,7 +6685,7 @@ function renderPivot(ft) {
     }
   };
 
-  function renderClassification(cls, subimpactBySeverity) {
+  function renderClassification(cls) {
     if (!cls) { el('fn-classification').innerHTML = ''; return; }
     const head = cls.bookmarks.map(b => `<th style="padding:8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
     const rows = cls.severities.map((sev, i) => {
@@ -6697,15 +6697,10 @@ function renderPivot(ft) {
         return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${isActive ? 'background:#E24B4A33;' : ''} ${count > 0 ? 'font-weight:700; color:#E24B4A;' : ''}">${count || '–'}</td>`;
       }).join('');
       const rowTotal = cls.bookmarks.reduce((s, b) => s + ((cls.matrix[sev] || {})[b] || 0), 0);
-      const subimpacts = (subimpactBySeverity && subimpactBySeverity[sev]) || [];
-      const shown = subimpacts.slice(0, 3).map(r => `${escapeHtml(r.label)} (${r.total})`).join(', ');
-      const more = subimpacts.length > 3 ? ` +${subimpacts.length - 3} เพิ่มเติม` : '';
-      const subimpactCell = subimpacts.length ? `${shown}${more}` : '–';
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
         <td style="padding:7px 10px; font-weight:600;">${escapeHtml(sev)}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${rowTotal || '–'}</td>
-        <td style="padding:7px 10px; white-space:normal; font-size:11px; color:var(--text2); max-width:260px;" title="${escapeHtml(subimpacts.map(r => r.label + ' (' + r.total + ')').join(', '))}">${subimpactCell}</td>
       </tr>`;
     }).join('');
     const totalCells = cls.bookmarks.map(b => {
@@ -6719,14 +6714,12 @@ function renderPivot(ft) {
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
             <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Severity</th>${head}
             <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
-            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Subimpact</th>
           </tr></thead>
           <tbody>${rows}
             <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
               <td style="padding:7px 10px;">Total</td>
               ${totalCells}
               <td style="padding:7px 10px; text-align:center; color:#E24B4A;">${grandTotal}</td>
-              <td></td>
             </tr>
           </tbody>
         </table>
@@ -6867,7 +6860,7 @@ function renderPivot(ft) {
       const data = await res.json();
       lastData = data;
       renderMap(data.sites || []);
-      renderClassification(data.classification, data.subimpact_by_severity);
+      renderClassification(data.classification);
       renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่', 'classification');
       renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District', 'district');
       renderUniqueSitesTable(data.unique_sites_by_bookmark, data.unique_sites_affected);
