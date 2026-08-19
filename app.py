@@ -2258,6 +2258,24 @@ def api_flood_nan_delete_marker(marker_id):
         log.exception("flood-nan delete marker failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/flood-nan/site-remark', methods=['POST'])
+def api_flood_nan_site_remark():
+    """Sets (overwriting any previous) the current-action remark for a DN
+    site - shown pinned in that site's map popup."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        location_id = (payload.get('location_id') or '').strip()
+        remark = (payload.get('remark') or '').strip()
+        if not location_id or not remark:
+            return jsonify({'error': 'location_id and remark are required'}), 400
+        _, gs_client = get_drive_and_sheets_clients()
+        updated_by = session.get('user_name') or session.get('user_email') or ''
+        result = flood_nan.set_site_remark(gs_client, location_id, remark, updated_by)
+        return jsonify({'remark': result})
+    except Exception as e:
+        log.exception("flood-nan site-remark failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/p0-snapshot-comparison')
 def api_p0_snapshot_comparison():
     """P0 count right now vs P0 count at ~01:15 today (from the Drive backup

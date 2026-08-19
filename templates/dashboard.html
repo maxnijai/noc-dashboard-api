@@ -6625,13 +6625,40 @@ function renderPivot(ft) {
         <thead><tr style="font-weight:700;"><td style="padding:3px 6px;">Ticket</td><td style="padding:3px 6px;">Sev</td><td style="padding:3px 6px;">Created</td><td style="padding:3px 6px;">District</td><td style="padding:3px 6px;">Subdistrict</td></tr></thead>
         <tbody>${rows}</tbody>
       </table>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
+    const remarkSection = site.is_dn ? `
+      <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border2);">
+        ${site.remark && site.remark.remark ? `
+          <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:2px;">📝 Remark</div>
+          <div style="font-size:12px; white-space:pre-wrap; background:var(--bg3); padding:6px 8px; border-radius:6px;">${escapeHtml(site.remark.remark)}</div>
+          <div style="font-size:10px; color:var(--text3); margin-top:4px;">โดย ${escapeHtml(site.remark.updated_by)} · ${escapeHtml(site.remark.updated_at)}</div>
+        ` : `<div style="font-size:11px; color:var(--text3);">ยังไม่มี Remark</div>`}
+        <button onclick="window.__fnAddSiteRemark('${site.location_id.replace(/'/g, "\\'")}')" class="btn-secondary" style="margin-top:6px; font-size:11px; padding:3px 8px;">📝 ${site.remark && site.remark.remark ? 'แก้ไข' : 'เพิ่ม'} Remark</button>
+      </div>` : '';
     return `<div style="min-width:220px;">
       <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#1f6feb; font-weight:700;">💧 DN</span>' : ''}<br>
       <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)} / ${escapeHtml(site.name_th)}</span><br>
       <span style="font-size:11px;">CINAME: ${escapeHtml(site.location_id)}</span>
       ${ticketTable}
+      ${remarkSection}
     </div>`;
   }
+
+  window.__fnAddSiteRemark = async function (locationId) {
+    const remark = prompt('Remark: ทีม/action ที่กำลังดำเนินการอยู่:');
+    if (remark === null || !remark.trim()) return;
+    try {
+      const res = await fetch('/api/flood-nan/site-remark', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: locationId, remark: remark.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'บันทึกไม่สำเร็จ');
+      popupOpenFor = locationId;
+      reload();
+    } catch (e) {
+      alert('❌ ' + e.message);
+    }
+  };
 
   function manualPopupHtml(m) {
     return `<div style="min-width:180px;">
@@ -6641,6 +6668,8 @@ function renderPivot(ft) {
     </div>`;
   }
 
+  let popupOpenFor = null;
+
   function renderMap(sites) {
     ensureMap();
     markerLayer.clearLayers();
@@ -6648,13 +6677,15 @@ function renderPivot(ft) {
     if (isFilterActive()) visible = visible.filter(siteMatchesFilter);
     visible.forEach(s => {
       if (s.lat == null || s.lon == null) return;
-      if (s.is_dn) {
-        L.marker([s.lat, s.lon], { icon: dnDivIcon(s.color) }).bindPopup(popupHtml(s)).addTo(markerLayer);
-      } else {
-        const color = s.color || '#8b949e';
-        L.circleMarker([s.lat, s.lon], {
-          radius: s.color ? 7 : 4, color, fillColor: color, fillOpacity: 0.85, weight: 1,
-        }).bindPopup(popupHtml(s)).addTo(markerLayer);
+      const marker = s.is_dn
+        ? L.marker([s.lat, s.lon], { icon: dnDivIcon(s.color) })
+        : L.circleMarker([s.lat, s.lon], { radius: s.color ? 7 : 4, color: s.color || '#8b949e', fillColor: s.color || '#8b949e', fillOpacity: 0.85, weight: 1 });
+      marker.bindPopup(popupHtml(s));
+      marker.on('popupopen', () => { popupOpenFor = s.location_id; });
+      marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; });
+      marker.addTo(markerLayer);
+      if (popupOpenFor === s.location_id) {
+        setTimeout(() => marker.openPopup(), 60);
       }
     });
     setTimeout(() => { if (map) map.invalidateSize(); }, 50);

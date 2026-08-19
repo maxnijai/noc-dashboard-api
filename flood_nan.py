@@ -62,6 +62,8 @@ SITE_CACHE_TTL_SECONDS = 600  # site master rarely changes - safe to cache for a
 
 MANUAL_MARKERS_TAB = "FloodNanMarkers"
 MANUAL_MARKERS_HEADER = ["id", "lat", "lon", "remark", "created_by", "created_at"]
+SITE_REMARKS_TAB = "FloodNanSiteRemarks"
+SITE_REMARKS_HEADER = ["location_id", "remark", "updated_by", "updated_at"]
 
 
 def _to_float(v):
@@ -166,6 +168,7 @@ def build_flood_nan_response(gs_client=None):
         _, gs_client = get_drive_and_sheets_clients()
 
     sites = fetch_nan_sites(gs_client)
+    site_remarks = get_site_remarks(gs_client)
     all_entries = _fetch_full_ticket_entries(gs_client)
 
     # Only tickets with a real severity are relevant to plot/count.
@@ -205,6 +208,7 @@ def build_flood_nan_response(gs_client=None):
             "location_id": s["location_id"], "name_en": s["name_en"], "name_th": s["name_th"],
             "lat": s["lat"], "lon": s["lon"], "is_dn": s["is_dn"], "color": color,
             "district_e": s["district_e"], "district_t": s["district_t"], "subdistrict_e": s["subdistrict_e"],
+            "remark": site_remarks.get(loc_upper),
             "tickets": [{
                 "TICKETID": t.get("TICKETID", ""), "SEVERITY": t.get("SEVERITY", ""),
                 "CREATIONDATE": t.get("CREATIONDATE", ""), "CINAME": t.get("CINAME", ""),
@@ -344,3 +348,45 @@ def delete_manual_marker(gs_client, marker_id):
         return False
     ws.delete_rows(cell.row)
     return True
+
+
+# ── DN site remarks (current action/status per site) ───────────────────
+# One remark per site - submitting a new one overwrites the old, since
+# this tracks "what's the team doing right now", not a running log.
+
+def _ensure_site_remarks_tab(spreadsheet):
+    try:
+        return spreadsheet.worksheet(SITE_REMARKS_TAB)
+    except Exception:
+        ws = spreadsheet.add_worksheet(title=SITE_REMARKS_TAB, rows=1000, cols=len(SITE_REMARKS_HEADER))
+        ws.append_row(SITE_REMARKS_HEADER)
+        return ws
+
+
+def get_site_remarks(gs_client):
+    """Returns {LOCATION_ID (upper): {remark, updated_by, updated_at}}."""
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_site_remarks_tab(sh)
+    rows = ws.get_all_values()[1:]
+    out = {}
+    for row in rows:
+        if not row or not row[0]:
+            continue
+        padded = row + [""] * (len(SITE_REMARKS_HEADER) - len(row))
+        out[padded[0].strip().upper()] = {
+            "remark": padded[1], "updated_by": padded[2], "updated_at": padded[3],
+        }
+    return out
+
+
+def set_site_remark(gs_client, location_id, remark, updated_by):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_site_remarks_tab(sh)
+    location_id = location_id.strip().upper()
+    updated_at = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    cell = ws.find(location_id, in_column=1)
+    if cell is not None:
+        ws.update(f"B{cell.row}:D{cell.row}", [[remark, updated_by, updated_at]])
+    else:
+        ws.append_row([location_id, remark, updated_by, updated_at])
+    return {"location_id": location_id, "remark": remark, "updated_by": updated_by, "updated_at": updated_at}
