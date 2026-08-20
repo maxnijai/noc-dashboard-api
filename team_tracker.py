@@ -74,14 +74,13 @@ def fetch_nan_team_rows(gs_client, use_cache=True):
         if not row or not row[0].strip():
             continue
         site = get(row, "Site").strip()
-        if not site.upper().startswith("NAN"):
-            continue
         lat, lon = _to_latlon(get(row, "Update พิกัด"))
         out.append({
             "ticket": get(row, "Ticket").strip(),
             "sla": get(row, "SLA").strip(),
             "subject": get(row, "Subject").strip(),
             "site": site,
+            "region": get(row, "Region").strip(),
             "district": get(row, "อำเภอ").strip(),
             "subdistrict": get(row, "ตำบล").strip(),
             "team_id": get(row, "Team ID").strip(),
