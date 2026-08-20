@@ -729,7 +729,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
 
 from datetime import time as _dtime, timedelta as _timedelta
 
-_P0_SNAPSHOT_CACHE_TTL_SECONDS = 900  # 15 min - the snapshot itself is fixed once written; "current" P0 drifts slowly enough that this is fine
+_P0_SNAPSHOT_CACHE_TTL_SECONDS = 900  # 15 min - just for the (expensive) backup-file part, which is fixed once written and never changes
 _p0_snapshot_cache = {"data": None, "ts": 0}
 _p0_snapshot_lock = threading.Lock()
 
@@ -777,30 +777,46 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
     now vs P0 count as it stood at the ~01:15 Drive backup closest to
     today, for each of the 4 severity/bookmark groups. Falls back to
     yesterday's snapshot if today's isn't found yet (e.g. very early in the
-    morning before the day's 01:15 backup has run)."""
+    morning before the day's 01:15 backup has run).
+
+    Only the snapshot half (the Drive backup download+count) is cached -
+    that data is fixed once written and genuinely expensive to redo. The
+    "current" half is recomputed on every call: fetch_live_rows already has
+    its own short-TTL cache, so this stays cheap while never showing a
+    current_p0 that's stale relative to what the ticket detail table shows
+    right below it on the same page - the two used to share one 15-minute
+    cache, which could make this card's count visibly disagree with the
+    live detail list for up to 15 minutes after something changed."""
     from pending_trend import find_nightly_file, download_xlsx_as_rows
     from ticket_views import BOOKMARK_VIEWS
 
     now = time.monotonic()
+    cached_snapshot = None
     if use_cache:
         with _p0_snapshot_lock:
             if _p0_snapshot_cache["data"] is not None and (now - _p0_snapshot_cache["ts"]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
-                return _p0_snapshot_cache["data"]
+                cached_snapshot = _p0_snapshot_cache["data"]
 
-    today = bangkok_now().date()
-    file_info = find_nightly_file(drive_service, today)
-    snapshot_date = today
-    if file_info is None:
-        file_info = find_nightly_file(drive_service, today - _timedelta(days=1))
-        snapshot_date = today - _timedelta(days=1)
-    if file_info is None:
-        raise ValueError(f"No backup snapshot found near 01:15 for {today} or {today - _timedelta(days=1)}")
+    if cached_snapshot is not None:
+        snapshot_date, matched_dt, filename, snapshot_counts = cached_snapshot
+    else:
+        today = bangkok_now().date()
+        file_info = find_nightly_file(drive_service, today)
+        snapshot_date = today
+        if file_info is None:
+            file_info = find_nightly_file(drive_service, today - _timedelta(days=1))
+            snapshot_date = today - _timedelta(days=1)
+        if file_info is None:
+            raise ValueError(f"No backup snapshot found near 01:15 for {today} or {today - _timedelta(days=1)}")
 
-    file_id, matched_dt, filename = file_info
-    snapshot_rows = download_xlsx_as_rows(drive_service, file_id)
-
-    reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
-    snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
+        file_id, matched_dt, filename = file_info
+        snapshot_rows = download_xlsx_as_rows(drive_service, file_id)
+        reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
+        snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
+        if use_cache:
+            with _p0_snapshot_lock:
+                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts)
+                _p0_snapshot_cache["ts"] = now
 
     live_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
@@ -816,15 +832,10 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
             "snapshot_p0": s, "current_p0": c, "diff": c - s,
         })
 
-    result = {
+    return {
         "snapshot_date": snapshot_date.strftime("%Y-%m-%d"),
         "snapshot_matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "snapshot_filename": filename,
         "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "groups": groups,
     }
-    if use_cache:
-        with _p0_snapshot_lock:
-            _p0_snapshot_cache["data"] = result
-            _p0_snapshot_cache["ts"] = now
-    return result
