@@ -109,6 +109,8 @@ tbody .oe-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #fn-map-wrap.rm-map-fullscreen #fn-map { height: calc(100vh - 32px) !important; }
 #fn-map2-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map2-wrap.rm-map-fullscreen #fn-map2 { height: calc(100vh - 32px) !important; }
+#nt-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#nt-map-wrap.rm-map-fullscreen #nt-map { height: calc(100vh - 32px) !important; }
 
 /* Content */
 .content { padding: 20px; flex: 1; }
@@ -730,6 +732,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 9c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round"/><path d="M2 12.5c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round" opacity=".5"/><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
     Flood NAN Monitoring
   </div>
+  <div class="nav-item" onclick="showPage('nanteam')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/></svg>
+    Team (น่าน)
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -1167,6 +1173,51 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
       <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAN TEAM TRACKER -->
+  <div class="page" id="page-nanteam">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/></svg>
+          Team (น่าน)
+        </div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ตำแหน่งทีมช่างที่ทำงานอยู่ในจังหวัดน่านตอนนี้ (จากพิกัดอัพเดตล่าสุดของแต่ละทีม)</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button id="nt-reload" class="btn-secondary">Refresh</button>
+        <span id="nt-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ตำแหน่งทีม</div>
+      <div id="nt-map-wrap" style="position:relative;">
+        <button id="nt-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+        <div id="nt-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">👥 ทีมที่กำลังทำงานอยู่ (ตำแหน่งล่าสุด)</div>
+      <div style="overflow:auto; max-height:340px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="nt-team-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket ทั้งหมด (เฉพาะน่าน)</div>
+      <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="nt-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
           <tbody></tbody>
         </table>
@@ -3732,7 +3783,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan'][i]===id);
+    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan','nanteam'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3743,6 +3794,7 @@ function showPage(id) {
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
+  if (id==='nanteam') { setTimeout(()=>{ if (window.initNanTeamTab) window.initNanTeamTab(); },50); }
   toggleMobileSidebar(false); // picking a tab on mobile should close the drawer
 }
 
@@ -7267,6 +7319,152 @@ function renderPivot(ft) {
     if (!loaded) reload();
     if (!trendsLoaded) { trendsLoaded = true; loadTrends(); }
   };
+})();
+
+// ── NAN TEAM TRACKER ────────────────────────────────────────────────────
+(function () {
+  let loaded = false;
+  let map = null;
+  let markerLayer = null;
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function ensureMap() {
+    if (map) return;
+    map = L.map('nt-map', { zoomControl: true, preferCanvas: true }).setView([18.78, 100.9], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+
+    const wrap = el('nt-map-wrap');
+    const expandBtn = el('nt-map-expand');
+    expandBtn.addEventListener('click', () => {
+      const isFull = wrap.classList.toggle('rm-map-fullscreen');
+      expandBtn.textContent = isFull ? '✕' : '⛶';
+      expandBtn.title = isFull ? 'ปิดโหมดเต็มจอ' : 'ขยายเต็มจอ';
+      setTimeout(() => map.invalidateSize(), 100);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && wrap.classList.contains('rm-map-fullscreen')) {
+        wrap.classList.remove('rm-map-fullscreen');
+        expandBtn.textContent = '⛶';
+        expandBtn.title = 'ขยายเต็มจอ';
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+    });
+  }
+
+  function teamPopupHtml(t) {
+    return `<div style="min-width:200px;">
+      <b>${escapeHtml(t.team_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(t.type_team)})</span><br>
+      <span style="font-size:11px; color:var(--text3);">Site: ${escapeHtml(t.site)} — ${escapeHtml(t.district)} ${escapeHtml(t.subdistrict)}</span>
+      <div style="margin-top:6px; font-size:12px;">
+        <div>🎫 Ticket: <b>${escapeHtml(t.ticket)}</b> (${escapeHtml(t.sla)})</div>
+        <div>📍 สถานะ: ${escapeHtml(t.status_team) || '-'}</div>
+        ${t.travel_time ? `<div>🚗 เวลาเดินทาง: ${escapeHtml(t.travel_time)}</div>` : ''}
+        ${t.repair_start_time ? `<div>🔧 เวลาเริ่มซ่อม: ${escapeHtml(t.repair_start_time)}</div>` : ''}
+        ${t.hold ? `<div style="color:#E24B4A;">⏸️ Hold: ${escapeHtml(t.hold)} ${t.hold_reason ? '- ' + escapeHtml(t.hold_reason) : ''}</div>` : ''}
+        ${t.inoc_name ? `<div>INOC: ${escapeHtml(t.inoc_name)}</div>` : ''}
+        ${t.team_count ? `<div>จำนวนทีม: ${escapeHtml(t.team_count)}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function teamDivIcon() {
+    return L.divIcon({
+      className: '', iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
+      html: `<svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="15" cy="15" r="13" fill="#639922" stroke="#fff" stroke-width="2.5"/>
+        <path d="M15 8a3.2 3.2 0 100 6.4A3.2 3.2 0 0015 8zM9 21c0-3 2.7-5.4 6-5.4s6 2.4 6 5.4v.5H9V21z" fill="#fff"/>
+      </svg>`,
+    });
+  }
+
+  function renderMap(teams) {
+    ensureMap();
+    markerLayer.clearLayers();
+    teams.forEach(t => {
+      if (t.lat == null || t.lon == null) return;
+      const marker = L.marker([t.lat, t.lon], { icon: teamDivIcon() });
+      marker.bindPopup(teamPopupHtml(t));
+      marker.bindTooltip(escapeHtml(t.team_id), { permanent: true, direction: 'top', offset: [0, -14], className: 'boundary-team-tooltip' });
+      marker.addTo(markerLayer);
+    });
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+
+  function renderTeamTable(teams) {
+    const table = el('nt-team-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const cols = ['Team ID', 'ประเภททีม', 'Ticket', 'SLA', 'Site', 'อำเภอ', 'ตำบล', 'สถานะ', 'Hold'];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
+    if (!teams.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่พบทีมที่มีการอัพเดตพิกัดในน่านตอนนี้</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = teams.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; font-weight:600;">${escapeHtml(t.team_id)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.type_team)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.ticket)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.sla)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.site)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.district)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.subdistrict)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.status_team)}</td>
+        <td style="padding:6px 8px; ${t.hold ? 'color:#E24B4A; font-weight:700;' : ''}">${escapeHtml(t.hold)}</td>
+      </tr>`).join('');
+  }
+
+  function renderDetailTable(tickets) {
+    const table = el('nt-detail-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const cols = ['Ticket', 'SLA', 'Subject', 'Site', 'อำเภอ', 'Team ID', 'สถานะทีม', 'Status_SCCD'];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
+    if (!tickets.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีข้อมูล</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = tickets.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; font-weight:600;">${escapeHtml(t.ticket)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.sla)}</td>
+        <td style="padding:6px 8px; white-space:normal;">${escapeHtml(t.subject)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.site)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.district)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.team_id)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.status_team)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.status_sccd)}</td>
+      </tr>`).join('');
+  }
+
+  async function reload() {
+    el('nt-status').textContent = 'กำลังโหลด...';
+    try {
+      const res = await fetch('/api/nan-team');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      renderMap(data.teams || []);
+      renderTeamTable(data.teams || []);
+      renderDetailTable(data.tickets || []);
+      el('nt-status').textContent = `${data.total_teams} ทีม (มีพิกัด) · ${data.total_tickets} ticket`;
+      loaded = true;
+    } catch (e) {
+      console.error('Nan team load failed', e);
+      el('nt-status').textContent = '';
+      alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+    }
+  }
+
+  el('nt-reload').addEventListener('click', reload);
+  window.initNanTeamTab = function () { if (!loaded) reload(); };
 })();
 </script>
 </body>

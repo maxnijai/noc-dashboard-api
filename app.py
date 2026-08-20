@@ -23,6 +23,7 @@ from pending_ticket import (
 import oncall
 import oncall_escalation
 import flood_nan
+import team_tracker
 import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -2331,6 +2332,18 @@ def api_flood_nan_trends():
         return jsonify(data)
     except Exception as e:
         log.exception("flood-nan trends API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/nan-team')
+def api_nan_team():
+    """Field teams currently working in Nan, plotted at their latest
+    logged coordinate ('Update พิกัด' in the field-tracking sheet)."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = team_tracker.build_nan_team_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("nan-team API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-snapshot-comparison')
