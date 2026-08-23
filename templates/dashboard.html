@@ -1036,6 +1036,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="display:flex; align-items:center; gap:10px;">
         <button id="fn-ticket-only-toggle" class="btn-secondary" title="ซ่อนไซต์ที่ไม่มี ticket เปิดอยู่">🔍 แสดงเฉพาะไซต์ที่มี Ticket</button>
         <button id="fn-add-marker-toggle" class="btn-secondary" title="เปิดโหมดแล้วคลิกบนแผนที่เพื่อปักหมุด Remark">📍 โหมดเพิ่มหมุด</button>
+        <button id="fn-infographic" class="btn-secondary" title="สร้างภาพสรุปสถานการณ์ปัจจุบันสำหรับแชร์/พรีเซนต์">🖼️ สร้างภาพสรุป</button>
         <button id="fn-reload" class="btn-secondary">Refresh</button>
         <span id="fn-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
       </div>
@@ -1176,6 +1177,57 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 
 
+<!-- FLOOD NAN INFOGRAPHIC TEMPLATE (rendered off-screen, captured to PNG via html2canvas) -->
+<div id="fn-infographic-wrap" style="position:fixed; left:-9999px; top:0; z-index:-1;">
+  <div id="fn-infographic-slide" style="width:1200px; height:675px; background:linear-gradient(160deg,#0d1117 0%,#161b22 55%,#0d1b2e 100%); font-family:'Segoe UI',Tahoma,Arial,sans-serif; color:#fff; padding:44px 52px; box-sizing:border-box; position:relative; overflow:hidden;">
+    <div style="position:absolute; top:-60px; right:-60px; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle,rgba(88,166,255,.18),transparent 70%);"></div>
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <svg width="40" height="40" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
+        <div>
+          <div style="font-size:30px; font-weight:800; letter-spacing:.3px;">สถานการณ์ Ticket จังหวัดน่าน</div>
+          <div id="fn-info-datetime" style="font-size:14px; color:#8b949e; margin-top:2px;"></div>
+        </div>
+      </div>
+      <div style="font-size:12px; color:#8b949e; text-align:right; line-height:1.5;">BBTEC NOC<br>Flood NAN Monitoring</div>
+    </div>
+
+    <div style="display:flex; gap:20px; margin-top:34px;">
+      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
+        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์ที่กระทบจริง (Unique)</div>
+        <div id="fn-info-sites" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px; color:#E24B4A;">0</div>
+      </div>
+      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
+        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">Ticket ทั้งหมด</div>
+        <div id="fn-info-tickets" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px;">0</div>
+      </div>
+      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
+        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์สำคัญ (DN) ที่กระทบ</div>
+        <div id="fn-info-dn" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px; color:#1f6feb;">0</div>
+      </div>
+    </div>
+
+    <div style="margin-top:26px;">
+      <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px;">แยกตาม Severity</div>
+      <div id="fn-info-sev-bars" style="display:flex; height:34px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,.06);"></div>
+      <div id="fn-info-sev-legend" style="display:flex; gap:22px; margin-top:10px; font-size:14px;"></div>
+    </div>
+
+    <div style="display:flex; gap:20px; margin-top:26px;">
+      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:18px 22px;">
+        <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">District ที่กระทบมากสุด</div>
+        <div id="fn-info-top-district" style="font-size:22px; font-weight:700;">-</div>
+      </div>
+      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:18px 22px;">
+        <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">หมวดหมู่ปัญหาที่พบมากสุด</div>
+        <div id="fn-info-top-class" style="font-size:22px; font-weight:700;">-</div>
+      </div>
+    </div>
+
+    <div id="fn-info-freshness" style="position:absolute; bottom:28px; left:52px; font-size:12px; color:#6e7681;"></div>
+  </div>
+</div>
+
 <!-- KPI MODAL -->
 <div id="kpi-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this)closeModal()">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:780px;margin:40px auto;padding:0;overflow:hidden;">
@@ -1214,6 +1266,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 if (window.Chart && window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
 </script>
@@ -7246,6 +7299,58 @@ function renderPivot(ft) {
   });
   el('fn-goto-lon').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('fn-goto-btn').click(); });
   if (el('fn-trend-reload')) el('fn-trend-reload').addEventListener('click', loadTrends);
+
+  async function generateInfographic() {
+    if (!lastData) { alert('ยังไม่มีข้อมูลโหลด กด Refresh ก่อนครับ'); return; }
+    const btn = el('fn-infographic');
+    btn.disabled = true;
+    btn.textContent = 'กำลังสร้างภาพ...';
+    try {
+      const d = lastData;
+      const now = new Date();
+      el('fn-info-datetime').textContent = now.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'long', timeStyle: 'short' });
+      el('fn-info-sites').textContent = d.unique_sites_affected != null ? d.unique_sites_affected : '-';
+      el('fn-info-tickets').textContent = d.total_tickets != null ? d.total_tickets : '-';
+      el('fn-info-dn').textContent = (d.dn_sites_with_tickets || []).length;
+
+      // Severity breakdown, from the sites' own marker colors (matches
+      // exactly what the map shows) rather than recomputing from tickets.
+      const sevGroups = [
+        { label: 'SA1-4', color: '#E24B4A' },
+        { label: 'NSA1-2', color: '#EF9F27' },
+        { label: 'NSA3-4', color: '#F5C518' },
+      ];
+      const counts = { '#E24B4A': 0, '#EF9F27': 0, '#F5C518': 0 };
+      (d.sites || []).forEach(s => { if (s.color && counts[s.color] != null) counts[s.color]++; });
+      const total = counts['#E24B4A'] + counts['#EF9F27'] + counts['#F5C518'];
+      const bars = el('fn-info-sev-bars');
+      bars.innerHTML = sevGroups.map(g => {
+        const n = counts[g.color];
+        const pct = total > 0 ? (n / total * 100) : 0;
+        return pct > 0 ? `<div style="width:${pct}%; background:${g.color}; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#0d1117;">${n > 0 && pct > 8 ? n : ''}</div>` : '';
+      }).join('');
+      el('fn-info-sev-legend').innerHTML = sevGroups.map(g => `<span style="display:flex; align-items:center; gap:6px;"><span style="width:12px;height:12px;border-radius:3px;background:${g.color};display:inline-block;"></span>${g.label}: ${counts[g.color]}</span>`).join('');
+
+      const topDistrict = (d.district_summary || [])[0];
+      el('fn-info-top-district').textContent = topDistrict ? `${topDistrict.district} (${topDistrict.total} ticket)` : 'ไม่มีข้อมูล';
+      const topClass = (d.classification_summary || [])[0];
+      el('fn-info-top-class').textContent = topClass ? `${topClass.category} (${topClass.total})` : 'ไม่มีข้อมูล';
+      el('fn-info-freshness').textContent = d.insert_time ? `ข้อมูลล่าสุด: ${d.insert_time}` : '';
+
+      const canvas = await html2canvas(el('fn-infographic-slide'), { backgroundColor: null, scale: 2 });
+      const link = document.createElement('a');
+      link.download = `flood-nan-summary-${now.toISOString().slice(0, 16).replace(/[-:T]/g, '')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Infographic generation failed', e);
+      alert('สร้างภาพไม่สำเร็จ: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = '🖼️ สร้างภาพสรุป';
+  }
+  el('fn-infographic').addEventListener('click', generateInfographic);
+
   el('fn-ticket-only-toggle').addEventListener('click', () => {
     ticketOnly = !ticketOnly;
     const btn = el('fn-ticket-only-toggle');
