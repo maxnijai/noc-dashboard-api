@@ -85,8 +85,17 @@ def build_summary_nan_response():
 
     site_by_id = {s["site_id"].upper(): s for s in sites}
 
+    # Exclude tickets opened before the flood event window (19 Aug) - the
+    # uploaded workbook's raw ticket list includes some older tickets that
+    # aren't part of this incident.
+    CUTOFF_DATE = datetime(2026, 8, 19)
+
     tickets = []
     for t in tickets_raw:
+        creation_dt = _parse_dt(t.get("creation_date"))
+        if creation_dt is not None and creation_dt < CUTOFF_DATE:
+            continue
+
         ci = (t.get("ci_name") or "").strip().upper()
         matched_site = site_by_id.get(ci)
         down_time_min = t.get("down_time_minute")
