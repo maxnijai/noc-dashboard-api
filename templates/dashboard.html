@@ -109,6 +109,8 @@ tbody .oe-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #fn-map-wrap.rm-map-fullscreen #fn-map { height: calc(100vh - 32px) !important; }
 #fn-map2-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map2-wrap.rm-map-fullscreen #fn-map2 { height: calc(100vh - 32px) !important; }
+#sn-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#sn-map-wrap.rm-map-fullscreen #sn-map { height: calc(100vh - 32px) !important; }
 
 /* Content */
 .content { padding: 20px; flex: 1; }
@@ -730,6 +732,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 9c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round"/><path d="M2 12.5c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round" opacity=".5"/><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
     Flood NAN Monitoring
   </div>
+  <div class="nav-item" onclick="showPage('summarynan')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+    Summary NAN
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -1168,6 +1174,72 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
       <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY NAN -->
+  <div class="page" id="page-summarynan">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
+          Summary NAN
+        </div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">สรุป Root Cause Ticket ปิด SA1-4/Mobile ช่วง 19-22 ส.ค. — ข้อมูล snapshot คงที่จากไฟล์ที่อัปโหลด ไม่ sync สด</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="sn-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:12px;" id="sn-legend"></div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">อำเภอ:
+            <select id="sn-filter-district" style="padding:3px 8px; font-size:12px;"><option value="">ทั้งหมด</option></select>
+          </label>
+          <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">SITE ID:
+            <select id="sn-filter-site" style="padding:3px 8px; font-size:12px;"><option value="">ทั้งหมด</option></select>
+          </label>
+          <a href="#" id="sn-clear-filter" style="font-size:11px; color:var(--blue); display:none;">✕ ล้างตัวกรอง</a>
+        </div>
+      </div>
+      <div id="sn-filter-chip" style="font-size:11px; margin-top:8px;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Root Cause รายไซต์</div>
+      <div id="sn-map-wrap" style="position:relative;">
+        <button id="sn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+        <div id="sn-map" style="height:520px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 สรุปตามอำเภอ — ไซต์ที่กระทบ และ Root Cause</div>
+      <div style="overflow:auto; max-height:360px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="sn-district-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">🏆 Ranking Ticket ที่ซ่อมนานที่สุด</div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">เรียงจากส่วนต่าง RESTORATIONDATE − TARGETFINISH มากไปน้อย (ยิ่งค้างนาน ยิ่งอยู่บนสุด)</div>
+      <div id="sn-ranking-list"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket ทั้งหมด</div>
+      <div style="overflow:auto; max-height:440px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="sn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
           <tbody></tbody>
         </table>
@@ -3796,7 +3868,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan'][i]===id);
+    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan','summarynan'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3807,6 +3879,7 @@ function showPage(id) {
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
+  if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
   toggleMobileSidebar(false); // picking a tab on mobile should close the drawer
 }
 
@@ -7427,6 +7500,265 @@ function renderPivot(ft) {
     if (!loaded) reload();
     if (!trendsLoaded) { trendsLoaded = true; loadTrends(); }
   };
+})();
+
+// ── SUMMARY NAN ──────────────────────────────────────────────────────────
+(function () {
+  let loaded = false;
+  let map = null;
+  let markerLayer = null;
+  let lastData = null;
+  let filterState = { district: null, site_id: null };
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function ensureMap() {
+    if (map) return;
+    map = L.map('sn-map', { zoomControl: true, preferCanvas: true }).setView([18.78, 100.9], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+
+    const wrap = el('sn-map-wrap');
+    const expandBtn = el('sn-map-expand');
+    expandBtn.addEventListener('click', () => {
+      const isFull = wrap.classList.toggle('rm-map-fullscreen');
+      expandBtn.textContent = isFull ? '✕' : '⛶';
+      expandBtn.title = isFull ? 'ปิดโหมดเต็มจอ' : 'ขยายเต็มจอ';
+      setTimeout(() => map.invalidateSize(), 100);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && wrap.classList.contains('rm-map-fullscreen')) {
+        wrap.classList.remove('rm-map-fullscreen');
+        expandBtn.textContent = '⛶';
+        expandBtn.title = 'ขยายเต็มจอ';
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+    });
+  }
+
+  function isFilterActive() { return !!(filterState.district || filterState.site_id); }
+
+  function siteMatchesFilter(s) {
+    if (filterState.site_id) return s.site_id === filterState.site_id;
+    if (filterState.district) return s.district === filterState.district;
+    return true;
+  }
+  function ticketMatchesFilter(t) {
+    if (filterState.site_id) return t.site_id === filterState.site_id;
+    if (filterState.district) return t.district === filterState.district;
+    return true;
+  }
+
+  function setFilter(next) {
+    const same = filterState.district === (next.district || null) && filterState.site_id === (next.site_id || null);
+    filterState = same ? { district: null, site_id: null } : { district: next.district || null, site_id: next.site_id || null };
+    el('sn-filter-district').value = filterState.district || '';
+    el('sn-filter-site').value = filterState.site_id || '';
+    renderAll();
+  }
+
+  window.__snClearFilter = function () {
+    filterState = { district: null, site_id: null };
+    el('sn-filter-district').value = '';
+    el('sn-filter-site').value = '';
+    renderAll();
+  };
+
+  function renderFilterChip() {
+    const chip = el('sn-filter-chip');
+    const clearLink = el('sn-clear-filter');
+    if (!isFilterActive()) { chip.innerHTML = ''; clearLink.style.display = 'none'; return; }
+    clearLink.style.display = '';
+    const label = filterState.site_id ? `SITE ID: ${filterState.site_id}` : `อำเภอ: ${filterState.district}`;
+    chip.innerHTML = `<span style="background:var(--bg4); padding:3px 10px; border-radius:20px; color:var(--text2);">กรองอยู่: ${escapeHtml(label)}</span>`;
+  }
+
+  function renderLegend(rootCauseTotals) {
+    el('sn-legend').innerHTML = (rootCauseTotals || []).map(r => `
+      <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:${r.color};display:inline-block;"></span>${escapeHtml(r.root_cause)}: ${r.total}</span>
+    `).join('');
+  }
+
+  function populateFilterDropdowns(sites) {
+    const districtSel = el('sn-filter-district');
+    const siteSel = el('sn-filter-site');
+    if (!districtSel.dataset.populated) {
+      const districts = [...new Set(sites.map(s => s.district))].sort();
+      districts.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; districtSel.appendChild(o); });
+      districtSel.dataset.populated = '1';
+    }
+    if (!siteSel.dataset.populated) {
+      const siteIds = [...new Set(sites.map(s => s.site_id))].sort();
+      siteIds.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; siteSel.appendChild(o); });
+      siteSel.dataset.populated = '1';
+    }
+  }
+
+  function renderMap(sites) {
+    ensureMap();
+    markerLayer.clearLayers();
+    const visible = isFilterActive() ? sites.filter(siteMatchesFilter) : sites;
+    const points = [];
+    sites.forEach(s => {
+      if (s.lat == null || s.lon == null) return;
+      const match = !isFilterActive() || siteMatchesFilter(s);
+      const marker = L.circleMarker([s.lat, s.lon], {
+        radius: match ? 7 : 4, color: s.color, fillColor: s.color,
+        fillOpacity: match ? 0.9 : 0.15, opacity: match ? 1 : 0.2, weight: match ? 2 : 1,
+      });
+      marker.bindPopup(`<div style="min-width:180px;">
+        <b>${escapeHtml(s.site_id)}</b><br>
+        <span style="font-size:11px; color:var(--text3);">${escapeHtml(s.district)}</span><br>
+        <div style="margin-top:6px; font-size:12px;">
+          <div>🔧 Root Cause: <b style="color:${s.color};">${escapeHtml(s.root_cause)}</b></div>
+          <div>🎫 Ticket: ${s.ticket_count}</div>
+        </div>
+        <button onclick="window.__snFilterSite('${s.site_id.replace(/'/g, "\\'")}', '${s.district.replace(/'/g, "\\'")}')" class="btn-secondary" style="margin-top:6px; font-size:11px; padding:3px 8px;">🔍 กรองเฉพาะไซต์นี้</button>
+      </div>`);
+      marker.addTo(markerLayer);
+      if (match) points.push([s.lat, s.lon]);
+    });
+    if (points.length && !isFilterActive()) {
+      map.fitBounds(points, { padding: [30, 30], maxZoom: 12 });
+    } else if (points.length === 1) {
+      map.setView(points[0], 14);
+    } else if (points.length) {
+      map.fitBounds(points, { padding: [40, 40], maxZoom: 14 });
+    }
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+
+  window.__snFilterSite = function (siteId, district) { setFilter({ site_id: siteId, district }); };
+  window.__snFilterDistrict = function (district) { setFilter({ district }); };
+
+  function renderDistrictTable(districtSummary) {
+    const table = el('sn-district-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const rootCauses = ['Hardware Faulty - Other', 'OFC', 'PEA', 'PEA + OFC', '(ไม่ระบุ)'];
+    const colors = { 'Hardware Faulty - Other': '#a371f7', 'OFC': '#E24B4A', 'PEA': '#1f6feb', 'PEA + OFC': '#EF9F27', '(ไม่ระบุ)': '#8b949e' };
+    thead.innerHTML = `<tr style="background:var(--bg3);">
+      <th style="padding:6px 10px; text-align:left;">อำเภอ</th>
+      <th style="padding:6px 10px; text-align:center;">ไซต์ที่กระทบ</th>
+      <th style="padding:6px 10px; text-align:center;">Ticket</th>
+      ${rootCauses.map(r => `<th style="padding:6px 10px; text-align:center; color:${colors[r]};">${escapeHtml(r)}</th>`).join('')}
+    </tr>`;
+    tbody.innerHTML = (districtSummary || []).map((d, i) => {
+      const isActive = filterState.district === d.district && !filterState.site_id;
+      return `<tr onclick="window.__snFilterDistrict('${d.district.replace(/'/g, "\\'")}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(d.district)}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:700;">${d.site_count}</td>
+        <td style="padding:6px 10px; text-align:center;">${d.ticket_count}</td>
+        ${rootCauses.map(r => `<td style="padding:6px 10px; text-align:center; ${d.root_causes[r] ? 'font-weight:700;' : 'color:var(--text3);'}">${d.root_causes[r] || '–'}</td>`).join('')}
+      </tr>`;
+    }).join('');
+  }
+
+  function fmtDuration(hours) {
+    if (hours == null) return '-';
+    if (hours < 0) return `${hours.toFixed(1)} ชม.`;
+    const days = Math.floor(hours / 24);
+    const rem = (hours - days * 24).toFixed(1);
+    return days > 0 ? `${days} วัน ${rem} ชม.` : `${hours.toFixed(1)} ชม.`;
+  }
+
+  function renderRankingList(ranking) {
+    const container = el('sn-ranking-list');
+    const filtered = isFilterActive() ? (ranking || []).filter(ticketMatchesFilter) : (ranking || []);
+    const top = filtered.slice(0, 15);
+    if (!top.length) { container.innerHTML = `<div style="padding:12px; color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`; return; }
+    const maxDelay = Math.max(...top.map(t => t.repair_delay_hour || 0), 1);
+    const sevColors = { 'Hardware Faulty - Other': '#a371f7', 'OFC': '#E24B4A', 'PEA': '#1f6feb', 'PEA + OFC': '#EF9F27' };
+    container.innerHTML = top.map((t, i) => {
+      const pct = Math.max(4, (t.repair_delay_hour / maxDelay) * 100);
+      const rankColor = i === 0 ? '#E24B4A' : i < 3 ? '#EF9F27' : 'var(--text3)';
+      return `<div onclick="window.__snFilterSite('${t.site_id.replace(/'/g, "\\'")}', '${t.district.replace(/'/g, "\\'")}')" style="display:flex; align-items:center; gap:14px; padding:10px 6px; border-top:1px solid var(--border); cursor:pointer;">
+        <div style="width:28px; height:28px; border-radius:50%; background:${rankColor}22; color:${rankColor}; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;">${i + 1}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; justify-content:between; gap:8px; font-size:13px;">
+            <b>${escapeHtml(t.ticket_id)}</b>
+            <span style="color:var(--text3); font-size:11px;">${escapeHtml(t.site_id)} · ${escapeHtml(t.district)}</span>
+            <span style="margin-left:auto; font-weight:700; color:#E24B4A;">${fmtDuration(t.repair_delay_hour)}</span>
+          </div>
+          <div style="height:8px; border-radius:4px; background:var(--bg4); margin-top:5px; overflow:hidden;">
+            <div style="height:100%; width:${pct}%; background:${sevColors[t.root_cause] || '#8b949e'};"></div>
+          </div>
+          <div style="font-size:11px; color:var(--text2); margin-top:4px; white-space:normal;">${escapeHtml(t.sub_cause || t.problem)} ${t.remedy ? '→ ' + escapeHtml(t.remedy) : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderDetailTable(tickets) {
+    const table = el('sn-detail-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    const cols = [
+      ['TICKETID', 'ticket_id'], ['SEVERITY', 'severity'], ['SUBJECT', 'subject'],
+      ['CREATIONDATE', 'creation_date'], ['TARGETFINISH', 'target_finish'], ['RESTORATIONDATE', 'restoration_date'],
+      ['CLOSEDTIME', 'closed_time'], ['PROBLEM', 'problem'], ['SUB_CAUSE', 'sub_cause'], ['REMEDY', 'remedy'],
+      ['DOWN_TIME (ชม.)', 'down_time_hour'], ['SITE ID', 'site_id'], ['อำเภอ', 'district'],
+    ];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(([label]) => `<th style="padding:6px 8px; text-align:left;">${label}</th>`).join('')}</tr>`;
+    const filtered = isFilterActive() ? (tickets || []).filter(ticketMatchesFilter) : (tickets || []);
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีข้อมูล</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = filtered.map(t => `<tr style="border-top:1px solid var(--border);">${cols.map(([, key]) => {
+      if (key === 'subject' || key === 'problem' || key === 'sub_cause' || key === 'remedy') {
+        return `<td style="padding:6px 8px; white-space:normal; max-width:220px;">${escapeHtml(t[key])}</td>`;
+      }
+      if (key === 'down_time_hour') {
+        return `<td style="padding:6px 8px; text-align:right;">${t[key] != null ? t[key].toFixed(1) : '-'}</td>`;
+      }
+      return `<td style="padding:6px 8px;">${escapeHtml(t[key])}</td>`;
+    }).join('')}</tr>`).join('');
+  }
+
+  function renderAll() {
+    if (!lastData) return;
+    renderMap(lastData.sites || []);
+    renderDistrictTable(lastData.district_summary || []);
+    renderRankingList(lastData.ranking || []);
+    renderDetailTable(lastData.tickets || []);
+    renderFilterChip();
+  }
+
+  async function reload() {
+    el('sn-status').textContent = 'กำลังโหลด...';
+    try {
+      const res = await fetch('/api/summary-nan');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      populateFilterDropdowns(data.sites || []);
+      renderLegend(data.root_cause_totals);
+      renderAll();
+      el('sn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket`;
+      loaded = true;
+    } catch (e) {
+      console.error('Summary NAN load failed', e);
+      el('sn-status').textContent = '';
+      alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+    }
+  }
+
+  el('sn-filter-district').addEventListener('change', (e) => { setFilter({ district: e.target.value || null, site_id: null }); });
+  el('sn-filter-site').addEventListener('change', (e) => {
+    const siteId = e.target.value || null;
+    const site = siteId ? (lastData.sites || []).find(s => s.site_id === siteId) : null;
+    setFilter({ site_id: siteId, district: site ? site.district : null });
+  });
+  el('sn-clear-filter').addEventListener('click', (e) => { e.preventDefault(); window.__snClearFilter(); });
+
+  window.initSummaryNanTab = function () { if (!loaded) reload(); };
 })();
 
 </script>

@@ -23,6 +23,7 @@ from pending_ticket import (
 import oncall
 import oncall_escalation
 import flood_nan
+import summary_nan
 import auth
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
@@ -2331,6 +2332,18 @@ def api_flood_nan_trends():
         return jsonify(data)
     except Exception as e:
         log.exception("flood-nan trends API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/summary-nan')
+def api_summary_nan():
+    """Static snapshot report (from the uploaded closed-ticket workbook,
+    not a live Google Sheet) - site-level root cause + per-ticket repair
+    detail for the 19-22 Aug Nan flood event."""
+    try:
+        data = summary_nan.build_summary_nan_response()
+        return jsonify(data)
+    except Exception as e:
+        log.exception("summary-nan API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-snapshot-comparison')
