@@ -72,7 +72,10 @@ def build_summary_nan_response():
 
     sites = []
     for s in sites_raw:
-        root_cause = s.get("root_cause") or UNSPECIFIED_ROOT_CAUSE
+        # Blank root_cause in the source data defaults to PEA (per request) -
+        # distinct from a ticket whose site couldn't be matched at all,
+        # which stays genuinely "(ไม่ระบุ)" below.
+        root_cause = s.get("root_cause") or "PEA"
         sites.append({
             "district": s.get("district", ""),
             "site_id": s.get("site_id", ""),
