@@ -1222,7 +1222,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 สรุปตามอำเภอ — ไซต์ที่กระทบ และ Root Cause</div>
-      <div style="overflow:auto; max-height:360px; border:1px solid var(--border); border-radius:var(--r);">
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
         <table id="sn-district-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
           <tbody></tbody>
@@ -7658,6 +7658,18 @@ function renderPivot(ft) {
         ${rootCauses.map(r => `<td style="padding:6px 10px; text-align:center; ${d.root_causes[r] ? 'font-weight:700;' : 'color:var(--text3);'}">${d.root_causes[r] || '–'}</td>`).join('')}
       </tr>`;
     }).join('');
+    const totalSites = (districtSummary || []).reduce((s, d) => s + d.site_count, 0);
+    const totalTickets = (districtSummary || []).reduce((s, d) => s + d.ticket_count, 0);
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+        <td style="padding:6px 10px;">Total</td>
+        <td style="padding:6px 10px; text-align:center;">${totalSites}</td>
+        <td style="padding:6px 10px; text-align:center;">${totalTickets}</td>
+        ${rootCauses.map(r => {
+          const sum = (districtSummary || []).reduce((s, d) => s + (d.root_causes[r] || 0), 0);
+          return `<td style="padding:6px 10px; text-align:center; color:${colors[r]};">${sum || '–'}</td>`;
+        }).join('')}
+      </tr>`;
+    tbody.innerHTML += totalRow;
   }
 
   function fmtDuration(hours) {
