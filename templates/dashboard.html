@@ -1179,52 +1179,62 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 <!-- FLOOD NAN INFOGRAPHIC TEMPLATE (rendered off-screen, captured to PNG via html2canvas) -->
 <div id="fn-infographic-wrap" style="position:fixed; left:-9999px; top:0; z-index:-1;">
-  <div id="fn-infographic-slide" style="width:1200px; height:675px; background:linear-gradient(160deg,#0d1117 0%,#161b22 55%,#0d1b2e 100%); font-family:'Segoe UI',Tahoma,Arial,sans-serif; color:#fff; padding:44px 52px; box-sizing:border-box; position:relative; overflow:hidden;">
+  <div id="fn-infographic-slide" style="width:1200px; height:675px; background:linear-gradient(160deg,#0d1117 0%,#161b22 55%,#0d1b2e 100%); font-family:'Segoe UI',Tahoma,Arial,sans-serif; color:#fff; padding:36px 44px; box-sizing:border-box; position:relative; overflow:hidden;">
     <div style="position:absolute; top:-60px; right:-60px; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle,rgba(88,166,255,.18),transparent 70%);"></div>
     <div style="display:flex; align-items:center; justify-content:space-between;">
       <div style="display:flex; align-items:center; gap:14px;">
-        <svg width="40" height="40" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
+        <svg width="36" height="36" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
         <div>
-          <div style="font-size:30px; font-weight:800; letter-spacing:.3px;">สถานการณ์ Ticket จังหวัดน่าน</div>
-          <div id="fn-info-datetime" style="font-size:14px; color:#8b949e; margin-top:2px;"></div>
+          <div style="font-size:27px; font-weight:800; letter-spacing:.3px;">สถานการณ์ Ticket จังหวัดน่าน</div>
+          <div id="fn-info-datetime" style="font-size:13px; color:#8b949e; margin-top:2px;"></div>
         </div>
       </div>
       <div style="font-size:12px; color:#8b949e; text-align:right; line-height:1.5;">BBTEC NOC<br>Flood NAN Monitoring</div>
     </div>
 
-    <div style="display:flex; gap:20px; margin-top:34px;">
-      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
-        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์ที่กระทบจริง (Unique)</div>
-        <div id="fn-info-sites" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px; color:#E24B4A;">0</div>
+    <div style="display:flex; gap:22px; margin-top:22px;">
+      <!-- LEFT: lat/lon scatter, colored by District -->
+      <div style="width:440px; flex-shrink:0; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+        <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">ตำแหน่งไซต์ แยกสีตาม District</div>
+        <svg id="fn-info-scatter" width="404" height="330" viewBox="0 0 404 330" style="background:rgba(255,255,255,.03); border-radius:10px;"></svg>
+        <div id="fn-info-scatter-legend" style="display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px; font-size:11px;"></div>
       </div>
-      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
-        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">Ticket ทั้งหมด</div>
-        <div id="fn-info-tickets" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px;">0</div>
-      </div>
-      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 24px;">
-        <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์สำคัญ (DN) ที่กระทบ</div>
-        <div id="fn-info-dn" style="font-size:64px; font-weight:800; line-height:1; margin-top:8px; color:#1f6feb;">0</div>
+
+      <!-- RIGHT: stat cards -->
+      <div style="flex:1; display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; gap:16px;">
+          <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+            <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์ที่กระทบจริง</div>
+            <div id="fn-info-sites" style="font-size:48px; font-weight:800; line-height:1; margin-top:6px; color:#E24B4A;">0</div>
+          </div>
+          <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+            <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">Ticket ทั้งหมด</div>
+            <div id="fn-info-tickets" style="font-size:48px; font-weight:800; line-height:1; margin-top:6px;">0</div>
+          </div>
+          <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+            <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em;">ไซต์สำคัญ (DN)</div>
+            <div id="fn-info-dn" style="font-size:48px; font-weight:800; line-height:1; margin-top:6px; color:#1f6feb;">0</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">แยกตาม Severity</div>
+          <div id="fn-info-sev-bars" style="display:flex; height:30px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,.06);"></div>
+          <div id="fn-info-sev-legend" style="display:flex; gap:20px; margin-top:8px; font-size:13px;"></div>
+        </div>
+
+        <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+          <div style="font-size:11px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">District ที่กระทบมากสุด</div>
+          <div id="fn-info-top-district" style="font-size:19px; font-weight:700;">-</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px;">
+          <div style="font-size:11px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">หมวดหมู่ปัญหาที่พบมากสุด</div>
+          <div id="fn-info-top-class" style="font-size:19px; font-weight:700;">-</div>
+        </div>
       </div>
     </div>
 
-    <div style="margin-top:26px;">
-      <div style="font-size:13px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px;">แยกตาม Severity</div>
-      <div id="fn-info-sev-bars" style="display:flex; height:34px; border-radius:8px; overflow:hidden; background:rgba(255,255,255,.06);"></div>
-      <div id="fn-info-sev-legend" style="display:flex; gap:22px; margin-top:10px; font-size:14px;"></div>
-    </div>
-
-    <div style="display:flex; gap:20px; margin-top:26px;">
-      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:18px 22px;">
-        <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">District ที่กระทบมากสุด</div>
-        <div id="fn-info-top-district" style="font-size:22px; font-weight:700;">-</div>
-      </div>
-      <div style="flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:18px 22px;">
-        <div style="font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">หมวดหมู่ปัญหาที่พบมากสุด</div>
-        <div id="fn-info-top-class" style="font-size:22px; font-weight:700;">-</div>
-      </div>
-    </div>
-
-    <div id="fn-info-freshness" style="position:absolute; bottom:28px; left:52px; font-size:12px; color:#6e7681;"></div>
+    <div id="fn-info-freshness" style="position:absolute; bottom:16px; left:44px; font-size:12px; color:#6e7681;"></div>
   </div>
 </div>
 
@@ -7300,6 +7310,48 @@ function renderPivot(ft) {
   el('fn-goto-lon').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('fn-goto-btn').click(); });
   if (el('fn-trend-reload')) el('fn-trend-reload').addEventListener('click', loadTrends);
 
+  const SCATTER_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950', '#f778ba', '#8b949e'];
+
+  function renderInfographicScatter(sites) {
+    const svg = el('fn-info-scatter');
+    const legend = el('fn-info-scatter-legend');
+    const pts = (sites || []).filter(s => s.lat != null && s.lon != null);
+    if (!pts.length) {
+      svg.innerHTML = `<text x="202" y="165" fill="#6e7681" font-size="13" text-anchor="middle">ไม่มีพิกัดไซต์</text>`;
+      legend.innerHTML = '';
+      return;
+    }
+    const districts = [...new Set(pts.map(s => s.district_e || '(ไม่ระบุ)'))].sort();
+    const colorOf = {};
+    districts.forEach((d, i) => { colorOf[d] = SCATTER_PALETTE[i % SCATTER_PALETTE.length]; });
+
+    const lats = pts.map(s => s.lat), lons = pts.map(s => s.lon);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+    const padPx = 24, w = 404, h = 330;
+    const latSpan = (maxLat - minLat) || 0.01, lonSpan = (maxLon - minLon) || 0.01;
+    const toXY = (lat, lon) => {
+      const x = padPx + ((lon - minLon) / lonSpan) * (w - padPx * 2);
+      const y = padPx + (1 - (lat - minLat) / latSpan) * (h - padPx * 2); // invert: higher lat = up
+      return [x, y];
+    };
+
+    const circles = pts.map(s => {
+      const [x, y] = toXY(s.lat, s.lon);
+      const d = s.district_e || '(ไม่ระบุ)';
+      const r = s.is_dn ? 5.5 : 4;
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${colorOf[d]}" stroke="#0d1117" stroke-width="1" opacity="0.9"/>`;
+    }).join('');
+    svg.innerHTML = circles;
+
+    legend.innerHTML = districts.map(d => `<span style="display:flex; align-items:center; gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${colorOf[d]};display:inline-block;"></span>${escapeInfoHtml(d)}</span>`).join('');
+  }
+
+  function escapeInfoHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   async function generateInfographic() {
     if (!lastData) { alert('ยังไม่มีข้อมูลโหลด กด Refresh ก่อนครับ'); return; }
     const btn = el('fn-infographic');
@@ -7312,6 +7364,8 @@ function renderPivot(ft) {
       el('fn-info-sites').textContent = d.unique_sites_affected != null ? d.unique_sites_affected : '-';
       el('fn-info-tickets').textContent = d.total_tickets != null ? d.total_tickets : '-';
       el('fn-info-dn').textContent = (d.dn_sites_with_tickets || []).length;
+
+      renderInfographicScatter(d.sites || []);
 
       // Severity breakdown, from the sites' own marker colors (matches
       // exactly what the map shows) rather than recomputing from tickets.
