@@ -2347,6 +2347,21 @@ def api_summary_nan():
         log.exception("summary-nan API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/summary-nan/trend')
+def api_summary_nan_trend():
+    """5-day Mobile SA1-4 trend, split by อำเภอ + a total line, sourced
+    entirely from the nightly ~01:15 Drive backups (matched against
+    Summary NAN's own site->district mapping). Can be slow on a cold
+    cache - each not-yet-cached day means downloading and parsing a full
+    backup file, up to 5 times."""
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        data = summary_nan.build_summary_nan_trend(gs_client, drive_service, days=5)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("summary-nan trend API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/p0-snapshot-comparison')
 def api_p0_snapshot_comparison():
     """P0 count right now vs P0 count at ~01:15 today (from the Drive backup
