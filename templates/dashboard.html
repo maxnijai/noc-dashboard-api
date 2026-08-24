@@ -1492,7 +1492,7 @@ async function loadP0SnapshotComparison(prefix) {
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em;">Trend Over SLA @01:15 (7 วัน)</span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent};">…</span>
           </div>
-          <canvas id="p0-trend-${g.key}" height="34"></canvas>
+          <div style="position:relative; height:34px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
         </div>
       </div>`;
     }).join('');
