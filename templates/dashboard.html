@@ -1221,24 +1221,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-        <div style="font-size:13px; font-weight:700;">📈 Trend Ticket Mobile SA1-4 แยกอำเภอ (5 วันย้อนหลัง จาก Drive Backup)</div>
-        <button id="sn-trend-reload" class="btn-secondary" style="font-size:11px; padding:3px 10px;">🔄 รีเฟรช Trend</button>
-      </div>
-      <div id="sn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:8px;"></div>
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
-        <canvas id="sn-trend-district-chart" height="90"></canvas>
-      </div>
-    </div>
-
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend รวม Ticket Mobile SA1-4 (5 วันย้อนหลัง)</div>
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
-        <canvas id="sn-trend-total-chart" height="90"></canvas>
-      </div>
-    </div>
-
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 สรุปตามอำเภอ — ไซต์ที่กระทบ และ Root Cause</div>
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
         <table id="sn-district-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
@@ -7886,78 +7868,6 @@ function renderPivot(ft) {
     }
   }
 
-  let trendChartDistrict = null;
-  let trendChartTotal = null;
-  let trendsLoaded = false;
-
-  function fmtTrendDate(dateStr) {
-    // "2026-08-19" -> "19/08"
-    const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(dateStr);
-    return m ? `${m[2]}/${m[1]}` : dateStr;
-  }
-
-  const TREND_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950', '#f778ba', '#8b949e', '#d2a8ff', '#79c0ff'];
-
-  function renderTrendDistrictChart(trend) {
-    if (!trend) return;
-    const ctx = el('sn-trend-district-chart').getContext('2d');
-    const datasets = trend.districts.map((d, i) => ({
-      label: d, data: trend.district_series[d], borderColor: TREND_PALETTE[i % TREND_PALETTE.length],
-      backgroundColor: TREND_PALETTE[i % TREND_PALETTE.length] + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
-    }));
-    if (trendChartDistrict) trendChartDistrict.destroy();
-    trendChartDistrict = new Chart(ctx, {
-      type: 'line',
-      data: { labels: trend.dates.map(fmtTrendDate), datasets },
-      options: {
-        responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }, datalabels: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
-  }
-
-  function renderTrendTotalChart(trend) {
-    if (!trend) return;
-    const ctx = el('sn-trend-total-chart').getContext('2d');
-    if (trendChartTotal) trendChartTotal.destroy();
-    trendChartTotal = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: trend.dates.map(fmtTrendDate),
-        datasets: [{
-          label: 'รวมทุกอำเภอ', data: trend.total_series, borderColor: '#E24B4A', backgroundColor: '#E24B4A33',
-          fill: true, tension: 0.25, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
-        }],
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          datalabels: { display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null, align: 'top', anchor: 'end', offset: 4, font: { size: 11, weight: '600' }, color: '#E24B4A', formatter: (v) => v },
-        },
-        layout: { padding: { top: 16 } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-      },
-    });
-  }
-
-  async function loadTrend() {
-    const statusEl = el('sn-trend-status');
-    statusEl.textContent = 'กำลังโหลด trend... (อาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ backup ใหม่)';
-    try {
-      const res = await fetch('/api/summary-nan/trend');
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
-      const data = await res.json();
-      renderTrendDistrictChart(data);
-      renderTrendTotalChart(data);
-      statusEl.textContent = '';
-    } catch (e) {
-      console.error('Summary NAN trend load failed', e);
-      statusEl.textContent = 'โหลด trend ไม่สำเร็จ: ' + e.message;
-    }
-  }
-  if (el('sn-trend-reload')) el('sn-trend-reload').addEventListener('click', loadTrend);
-
   el('sn-filter-district').addEventListener('change', (e) => { setFilter({ district: e.target.value || null, site_id: null }); });
   el('sn-filter-site').addEventListener('change', (e) => {
     const siteId = e.target.value || null;
@@ -7966,10 +7876,7 @@ function renderPivot(ft) {
   });
   el('sn-clear-filter').addEventListener('click', (e) => { e.preventDefault(); window.__snClearFilter(); });
 
-  window.initSummaryNanTab = function () {
-    if (!loaded) reload();
-    if (!trendsLoaded) { trendsLoaded = true; loadTrend(); }
-  };
+  window.initSummaryNanTab = function () { if (!loaded) reload(); };
 })();
 
 </script>
