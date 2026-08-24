@@ -1498,19 +1498,19 @@ async function loadP0SnapshotComparison(prefix) {
       const diffArrow = diffUp ? '▲' : (diffDown ? '▼' : '–');
       const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
       return `
-      <div style="flex:1; min-width:150px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div style="font-size:32px; font-weight:800; line-height:1;">${g.current_p0}</div>
-        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px;">
-          <span>@01:15: <b>${g.snapshot_p0}</b></span>
-          <span style="color:${diffColor}; font-weight:700;">${diffArrow} ${diffLabel}</span>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
+          <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
         </div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
-          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em;">Trend Over SLA @01:15 (7 วัน)</span>
-            <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent};">…</span>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
-          <div style="position:relative; height:52px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
+          <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
         </div>
       </div>`;
     }).join('');
@@ -1530,46 +1530,69 @@ async function loadP0SnapshotComparison(prefix) {
 }
 
 const p0TrendCharts = {};
+let cachedP0DailyTrendData = null;
+
+function renderP0Sparkline(key, accent, labels, series) {
+  const canvas = document.getElementById('p0-trend-' + key);
+  const numEl = document.getElementById('p0-trend-num-' + key);
+  if (!canvas) return false;
+  const lastVal = [...series].reverse().find(v => v != null);
+  if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
+  if (p0TrendCharts[key]) p0TrendCharts[key].destroy();
+  p0TrendCharts[key] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: series, borderColor: accent, backgroundColor: accent + '33',
+        fill: true, tension: 0.35, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
+        pointBackgroundColor: accent, pointBorderColor: '#fff', pointBorderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 20 } },
+      plugins: { legend: { display: false },
+        datalabels: {
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
+          align: 'top', anchor: 'end', offset: 4, font: { size: 9, weight: '600' }, color: accent,
+          formatter: (value) => value,
+        },
+        tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex] } } },
+      scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
+      elements: { line: { capBezierPoints: true } },
+    },
+  });
+  return true;
+}
+
+window.renderP0TotalTrend = function renderP0TotalTrend() {
+  if (!cachedP0DailyTrendData) return;
+  const data = cachedP0DailyTrendData;
+  const labels = data.dates.map(d => d.slice(5).replace('-', '/'));
+  const groupKeys = Object.keys(data.series);
+  const totalSeries = data.dates.map((_, i) => {
+    let sum = null;
+    groupKeys.forEach(k => {
+      const v = data.series[k][i];
+      if (v != null) sum = (sum || 0) + v;
+    });
+    return sum;
+  });
+  renderP0Sparkline('TOTAL', '#B23A3A', labels, totalSeries);
+};
+
 async function loadP0DailyTrendSparklines(accents, groups) {
   try {
     const res = await fetch('/api/p0-daily-trend');
     if (!res.ok) return; // sparklines are a progressive-enhancement extra - fail quietly, cards already rendered fine without them
     const data = await res.json();
+    cachedP0DailyTrendData = data;
     const labels = data.dates.map(d => d.slice(5).replace('-', '/')); // "2026-08-19" -> "08/19"
     groups.forEach((g, i) => {
-      const canvas = document.getElementById('p0-trend-' + g.key);
-      const numEl = document.getElementById('p0-trend-num-' + g.key);
-      const series = data.series[g.key] || [];
-      if (!canvas) return;
-      const accent = accents[i % accents.length];
-      const lastVal = [...series].reverse().find(v => v != null);
-      if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
-      if (p0TrendCharts[g.key]) p0TrendCharts[g.key].destroy();
-      p0TrendCharts[g.key] = new Chart(canvas.getContext('2d'), {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            data: series, borderColor: accent, backgroundColor: accent + '33',
-            fill: true, tension: 0.35, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
-            pointBackgroundColor: accent, pointBorderColor: '#fff', pointBorderWidth: 1,
-          }],
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          layout: { padding: { top: 14 } },
-          plugins: { legend: { display: false },
-            datalabels: {
-              display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
-              align: 'top', anchor: 'end', offset: 4, font: { size: 9, weight: '600' }, color: accent,
-              formatter: (value) => value,
-            },
-            tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex] } } },
-          scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
-          elements: { line: { capBezierPoints: true } },
-        },
-      });
+      renderP0Sparkline(g.key, accents[i % accents.length], labels, data.series[g.key] || []);
     });
+    renderP0TotalTrend();
   } catch (e) {
     console.error('P0 daily trend sparklines failed', e);
   }
@@ -5486,6 +5509,7 @@ function renderPivot(ft) {
     dateColumns.push(NO_PLAN_DATE);
 
     const byRegionProvince = {}; // region -> provinceEn -> {date: count}
+    const rawProvinceByEn = {}; // provinceEn -> raw t.PROVINCE value (for click-to-filter, which compares against the raw value)
     tickets.forEach(t => {
       const region = t.Region || '(ไม่ระบุ Region)';
       const provinceEn = provinceEnLabel(t.PROVINCE);
@@ -5493,6 +5517,7 @@ function renderPivot(ft) {
       byRegionProvince[region] = byRegionProvince[region] || {};
       byRegionProvince[region][provinceEn] = byRegionProvince[region][provinceEn] || {};
       byRegionProvince[region][provinceEn][col] = (byRegionProvince[region][provinceEn][col] || 0) + 1;
+      if (!(provinceEn in rawProvinceByEn)) rawProvinceByEn[provinceEn] = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
     });
 
     const regionOrder = Object.keys(byRegionProvince).sort();
@@ -5503,7 +5528,7 @@ function renderPivot(ft) {
       provinces.forEach(prov => {
         const counts = byRegionProvince[region][prov];
         const total = Object.values(counts).reduce((a, b) => a + b, 0);
-        rows.push({ label: prov, counts, total });
+        rows.push({ label: prov, province: rawProvinceByEn[prov], counts, total });
         dateColumns.forEach(c => { subtotalCounts[c] = (subtotalCounts[c] || 0) + (counts[c] || 0); });
       });
       const subtotalTotal = Object.values(subtotalCounts).reduce((a, b) => a + b, 0);
@@ -5512,10 +5537,11 @@ function renderPivot(ft) {
     return rows.length ? { date_columns: dateColumns, rows } : null;
   }
 
-  function renderProvinceByPlanDate(block) {
+  function renderProvinceByPlanDate(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
     const today = expTodayStr();
     const cols = block.date_columns || [];
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
       const isNoPlan = c.startsWith('(');
       const isBackdated = !isNoPlan && c < today;
@@ -5529,25 +5555,33 @@ function renderPivot(ft) {
         const isBackdated = !isNoPlan && c < today;
         const bg = r.isSubtotal ? '' : ((isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '');
         const fg = (!r.isSubtotal && (isNoPlan || isBackdated) && count > 0) ? '#B23A3A' : '';
-        return `<td style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''}">${count || '–'}</td>`;
+        const clickable = clickFn && !r.isSubtotal && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
       const rowBg = r.isSubtotal ? 'var(--bg3)' : (i % 2 ? 'var(--bg1)' : 'transparent');
+      const rowTotalClickable = clickFn && !r.isSubtotal && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','')"` : '';
       return `<tr style="border-top:1px solid var(--border); background:${rowBg};">
         <td style="padding:7px 10px; min-width:160px; font-weight:${r.isSubtotal ? '700' : '600'};">${escapeHtml(r.label)}</td>
         ${cells}
-        <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.label) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
     const nonSubtotalRows = block.rows.filter(r => !r.isSubtotal);
     const totalCells = cols.map(c => {
       const sum = nonSubtotalRows.reduce((s, r) => s + (r.counts[c] || 0), 0);
-      return `<td style="padding:7px 10px; text-align:center;">${sum || '–'}</td>`;
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Province ในวันนี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = nonSubtotalRows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
         <td style="padding:7px 10px;">Total</td>
         ${totalCells}
-        <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
       </tr>`;
     return `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -5660,15 +5694,25 @@ function renderPivot(ft) {
     const totalP0 = data.total_over_sla || 0;
 
     const totalCard = `
-      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px; display:flex; align-items:stretch; gap:16px;">
-        <div style="flex:1;">
-          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
-          <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px;">
+        <div style="display:flex; align-items:stretch; gap:16px;">
+          <div style="flex:1;">
+            <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
+            <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+          </div>
+          <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
         </div>
-        <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+            <span id="p0-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:#B23A3A; white-space:nowrap;">…</span>
+          </div>
+          <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-TOTAL"></canvas></div>
+        </div>
       </div>`;
 
     el('p0-kpi-summary').innerHTML = totalCard;
+    if (window.renderP0TotalTrend) window.renderP0TotalTrend();
   }
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
@@ -5719,7 +5763,7 @@ function renderPivot(ft) {
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
       const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
       const planDateInnerHtml = planMode === 'province'
-        ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets))
+        ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0ProvincePlanDateCell')
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
@@ -5791,6 +5835,13 @@ function renderPivot(ft) {
     const f = getSectionFilter(bookmark);
     const same = f.groupProblem === groupProblem && f.planDate === planDate;
     f.groupProblem = same ? '' : groupProblem;
+    f.planDate = same ? '' : planDate;
+    if (lastData) render(lastData);
+  };
+  window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && f.planDate === planDate;
+    f.province = same ? '' : province;
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
