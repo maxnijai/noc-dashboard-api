@@ -1594,6 +1594,13 @@ function markExDirty(fieldEl) {
   if (btn) { btn.disabled = false; }
 }
 
+function checkExPlanDate(input) {
+  if (input.max && input.value > input.max) {
+    input.style.outline = '2px solid #dc2626'; input.style.background = '#fee2e2';
+    alert('วันที่ที่เลือกห่างจากวันนี้เกินไป (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อนครับ (เช่น 2569 → 2026)');
+  }
+}
+
 async function saveExDetailRow(ticketId, btn) {
   const row = btn.closest('tr');
   const groupProblemEl = row.querySelector('.exd-group-problem');
@@ -1624,6 +1631,12 @@ async function saveExDetailRow(ticketId, btn) {
   if (planDateVal < todayStr) {
     planDateEl.style.outline = '2px solid #dc2626'; planDateEl.style.background = '#fee2e2';
     alert('Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบันครับ'); return;
+  }
+  const maxDateObj = new Date(); maxDateObj.setDate(maxDateObj.getDate() + 730);
+  const maxDateStr = maxDateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  if (planDateVal > maxDateStr) {
+    planDateEl.style.outline = '2px solid #dc2626'; planDateEl.style.background = '#fee2e2';
+    alert('Plan Closed Date ห่างจากวันนี้เกินไปครับ (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อน (เช่น 2569 → 2026)'); return;
   }
 
   btn.disabled = true;
@@ -5022,6 +5035,8 @@ function renderPivot(ft) {
   }
 
   function renderRows(tickets) {
+    const planDateMaxObj = new Date(); planDateMaxObj.setDate(planDateMaxObj.getDate() + 730);
+    const planDateMax = planDateMaxObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
     el('ptk-body').innerHTML = tickets.map(t => {
       const tid = t.TICKETID;
       const safeTid = tid.replace(/'/g, "\\'");
@@ -5057,7 +5072,7 @@ function renderPivot(ft) {
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
         </td>
         <td data-label="Plan Closed Date" style="padding:6px 8px;">
-          <input type="date" class="ptk-field ptk-plan-date ${t.plan_closed_overdue ? 'ptk-overdue' : ''}" value="${t.plan_closed_date || ''}" onchange="markDirty('${safeTid}'); checkOverdue(this); this.style.outline=''; this.style.background='';" style="width:100%;">
+          <input type="date" class="ptk-field ptk-plan-date ${t.plan_closed_overdue ? 'ptk-overdue' : ''}" value="${t.plan_closed_date || ''}" max="${planDateMax}" onchange="markDirty('${safeTid}'); checkOverdue(this); this.style.outline=''; this.style.background='';" style="width:100%;">
         </td>
         <td data-label="" style="padding:6px 8px;">
           <button class="btn-secondary ptk-save-btn" style="font-size:11px; padding:3px 8px; width:100%;" onclick="saveTicketRow('${safeTid}')" disabled>Save</button>
@@ -5073,6 +5088,10 @@ function renderPivot(ft) {
     if (!input.value) { input.classList.remove('ptk-overdue'); return; }
     const today = new Date().toISOString().slice(0, 10);
     input.classList.toggle('ptk-overdue', input.value < today);
+    if (input.max && input.value > input.max) {
+      input.style.outline = '2px solid #dc2626'; input.style.background = '#fee2e2';
+      alert('วันที่ที่เลือกห่างจากวันนี้เกินไป (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อนครับ (เช่น 2569 → 2026)');
+    }
   };
 
   window.autoGrowDetail = function (el) {
@@ -5294,6 +5313,11 @@ function renderPivot(ft) {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
   }
 
+  function expMaxPlanDateStr() {
+    const d = new Date(); d.setDate(d.getDate() + 730);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  }
+
   async function fetchData() {
     const statusEl = el('p0-status');
     statusEl.textContent = 'กำลังโหลด...';
@@ -5371,6 +5395,7 @@ function renderPivot(ft) {
 
   function renderDetailTable(detailBlock, agingColors, groupProblemOptions, actionTeamOptions) {
     const today = expTodayStr();
+    const maxPlanDate = expMaxPlanDateStr();
     const canEdit = CAN_EDIT_FROM_EXCLUSIVE_VIEWS;
     const rows = detailBlock.tickets.map(t => {
       const agColor = agingColors[t.Aging_Flag_Group] || '';
@@ -5388,7 +5413,7 @@ function renderPivot(ft) {
           <textarea class="exd-field exd-detail" oninput="markExDirty(this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; font-size:12px; resize:vertical;">${escapeHtml(t.detail)}</textarea>
         </td>
         <td style="padding:4px 6px; min-width:130px;">
-          <input type="date" class="exd-field exd-plan-date" value="${escapeHtml(planDate)}" onchange="markExDirty(this)" style="width:100%; font-size:12px;">
+          <input type="date" class="exd-field exd-plan-date" value="${escapeHtml(planDate)}" max="${maxPlanDate}" onchange="markExDirty(this); checkExPlanDate(this);" style="width:100%; font-size:12px;">
         </td>
         <td style="padding:4px 6px; min-width:70px;">
           <button class="btn-secondary exd-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveExDetailRow('${tid}', this)" disabled>Save</button>

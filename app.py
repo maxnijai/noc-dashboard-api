@@ -2213,13 +2213,18 @@ def api_pending_ticket_update():
         return jsonify({'error': 'detail ต้องกรอกตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมี /)'}), 400
     fields['detail'] = detail
 
-    # Plan Closed Date ห้ามว่าง และห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน (เทียบเวลาไทย)
+    # Plan Closed Date ห้ามว่าง, ห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน, และห้ามอยู่ไกลเกินไปในอนาคต
+    # (เช็คหลังนี้ดักปัญหาคนพิมพ์ปี พ.ศ. แทน ค.ศ. โดยไม่ตั้งใจ เช่น 2569 แทน 2026 -
+    # ปีที่ห่างกัน 543 ปีจะโดนจับได้ทันที เพราะไม่มี plan date ไหนควรอยู่ไกลขนาดนั้นจริงๆ)
     plan_closed_date = (fields.get('plan_closed_date') or '').strip()
     if not plan_closed_date:
         return jsonify({'error': 'Plan Closed Date ห้ามว่าง'}), 400
     today_str = bangkok_now().strftime('%Y-%m-%d')
     if plan_closed_date < today_str:
         return jsonify({'error': 'Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบัน'}), 400
+    max_date_str = (bangkok_now() + timedelta(days=730)).strftime('%Y-%m-%d')
+    if plan_closed_date > max_date_str:
+        return jsonify({'error': 'Plan Closed Date ห่างจากวันนี้เกินไป (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อน (เช่น 2569 -> 2026)'}), 400
 
     updated_by = session.get('user_name') or 'unknown'
     try:
