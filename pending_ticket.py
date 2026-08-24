@@ -24,6 +24,7 @@ NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
 """
 
 import logging
+import re
 import threading
 import time
 from datetime import datetime, date
@@ -136,6 +137,7 @@ LIVE_ROWS_CACHE_TTL_SECONDS = 45   # this sheet is shared by nearly every featur
 WORK_LOG_CACHE_TTL_SECONDS = 7200   # 2h; save_work_log_entry invalidates explicitly
 _live_rows_cache = {"data": None, "ts": 0}
 _work_log_cache = {"data": None, "ts": 0}
+_work_log_row_index_cache = {}  # ticket_id -> sheet row number, kept alongside _work_log_cache
 _cache_lock = threading.Lock()
 
 
@@ -178,7 +180,10 @@ def _ensure_work_log_tab(spreadsheet):
 
 def load_work_log(gs_client, use_cache=True):
     """Returns {ticket_id: {group_problem, action_team, detail, image_link,
-    plan_closed_date, updated_at, updated_by}} for every saved row."""
+    plan_closed_date, updated_at, updated_by}} for every saved row. Also
+    populates _work_log_row_index_cache (ticket_id -> sheet row number) as
+    a side effect, so save_work_log_entry can look up whether a ticket
+    already has a row without its own separate read."""
     now = time.monotonic()
     if use_cache:
         with _cache_lock:
@@ -188,7 +193,8 @@ def load_work_log(gs_client, use_cache=True):
     ws = _ensure_work_log_tab(sh)
     records = ws.get_all_values()[1:]  # skip header
     out = {}
-    for row in records:
+    row_index = {}
+    for i, row in enumerate(records):
         if not row or not row[0]:
             continue
         padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
@@ -197,10 +203,13 @@ def load_work_log(gs_client, use_cache=True):
             "image_link": padded[4], "plan_closed_date": padded[5],
             "updated_at": padded[6], "updated_by": padded[7],
         }
+        row_index[padded[0]] = i + 2  # +1 for header, +1 for 1-based sheet rows
     if use_cache:
         with _cache_lock:
             _work_log_cache["data"] = out
             _work_log_cache["ts"] = now
+            _work_log_row_index_cache.clear()
+            _work_log_row_index_cache.update(row_index)
     return out
 
 
@@ -210,13 +219,37 @@ def _invalidate_work_log_cache():
         _work_log_cache["ts"] = 0
 
 
+def _row_number_from_append_response(resp):
+    """Extracts the row number Sheets actually appended to from
+    append_row()'s raw API response (updates.updatedRange, e.g.
+    'TicketWorkLog!A15:H15') - avoids a follow-up read to find out where
+    the new row landed."""
+    try:
+        updated_range = resp["updates"]["updatedRange"]
+        cell_ref = updated_range.split("!")[1].split(":")[0]  # "A15"
+        return int(re.search(r"\d+", cell_ref).group())
+    except (KeyError, IndexError, AttributeError, ValueError):
+        return None
+
+
 def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
     """fields: dict with any of group_problem/action_team/detail/image_link/
     plan_closed_date. Upserts the row for ticket_id, stamping updated_at (and
-    updated_by once a login system exists - for now defaults to 'unknown')."""
+    updated_by once a login system exists - for now defaults to 'unknown').
+
+    Looks up whether ticket_id already has a row via the cached row-index
+    (populated by load_work_log(), which this calls first to guarantee it's
+    warm) instead of its own ws.col_values(1) read - that used to run
+    uncached on every single save, which under normal multi-person use
+    (several saves in quick succession while working an incident) was
+    enough on its own to trip the Sheets API's per-minute read quota.
+    Updates the cache in place afterward rather than invalidating it, so a
+    burst of consecutive saves stays fully cache-driven - the sheet is only
+    ever actually re-read after WORK_LOG_CACHE_TTL_SECONDS of no saves, or
+    if something edited the sheet directly outside the app."""
+    load_work_log(gs_client)  # ensures _work_log_row_index_cache is warm (cache hit unless >2h idle)
     sh = gs_client.open_by_key(REALTIME_SHEET_ID)
     ws = _ensure_work_log_tab(sh)
-    existing = ws.col_values(1)  # ticket_id column
 
     now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     row_values = [
@@ -230,12 +263,29 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
         updated_by or "unknown",
     ]
 
-    if ticket_id in existing:
-        row_idx = existing.index(ticket_id) + 1
+    with _cache_lock:
+        row_idx = _work_log_row_index_cache.get(ticket_id)
+
+    if row_idx is not None:
         ws.update(f"A{row_idx}:H{row_idx}", [row_values])
     else:
-        ws.append_row(row_values)
-    _invalidate_work_log_cache()
+        resp = ws.append_row(row_values)
+        row_idx = _row_number_from_append_response(resp)
+        if row_idx is None:
+            # Couldn't tell where the row landed - don't risk caching a wrong
+            # index (a future save for this ticket would silently append a
+            # duplicate row instead of updating). Force a full re-read next time.
+            _invalidate_work_log_cache()
+            return row_values
+
+    with _cache_lock:
+        if _work_log_cache["data"] is not None:
+            _work_log_cache["data"][ticket_id] = {
+                "group_problem": row_values[1], "action_team": row_values[2], "detail": row_values[3],
+                "image_link": row_values[4], "plan_closed_date": row_values[5],
+                "updated_at": row_values[6], "updated_by": row_values[7],
+            }
+        _work_log_row_index_cache[ticket_id] = row_idx
     return row_values
 
 
