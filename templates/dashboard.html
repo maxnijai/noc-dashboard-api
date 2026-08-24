@@ -5175,6 +5175,15 @@ function renderPivot(ft) {
       alert('Plan Closed Date ต้องไม่ใช่วันที่ย้อนหลังวันปัจจุบันครับ');
       return;
     }
+    const maxDateObj = new Date(); maxDateObj.setDate(maxDateObj.getDate() + 730);
+    const maxDateStr = maxDateObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    if (planDateVal > maxDateStr) {
+      planDateEl.style.outline = '2px solid #dc2626';
+      planDateEl.style.background = '#fee2e2';
+      planDateEl.focus();
+      alert('Plan Closed Date ห่างจากวันนี้เกินไปครับ (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อน (เช่น 2569 → 2026)');
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = '...';
