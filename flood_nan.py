@@ -360,7 +360,7 @@ def _ensure_markers_tab(spreadsheet):
 
 _manual_markers_cache = {"data": None, "ts": 0}
 _manual_markers_lock = threading.Lock()
-MANUAL_MARKERS_CACHE_TTL_SECONDS = 20
+MANUAL_MARKERS_CACHE_TTL_SECONDS = 45
 
 
 def list_manual_markers(gs_client, use_cache=True):
@@ -434,7 +434,7 @@ def _ensure_site_remarks_tab(spreadsheet):
 
 _site_remarks_cache = {"data": None, "ts": 0}
 _site_remarks_lock = threading.Lock()
-SITE_REMARKS_CACHE_TTL_SECONDS = 30
+SITE_REMARKS_CACHE_TTL_SECONDS = 45
 
 
 def get_site_remarks(gs_client, use_cache=True):

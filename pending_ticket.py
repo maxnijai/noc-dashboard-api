@@ -128,7 +128,11 @@ def _get_worksheet(gs_client):
 # Raising the worker count would split it across processes and let stale
 # reads slip through; use more threads instead if more concurrency is ever
 # needed, not more workers.
-LIVE_ROWS_CACHE_TTL_SECONDS = 15    # short: this sheet changes every few minutes anyway
+LIVE_ROWS_CACHE_TTL_SECONDS = 45   # this sheet is shared by nearly every feature on the dashboard now
+                                    # (Pending Ticket, P0 Only, Flood NAN, P0 snapshot comparison's "current"
+                                    # count...) - too short a TTL here means cumulative Sheets API reads
+                                    # across everyone's tabs adds up fast and trips the per-minute read quota.
+                                    # 45s keeps data fresh enough for NOC monitoring while cutting call volume ~3x.
 WORK_LOG_CACHE_TTL_SECONDS = 7200   # 2h; save_work_log_entry invalidates explicitly
 _live_rows_cache = {"data": None, "ts": 0}
 _work_log_cache = {"data": None, "ts": 0}
