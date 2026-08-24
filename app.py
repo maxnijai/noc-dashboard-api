@@ -18,6 +18,7 @@ from pending_ticket import (
     save_work_log_entry,
     rename_group_problem_value,
     build_p0_snapshot_comparison,
+    build_p0_daily_trend,
     build_pending_ticket_xlsx,
 )
 import oncall
@@ -2360,6 +2361,19 @@ def api_p0_snapshot_comparison():
         return jsonify(data)
     except Exception as e:
         log.exception("p0-snapshot-comparison API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-daily-trend')
+def api_p0_daily_trend():
+    """7-day 'Over SLA at ~01:15' trend per group, for the small sparkline
+    under each snapshot comparison card. Can be slow on a cold cache (up
+    to 7 backup file downloads); each day is cached forever once computed."""
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        data = build_p0_daily_trend(gs_client, drive_service, days=7)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("p0-daily-trend API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-schedule')

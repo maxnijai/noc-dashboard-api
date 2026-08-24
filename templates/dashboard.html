@@ -1487,6 +1487,13 @@ async function loadP0SnapshotComparison(prefix) {
           <span>@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700;">${diffArrow} ${diffLabel}</span>
         </div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em;">Trend Over SLA @01:15 (7 วัน)</span>
+            <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent};">…</span>
+          </div>
+          <canvas id="p0-trend-${g.key}" height="34"></canvas>
+        </div>
       </div>`;
     }).join('');
     container.innerHTML = `
@@ -1497,11 +1504,52 @@ async function loadP0SnapshotComparison(prefix) {
         <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
     if (window.renderTotalP0Compare) window.renderTotalP0Compare(data);
+    loadP0DailyTrendSparklines(accents, data.groups);
   } catch (e) {
     console.error('Snapshot comparison load failed', e);
     container.innerHTML = `<div style="color:#B23A3A; font-size:12px; display:flex; align-items:center; gap:8px;">โหลดไม่สำเร็จ: ${e.message} <button onclick="loadP0SnapshotComparison('${prefix}')" class="btn-secondary">ลองใหม่</button></div>`;
   }
 }
+
+const p0TrendCharts = {};
+async function loadP0DailyTrendSparklines(accents, groups) {
+  try {
+    const res = await fetch('/api/p0-daily-trend');
+    if (!res.ok) return; // sparklines are a progressive-enhancement extra - fail quietly, cards already rendered fine without them
+    const data = await res.json();
+    const labels = data.dates.map(d => d.slice(5).replace('-', '/')); // "2026-08-19" -> "08/19"
+    groups.forEach((g, i) => {
+      const canvas = document.getElementById('p0-trend-' + g.key);
+      const numEl = document.getElementById('p0-trend-num-' + g.key);
+      const series = data.series[g.key] || [];
+      if (!canvas) return;
+      const accent = accents[i % accents.length];
+      const lastVal = [...series].reverse().find(v => v != null);
+      if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
+      if (p0TrendCharts[g.key]) p0TrendCharts[g.key].destroy();
+      p0TrendCharts[g.key] = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: series, borderColor: accent, backgroundColor: accent + '33',
+            fill: true, tension: 0.35, spanGaps: true, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, datalabels: { display: false },
+            tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex] } } },
+          scales: { x: { display: false }, y: { display: false } },
+          elements: { line: { capBezierPoints: true } },
+        },
+      });
+    });
+  } catch (e) {
+    console.error('P0 daily trend sparklines failed', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
 });

@@ -735,6 +735,49 @@ _p0_snapshot_lock = threading.Lock()
 
 P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
 
+_p0_daily_trend_cache = {}
+_p0_daily_trend_lock = threading.Lock()
+
+
+def build_p0_daily_trend(gs_client, drive_service, days=7):
+    """Returns {"dates": [...], "series": {group_key: [...counts...]}} - the
+    same 'P0 count as it stood at ~01:15' snapshot classification the
+    comparison cards already use, extended across the last `days` days
+    instead of just yesterday, so each card can show a trend underneath.
+    Each past day's count is cached forever once computed (a written
+    backup file never changes); only fetched once per day per group set."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+
+    today = bangkok_now().date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
+
+    dates = []
+    series = {k: [] for k in P0_COMPARISON_GROUPS}
+    for day in all_days:
+        date_str = day.strftime("%Y-%m-%d")
+        dates.append(date_str)
+
+        with _p0_daily_trend_lock:
+            cached = _p0_daily_trend_cache.get(date_str)
+        if cached is not None:
+            counts = cached
+        else:
+            file_info = find_nightly_file(drive_service, day)
+            if file_info is None:
+                counts = {k: None for k in P0_COMPARISON_GROUPS}
+            else:
+                file_id, _matched_dt, _filename = file_info
+                rows = download_xlsx_as_rows(drive_service, file_id)
+                reference_dt = datetime.combine(day, _dtime(1, 15))
+                counts = _count_p0_by_group(rows, reference_dt)
+            with _p0_daily_trend_lock:
+                _p0_daily_trend_cache[date_str] = counts
+
+        for k in P0_COMPARISON_GROUPS:
+            series[k].append(counts.get(k))
+
+    return {"dates": dates, "series": series}
+
 
 def _classify_priority_at(target_finish_str, reference_dt):
     """Same P0/P1/P2 formula as realtime_monitor._classify_priority, but
