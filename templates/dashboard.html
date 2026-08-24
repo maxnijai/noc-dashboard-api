@@ -1595,6 +1595,8 @@ function markExDirty(fieldEl) {
 }
 
 function checkExPlanDate(input) {
+  const today = new Date().toISOString().slice(0, 10);
+  input.classList.toggle('ptk-overdue', !!input.value && input.value < today);
   if (input.max && input.value > input.max) {
     input.style.outline = '2px solid #dc2626'; input.style.background = '#fee2e2';
     alert('วันที่ที่เลือกห่างจากวันนี้เกินไป (เกิน 2 ปี) - ถ้าพิมพ์ปี พ.ศ. ต้องแปลงเป็น ค.ศ. ก่อนครับ (เช่น 2569 → 2026)');
@@ -5422,7 +5424,7 @@ function renderPivot(ft) {
           <textarea class="exd-field exd-detail" oninput="markExDirty(this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; font-size:12px; resize:vertical;">${escapeHtml(t.detail)}</textarea>
         </td>
         <td style="padding:4px 6px; min-width:130px;">
-          <input type="date" class="exd-field exd-plan-date" value="${escapeHtml(planDate)}" max="${maxPlanDate}" onchange="markExDirty(this); checkExPlanDate(this);" style="width:100%; font-size:12px;">
+          <input type="date" class="exd-field exd-plan-date ${isBackdated ? 'ptk-overdue' : ''}" value="${escapeHtml(planDate)}" max="${maxPlanDate}" onchange="markExDirty(this); checkExPlanDate(this);" style="width:100%; font-size:12px;">
         </td>
         <td style="padding:4px 6px; min-width:70px;">
           <button class="btn-secondary exd-save-btn" style="font-size:11px; padding:3px 8px;" onclick="saveExDetailRow('${tid}', this)" disabled>Save</button>
