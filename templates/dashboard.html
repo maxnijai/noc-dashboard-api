@@ -8482,7 +8482,18 @@ function renderPivot(ft) {
     return [...document.querySelectorAll('.tp-group-checkbox:checked')].map(cb => cb.value);
   }
 
+  // Guards against a burst of near-simultaneous requests (e.g. someone
+  // quickly unchecking 3 of the 4 group checkboxes to isolate one) turning
+  // into a pile of concurrent /api/team-plan calls, which raced past this
+  // app's Sheets-read caches before and tripped the API's per-minute quota.
+  // While a load is in flight, a new trigger just marks "reload again once
+  // this finishes" instead of firing its own overlapping request.
+  let reloadInFlight = false;
+  let reloadQueued = false;
+
   async function reload() {
+    if (reloadInFlight) { reloadQueued = true; return; }
+    reloadInFlight = true;
     const statusEl = el('tp-status');
     statusEl.textContent = 'กำลังโหลด...';
     highlightedRecommendation = null;
@@ -8509,11 +8520,22 @@ function renderPivot(ft) {
       statusEl.textContent = '';
       alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
     }
+    reloadInFlight = false;
+    if (reloadQueued) { reloadQueued = false; reload(); }
+  }
+
+  // Checkbox changes specifically get debounced on top of the in-flight
+  // guard above - unchecking 3 boxes to isolate the 4th should end up as
+  // ONE request reflecting the final state, not one per click.
+  let groupCheckboxDebounceTimer = null;
+  function debouncedReload() {
+    if (groupCheckboxDebounceTimer) clearTimeout(groupCheckboxDebounceTimer);
+    groupCheckboxDebounceTimer = setTimeout(reload, 350);
   }
 
   el('tp-reload').addEventListener('click', reload);
   el('tp-planning-mode').addEventListener('change', reload);
-  document.querySelectorAll('.tp-group-checkbox').forEach(cb => cb.addEventListener('change', reload));
+  document.querySelectorAll('.tp-group-checkbox').forEach(cb => cb.addEventListener('change', debouncedReload));
   el('tp-filter-region').addEventListener('change', (e) => setFilter({ ...filterState, region: e.target.value }));
   el('tp-filter-province').addEventListener('change', (e) => setFilter({ ...filterState, province: e.target.value }));
   el('tp-filter-skill').addEventListener('change', (e) => setFilter({ ...filterState, skill: e.target.value }));
