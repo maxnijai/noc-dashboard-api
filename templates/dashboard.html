@@ -8222,6 +8222,36 @@ function renderPivot(ft) {
     return true;
   }
 
+  function teamMatchesFilter(t) {
+    if (filterState.region && t.region !== filterState.region) return false;
+    if (filterState.province && t.province !== filterState.province) return false;
+    if (filterState.skill && (t.skill || '') !== filterState.skill) return false;
+    if (filterState.team && t.team !== filterState.team) return false;
+    return true;
+  }
+
+  function recMatchesFilter(r) {
+    if (filterState.skill && (r.skill || '') !== filterState.skill) return false;
+    if (filterState.team && r.from_team !== filterState.team && r.to_team !== filterState.team) return false;
+    if (filterState.province && r.province !== filterState.province && r.to_province !== filterState.province) return false;
+    // region isn't tracked per-recommendation directly (province implies it); skip that check here.
+    return true;
+  }
+
+  function computeRegionSummaryFromTickets(tickets) {
+    const regionProvince = {};
+    tickets.forEach(t => {
+      regionProvince[t.region] = regionProvince[t.region] || {};
+      regionProvince[t.region][t.province] = (regionProvince[t.region][t.province] || 0) + 1;
+    });
+    return Object.keys(regionProvince).sort().map(region => {
+      const provinces = Object.entries(regionProvince[region])
+        .map(([province, count]) => ({ province, count }))
+        .sort((a, b) => b.count - a.count);
+      return { region, total: provinces.reduce((s, p) => s + p.count, 0), provinces };
+    });
+  }
+
   function setFilter(next) {
     filterState = { region: next.region || '', province: next.province || '', skill: next.skill || '', team: next.team || '' };
     el('tp-filter-region').value = filterState.region;
@@ -8231,8 +8261,18 @@ function renderPivot(ft) {
     renderAll();
   }
 
-  window.__tpFilterProvince = function (region, province) { setFilter({ region, province }); };
-  window.__tpFilterRegion = function (region) { setFilter({ region }); };
+  window.__tpFilterProvince = function (region, province) {
+    const same = filterState.province === province;
+    setFilter(same ? { ...filterState, region: '', province: '' } : { ...filterState, region, province });
+  };
+  window.__tpFilterProvinceSkill = function (province, skill) {
+    const same = filterState.province === province && filterState.skill === skill;
+    setFilter(same ? { ...filterState, province: '', skill: '' } : { ...filterState, province, skill });
+  };
+  window.__tpFilterRegion = function (region) {
+    const same = filterState.region === region && !filterState.province;
+    setFilter(same ? { ...filterState, region: '', province: '' } : { ...filterState, region, province: '' });
+  };
   window.__tpFilterTeam = function (team, skill, region, province) {
     const same = filterState.team === team;
     setFilter(same ? {} : { team, skill, region, province });
@@ -8276,9 +8316,10 @@ function renderPivot(ft) {
       </div>`).join('');
   }
 
-  function renderRegionSummary(regionSummary) {
-    if (!regionSummary || !regionSummary.length) {
-      el('tp-region-summary').innerHTML = `<div style="color:var(--text3); font-size:12px; padding:8px;">ไม่มีข้อมูล</div>`;
+  function renderRegionSummary(tickets) {
+    const regionSummary = computeRegionSummaryFromTickets(tickets);
+    if (!regionSummary.length) {
+      el('tp-region-summary').innerHTML = `<div style="color:var(--text3); font-size:12px; padding:8px;">ไม่มี ticket ตรงกับตัวกรองที่เลือก</div>`;
       return;
     }
     const esc1 = s => String(s).replace(/'/g, "\\'");
@@ -8303,11 +8344,9 @@ function renderPivot(ft) {
 
   function renderTeamTable(teams, teamOrder, bookmarkGroups) {
     const groupShortLabels = { '7.MB with SA1-4': 'MB', '4.FBB with SA1-4': 'FBB', '3. All NW Incident NSA1-2': 'NSA1-2', 'NSA3-4': 'NSA3-4' };
+    const colCount = 1 + bookmarkGroups.length + 4;
     const thead = `<tr style="background:var(--bg3);">
       <th style="padding:6px 10px; text-align:left;">Team</th>
-      <th style="padding:6px 10px; text-align:left;">Skill</th>
-      <th style="padding:6px 10px; text-align:left;">Region</th>
-      <th style="padding:6px 10px; text-align:left;">Province</th>
       ${bookmarkGroups.map(g => `<th style="padding:6px 10px; text-align:center;" title="${escapeHtml(g)}">${escapeHtml(groupShortLabels[g] || g)}</th>`).join('')}
       <th style="padding:6px 10px; text-align:center; background:var(--bg4);">รวม (กลุ่มที่เลือก)</th>
       <th style="padding:6px 10px; text-align:center;">Capacity</th>
@@ -8320,43 +8359,80 @@ function renderPivot(ft) {
       return `<span style="background:#63992222; color:#639922; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">ว่าง</span>`;
     };
     const esc1 = s => String(s).replace(/'/g, "\\'");
-    const rows = teams.length ? teams.map((t, i) => {
-      const active = filterState.team === t.team;
-      const provinceLabel = t.province + (t.province_count > 1 ? ` +${t.province_count - 1}` : '');
-      const groupCells = bookmarkGroups.map(g => {
-        const n = (t.group_breakdown && t.group_breakdown[g]) || 0;
-        return `<td style="padding:6px 10px; text-align:center; ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
-      }).join('');
-      return `
-      <tr onclick="window.__tpFilterTeam('${esc1(t.team)}','${esc1(t.skill)}','${esc1(t.region)}','${esc1(t.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${active ? '#1f6feb22' : (i % 2 ? 'var(--bg1)' : 'transparent')};">
-        <td style="padding:6px 10px; font-weight:600;"><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${colorForTeam(t.team, teamOrder)}; margin-right:6px;"></span>${escapeHtml(t.team)}</td>
-        <td style="padding:6px 10px;">${escapeHtml(t.skill)}</td>
-        <td style="padding:6px 10px;">${escapeHtml(t.region)}</td>
-        <td style="padding:6px 10px;" title="${escapeHtml(provinceLabel)}">${escapeHtml(provinceLabel)}</td>
-        ${groupCells}
-        <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4);">${t.load}</td>
-        <td style="padding:6px 10px; text-align:center; color:var(--text3);">${t.capacity}</td>
-        <td style="padding:6px 10px; text-align:center; color:var(--text2);">${t.total_workload}</td>
-        <td style="padding:6px 10px; text-align:center;">${statusBadge(t.status, t.over_capacity)}</td>
+
+    const filtered = teams.filter(teamMatchesFilter);
+    if (!filtered.length) {
+      const table = el('tp-team-table');
+      table.querySelector('thead').innerHTML = thead;
+      table.querySelector('tbody').innerHTML = `<tr><td colspan="${colCount}" style="padding:12px; text-align:center; color:var(--text3);">${teams.length ? 'ไม่มีทีมตรงกับตัวกรองที่เลือก' : 'ไม่พบทีมที่จับคู่ได้จาก MatelineX'}</td></tr>`;
+      return;
+    }
+
+    // Group: Province -> Skill -> [teams]
+    const byProvince = {};
+    filtered.forEach(t => {
+      byProvince[t.province] = byProvince[t.province] || {};
+      byProvince[t.province][t.skill] = byProvince[t.province][t.skill] || [];
+      byProvince[t.province][t.skill].push(t);
+    });
+
+    let rowsHtml = '';
+    Object.keys(byProvince).sort((a, b) => a.localeCompare(b, 'th')).forEach(province => {
+      const provinceActive = filterState.province === province;
+      const provinceTeamCount = Object.values(byProvince[province]).reduce((s, arr) => s + arr.length, 0);
+      rowsHtml += `<tr onclick="window.__tpFilterProvince('','${esc1(province)}')" style="cursor:pointer; background:${provinceActive ? '#1f6feb22' : 'var(--bg4)'};">
+        <td colspan="${colCount}" style="padding:6px 10px; font-weight:700; font-size:12.5px;">📍 ${escapeHtml(province)} <span style="font-weight:400; color:var(--text3); font-size:11px;">(${provinceTeamCount} ทีม)</span></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="${4 + bookmarkGroups.length + 4}" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
+      Object.keys(byProvince[province]).sort((a, b) => a.localeCompare(b, 'th')).forEach(skill => {
+        const skillActive = filterState.skill === skill;
+        rowsHtml += `<tr onclick="window.__tpFilterProvinceSkill('${esc1(province)}','${esc1(skill)}')" style="cursor:pointer; background:transparent;">
+          <td colspan="${colCount}" style="padding:4px 10px 4px 24px; font-weight:600; font-size:11.5px; color:${skillActive ? '#1f6feb' : 'var(--text2)'};">⚙ ${escapeHtml(skill)}</td>
+        </tr>`;
+        byProvince[province][skill].forEach((t, i) => {
+          const active = filterState.team === t.team;
+          const groupCells = bookmarkGroups.map(g => {
+            const n = (t.group_breakdown && t.group_breakdown[g]) || 0;
+            return `<td style="padding:6px 10px; text-align:center; ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
+          }).join('');
+          rowsHtml += `
+          <tr onclick="window.__tpFilterTeam('${esc1(t.team)}','${esc1(t.skill)}','${esc1(t.region)}','${esc1(t.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${active ? '#1f6feb22' : (i % 2 ? 'var(--bg1)' : 'transparent')};">
+            <td style="padding:6px 10px 6px 40px; font-weight:600;"><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${colorForTeam(t.team, teamOrder)}; margin-right:6px;"></span>${escapeHtml(t.team)}</td>
+            ${groupCells}
+            <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4);">${t.load}</td>
+            <td style="padding:6px 10px; text-align:center; color:var(--text3);">${t.capacity}</td>
+            <td style="padding:6px 10px; text-align:center; color:var(--text2);">${t.total_workload}</td>
+            <td style="padding:6px 10px; text-align:center;">${statusBadge(t.status, t.over_capacity)}</td>
+          </tr>`;
+        });
+      });
+    });
     const table = el('tp-team-table');
     table.querySelector('thead').innerHTML = thead;
-    table.querySelector('tbody').innerHTML = rows;
+    table.querySelector('tbody').innerHTML = rowsHtml;
   }
 
   function renderRecommendations(recs) {
+    // Original indices must survive filtering/grouping - highlightedRecommendation
+    // and __tpShowRecommendationOnMap both refer to position in the unfiltered
+    // lastData.recommendations array.
+    const indexed = recs.map((r, i) => ({ ...r, _idx: i }));
+    const filtered = indexed.filter(recMatchesFilter);
     if (!recs.length) {
       el('tp-recommendations').innerHTML = `<div style="padding:12px; color:var(--text3); font-size:12px;">ไม่มีทีมไหนเกิน Capacity ตอนนี้ครับ ✅</div>`;
       return;
     }
-    el('tp-recommendations').innerHTML = recs.map((r, i) => {
-      const active = highlightedRecommendation === i;
+    if (!filtered.length) {
+      el('tp-recommendations').innerHTML = `<div style="padding:12px; color:var(--text3); font-size:12px;">ไม่มีคำแนะนำตรงกับตัวกรองที่เลือก</div>`;
+      return;
+    }
+
+    function cardHtml(r) {
+      const active = highlightedRecommendation === r._idx;
       return `
-      <div onclick="window.__tpShowRecommendationOnMap(${i})" style="cursor:pointer; padding:12px 10px; border-top:1px solid var(--border); border-radius:var(--r); background:${active ? '#1f6feb1a' : 'transparent'};">
+      <div onclick="window.__tpShowRecommendationOnMap(${r._idx})" style="cursor:pointer; padding:12px 10px; border-top:1px solid var(--border); border-radius:var(--r); background:${active ? '#1f6feb1a' : 'transparent'};">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
-          <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
-          <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(r.skill)})</span></div>
+          <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${r._idx + 1}</div>
+          <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b></div>
           <span style="margin-left:auto; background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3); white-space:nowrap;">🗺️ ดูบนแผนที่</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px; padding-left:36px; margin-bottom:8px; flex-wrap:wrap;">
@@ -8375,7 +8451,26 @@ function renderPivot(ft) {
         </div>
         <div style="font-size:12.5px; color:var(--text2); line-height:1.5; padding-left:36px;">${escapeHtml(r.reason)}</div>
       </div>`;
-    }).join('');
+    }
+
+    // Group: Province -> Skill -> [recommendations], keeping the farthest-first order within each group.
+    const byProvince = {};
+    filtered.forEach(r => {
+      byProvince[r.province] = byProvince[r.province] || {};
+      byProvince[r.province][r.skill] = byProvince[r.province][r.skill] || [];
+      byProvince[r.province][r.skill].push(r);
+    });
+
+    let html = '';
+    Object.keys(byProvince).sort((a, b) => a.localeCompare(b, 'th')).forEach(province => {
+      const provinceCount = Object.values(byProvince[province]).reduce((s, arr) => s + arr.length, 0);
+      html += `<div style="font-size:12.5px; font-weight:700; margin-top:10px; padding:6px 10px; background:var(--bg4); border-radius:var(--r);">📍 ${escapeHtml(province)} <span style="font-weight:400; color:var(--text3); font-size:11px;">(${provinceCount} คำแนะนำ)</span></div>`;
+      Object.keys(byProvince[province]).sort((a, b) => a.localeCompare(b, 'th')).forEach(skill => {
+        html += `<div style="font-size:11.5px; font-weight:600; color:var(--text2); padding:4px 10px 4px 24px;">⚙ ${escapeHtml(skill)}</div>`;
+        html += byProvince[province][skill].map(cardHtml).join('');
+      });
+    });
+    el('tp-recommendations').innerHTML = html;
   }
 
   function ensureMap() {
@@ -8471,8 +8566,9 @@ function renderPivot(ft) {
   function renderAll() {
     if (!lastData) return;
     const teamOrder = lastData.teams.map(t => t.team);
-    renderRegionSummary(lastData.region_summary);
+    renderRegionSummary(lastData.tickets.filter(ticketMatchesFilter));
     renderTeamTable(lastData.teams, teamOrder, lastData.bookmark_groups);
+    renderRecommendations(lastData.recommendations);
     renderMap(lastData.tickets, teamOrder);
     renderDetailTable(lastData.tickets);
     renderFilterChip();
@@ -8511,7 +8607,6 @@ function renderPivot(ft) {
       const groupsLabel = data.selected_groups.length === data.bookmark_groups.length ? 'ทุกกลุ่ม' : data.selected_groups.join(', ');
       el('tp-ref-time').textContent = `อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (${data.planning_mode === 'today' ? 'วางแผนวันนี้' : 'วางแผนล่วงหน้าคืนนี้เพื่อพรุ่งนี้'} · กลุ่ม: ${groupsLabel})`;
       renderKPIRow(data);
-      renderRecommendations(data.recommendations);
       renderAll();
       statusEl.textContent = `${data.total_tickets} ticket`;
       loaded = true;

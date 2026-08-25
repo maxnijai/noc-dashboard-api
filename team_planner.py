@@ -266,11 +266,10 @@ def build_team_plan(gs_client, bookmark_groups=None, planning_mode="tomorrow"):
                     "reason": (
                         f"{team['team']} มีงานเกิน Capacity ({team['load']}/{team['capacity']}) - "
                         f"งานนี้ ({ex_t['district']}) อยู่ไกลจากงานอื่นๆ ของทีมตัวเองที่สุด ในขณะที่ {best['team']} "
-                        f"มีงาน {best['near_ticket_id']} ({best['to_district']}) อยู่ห่างแค่ {round(best['distance_km'], 1)} กม. "
-                        f"และยังมีที่ว่างรับงานเพิ่มได้"
+                        f"มีงาน {best['near_ticket_id']} ({best['to_district']}) อยู่ห่างแค่ {round(best['distance_km'], 1)} กม."
                     ),
                 })
-    recommendations.sort(key=lambda r: r["distance_km"])
+    recommendations.sort(key=lambda r: r["distance_km"], reverse=True)
 
     return {
         "reference_time": reference_dt.strftime("%Y-%m-%d %H:%M"),
