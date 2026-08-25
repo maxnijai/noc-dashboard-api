@@ -8,24 +8,20 @@ Combines three things:
    reads) classified against a reference point one day further out than
    the normal "tomorrow" P0 calculation - i.e. what WILL be P0 by tomorrow
    night, not what already is P0 tonight.
-2. Team/Skill assignment, matched from the external GGS "Raw Data OWS"
-   sheet by TICKETID == Source Ticket ID or External TicketID (same
-   matching approach as mateline_status.py, different sheet/tab and
-   different fields pulled out).
+2. Team/Skill assignment, matched from the external GGS "Daily" sheet by
+   TICKETID == Source Ticket ID or External TicketID - reuses
+   mateline_status.fetch_ggs_daily_rows() directly (same sheet+tab that
+   module already reads/caches for the mateline status feature, so this
+   doesn't add a second read of the same data).
 3. Each ticket's own LATITUDE/LONGITUDE/PROVINCE/DISTRICT/SUBDISTRICT
    (already present on every ticket row in REALTIME_SHEET_ID - no separate
    site-coordinate master needed).
 """
 
 import logging
-import threading
-import time
 from math import radians, sin, cos, sqrt, atan2
 
 log = logging.getLogger(__name__)
-
-GGS_SHEET_ID = "1PsJnXf8X7rBbA6G96L0ojE_ioby4mKqYcJQLp7fFiOw"
-GGS_RAW_TAB = "Raw Data OWS(not edit)"
 
 # Normal capacity per skill - how many jobs a team can reasonably carry at
 # once. Skills without an explicit number here fall back to DEFAULT_CAPACITY.
@@ -39,31 +35,14 @@ SEVERITY_GROUPS = {
 }
 SEVERITY_GROUP_ORDER = ["SA1-4", "NSA1-2", "NSA3-4"]
 
-_ggs_raw_cache = {"data": None, "ts": 0}
-_ggs_raw_lock = threading.Lock()
-GGS_RAW_CACHE_TTL_SECONDS = 300  # 5 min - external field-ops sheet, doesn't need second-by-second freshness
-
-
-def fetch_ggs_raw_rows(gs_client, use_cache=True):
-    now = time.monotonic()
-    if use_cache:
-        with _ggs_raw_lock:
-            if _ggs_raw_cache["data"] is not None and (now - _ggs_raw_cache["ts"]) < GGS_RAW_CACHE_TTL_SECONDS:
-                return _ggs_raw_cache["data"]
-    sh = gs_client.open_by_key(GGS_SHEET_ID)
-    ws = sh.worksheet(GGS_RAW_TAB)
-    rows = ws.get_all_values()
-    if use_cache:
-        with _ggs_raw_lock:
-            _ggs_raw_cache["data"] = rows
-            _ggs_raw_cache["ts"] = now
-    return rows
-
 
 def build_team_assignment_lookup(gs_client):
     """Returns {ticket_id_upper: {"team", "skill"}}, keyed by both Source
-    Ticket ID and External TicketID (whichever a NOC TICKETID matches)."""
-    rows = fetch_ggs_raw_rows(gs_client)
+    Ticket ID (col D) and External TicketID (col E) - whichever a NOC
+    TICKETID matches. Team is col I, Skill is col H."""
+    from mateline_status import fetch_ggs_daily_rows
+
+    rows = fetch_ggs_daily_rows(gs_client)
     if not rows:
         return {}
     header = rows[0]
