@@ -736,6 +736,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
     Summary NAN
   </div>
+  <div class="nav-item" onclick="showPage('teamplan')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1zM13 7a2 2 0 100-4 2 2 0 000 4zM16 12.5c0-1.6-1-3-2.5-3.7.9.9 1.5 2.2 1.5 3.7v1.5h1v-1.5z"/></svg>
+    Smart Team Planning
+  </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
     <div style="padding:10px;border:1px solid var(--border);border-radius:var(--r);background:linear-gradient(180deg,#101722,#0d1117);display:flex;align-items:center;justify-content:center;min-height:160px;">
@@ -1246,6 +1250,69 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
   </div>
+
+  <!-- SMART TEAM PLANNING -->
+  <div class="page" id="page-teamplan">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1zM13 7a2 2 0 100-4 2 2 0 000 4zM16 12.5c0-1.6-1-3-2.5-3.7.9.9 1.5 2.2 1.5 3.7v1.5h1v-1.5z"/></svg>
+          Smart Team Planning
+        </div>
+        <div id="tp-ref-time" style="font-size:12px; color:var(--text3); margin-top:2px;">วางแผนงานของพรุ่งนี้ล่วงหน้า — ตัวไหนจะกลายเป็น P0 ภายในคืนพรุ่งนี้</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">กลุ่ม:
+          <select id="tp-severity-group" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+            <option value="SA1-4">SA1-4</option>
+            <option value="NSA1-2">NSA1-2</option>
+            <option value="NSA3-4">NSA3-4</option>
+          </select>
+        </label>
+        <button id="tp-reload" class="btn-secondary">Refresh</button>
+        <span id="tp-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
+      </div>
+    </div>
+
+    <div id="tp-kpi-row" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ สรุปตาม Region / Province</div>
+      <div id="tp-region-summary" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">👥 Capacity ทีมงาน</div>
+      <div style="overflow-x:auto;">
+        <table id="tp-team-table" style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">💡 คำแนะนำการ Re-assign งาน</div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">ทีมที่งานเกิน Capacity → แนะนำย้ายงานที่ไกลจากศูนย์กลางงานทีมตัวเองที่สุด ไปทีมที่ยังมีที่ว่างและอยู่ใกล้งานที่มีอยู่แล้ว</div>
+      <div id="tp-recommendations"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket พรุ่งนี้ (แยกสีตามทีม)</div>
+      <div id="tp-map" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket ที่จะเป็น P0 พรุ่งนี้ทั้งหมด</div>
+      <div style="overflow:auto; max-height:440px; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="tp-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 
 
 
@@ -3961,7 +4028,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan','summarynan'][i]===id);
+    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan','summarynan','teamplan'][i]===id);
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -3973,6 +4040,7 @@ function showPage(id) {
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
+  if (id==='teamplan') { setTimeout(()=>{ if (window.initTeamPlanTab) window.initTeamPlanTab(); },50); }
   toggleMobileSidebar(false); // picking a tab on mobile should close the drawer
 }
 
@@ -8095,6 +8163,199 @@ function renderPivot(ft) {
   el('sn-clear-filter').addEventListener('click', (e) => { e.preventDefault(); window.__snClearFilter(); });
 
   window.initSummaryNanTab = function () { if (!loaded) reload(); };
+})();
+
+// ── SMART TEAM PLANNING ──────────────────────────────────────────────────
+(function () {
+  let loaded = false;
+  let map = null;
+  let markerLayer = null;
+  let lastData = null;
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  const TEAM_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950', '#f778ba', '#79c0ff', '#d2a8ff', '#ffa198'];
+  function colorForTeam(teamName, teamOrder) {
+    const i = teamOrder.indexOf(teamName);
+    return TEAM_PALETTE[(i >= 0 ? i : 0) % TEAM_PALETTE.length];
+  }
+
+  function renderKPIRow(data) {
+    const overloaded = data.teams.filter(t => t.status === 'overloaded').length;
+    const available = data.teams.filter(t => t.status === 'available').length;
+    const cards = [
+      { label: 'Ticket P0 พรุ่งนี้', value: data.total_tickets, color: '#E24B4A' },
+      { label: 'ทีมงานเกิน Capacity', value: overloaded, color: overloaded > 0 ? '#E24B4A' : 'var(--text2)' },
+      { label: 'ทีมที่ยังมีที่ว่าง', value: available, color: '#639922' },
+      { label: 'คำแนะนำ Re-assign', value: data.recommendations.length, color: '#1f6feb' },
+      { label: 'ยังไม่พบทีมรับผิดชอบ', value: data.unassigned_count, color: data.unassigned_count > 0 ? '#EF9F27' : 'var(--text2)' },
+    ];
+    el('tp-kpi-row').innerHTML = cards.map(c => `
+      <div style="flex:1; min-width:150px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:14px 16px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px;">${c.label}</div>
+        <div style="font-size:30px; font-weight:800; color:${c.color};">${c.value}</div>
+      </div>`).join('');
+  }
+
+  function renderRegionSummary(regionSummary) {
+    if (!regionSummary || !regionSummary.length) {
+      el('tp-region-summary').innerHTML = `<div style="color:var(--text3); font-size:12px; padding:8px;">ไม่มีข้อมูล</div>`;
+      return;
+    }
+    const html = regionSummary.map(r => `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+          <span>${escapeHtml(r.region)}</span>
+          <span style="background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text2); font-weight:600;">${r.total} ticket</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${r.provinces.map(p => `<span style="background:var(--bg3); border:1px solid var(--border); padding:3px 10px; border-radius:20px; font-size:11.5px;">${escapeHtml(p.province)}: <b>${p.count}</b></span>`).join('')}
+        </div>
+      </div>`).join('');
+    el('tp-region-summary').innerHTML = html;
+  }
+
+  function renderTeamTable(teams, teamOrder) {
+    const thead = `<tr style="background:var(--bg3);">
+      <th style="padding:6px 10px; text-align:left;">Team</th>
+      <th style="padding:6px 10px; text-align:left;">Skill</th>
+      <th style="padding:6px 10px; text-align:center;">งานในมือ</th>
+      <th style="padding:6px 10px; text-align:center;">Capacity</th>
+      <th style="padding:6px 10px; text-align:center;">สถานะ</th>
+    </tr>`;
+    const statusBadge = (status, over) => {
+      if (status === 'overloaded') return `<span style="background:#E24B4A22; color:#E24B4A; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">⚠️ เกิน ${over}</span>`;
+      if (status === 'full') return `<span style="background:#EF9F2722; color:#EF9F27; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">เต็ม</span>`;
+      return `<span style="background:#63992222; color:#639922; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">ว่าง</span>`;
+    };
+    const rows = teams.length ? teams.map((t, i) => `
+      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:6px 10px; font-weight:600;"><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${colorForTeam(t.team, teamOrder)}; margin-right:6px;"></span>${escapeHtml(t.team)}</td>
+        <td style="padding:6px 10px;">${escapeHtml(t.skill)}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:700;">${t.load}</td>
+        <td style="padding:6px 10px; text-align:center; color:var(--text3);">${t.capacity}</td>
+        <td style="padding:6px 10px; text-align:center;">${statusBadge(t.status, t.over_capacity)}</td>
+      </tr>`).join('') : `<tr><td colspan="5" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
+    const table = el('tp-team-table');
+    table.querySelector('thead').innerHTML = thead;
+    table.querySelector('tbody').innerHTML = rows;
+  }
+
+  function renderRecommendations(recs) {
+    if (!recs.length) {
+      el('tp-recommendations').innerHTML = `<div style="padding:12px; color:var(--text3); font-size:12px;">ไม่มีทีมไหนเกิน Capacity ตอนนี้ครับ ✅</div>`;
+      return;
+    }
+    el('tp-recommendations').innerHTML = recs.map((r, i) => `
+      <div style="display:flex; align-items:center; gap:14px; padding:10px 6px; border-top:1px solid var(--border);">
+        <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(r.skill)} · ${escapeHtml(r.province)} ${escapeHtml(r.district)})</span></div>
+          <div style="font-size:12px; margin-top:3px; display:flex; align-items:center; gap:6px;">
+            <span style="color:var(--text2);">${escapeHtml(r.from_team)}</span>
+            <span style="color:var(--text3);">→</span>
+            <span style="color:#639922; font-weight:700;">${escapeHtml(r.to_team)}</span>
+            <span style="background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3);">~${r.distance_km} กม.</span>
+          </div>
+          <div style="font-size:11px; color:var(--text3); margin-top:2px; white-space:normal;">${escapeHtml(r.subject)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function ensureMap() {
+    if (map) return;
+    map = L.map('tp-map', { zoomControl: true, preferCanvas: true }).setView([18.3, 99.8], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+    }).addTo(map);
+    markerLayer = L.layerGroup().addTo(map);
+  }
+
+  function renderMap(tickets, teamOrder) {
+    ensureMap();
+    markerLayer.clearLayers();
+    const points = [];
+    tickets.forEach(t => {
+      if (t.lat == null || t.lon == null) return;
+      const color = t.team ? colorForTeam(t.team, teamOrder) : '#8b949e';
+      const marker = L.circleMarker([t.lat, t.lon], {
+        radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 2,
+      });
+      marker.bindPopup(`<div style="min-width:180px;">
+        <b>${escapeHtml(t.ticket_id)}</b><br>
+        <span style="font-size:11px; color:var(--text3);">${escapeHtml(t.province)} ${escapeHtml(t.district)}</span>
+        <div style="margin-top:6px; font-size:12px;">
+          <div>👥 ทีม: <b>${escapeHtml(t.team) || '(ไม่พบทีม)'}</b> ${t.skill ? '(' + escapeHtml(t.skill) + ')' : ''}</div>
+          <div style="margin-top:4px; white-space:normal;">${escapeHtml(t.subject)}</div>
+        </div>
+      </div>`);
+      marker.addTo(markerLayer);
+      points.push([t.lat, t.lon]);
+    });
+    if (points.length) map.fitBounds(points, { padding: [30, 30], maxZoom: 12 });
+    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+  }
+
+  function renderDetailTable(tickets) {
+    const thead = `<tr style="background:var(--bg3); position:sticky; top:0;">
+      <th style="padding:6px 8px; text-align:left;">TICKETID</th>
+      <th style="padding:6px 8px; text-align:left;">Severity</th>
+      <th style="padding:6px 8px; text-align:left;">SUBJECT</th>
+      <th style="padding:6px 8px; text-align:left;">Province</th>
+      <th style="padding:6px 8px; text-align:left;">District</th>
+      <th style="padding:6px 8px; text-align:left;">Team</th>
+      <th style="padding:6px 8px; text-align:left;">Skill</th>
+      <th style="padding:6px 8px; text-align:left;">Target Finish</th>
+    </tr>`;
+    const rows = tickets.length ? tickets.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px; font-weight:600;">${escapeHtml(t.ticket_id)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.severity)}</td>
+        <td style="padding:6px 8px; max-width:320px; white-space:normal;">${escapeHtml(t.subject)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.province)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.district)}</td>
+        <td style="padding:6px 8px; ${!t.team ? 'color:#EF9F27;' : ''}">${escapeHtml(t.team) || 'ไม่พบทีม'}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.skill)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.target_finish)}</td>
+      </tr>`).join('') : `<tr><td colspan="8" style="padding:12px; text-align:center; color:var(--text3);">ไม่มี ticket ที่จะเป็น P0 พรุ่งนี้ในกลุ่มนี้</td></tr>`;
+    const table = el('tp-detail-table');
+    table.querySelector('thead').innerHTML = thead;
+    table.querySelector('tbody').innerHTML = rows;
+  }
+
+  async function reload() {
+    const statusEl = el('tp-status');
+    statusEl.textContent = 'กำลังโหลด...';
+    try {
+      const severityGroup = el('tp-severity-group').value;
+      const res = await fetch(`/api/team-plan?severity_group=${encodeURIComponent(severityGroup)}`);
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      const teamOrder = data.teams.map(t => t.team);
+      el('tp-ref-time').textContent = `วางแผนงานของพรุ่งนี้ล่วงหน้า — อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (กลุ่ม ${data.severity_group})`;
+      renderKPIRow(data);
+      renderRegionSummary(data.region_summary);
+      renderTeamTable(data.teams, teamOrder);
+      renderRecommendations(data.recommendations);
+      renderMap(data.tickets, teamOrder);
+      renderDetailTable(data.tickets);
+      statusEl.textContent = `${data.total_tickets} ticket`;
+      loaded = true;
+    } catch (e) {
+      console.error('Team plan load failed', e);
+      statusEl.textContent = '';
+      alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+    }
+  }
+
+  el('tp-reload').addEventListener('click', reload);
+  el('tp-severity-group').addEventListener('change', reload);
+  window.initTeamPlanTab = function () { if (!loaded) reload(); };
 })();
 
 </script>

@@ -24,6 +24,7 @@ from pending_ticket import (
 import oncall
 import oncall_escalation
 import flood_nan
+import team_planner
 import summary_nan
 import auth
 
@@ -2379,6 +2380,21 @@ def api_p0_daily_trend():
         return jsonify(data)
     except Exception as e:
         log.exception("p0-daily-trend API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/team-plan')
+def api_team_plan():
+    """Smart Team Planning: tomorrow's P0 tickets (classified against the
+    day-after-tomorrow's 01:15 reference), matched to their assigned field
+    team + skill via the GGS Raw Data OWS sheet, with capacity checks and
+    geographic reassignment recommendations for overloaded teams."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        severity_group = request.args.get('severity_group') or 'SA1-4'
+        data = team_planner.build_team_plan(gs_client, severity_group=severity_group)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("team-plan API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-schedule')
