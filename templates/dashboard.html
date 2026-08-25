@@ -5481,6 +5481,8 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; min-width:260px; white-space:pre-wrap; word-break:break-word;">${escapeHtml(t.detail)}</td>
         <td style="padding:6px 8px; white-space:nowrap; ${isBackdated ? 'background:#E24B4A22; color:#B23A3A; font-weight:700;' : ''}" title="${isBackdated ? 'เลยกำหนดวันปิดแล้ว' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(planDate) || '-'}</td>`;
       const categoryCell = showCategory ? `<td style="padding:6px 8px; white-space:nowrap; color:var(--text2);">${escapeHtml(t.subject_category)}</td>` : '';
+      const isBackDateMateline = (t.status_mateline || '').includes('Back Date');
+      const matelineColor = isBackDateMateline ? '#B23A3A' : (t.status_mateline === 'Wait Action' ? 'var(--text3)' : 'var(--text2)');
       return `
       <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}" data-image-link="${escapeHtml(t.image_link || '')}">
         <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${tid}</td>
@@ -5490,6 +5492,8 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
+        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.mateline_wo_status) || '-'}</td>
+        <td style="padding:6px 8px; white-space:nowrap; color:${matelineColor}; ${isBackDateMateline ? 'font-weight:700;' : ''}">${escapeHtml(t.status_mateline)}</td>
         ${editCells}
       </tr>`;
     }).join('');
@@ -5505,6 +5509,8 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
               <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
               <th style="padding:6px 8px; text-align:right;">Over SLA</th>
+              <th style="padding:6px 8px; text-align:left;">WO Status (Mateline)</th>
+              <th style="padding:6px 8px; text-align:left;">Status Mateline</th>
               <th style="padding:6px 8px; text-align:left;">Group Problem</th>
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
@@ -5732,6 +5738,81 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  function computeStatusMatelinePlanDateMatrix(tickets) {
+    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
+    const dateSet = new Set();
+    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
+    const dateColumns = [...dateSet].sort();
+    dateColumns.push(NO_PLAN_DATE);
+    const matrix = {};
+    tickets.forEach(t => {
+      const col = t.plan_closed_date || NO_PLAN_DATE;
+      const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
+      matrix[sm] = matrix[sm] || {};
+      matrix[sm][col] = (matrix[sm][col] || 0) + 1;
+    });
+    const rows = Object.entries(matrix).map(([sm, counts]) => ({
+      status_mateline: sm, counts,
+      total: Object.values(counts).reduce((a, b) => a + b, 0),
+    })).sort((a, b) => b.total - a.total);
+    return rows.length ? { date_columns: dateColumns, rows } : null;
+  }
+
+  function renderStatusMatelineByPlanDate(block, bookmark, clickFn) {
+    if (!block || !block.rows || !block.rows.length) return '';
+    const today = expTodayStr();
+    const cols = block.date_columns || [];
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const head = cols.map(c => {
+      const isNoPlan = c.startsWith('(');
+      const isBackdated = !isNoPlan && c < today;
+      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+    }).join('');
+    const rows = block.rows.map((r, i) => {
+      const isBackDateRow = r.status_mateline.includes('Back Date');
+      const cells = cols.map(c => {
+        const count = r.counts[c] || 0;
+        const isNoPlan = c.startsWith('(');
+        const isBackdated = !isNoPlan && c < today;
+        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
+        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
+        const clickable = clickFn && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
+      }).join('');
+      const rowTotalClickable = clickFn && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','')"` : '';
+      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; min-width:180px; font-weight:600; ${isBackDateRow ? 'color:#B23A3A;' : ''}">${escapeHtml(r.status_mateline)}</td>
+        ${cells}
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.status_mateline) : ''}">${r.total}</td>
+      </tr>`;
+    }).join('');
+    const totalCells = cols.map(c => {
+      const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      const clickable = clickFn && sum > 0;
+      const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline ในวันนี้' : ''}">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotalClickable = clickFn && grandTotal > 0;
+    const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:7px 10px;">Total</td>
+        ${totalCells}
+        <td${grandTotalOnclick} style="padding:7px 10px; text-align:center; ${grandTotalClickable ? 'cursor:pointer;' : ''}" title="${grandTotalClickable ? 'คลิกเพื่อล้างตัวกรอง' : ''}">${grandTotal}</td>
+      </tr>`;
+    return `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Status Mateline</th>${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${rows}${totalRow}</tbody>
+      </table>`;
+  }
+
   let cachedSnapshotData = null;
 
   function renderTotalP0CompareInner(snapshotData) {
@@ -5784,11 +5865,11 @@ function renderPivot(ft) {
   }
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
-  let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province', per-section
+  let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province' | 'statusMateline', per-section
   let sectionCategoryAgingMode = {}; // bookmark -> 'aging' | 'province' (which dimension is the Category matrix's columns), per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
-    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '' });
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '' });
   }
 
   function render(data) {
@@ -5814,6 +5895,7 @@ function renderPivot(ft) {
         if (f.aging && (t.Aging_Flag_Group || '') !== f.aging) return false;
         if (f.groupProblem && (t.group_problem || '') !== f.groupProblem) return false;
         if (f.category && (t.subject_category || '') !== f.category) return false;
+        if (f.statusMateline && (t.status_mateline || '(ไม่พบใน MatelineX)') !== f.statusMateline) return false;
         if (f.planDate) {
           const isNoPlan = f.planDate.startsWith('(');
           const planDate = t.plan_closed_date || '';
@@ -5822,7 +5904,7 @@ function renderPivot(ft) {
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || searchQuery);
 
       const matrixBlock = f.province
         ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
@@ -5832,14 +5914,18 @@ function renderPivot(ft) {
 
       const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
       const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
+      const planModeLabels = { groupProblem: 'Group Problem', province: 'Province', statusMateline: 'Status Mateline' };
+      const planModeNext = { groupProblem: 'Province', province: 'Status Mateline', statusMateline: 'Group Problem' };
       const planDateInnerHtml = planMode === 'province'
         ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0ProvincePlanDateCell')
+        : planMode === 'statusMateline'
+        ? renderStatusMatelineByPlanDate(computeStatusMatelinePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0StatusMatelineCell')
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planMode === 'province' ? 'Province × Plan Closed Date' : 'Group Problem × Plan Closed Date'}</span>
-            <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planMode === 'province' ? 'Group Problem' : 'Province'}</a>
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × Plan Closed Date</span>
+            <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
         </div>` : '';
@@ -5852,6 +5938,7 @@ function renderPivot(ft) {
       if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
       if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
       if (f.category) chips.push(`Category: ${escapeHtml(f.category)}`);
+      if (f.statusMateline) chips.push(`Status Mateline: ${escapeHtml(f.statusMateline)}`);
       if (f.planDate) chips.push(`Plan Date: ${escapeHtml(f.planDate)}`);
       const chipBar = chips.length
         ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px;">
@@ -5922,6 +6009,13 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
+  window.filterP0StatusMatelineCell = function (bookmark, statusMateline, planDate) {
+    const f = getSectionFilter(bookmark);
+    const same = f.statusMateline === statusMateline && f.planDate === planDate;
+    f.statusMateline = same ? '' : statusMateline;
+    f.planDate = same ? '' : planDate;
+    if (lastData) render(lastData);
+  };
   window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
     const f = getSectionFilter(bookmark);
     const same = f.province === province && f.planDate === planDate;
@@ -5947,11 +6041,12 @@ function renderPivot(ft) {
     if (lastData) render(lastData);
   };
   window.clearP0SectionFilters = function (bookmark) {
-    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '' };
+    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '' };
     if (lastData) render(lastData);
   };
   window.toggleP0PlanDateMode = function (bookmark) {
-    sectionPlanDateMode[bookmark] = (sectionPlanDateMode[bookmark] || 'groupProblem') === 'groupProblem' ? 'province' : 'groupProblem';
+    const cur = sectionPlanDateMode[bookmark] || 'groupProblem';
+    sectionPlanDateMode[bookmark] = cur === 'groupProblem' ? 'province' : cur === 'province' ? 'statusMateline' : 'groupProblem';
     if (lastData) render(lastData);
   };
   window.toggleP0CategoryAgingMode = function (bookmark) {

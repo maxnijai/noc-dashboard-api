@@ -30,6 +30,7 @@ import time
 from datetime import datetime, date
 
 from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
+from mateline_status import build_mateline_status_lookup
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -644,10 +645,23 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
     ]
     work_log = load_work_log(gs_client)
 
+    # GGS Daily mateline status (external field-team tracking sheet) - a
+    # failure here (e.g. the sheet isn't shared with this service account)
+    # shouldn't take down the whole page, so every entry just falls back
+    # to "(ไม่พบใน MatelineX)" if the lookup couldn't be built at all.
+    try:
+        mateline_lookup = build_mateline_status_lookup(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("GGS Daily mateline lookup failed - falling back to empty for this response")
+        mateline_lookup = {}
+
     entries = []
     for r in scoped:
         ticket_id = str(r.get("TICKETID", "")).strip()
         wl = work_log.get(ticket_id, {})
+        mateline = mateline_lookup.get(ticket_id.upper()) or {
+            "status_mateline": "(ไม่พบใน MatelineX)", "mateline_wo_status": "",
+        }
         over_sla_day = r.get("Over_SLA_Day")
         try:
             over_sla_day = float(over_sla_day)
@@ -674,6 +688,8 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "image_link": wl.get("image_link", ""),  # preserved so saving from this page never blanks it out
             "plan_closed_date": wl.get("plan_closed_date", ""),
             "over_sla_day": over_sla_day,
+            "status_mateline": mateline["status_mateline"],
+            "mateline_wo_status": mateline["mateline_wo_status"],
         })
 
     # Summary matrix: bookmark -> group_problem -> aging_key -> count
