@@ -753,24 +753,14 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             continue
         block = {"bookmark": bm, "tickets": tickets, "total": len(tickets)}
 
-        # Auto-categorized Subject breakdown - only for the NSA3-4 group,
+        # Category x Aging_Flag_Group matrix - only for the NSA3-4 group,
         # per request (that bucket's tickets are varied enough, and few
         # enough people are triaging it by hand, that grouping by
         # recurring problem pattern actually helps there specifically).
+        # Same shape as the other matrices on this page (Group Problem x
+        # Aging, Province x Aging), so which category is piling up in
+        # which aging bucket is visible at a glance.
         if bm == "NSA3-4":
-            category_totals = {}
-            for e in tickets:
-                cat = e["subject_category"]
-                category_totals[cat] = category_totals.get(cat, 0) + 1
-            block["subject_categories"] = sorted(
-                [{"category": k, "total": v} for k, v in category_totals.items()],
-                key=lambda r: r["total"], reverse=True,
-            )
-
-            # Category x Aging_Flag_Group matrix - same shape as the other
-            # matrices on this page (Group Problem x Aging, Province x
-            # Aging), so which category is piling up in which aging
-            # bucket is visible at a glance, not just the overall count.
             category_aging_matrix = {}
             for e in tickets:
                 cat = e["subject_category"]

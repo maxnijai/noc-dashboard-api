@@ -5404,34 +5404,6 @@ function renderPivot(ft) {
     ).join('');
   }
 
-  function renderSubjectCategorySummary(categories, isCurrentlyFiltered) {
-    const total = categories.reduce((s, c) => s + c.total, 0);
-    const rows = categories.map((c, i) => `
-      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:6px 10px;">${escapeHtml(c.category)}</td>
-        <td style="padding:6px 10px; text-align:center; font-weight:700; color:#B23A3A;">${c.total}</td>
-      </tr>`).join('');
-    return `
-      <div style="margin-bottom:14px;">
-        <div style="font-size:12px; font-weight:700; margin-bottom:4px; display:flex; align-items:center; gap:5px;">🗂️ Category (Auto) จาก SUBJECT</div>
-        <div style="font-size:10.5px; color:var(--text3); margin-bottom:6px;">จัดกลุ่มอัตโนมัติจากคำในหัวข้อ Ticket - นับจาก NSA3-4 ทั้งหมด${isCurrentlyFiltered ? ' (ไม่ใช่แค่ที่กรองอยู่ตอนนี้)' : ''}</div>
-        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); max-height:220px; overflow-y:auto;">
-          <table style="border-collapse:collapse; font-size:12px; width:100%; max-width:480px;">
-            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
-              <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Category</th>
-              <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Ticket</th>
-            </tr></thead>
-            <tbody>${rows}
-              <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
-                <td style="padding:6px 10px;">Total</td>
-                <td style="padding:6px 10px; text-align:center; color:#B23A3A;">${total}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-  }
-
   function renderDetailTable(detailBlock, agingColors, groupProblemOptions, actionTeamOptions) {
     const today = expTodayStr();
     const maxPlanDate = expMaxPlanDateStr();
@@ -5767,6 +5739,7 @@ function renderPivot(ft) {
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
   let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province', per-section
+  let sectionCategoryAgingMode = {}; // bookmark -> 'category' | 'province', per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
     return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
@@ -5840,18 +5813,21 @@ function renderPivot(ft) {
            </div>`
         : '';
 
-      const categorySummaryHtml = (block.bookmark === 'NSA3-4' && detailBlock && detailBlock.subject_categories && detailBlock.subject_categories.length)
-        ? renderSubjectCategorySummary(detailBlock.subject_categories, filteredTickets.length !== allTickets.length)
-        : '';
+      const categoryAgingMode = sectionCategoryAgingMode[block.bookmark] || 'category';
       const categoryAgingHtml = (block.bookmark === 'NSA3-4' && detailBlock && detailBlock.subject_category_by_aging && detailBlock.subject_category_by_aging.length)
         ? `<div style="margin-bottom:14px;">
-            <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📊 Category (Auto) × Aging_Flag_Group</div>
-            <div style="overflow-x:auto;">${renderSummaryTable({ rows: detailBlock.subject_category_by_aging }, data.aging_order, data.over_aging_keys, data.aging_colors, 'category', 'Category', block.bookmark, null)}</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📊 ${categoryAgingMode === 'province' ? 'Province' : 'Category (Auto)'} × Aging_Flag_Group</span>
+              <a href="#" onclick="toggleP0CategoryAgingMode('${block.bookmark.replace(/'/g, "\\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${categoryAgingMode === 'province' ? 'Category' : 'Province'}</a>
+            </div>
+            <div style="overflow-x:auto;">${categoryAgingMode === 'province'
+              ? renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')
+              : renderSummaryTable({ rows: detailBlock.subject_category_by_aging }, data.aging_order, data.over_aging_keys, data.aging_colors, 'category', 'Category', block.bookmark, null)}</div>
           </div>`
         : '';
 
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${categorySummaryHtml}${categoryAgingHtml}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length, bookmark: block.bookmark }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${categoryAgingHtml}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length, bookmark: block.bookmark }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
         : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
 
       return `
@@ -5911,6 +5887,10 @@ function renderPivot(ft) {
   };
   window.toggleP0PlanDateMode = function (bookmark) {
     sectionPlanDateMode[bookmark] = (sectionPlanDateMode[bookmark] || 'groupProblem') === 'groupProblem' ? 'province' : 'groupProblem';
+    if (lastData) render(lastData);
+  };
+  window.toggleP0CategoryAgingMode = function (bookmark) {
+    sectionCategoryAgingMode[bookmark] = (sectionCategoryAgingMode[bookmark] || 'category') === 'category' ? 'province' : 'category';
     if (lastData) render(lastData);
   };
   el('p0-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });
