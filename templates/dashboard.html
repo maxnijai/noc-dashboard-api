@@ -5843,9 +5843,15 @@ function renderPivot(ft) {
       const categorySummaryHtml = (block.bookmark === 'NSA3-4' && detailBlock && detailBlock.subject_categories && detailBlock.subject_categories.length)
         ? renderSubjectCategorySummary(detailBlock.subject_categories, filteredTickets.length !== allTickets.length)
         : '';
+      const categoryAgingHtml = (block.bookmark === 'NSA3-4' && detailBlock && detailBlock.subject_category_by_aging && detailBlock.subject_category_by_aging.length)
+        ? `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:5px;">📊 Category (Auto) × Aging_Flag_Group</div>
+            <div style="overflow-x:auto;">${renderSummaryTable({ rows: detailBlock.subject_category_by_aging }, data.aging_order, data.over_aging_keys, data.aging_colors, 'category', 'Category', block.bookmark, null)}</div>
+          </div>`
+        : '';
 
       const detailHtml = filteredTickets.length
-        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${categorySummaryHtml}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length, bookmark: block.bookmark }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
+        ? `<div style="padding-top:14px; border-top:1px dashed var(--border2); margin-top:${sideBySide ? '0' : '14px'};">${chipBar}${categorySummaryHtml}${categoryAgingHtml}${renderDetailTable({ tickets: filteredTickets, total: filteredTickets.length, bookmark: block.bookmark }, data.aging_colors, data.group_problem_options, data.action_team_options)}</div>`
         : `<div style="padding:10px; color:var(--text3); font-size:12px;">${chipBar}${isFiltered ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket P0 ใน Bookmark นี้'}</div>`;
 
       return `

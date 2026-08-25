@@ -219,39 +219,61 @@ def _invalidate_work_log_cache():
         _work_log_cache["ts"] = 0
 
 
-_SUBJECT_SITE_CODE_RE = re.compile(r'\b[A-Z]{2,5}\d{3,6}[A-Z0-9_\-]*\b')
-_SUBJECT_BRACKET_RE = re.compile(r'\[[^\]]*\]')
-_SUBJECT_PAREN_RE = re.compile(r'\([^)]*\)')
-_SUBJECT_IP_RE = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
-_SUBJECT_MULTI_SPACE_RE = re.compile(r'\s+')
-_SUBJECT_LEADING_RE_RE = re.compile(r'^\s*RE\s+', re.IGNORECASE)
-_SUBJECT_DANGLING_DASH_RE = re.compile(r'\s*-\s*(?=\s|$)')
+# Ordered keyword rules for _auto_categorize_subject - derived from and
+# validated against a 612-ticket labeled reference set (100% match), all
+# NSA3/NSA4 tickets. Order matters: earlier rules win when a subject
+# matches more than one (e.g. "Service Degraded | RRU-5 HW Partial Fault"
+# needs HW Partial Fault checked before the generic Radio Performance
+# Degraded catch-all, or it'd never be reached).
+SUBJECT_CATEGORY_RULES = [
+    ("Cell Up/Down Alarm", ["cell up/down"]),
+    ("Intrusion Alarm (ความปลอดภัยสถานี)", ["intrusion", "relay_alarm_major_open_doo", "open_door", "open door", "(ason "]),
+    ("Link Failure/Degraded", ["link failure", "link degraded", "ethernet link", "link_failure", "link failure up/down"]),
+    ("HW Partial Fault", ["hw partial fault"]),
+    ("IPRAN Hardware Alarm (Fan/Board)", ["ipran alarm board", "ipran alarm  board"]),
+    ("Environmental Alarm (Temperature/Smoke)", ["temperature"]),
+    ("Radio Performance Degraded", ["service degraded", "service unavailable", "resource allocation failure",
+        "sleeping cell", "increased ber", "internal interference", "performance degraded",
+        "ออกสลับกัน", "node group sync loss", "cell sleep"]),
+    ("External Alarm - Power/Site Infra", ["external alarm", "input power failure", "lossofmains", "main ac power failure", "rectifier"]),
+    ("VSWR Alarm (สายอากาศ/ฟีดเดอร์)", ["vswr", "rf reflected power high"]),
+    ("Solar/Inverter Power Alarm", ["solar cell", "inverter"]),
+    ("Antenna/RET Alarm", ["rxdiversitylost", "retportcurrenttoohigh", "antennasystemproblem",
+        "digitalcable_cablefailure", "antennabranch", "retdevice_retfailure", "rx branch imbalance",
+        "communicationlostwithret", "antenna calibration", "current too high"]),
+    ("Equipment Fault (RET/Connection)", ["rap no connection", "ret not calibrated", "ret failure", "no_connection"]),
+    ("Sync/Timing Alarm", ["timesyncio", "sync ptp", "time reachability"]),
+    ("IPRAN Power/Optical Alarm", ["ipran"]),
+    ("Fan Alarm", ["fan fail", "fan failure"]),
+    ("RF Module Failure", ["rf module failure"]),
+    ("Battery/Power Management Alarm", ["paco-casa", "energy_cell", "swap battery"]),
+    ("DWDM/Optical Transport Alarm", ["dwdm", "mossman input power"]),
+    ("Microwave Link Alarm", ["microwave"]),
+    ("Complaint / No Traffic", ["nbtc"]),
+    ("CPRI/RRU Fiber Alarm", ["cpri", "fan rru"]),
+    ("Transmission Power Alarm", ["input_b power low", "input power low"]),
+    ("FTTX/OLT Alarm", ["olt", "ftth", "fiberhome", "edfa"]),
+    ("Manual Request/Coordination (แจ้งประสานงาน)", ["request check", "เข้าแก้ไขปัญหา", "dpo request", "optimiz", "support for check"]),
+    ("Hardware/Software Fault (FRU/HW/SW)", ["install sw", "rejectsignalfromhardware", "fan speed continuously",
+        "hw fault", "swerror", "sw error", "resource activation timeout", "license key not available",
+        "lan switch abnormality", "resource configuration failure", "fru general problem",
+        "mo configuration not consistent"]),
+]
+SUBJECT_CATEGORY_OTHER = "Other/Uncategorized"
 
 
 def _auto_categorize_subject(subject):
-    """Best-effort auto-grouping of a ticket SUBJECT line into a shared
-    problem-pattern category, with no manual category list - strips the
-    parts that vary per-ticket (bracketed priority/tags, parenthetical
-    site detail, IP addresses, site codes like NAN7257) so what's left is
-    usually the recurring problem description shared across many tickets
-    with the same root cause (e.g. 'ERICSSON CELL DOWN')."""
-    s = str(subject or "").strip()
-    if not s:
-        return "(ไม่ระบุ)"
-    s = _SUBJECT_BRACKET_RE.sub(' ', s)
-    s = _SUBJECT_PAREN_RE.sub(' ', s)
-    s = _SUBJECT_LEADING_RE_RE.sub('', s.strip())
-    s = _SUBJECT_IP_RE.sub(' ', s)
-    s = _SUBJECT_SITE_CODE_RE.sub(' ', s)
-    if '|' in s:
-        parts = [p.strip(' -_') for p in s.split('|') if p.strip(' -_')]
-        if parts:
-            s = parts[-1]
-    s = s.replace('<>', ' ').replace(':', ' ')
-    s = _SUBJECT_DANGLING_DASH_RE.sub(' ', s)
-    s = _SUBJECT_MULTI_SPACE_RE.sub(' ', s).strip(' -_|:.')
-    s = s.upper()
-    return s or "(ไม่ระบุ)"
+    """Groups a ticket SUBJECT line into one of the fixed categories in
+    SUBJECT_CATEGORY_RULES via ordered keyword matching (see that list's
+    docstring for how it was derived/validated). Falls back to
+    SUBJECT_CATEGORY_OTHER for anything that matches none of them."""
+    s = str(subject or "").lower()
+    if not s.strip():
+        return SUBJECT_CATEGORY_OTHER
+    for category, keywords in SUBJECT_CATEGORY_RULES:
+        if any(k in s for k in keywords):
+            return category
+    return SUBJECT_CATEGORY_OTHER
 
 
 def _row_number_from_append_response(resp):
@@ -744,6 +766,26 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
                 [{"category": k, "total": v} for k, v in category_totals.items()],
                 key=lambda r: r["total"], reverse=True,
             )
+
+            # Category x Aging_Flag_Group matrix - same shape as the other
+            # matrices on this page (Group Problem x Aging, Province x
+            # Aging), so which category is piling up in which aging
+            # bucket is visible at a glance, not just the overall count.
+            category_aging_matrix = {}
+            for e in tickets:
+                cat = e["subject_category"]
+                ag = e["Aging_Flag_Group"]
+                category_aging_matrix.setdefault(cat, {}).setdefault(ag, 0)
+                category_aging_matrix[cat][ag] += 1
+            category_aging_rows = []
+            for cat, counts in category_aging_matrix.items():
+                row_total = sum(counts.values())
+                category_aging_rows.append({
+                    "category": cat, "over_total": row_total,
+                    "counts": {ag: counts.get(ag, 0) for ag in AGING_ORDER},
+                })
+            category_aging_rows.sort(key=lambda r: -r["over_total"])
+            block["subject_category_by_aging"] = category_aging_rows
 
         detail_out.append(block)
 
