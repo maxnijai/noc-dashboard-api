@@ -5339,6 +5339,52 @@ function renderPivot(ft) {
     return data;
   }
 
+  function renderCategoryMatrix(rows, columns, colFilterKey, bookmark) {
+    // Category rows are fixed; the column dimension swaps between Aging
+    // and Province (same table, "🔄 สลับเป็น Province" toggle) - kept
+    // separate from renderSummaryTable since that one is aging-column
+    // specific (backdated highlighting etc.), which doesn't apply here.
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const head = columns.map(c => `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">${escapeHtml(c)}</th>`).join('');
+    const bodyRows = rows.map((r, i) => {
+      const cells = columns.map(c => {
+        const count = r.counts[c] || 0;
+        const clickable = count > 0;
+        const onclick = clickable ? ` onclick="filterP0CategoryCell('${esc1(bookmark)}','${esc1(r.category)}','${esc1(c)}','${colFilterKey}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
+      }).join('');
+      const rowClickable = r.over_total > 0;
+      const rowOnclick = rowClickable ? ` onclick="filterP0CategoryCell('${esc1(bookmark)}','${esc1(r.category)}','','')"` : '';
+      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:7px 10px; min-width:200px; font-weight:600;">${escapeHtml(r.category)}</td>
+        ${cells}
+        <td${rowOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.category) : ''}">${r.over_total}</td>
+      </tr>`;
+    }).join('');
+    const colTotals = columns.map(c => {
+      const sum = rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      const clickable = sum > 0;
+      const onclick = clickable ? ` onclick="filterP0CategoryCell('${esc1(bookmark)}','','${esc1(c)}','${colFilterKey}')"` : '';
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Category' : ''}">${sum || '–'}</td>`;
+    }).join('');
+    const grandTotal = rows.reduce((s, r) => s + (r.over_total || 0), 0);
+    return `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Category</th>
+          ${head}
+          <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
+        </tr></thead>
+        <tbody>${bodyRows}
+          <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+            <td style="padding:7px 10px;">Total</td>
+            ${colTotals}
+            <td style="padding:7px 10px; text-align:center;">${grandTotal}</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
   function renderSummaryTable(bookmarkBlock, agingOrder, overKeys, agingColors, rowKey, rowHeader, bookmark, clickFn) {
     rowKey = rowKey || 'province';
     rowHeader = rowHeader || 'Province';
@@ -5739,10 +5785,10 @@ function renderPivot(ft) {
 
   let sectionFilters = {}; // bookmark -> {province, aging, groupProblem, planDate} - per-section, not global
   let sectionPlanDateMode = {}; // bookmark -> 'groupProblem' | 'province', per-section
-  let sectionCategoryAgingMode = {}; // bookmark -> 'category' | 'province', per-section (NSA3-4 only)
+  let sectionCategoryAgingMode = {}; // bookmark -> 'aging' | 'province' (which dimension is the Category matrix's columns), per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
-    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' });
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '' });
   }
 
   function render(data) {
@@ -5767,6 +5813,7 @@ function renderPivot(ft) {
         if (f.province && prov !== f.province) return false;
         if (f.aging && (t.Aging_Flag_Group || '') !== f.aging) return false;
         if (f.groupProblem && (t.group_problem || '') !== f.groupProblem) return false;
+        if (f.category && (t.subject_category || '') !== f.category) return false;
         if (f.planDate) {
           const isNoPlan = f.planDate.startsWith('(');
           const planDate = t.plan_closed_date || '';
@@ -5775,7 +5822,7 @@ function renderPivot(ft) {
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || searchQuery);
 
       const matrixBlock = f.province
         ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
@@ -5804,6 +5851,7 @@ function renderPivot(ft) {
       if (f.province) chips.push(`จังหวัด: ${escapeHtml(f.province)}`);
       if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
       if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
+      if (f.category) chips.push(`Category: ${escapeHtml(f.category)}`);
       if (f.planDate) chips.push(`Plan Date: ${escapeHtml(f.planDate)}`);
       const chipBar = chips.length
         ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; font-size:11px;">
@@ -5813,16 +5861,16 @@ function renderPivot(ft) {
            </div>`
         : '';
 
-      const categoryAgingMode = sectionCategoryAgingMode[block.bookmark] || 'category';
+      const categoryAgingMode = sectionCategoryAgingMode[block.bookmark] || 'aging';
       const categoryAgingHtml = (block.bookmark === 'NSA3-4' && detailBlock && detailBlock.subject_category_by_aging && detailBlock.subject_category_by_aging.length)
         ? `<div style="margin-bottom:14px;">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-              <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📊 ${categoryAgingMode === 'province' ? 'Province' : 'Category (Auto)'} × Aging_Flag_Group</span>
-              <a href="#" onclick="toggleP0CategoryAgingMode('${block.bookmark.replace(/'/g, "\\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${categoryAgingMode === 'province' ? 'Category' : 'Province'}</a>
+              <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📊 Category (Auto) × ${categoryAgingMode === 'province' ? 'Province' : 'Aging_Flag_Group'}</span>
+              <a href="#" onclick="toggleP0CategoryAgingMode('${block.bookmark.replace(/'/g, "\\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${categoryAgingMode === 'province' ? 'Aging_Flag_Group' : 'Province'}</a>
             </div>
             <div style="overflow-x:auto;">${categoryAgingMode === 'province'
-              ? renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')
-              : renderSummaryTable({ rows: detailBlock.subject_category_by_aging }, data.aging_order, data.over_aging_keys, data.aging_colors, 'category', 'Category', block.bookmark, null)}</div>
+              ? renderCategoryMatrix(detailBlock.subject_category_by_province.rows, detailBlock.subject_category_by_province.provinces, 'province', block.bookmark)
+              : renderCategoryMatrix(detailBlock.subject_category_by_aging, data.aging_order, 'aging', block.bookmark)}</div>
           </div>`
         : '';
 
@@ -5881,8 +5929,25 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
+  window.filterP0CategoryCell = function (bookmark, category, dimValue, dimKey) {
+    const f = getSectionFilter(bookmark);
+    if (dimKey) {
+      // Cell click (category + aging/province) or column-total click (category === '')
+      const same = f.category === category && f[dimKey] === dimValue;
+      f.category = same ? '' : category;
+      f.aging = dimKey === 'aging' ? (same ? '' : dimValue) : '';
+      f.province = dimKey === 'province' ? (same ? '' : dimValue) : '';
+    } else {
+      // Row-total click: category only
+      const same = f.category === category && !f.aging && !f.province;
+      f.category = same ? '' : category;
+      f.aging = '';
+      f.province = '';
+    }
+    if (lastData) render(lastData);
+  };
   window.clearP0SectionFilters = function (bookmark) {
-    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '' };
+    sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '' };
     if (lastData) render(lastData);
   };
   window.toggleP0PlanDateMode = function (bookmark) {
@@ -5890,7 +5955,7 @@ function renderPivot(ft) {
     if (lastData) render(lastData);
   };
   window.toggleP0CategoryAgingMode = function (bookmark) {
-    sectionCategoryAgingMode[bookmark] = (sectionCategoryAgingMode[bookmark] || 'category') === 'category' ? 'province' : 'category';
+    sectionCategoryAgingMode[bookmark] = (sectionCategoryAgingMode[bookmark] || 'aging') === 'aging' ? 'province' : 'aging';
     if (lastData) render(lastData);
   };
   el('p0-ticket-search').addEventListener('input', () => { if (lastData) render(lastData); });

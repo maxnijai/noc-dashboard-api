@@ -777,6 +777,31 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             category_aging_rows.sort(key=lambda r: -r["over_total"])
             block["subject_category_by_aging"] = category_aging_rows
 
+            # Category x Province matrix - same rows (Category), different
+            # column dimension, for the same table's "switch to Province"
+            # toggle (columns swap, rows stay Category either way).
+            category_province_matrix = {}
+            provinces_seen = set()
+            for e in tickets:
+                cat = e["subject_category"]
+                prov = (e.get("PROVINCE") or "").strip() or "(ไม่ระบุจังหวัด)"
+                provinces_seen.add(prov)
+                category_province_matrix.setdefault(cat, {}).setdefault(prov, 0)
+                category_province_matrix[cat][prov] += 1
+            province_columns = sorted(provinces_seen)
+            category_province_rows = []
+            for cat, counts in category_province_matrix.items():
+                row_total = sum(counts.values())
+                category_province_rows.append({
+                    "category": cat, "over_total": row_total,
+                    "counts": {p: counts.get(p, 0) for p in province_columns},
+                })
+            category_province_rows.sort(key=lambda r: -r["over_total"])
+            block["subject_category_by_province"] = {
+                "provinces": province_columns,
+                "rows": category_province_rows,
+            }
+
         detail_out.append(block)
 
         # Among this Bookmark's over-SLA tickets, break down by PROVINCE how
