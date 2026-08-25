@@ -1,24 +1,27 @@
 """Smart Team Planning: recommends how to plan field-team assignments for
-TOMORROW's P0 tickets, ahead of time (built for the night-time planning
-window - by the time everyone's off for the day, tomorrow's P0 list is
-already knowable and worth staging in advance).
+P0 tickets, ahead of time - "today" mode for morning planning (matches the
+same P0 definition every other tab in this app uses), "tomorrow" mode for
+night-time planning (one reference point further out, showing what WILL
+be P0 by tomorrow night before it happens).
 
 Combines three things:
 1. Live ticket data (same REALTIME_SHEET_ID sheet every other tab already
-   reads) classified against a reference point one day further out than
-   the normal "tomorrow" P0 calculation - i.e. what WILL be P0 by tomorrow
-   night, not what already is P0 tonight.
+   reads), classified against whichever reference point the chosen
+   planning mode uses.
 2. Team/Skill assignment, matched from the external GGS "Daily" sheet by
    TICKETID == Source Ticket ID or External TicketID - reuses
    mateline_status.fetch_ggs_daily_rows() directly (same sheet+tab that
-   module already reads/caches for the mateline status feature, so this
-   doesn't add a second read of the same data).
+   module already reads/caches for the Status Mateline feature, so this
+   doesn't add a second read of the same data). Also used to total up
+   each team's OVERALL current workload (every row assigned to them,
+   regardless of severity/group), for context next to the P0 count.
 3. Each ticket's own LATITUDE/LONGITUDE/PROVINCE/DISTRICT/SUBDISTRICT
    (already present on every ticket row in REALTIME_SHEET_ID - no separate
    site-coordinate master needed).
 """
 
 import logging
+from collections import Counter
 from math import radians, sin, cos, sqrt, atan2
 
 log = logging.getLogger(__name__)
@@ -28,12 +31,16 @@ log = logging.getLogger(__name__)
 TEAM_CAPACITY = {"NODE": 3, "OFC": 2}
 DEFAULT_CAPACITY = 3
 
-SEVERITY_GROUPS = {
-    "SA1-4": {"SA1", "SA2", "SA3", "SA4"},
-    "NSA1-2": {"NSA1", "NSA2"},
-    "NSA3-4": {"NSA3", "NSA4"},
-}
-SEVERITY_GROUP_ORDER = ["SA1-4", "NSA1-2", "NSA3-4"]
+# Same 4 groups Focus Priority 0 Ticket already uses everywhere else
+# (pending_ticket.BOOKMARK_SORT_ORDER + the NSA3-4 catch-all), so this
+# tab's grouping matches what the team already reads elsewhere on the page.
+BOOKMARK_GROUP_ORDER = ["7.MB with SA1-4", "4.FBB with SA1-4", "3. All NW Incident NSA1-2", "NSA3-4"]
+
+# "today": the SAME reference point (tomorrow 01:15) every other P0 view in
+# this app uses - for morning planning, today's already-known P0 list.
+# "tomorrow": one step further out (the day after tomorrow's 01:15) - for
+# night-time planning, what WILL be P0 by tomorrow night before it happens.
+PLANNING_MODE_DAYS_AHEAD = {"today": 1, "tomorrow": 2}
 
 
 def build_team_assignment_lookup(gs_client):
@@ -44,7 +51,7 @@ def build_team_assignment_lookup(gs_client):
 
     rows = fetch_ggs_daily_rows(gs_client)
     if not rows:
-        return {}
+        return {}, {}
     header = rows[0]
     col = {name.strip(): i for i, name in enumerate(header) if name.strip()}
 
@@ -55,18 +62,20 @@ def build_team_assignment_lookup(gs_client):
         return row[i]
 
     lookup = {}
+    workload_totals = Counter()
     for row in rows[1:]:
         if not row or not any(row):
             continue
         team = get(row, "Team").strip()
         if not team:
             continue
+        workload_totals[team] += 1
         skill = get(row, "Skill").strip()
         entry = {"team": team, "skill": skill}
         for tid in (get(row, "Source Ticket ID").strip(), get(row, "External TicketID").strip()):
             if tid:
                 lookup[tid.upper()] = entry
-    return lookup
+    return lookup, dict(workload_totals)
 
 
 def _haversine_km(lat1, lon1, lat2, lon2):
@@ -86,33 +95,32 @@ def _to_float(v):
         return None
 
 
-def build_team_plan(gs_client, severity_group="SA1-4"):
-    from pending_ticket import fetch_live_rows, PENDING_TICKET_REGIONS, _classify_priority_at
+def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="tomorrow"):
+    from pending_ticket import fetch_live_rows, PENDING_TICKET_REGIONS, _classify_priority_at, _exclusive_bookmark_label
     from pending_trend import bangkok_now
     from datetime import timedelta
 
     now_dt = bangkok_now()
-    # One step further than the usual "tomorrow 01:15" P0 reference - what
-    # WILL be P0 by tomorrow night, so tonight's planning covers tomorrow's
-    # whole day rather than reacting to it as it happens.
-    reference_dt = (now_dt + timedelta(days=2)).replace(hour=1, minute=15, second=0, microsecond=0)
+    days_ahead = PLANNING_MODE_DAYS_AHEAD.get(planning_mode, 2)
+    reference_dt = (now_dt + timedelta(days=days_ahead)).replace(hour=1, minute=15, second=0, microsecond=0)
 
-    allowed_sevs = SEVERITY_GROUPS.get(severity_group, SEVERITY_GROUPS["SA1-4"])
+    if bookmark_group not in BOOKMARK_GROUP_ORDER:
+        bookmark_group = BOOKMARK_GROUP_ORDER[0]
+
     all_rows = fetch_live_rows(gs_client)
 
     try:
-        team_lookup = build_team_assignment_lookup(gs_client)
+        team_lookup, team_workload_totals = build_team_assignment_lookup(gs_client)
     except Exception:
-        log.exception("GGS Raw Data OWS team lookup failed - continuing with no team assignments")
-        team_lookup = {}
+        log.exception("GGS Daily team lookup failed - continuing with no team assignments")
+        team_lookup, team_workload_totals = {}, {}
 
     tickets = []
     for r in all_rows:
         region = str(r.get("Region", "")).strip()
         if region not in PENDING_TICKET_REGIONS:
             continue
-        sev = str(r.get("SEVERITY", "")).strip()
-        if sev not in allowed_sevs:
+        if _exclusive_bookmark_label(r.get("Bookmark")) != bookmark_group:
             continue
         priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
         if priority != "P0":
@@ -123,7 +131,7 @@ def build_team_plan(gs_client, severity_group="SA1-4"):
         tickets.append({
             "ticket_id": ticket_id,
             "subject": r.get("SUBJECT", ""),
-            "severity": sev,
+            "severity": str(r.get("SEVERITY", "")).strip(),
             "region": region,
             "province": str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุจังหวัด)",
             "district": str(r.get("DISTRICT", "")).strip(),
@@ -150,7 +158,9 @@ def build_team_plan(gs_client, severity_group="SA1-4"):
             "region": region, "total": sum(p["count"] for p in provinces), "provinces": provinces,
         })
 
-    # Team load vs capacity
+    # Team load vs capacity - plus region/province context per team (drawn
+    # from this group's own tickets: the most common region/province among
+    # them, with a "+N" note if the team's tickets span more than one).
     team_tickets = {}
     for t in tickets:
         if not t["team"]:
@@ -163,11 +173,18 @@ def build_team_plan(gs_client, severity_group="SA1-4"):
         skill = info["skill"]
         capacity = TEAM_CAPACITY.get(skill, DEFAULT_CAPACITY)
         load = len(info["tickets"])
+        region_counts = Counter(t["region"] for t in info["tickets"])
+        province_counts = Counter(t["province"] for t in info["tickets"])
         teams.append({
             "team": team_name, "skill": skill, "load": load, "capacity": capacity,
             "over_capacity": max(0, load - capacity),
             "remaining_capacity": max(0, capacity - load),
             "status": "overloaded" if load > capacity else ("full" if load == capacity else "available"),
+            "region": region_counts.most_common(1)[0][0] if region_counts else "",
+            "region_count": len(region_counts),
+            "province": province_counts.most_common(1)[0][0] if province_counts else "",
+            "province_count": len(province_counts),
+            "total_workload": team_workload_totals.get(team_name, load),
         })
     teams.sort(key=lambda tm: (-tm["over_capacity"], -tm["load"]))
 
@@ -178,6 +195,8 @@ def build_team_plan(gs_client, severity_group="SA1-4"):
     # i.e. the least "on the way" for them) and match each to whichever
     # same-skill team with spare capacity already has a ticket nearest to
     # it (a team already heading that direction is the natural pickup).
+    # from_lat/from_lon/to_lat/to_lon are included so the frontend can draw
+    # the suggested move directly on the map, not just list it as text.
     recommendations = []
     for team in teams:
         if team["over_capacity"] <= 0:
@@ -204,21 +223,37 @@ def build_team_plan(gs_client, severity_group="SA1-4"):
                 ]
                 if not cand_tickets:
                     continue
-                nearest_dist = min(_haversine_km(ex_t["lat"], ex_t["lon"], ct["lat"], ct["lon"]) for ct in cand_tickets)
+                nearest = min(cand_tickets, key=lambda ct: _haversine_km(ex_t["lat"], ex_t["lon"], ct["lat"], ct["lon"]))
+                nearest_dist = _haversine_km(ex_t["lat"], ex_t["lon"], nearest["lat"], nearest["lon"])
                 if best is None or nearest_dist < best["distance_km"]:
-                    best = {"team": cand["team"], "distance_km": round(nearest_dist, 1)}
+                    best = {
+                        "team": cand["team"], "distance_km": round(nearest_dist, 1),
+                        "near_ticket_id": nearest["ticket_id"], "to_lat": nearest["lat"], "to_lon": nearest["lon"],
+                    }
             if best:
                 recommendations.append({
                     "ticket_id": ex_t["ticket_id"], "subject": ex_t["subject"],
                     "province": ex_t["province"], "district": ex_t["district"],
                     "from_team": team["team"], "to_team": best["team"],
-                    "distance_km": best["distance_km"], "skill": team["skill"],
+                    "distance_km": best["distance_km"],
+                    "near_ticket_id": best["near_ticket_id"],
+                    "skill": team["skill"],
+                    "from_lat": ex_t["lat"], "from_lon": ex_t["lon"],
+                    "to_lat": best["to_lat"], "to_lon": best["to_lon"],
+                    "reason": (
+                        f"{team['team']} มีงานเกิน Capacity ({team['load']}/{team['capacity']}) - "
+                        f"งานนี้อยู่ไกลจากงานอื่นๆ ของทีมตัวเองที่สุด ในขณะที่ {best['team']} "
+                        f"มีงาน {best['near_ticket_id']} อยู่ห่างแค่ {round(best['distance_km'], 1)} กม. "
+                        f"และยังมีที่ว่างรับงานเพิ่มได้"
+                    ),
                 })
     recommendations.sort(key=lambda r: r["distance_km"])
 
     return {
         "reference_time": reference_dt.strftime("%Y-%m-%d %H:%M"),
-        "severity_group": severity_group,
+        "planning_mode": planning_mode,
+        "bookmark_group": bookmark_group,
+        "bookmark_groups": BOOKMARK_GROUP_ORDER,
         "total_tickets": len(tickets),
         "region_summary": region_summary,
         "teams": teams,

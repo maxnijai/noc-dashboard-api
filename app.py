@@ -2384,14 +2384,15 @@ def api_p0_daily_trend():
 
 @app.route('/api/team-plan')
 def api_team_plan():
-    """Smart Team Planning: tomorrow's P0 tickets (classified against the
-    day-after-tomorrow's 01:15 reference), matched to their assigned field
-    team + skill via the GGS Raw Data OWS sheet, with capacity checks and
-    geographic reassignment recommendations for overloaded teams."""
+    """Smart Team Planning: P0 tickets (today's or tomorrow's, per
+    planning_mode) matched to their assigned field team + skill via the
+    GGS Daily sheet, with capacity checks and geographic reassignment
+    recommendations for overloaded teams."""
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        severity_group = request.args.get('severity_group') or 'SA1-4'
-        data = team_planner.build_team_plan(gs_client, severity_group=severity_group)
+        bookmark_group = request.args.get('bookmark_group') or '7.MB with SA1-4'
+        planning_mode = request.args.get('planning_mode') or 'tomorrow'
+        data = team_planner.build_team_plan(gs_client, bookmark_group=bookmark_group, planning_mode=planning_mode)
         return jsonify(data)
     except Exception as e:
         log.exception("team-plan API failed")

@@ -1253,36 +1253,60 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
   <!-- SMART TEAM PLANNING -->
   <div class="page" id="page-teamplan">
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
       <div>
         <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1zM13 7a2 2 0 100-4 2 2 0 000 4zM16 12.5c0-1.6-1-3-2.5-3.7.9.9 1.5 2.2 1.5 3.7v1.5h1v-1.5z"/></svg>
           Smart Team Planning
         </div>
-        <div id="tp-ref-time" style="font-size:12px; color:var(--text3); margin-top:2px;">วางแผนงานของพรุ่งนี้ล่วงหน้า — ตัวไหนจะกลายเป็น P0 ภายในคืนพรุ่งนี้</div>
+        <div id="tp-ref-time" style="font-size:12px; color:var(--text3); margin-top:2px;"></div>
       </div>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:4px;">กลุ่ม:
-          <select id="tp-severity-group" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-            <option value="SA1-4">SA1-4</option>
-            <option value="NSA1-2">NSA1-2</option>
-            <option value="NSA3-4">NSA3-4</option>
-          </select>
-        </label>
+      <div style="display:flex; align-items:center; gap:8px;">
         <button id="tp-reload" class="btn-secondary">Refresh</button>
         <span id="tp-status" style="color:var(--text); font-size:13px; font-weight:700;"></span>
       </div>
     </div>
 
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2); display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">🌙/☀️ วางแผน:
+        <select id="tp-planning-mode" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+          <option value="today">P0 วันนี้ (เช้า)</option>
+          <option value="tomorrow" selected>P0 พรุ่งนี้ (กลางคืน)</option>
+        </select>
+      </label>
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">กลุ่ม:
+        <select id="tp-bookmark-group" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);">
+          <option value="7.MB with SA1-4">7.MB with SA1-4</option>
+          <option value="4.FBB with SA1-4">4.FBB with SA1-4</option>
+          <option value="3. All NW Incident NSA1-2">3. All NW Incident NSA1-2</option>
+          <option value="NSA3-4">NSA3-4</option>
+        </select>
+      </label>
+      <span style="width:1px; height:22px; background:var(--border);"></span>
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">Region:
+        <select id="tp-filter-region" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">จังหวัด:
+        <select id="tp-filter-province" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">Skill:
+        <select id="tp-filter-skill" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
+      </label>
+      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">Team:
+        <select id="tp-filter-team" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
+      </label>
+      <a href="#" id="tp-clear-filter" style="font-size:11px; color:var(--blue); display:none;">✕ ล้างตัวกรอง</a>
+    </div>
+
     <div id="tp-kpi-row" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;"></div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ สรุปตาม Region / Province</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ สรุปตาม Region / Province <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกเพื่อกรอง)</span></div>
       <div id="tp-region-summary" style="overflow-x:auto;"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">👥 Capacity ทีมงาน</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">👥 Capacity ทีมงาน <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อกรอง)</span></div>
       <div style="overflow-x:auto;">
         <table id="tp-team-table" style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead></thead>
@@ -1292,18 +1316,18 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">💡 คำแนะนำการ Re-assign งาน</div>
-      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">ทีมที่งานเกิน Capacity → แนะนำย้ายงานที่ไกลจากศูนย์กลางงานทีมตัวเองที่สุด ไปทีมที่ยังมีที่ว่างและอยู่ใกล้งานที่มีอยู่แล้ว</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">💡 คำแนะนำการ Re-assign งาน <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกเพื่อดูบนแผนที่)</span></div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">ทีมที่งานเกิน Capacity → แนะนำย้ายงานที่ไกลจากศูนย์กลางงานทีมตัวเองที่สุด ไปทีมที่ยังมีที่ว่างและมีงานอยู่ใกล้ๆ อยู่แล้ว</div>
       <div id="tp-recommendations"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket พรุ่งนี้ (แยกสีตามทีม)</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket (แยกสีตามทีม)</div>
       <div id="tp-map" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket ที่จะเป็น P0 พรุ่งนี้ทั้งหมด</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket ทั้งหมด</div>
       <div style="overflow:auto; max-height:440px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="tp-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
@@ -8170,7 +8194,10 @@ function renderPivot(ft) {
   let loaded = false;
   let map = null;
   let markerLayer = null;
+  let lineLayer = null;
   let lastData = null;
+  let filterState = { region: '', province: '', skill: '', team: '' };
+  let highlightedRecommendation = null;
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -8184,11 +8211,58 @@ function renderPivot(ft) {
     return TEAM_PALETTE[(i >= 0 ? i : 0) % TEAM_PALETTE.length];
   }
 
+  function isFilterActive() { return !!(filterState.region || filterState.province || filterState.skill || filterState.team); }
+
+  function ticketMatchesFilter(t) {
+    if (filterState.region && t.region !== filterState.region) return false;
+    if (filterState.province && t.province !== filterState.province) return false;
+    if (filterState.skill && (t.skill || '') !== filterState.skill) return false;
+    if (filterState.team && (t.team || '') !== filterState.team) return false;
+    return true;
+  }
+
+  function setFilter(next) {
+    filterState = { region: next.region || '', province: next.province || '', skill: next.skill || '', team: next.team || '' };
+    el('tp-filter-region').value = filterState.region;
+    el('tp-filter-province').value = filterState.province;
+    el('tp-filter-skill').value = filterState.skill;
+    el('tp-filter-team').value = filterState.team;
+    renderAll();
+  }
+
+  window.__tpFilterProvince = function (region, province) { setFilter({ region, province }); };
+  window.__tpFilterRegion = function (region) { setFilter({ region }); };
+  window.__tpFilterTeam = function (team, skill, region, province) {
+    const same = filterState.team === team;
+    setFilter(same ? {} : { team, skill, region, province });
+  };
+  window.__tpClearFilter = function () { setFilter({}); };
+
+  function renderFilterChip() {
+    const link = el('tp-clear-filter');
+    link.style.display = isFilterActive() ? '' : 'none';
+  }
+
+  function populateFilterDropdowns(tickets) {
+    const fill = (id, values) => {
+      const sel = el(id);
+      if (sel.dataset.populated) return;
+      [...new Set(values)].filter(Boolean).sort((a, b) => String(a).localeCompare(String(b), 'th')).forEach(v => {
+        const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o);
+      });
+      sel.dataset.populated = '1';
+    };
+    fill('tp-filter-region', tickets.map(t => t.region));
+    fill('tp-filter-province', tickets.map(t => t.province));
+    fill('tp-filter-skill', tickets.map(t => t.skill));
+    fill('tp-filter-team', tickets.map(t => t.team));
+  }
+
   function renderKPIRow(data) {
     const overloaded = data.teams.filter(t => t.status === 'overloaded').length;
     const available = data.teams.filter(t => t.status === 'available').length;
     const cards = [
-      { label: 'Ticket P0 พรุ่งนี้', value: data.total_tickets, color: '#E24B4A' },
+      { label: `Ticket P0 (${data.planning_mode === 'today' ? 'วันนี้' : 'พรุ่งนี้'})`, value: data.total_tickets, color: '#E24B4A' },
       { label: 'ทีมงานเกิน Capacity', value: overloaded, color: overloaded > 0 ? '#E24B4A' : 'var(--text2)' },
       { label: 'ทีมที่ยังมีที่ว่าง', value: available, color: '#639922' },
       { label: 'คำแนะนำ Re-assign', value: data.recommendations.length, color: '#1f6feb' },
@@ -8206,16 +8280,23 @@ function renderPivot(ft) {
       el('tp-region-summary').innerHTML = `<div style="color:var(--text3); font-size:12px; padding:8px;">ไม่มีข้อมูล</div>`;
       return;
     }
-    const html = regionSummary.map(r => `
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const html = regionSummary.map(r => {
+      const regionActive = filterState.region === r.region && !filterState.province;
+      return `
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:8px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:8px; cursor:pointer; ${regionActive ? 'color:#1f6feb;' : ''}" onclick="window.__tpFilterRegion('${esc1(r.region)}')">
           <span>${escapeHtml(r.region)}</span>
           <span style="background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text2); font-weight:600;">${r.total} ticket</span>
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px;">
-          ${r.provinces.map(p => `<span style="background:var(--bg3); border:1px solid var(--border); padding:3px 10px; border-radius:20px; font-size:11.5px;">${escapeHtml(p.province)}: <b>${p.count}</b></span>`).join('')}
+          ${r.provinces.map(p => {
+            const active = filterState.province === p.province;
+            return `<span onclick="window.__tpFilterProvince('${esc1(r.region)}','${esc1(p.province)}')" style="cursor:pointer; background:${active ? '#1f6feb22' : 'var(--bg3)'}; border:1px solid ${active ? '#1f6feb' : 'var(--border)'}; color:${active ? '#1f6feb' : 'var(--text)'}; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:${active ? '700' : '400'};">${escapeHtml(p.province)}: <b>${p.count}</b></span>`;
+          }).join('')}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     el('tp-region-summary').innerHTML = html;
   }
 
@@ -8223,8 +8304,11 @@ function renderPivot(ft) {
     const thead = `<tr style="background:var(--bg3);">
       <th style="padding:6px 10px; text-align:left;">Team</th>
       <th style="padding:6px 10px; text-align:left;">Skill</th>
-      <th style="padding:6px 10px; text-align:center;">งานในมือ</th>
+      <th style="padding:6px 10px; text-align:left;">Region</th>
+      <th style="padding:6px 10px; text-align:left;">Province</th>
+      <th style="padding:6px 10px; text-align:center;">P0 กลุ่มนี้</th>
       <th style="padding:6px 10px; text-align:center;">Capacity</th>
+      <th style="padding:6px 10px; text-align:center;">Ticket ทั้งหมด (ทุกกลุ่ม)</th>
       <th style="padding:6px 10px; text-align:center;">สถานะ</th>
     </tr>`;
     const statusBadge = (status, over) => {
@@ -8232,14 +8316,22 @@ function renderPivot(ft) {
       if (status === 'full') return `<span style="background:#EF9F2722; color:#EF9F27; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">เต็ม</span>`;
       return `<span style="background:#63992222; color:#639922; font-weight:700; padding:2px 10px; border-radius:20px; font-size:11px;">ว่าง</span>`;
     };
-    const rows = teams.length ? teams.map((t, i) => `
-      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const rows = teams.length ? teams.map((t, i) => {
+      const active = filterState.team === t.team;
+      const provinceLabel = t.province + (t.province_count > 1 ? ` +${t.province_count - 1}` : '');
+      return `
+      <tr onclick="window.__tpFilterTeam('${esc1(t.team)}','${esc1(t.skill)}','${esc1(t.region)}','${esc1(t.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${active ? '#1f6feb22' : (i % 2 ? 'var(--bg1)' : 'transparent')};">
         <td style="padding:6px 10px; font-weight:600;"><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${colorForTeam(t.team, teamOrder)}; margin-right:6px;"></span>${escapeHtml(t.team)}</td>
         <td style="padding:6px 10px;">${escapeHtml(t.skill)}</td>
+        <td style="padding:6px 10px;">${escapeHtml(t.region)}</td>
+        <td style="padding:6px 10px;" title="${escapeHtml(provinceLabel)}">${escapeHtml(provinceLabel)}</td>
         <td style="padding:6px 10px; text-align:center; font-weight:700;">${t.load}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text3);">${t.capacity}</td>
+        <td style="padding:6px 10px; text-align:center; color:var(--text2);">${t.total_workload}</td>
         <td style="padding:6px 10px; text-align:center;">${statusBadge(t.status, t.over_capacity)}</td>
-      </tr>`).join('') : `<tr><td colspan="5" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
     const table = el('tp-team-table');
     table.querySelector('thead').innerHTML = thead;
     table.querySelector('tbody').innerHTML = rows;
@@ -8250,20 +8342,18 @@ function renderPivot(ft) {
       el('tp-recommendations').innerHTML = `<div style="padding:12px; color:var(--text3); font-size:12px;">ไม่มีทีมไหนเกิน Capacity ตอนนี้ครับ ✅</div>`;
       return;
     }
-    el('tp-recommendations').innerHTML = recs.map((r, i) => `
-      <div style="display:flex; align-items:center; gap:14px; padding:10px 6px; border-top:1px solid var(--border);">
-        <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
-        <div style="flex:1; min-width:0;">
+    el('tp-recommendations').innerHTML = recs.map((r, i) => {
+      const active = highlightedRecommendation === i;
+      return `
+      <div onclick="window.__tpShowRecommendationOnMap(${i})" style="cursor:pointer; padding:12px 10px; border-top:1px solid var(--border); border-radius:var(--r); background:${active ? '#1f6feb1a' : 'transparent'};">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
           <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(r.skill)} · ${escapeHtml(r.province)} ${escapeHtml(r.district)})</span></div>
-          <div style="font-size:12px; margin-top:3px; display:flex; align-items:center; gap:6px;">
-            <span style="color:var(--text2);">${escapeHtml(r.from_team)}</span>
-            <span style="color:var(--text3);">→</span>
-            <span style="color:#639922; font-weight:700;">${escapeHtml(r.to_team)}</span>
-            <span style="background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3);">~${r.distance_km} กม.</span>
-          </div>
-          <div style="font-size:11px; color:var(--text3); margin-top:2px; white-space:normal;">${escapeHtml(r.subject)}</div>
+          <span style="margin-left:auto; background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3); white-space:nowrap;">🗺️ ดูบนแผนที่</span>
         </div>
-      </div>`).join('');
+        <div style="font-size:12.5px; color:var(--text2); line-height:1.5; padding-left:36px;">${escapeHtml(r.reason)}</div>
+      </div>`;
+    }).join('');
   }
 
   function ensureMap() {
@@ -8273,17 +8363,23 @@ function renderPivot(ft) {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
+    lineLayer = L.layerGroup().addTo(map);
   }
+
+  const teamMarkersById = {};
 
   function renderMap(tickets, teamOrder) {
     ensureMap();
     markerLayer.clearLayers();
+    lineLayer.clearLayers();
+    Object.keys(teamMarkersById).forEach(k => delete teamMarkersById[k]);
     const points = [];
     tickets.forEach(t => {
       if (t.lat == null || t.lon == null) return;
+      const match = !isFilterActive() || ticketMatchesFilter(t);
       const color = t.team ? colorForTeam(t.team, teamOrder) : '#8b949e';
       const marker = L.circleMarker([t.lat, t.lon], {
-        radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 2,
+        radius: match ? 6 : 4, color, fillColor: color, fillOpacity: match ? 0.85 : 0.15, opacity: match ? 1 : 0.25, weight: match ? 2 : 1,
       });
       marker.bindPopup(`<div style="min-width:180px;">
         <b>${escapeHtml(t.ticket_id)}</b><br>
@@ -8294,56 +8390,90 @@ function renderPivot(ft) {
         </div>
       </div>`);
       marker.addTo(markerLayer);
-      points.push([t.lat, t.lon]);
+      teamMarkersById[t.ticket_id] = marker;
+      if (match) points.push([t.lat, t.lon]);
     });
     if (points.length) map.fitBounds(points, { padding: [30, 30], maxZoom: 12 });
     setTimeout(() => { if (map) map.invalidateSize(); }, 50);
   }
 
+  window.__tpShowRecommendationOnMap = function (i) {
+    if (!lastData) return;
+    const r = lastData.recommendations[i];
+    if (!r) return;
+    highlightedRecommendation = highlightedRecommendation === i ? null : i;
+    renderRecommendations(lastData.recommendations);
+    ensureMap();
+    lineLayer.clearLayers();
+    if (highlightedRecommendation === null) return;
+    if (r.from_lat == null || r.to_lat == null) return;
+    const line = L.polyline([[r.from_lat, r.from_lon], [r.to_lat, r.to_lon]], {
+      color: '#1f6feb', weight: 3, dashArray: '6,6', opacity: 0.85,
+    });
+    line.addTo(lineLayer);
+    map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 13 });
+    const fromMarker = teamMarkersById[r.ticket_id];
+    if (fromMarker) setTimeout(() => fromMarker.openPopup(), 200);
+  };
+
   function renderDetailTable(tickets) {
+    const filtered = isFilterActive() ? tickets.filter(ticketMatchesFilter) : tickets;
     const thead = `<tr style="background:var(--bg3); position:sticky; top:0;">
       <th style="padding:6px 8px; text-align:left;">TICKETID</th>
       <th style="padding:6px 8px; text-align:left;">Severity</th>
       <th style="padding:6px 8px; text-align:left;">SUBJECT</th>
+      <th style="padding:6px 8px; text-align:left;">Region</th>
       <th style="padding:6px 8px; text-align:left;">Province</th>
       <th style="padding:6px 8px; text-align:left;">District</th>
       <th style="padding:6px 8px; text-align:left;">Team</th>
       <th style="padding:6px 8px; text-align:left;">Skill</th>
       <th style="padding:6px 8px; text-align:left;">Target Finish</th>
     </tr>`;
-    const rows = tickets.length ? tickets.map(t => `
+    const rows = filtered.length ? filtered.map(t => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 8px; font-weight:600;">${escapeHtml(t.ticket_id)}</td>
         <td style="padding:6px 8px;">${escapeHtml(t.severity)}</td>
         <td style="padding:6px 8px; max-width:320px; white-space:normal;">${escapeHtml(t.subject)}</td>
+        <td style="padding:6px 8px;">${escapeHtml(t.region)}</td>
         <td style="padding:6px 8px;">${escapeHtml(t.province)}</td>
         <td style="padding:6px 8px;">${escapeHtml(t.district)}</td>
         <td style="padding:6px 8px; ${!t.team ? 'color:#EF9F27;' : ''}">${escapeHtml(t.team) || 'ไม่พบทีม'}</td>
         <td style="padding:6px 8px;">${escapeHtml(t.skill)}</td>
         <td style="padding:6px 8px;">${escapeHtml(t.target_finish)}</td>
-      </tr>`).join('') : `<tr><td colspan="8" style="padding:12px; text-align:center; color:var(--text3);">ไม่มี ticket ที่จะเป็น P0 พรุ่งนี้ในกลุ่มนี้</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="9" style="padding:12px; text-align:center; color:var(--text3);">${isFilterActive() ? 'ไม่มี ticket ตรงกับตัวกรองที่เลือก' : 'ไม่มี ticket ในกลุ่มนี้'}</td></tr>`;
     const table = el('tp-detail-table');
     table.querySelector('thead').innerHTML = thead;
     table.querySelector('tbody').innerHTML = rows;
   }
 
+  function renderAll() {
+    if (!lastData) return;
+    const teamOrder = lastData.teams.map(t => t.team);
+    renderRegionSummary(lastData.region_summary);
+    renderTeamTable(lastData.teams, teamOrder);
+    renderMap(lastData.tickets, teamOrder);
+    renderDetailTable(lastData.tickets);
+    renderFilterChip();
+  }
+
   async function reload() {
     const statusEl = el('tp-status');
     statusEl.textContent = 'กำลังโหลด...';
+    highlightedRecommendation = null;
     try {
-      const severityGroup = el('tp-severity-group').value;
-      const res = await fetch(`/api/team-plan?severity_group=${encodeURIComponent(severityGroup)}`);
+      const bookmarkGroup = el('tp-bookmark-group').value;
+      const planningMode = el('tp-planning-mode').value;
+      const res = await fetch(`/api/team-plan?bookmark_group=${encodeURIComponent(bookmarkGroup)}&planning_mode=${encodeURIComponent(planningMode)}`);
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
       lastData = data;
-      const teamOrder = data.teams.map(t => t.team);
-      el('tp-ref-time').textContent = `วางแผนงานของพรุ่งนี้ล่วงหน้า — อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (กลุ่ม ${data.severity_group})`;
+      filterState = { region: '', province: '', skill: '', team: '' };
+      ['tp-filter-region', 'tp-filter-province', 'tp-filter-skill', 'tp-filter-team'].forEach(id => { el(id).dataset.populated = ''; el(id).innerHTML = '<option value="">ทั้งหมด</option>'; });
+      populateFilterDropdowns(data.tickets);
+      el('tp-ref-time').textContent = `อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (${data.planning_mode === 'today' ? 'วางแผนวันนี้' : 'วางแผนล่วงหน้าคืนนี้เพื่อพรุ่งนี้'} · กลุ่ม ${data.bookmark_group})`;
       renderKPIRow(data);
-      renderRegionSummary(data.region_summary);
-      renderTeamTable(data.teams, teamOrder);
       renderRecommendations(data.recommendations);
-      renderMap(data.tickets, teamOrder);
-      renderDetailTable(data.tickets);
+      renderAll();
       statusEl.textContent = `${data.total_tickets} ticket`;
       loaded = true;
     } catch (e) {
@@ -8354,9 +8484,17 @@ function renderPivot(ft) {
   }
 
   el('tp-reload').addEventListener('click', reload);
-  el('tp-severity-group').addEventListener('change', reload);
+  el('tp-planning-mode').addEventListener('change', reload);
+  el('tp-bookmark-group').addEventListener('change', reload);
+  el('tp-filter-region').addEventListener('change', (e) => setFilter({ ...filterState, region: e.target.value }));
+  el('tp-filter-province').addEventListener('change', (e) => setFilter({ ...filterState, province: e.target.value }));
+  el('tp-filter-skill').addEventListener('change', (e) => setFilter({ ...filterState, skill: e.target.value }));
+  el('tp-filter-team').addEventListener('change', (e) => setFilter({ ...filterState, team: e.target.value }));
+  el('tp-clear-filter').addEventListener('click', (e) => { e.preventDefault(); window.__tpClearFilter(); });
+
   window.initTeamPlanTab = function () { if (!loaded) reload(); };
 })();
+
 
 </script>
 </body>
