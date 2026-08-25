@@ -95,7 +95,7 @@ def _to_float(v):
         return None
 
 
-def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="tomorrow"):
+def build_team_plan(gs_client, bookmark_groups=None, planning_mode="tomorrow"):
     from pending_ticket import fetch_live_rows, PENDING_TICKET_REGIONS, _classify_priority_at, _exclusive_bookmark_label
     from pending_trend import bangkok_now
     from datetime import timedelta
@@ -104,8 +104,12 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
     days_ahead = PLANNING_MODE_DAYS_AHEAD.get(planning_mode, 2)
     reference_dt = (now_dt + timedelta(days=days_ahead)).replace(hour=1, minute=15, second=0, microsecond=0)
 
-    if bookmark_group not in BOOKMARK_GROUP_ORDER:
-        bookmark_group = BOOKMARK_GROUP_ORDER[0]
+    # None/empty = every group selected (the new default) - a real list
+    # restricts the working ticket set (map/detail/region summary/load/
+    # recommendations) to just those groups, but the per-team breakdown
+    # by group (for the Capacity table's extra columns) always covers all
+    # 4 regardless, so that context is visible even while focused on one.
+    selected_groups = set(bookmark_groups) & set(BOOKMARK_GROUP_ORDER) if bookmark_groups else set(BOOKMARK_GROUP_ORDER)
 
     all_rows = fetch_live_rows(gs_client)
 
@@ -115,12 +119,13 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
         log.exception("GGS Daily team lookup failed - continuing with no team assignments")
         team_lookup, team_workload_totals = {}, {}
 
-    tickets = []
+    tickets_all_groups = []
     for r in all_rows:
         region = str(r.get("Region", "")).strip()
         if region not in PENDING_TICKET_REGIONS:
             continue
-        if _exclusive_bookmark_label(r.get("Bookmark")) != bookmark_group:
+        group = _exclusive_bookmark_label(r.get("Bookmark"))
+        if group not in BOOKMARK_GROUP_ORDER:
             continue
         priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
         if priority != "P0":
@@ -128,10 +133,11 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
 
         ticket_id = str(r.get("TICKETID", "")).strip()
         assignment = team_lookup.get(ticket_id.upper())
-        tickets.append({
+        tickets_all_groups.append({
             "ticket_id": ticket_id,
             "subject": r.get("SUBJECT", ""),
             "severity": str(r.get("SEVERITY", "")).strip(),
+            "bookmark_group": group,
             "region": region,
             "province": str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุจังหวัด)",
             "district": str(r.get("DISTRICT", "")).strip(),
@@ -142,6 +148,20 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
             "skill": assignment["skill"] if assignment else None,
             "target_finish": r.get("TARGETFINISH", ""),
         })
+
+    # Per-team, per-group P0 breakdown (Capacity table's extra columns) -
+    # always computed across every group, independent of what's selected.
+    team_group_breakdown = {}
+    for t in tickets_all_groups:
+        if not t["team"]:
+            continue
+        team_group_breakdown.setdefault(t["team"], {g: 0 for g in BOOKMARK_GROUP_ORDER})
+        team_group_breakdown[t["team"]][t["bookmark_group"]] += 1
+
+    # From here on, only the SELECTED groups' tickets are in play - this is
+    # what drives region summary, the map, the detail table, team load vs
+    # capacity, and recommendations.
+    tickets = [t for t in tickets_all_groups if t["bookmark_group"] in selected_groups]
 
     # Region -> Province breakdown
     region_province = {}
@@ -185,6 +205,7 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
             "province": province_counts.most_common(1)[0][0] if province_counts else "",
             "province_count": len(province_counts),
             "total_workload": team_workload_totals.get(team_name, load),
+            "group_breakdown": team_group_breakdown.get(team_name, {g: 0 for g in BOOKMARK_GROUP_ORDER}),
         })
     teams.sort(key=lambda tm: (-tm["over_capacity"], -tm["load"]))
 
@@ -229,11 +250,13 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
                     best = {
                         "team": cand["team"], "distance_km": round(nearest_dist, 1),
                         "near_ticket_id": nearest["ticket_id"], "to_lat": nearest["lat"], "to_lon": nearest["lon"],
+                        "to_district": nearest["district"], "to_province": nearest["province"],
                     }
             if best:
                 recommendations.append({
                     "ticket_id": ex_t["ticket_id"], "subject": ex_t["subject"],
                     "province": ex_t["province"], "district": ex_t["district"],
+                    "to_province": best["to_province"], "to_district": best["to_district"],
                     "from_team": team["team"], "to_team": best["team"],
                     "distance_km": best["distance_km"],
                     "near_ticket_id": best["near_ticket_id"],
@@ -242,8 +265,8 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
                     "to_lat": best["to_lat"], "to_lon": best["to_lon"],
                     "reason": (
                         f"{team['team']} มีงานเกิน Capacity ({team['load']}/{team['capacity']}) - "
-                        f"งานนี้อยู่ไกลจากงานอื่นๆ ของทีมตัวเองที่สุด ในขณะที่ {best['team']} "
-                        f"มีงาน {best['near_ticket_id']} อยู่ห่างแค่ {round(best['distance_km'], 1)} กม. "
+                        f"งานนี้ ({ex_t['district']}) อยู่ไกลจากงานอื่นๆ ของทีมตัวเองที่สุด ในขณะที่ {best['team']} "
+                        f"มีงาน {best['near_ticket_id']} ({best['to_district']}) อยู่ห่างแค่ {round(best['distance_km'], 1)} กม. "
                         f"และยังมีที่ว่างรับงานเพิ่มได้"
                     ),
                 })
@@ -252,7 +275,7 @@ def build_team_plan(gs_client, bookmark_group="7.MB with SA1-4", planning_mode="
     return {
         "reference_time": reference_dt.strftime("%Y-%m-%d %H:%M"),
         "planning_mode": planning_mode,
-        "bookmark_group": bookmark_group,
+        "selected_groups": sorted(selected_groups, key=BOOKMARK_GROUP_ORDER.index),
         "bookmark_groups": BOOKMARK_GROUP_ORDER,
         "total_tickets": len(tickets),
         "region_summary": region_summary,

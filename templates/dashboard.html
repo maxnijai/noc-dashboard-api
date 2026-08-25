@@ -1274,14 +1274,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <option value="tomorrow" selected>P0 พรุ่งนี้ (กลางคืน)</option>
         </select>
       </label>
-      <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">กลุ่ม:
-        <select id="tp-bookmark-group" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);">
-          <option value="7.MB with SA1-4">7.MB with SA1-4</option>
-          <option value="4.FBB with SA1-4">4.FBB with SA1-4</option>
-          <option value="3. All NW Incident NSA1-2">3. All NW Incident NSA1-2</option>
-          <option value="NSA3-4">NSA3-4</option>
-        </select>
-      </label>
+      <span style="width:1px; height:22px; background:var(--border);"></span>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="font-size:11px; color:var(--text3);">กลุ่ม:</span>
+        <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" class="tp-group-checkbox" value="7.MB with SA1-4" checked>7.MB with SA1-4</label>
+        <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" class="tp-group-checkbox" value="4.FBB with SA1-4" checked>4.FBB with SA1-4</label>
+        <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" class="tp-group-checkbox" value="3. All NW Incident NSA1-2" checked>3. All NW Incident NSA1-2</label>
+        <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" class="tp-group-checkbox" value="NSA3-4" checked>NSA3 / NSA4</label>
+      </div>
       <span style="width:1px; height:22px; background:var(--border);"></span>
       <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">Region:
         <select id="tp-filter-region" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
@@ -1295,7 +1295,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label style="font-size:11px; color:var(--text3); display:flex; align-items:center; gap:5px;">Team:
         <select id="tp-filter-team" style="padding:5px 10px; font-size:12px; border-radius:var(--r); border:1px solid var(--border); background:var(--bg3); color:var(--text);"><option value="">ทั้งหมด</option></select>
       </label>
-      <a href="#" id="tp-clear-filter" style="font-size:11px; color:var(--blue); display:none;">✕ ล้างตัวกรอง</a>
+      <button id="tp-reset-filter" class="btn-secondary" style="font-size:11px; padding:4px 10px;">↺ รีเซ็ตตัวกรอง</button>
+      <a href="#" id="tp-clear-filter" style="font-size:11px; color:var(--blue); display:none;">✕ ล้างตัวกรอง Region/จังหวัด/Skill/Team</a>
     </div>
 
     <div id="tp-kpi-row" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px;"></div>
@@ -8300,13 +8301,15 @@ function renderPivot(ft) {
     el('tp-region-summary').innerHTML = html;
   }
 
-  function renderTeamTable(teams, teamOrder) {
+  function renderTeamTable(teams, teamOrder, bookmarkGroups) {
+    const groupShortLabels = { '7.MB with SA1-4': 'MB', '4.FBB with SA1-4': 'FBB', '3. All NW Incident NSA1-2': 'NSA1-2', 'NSA3-4': 'NSA3-4' };
     const thead = `<tr style="background:var(--bg3);">
       <th style="padding:6px 10px; text-align:left;">Team</th>
       <th style="padding:6px 10px; text-align:left;">Skill</th>
       <th style="padding:6px 10px; text-align:left;">Region</th>
       <th style="padding:6px 10px; text-align:left;">Province</th>
-      <th style="padding:6px 10px; text-align:center;">P0 กลุ่มนี้</th>
+      ${bookmarkGroups.map(g => `<th style="padding:6px 10px; text-align:center;" title="${escapeHtml(g)}">${escapeHtml(groupShortLabels[g] || g)}</th>`).join('')}
+      <th style="padding:6px 10px; text-align:center; background:var(--bg4);">รวม (กลุ่มที่เลือก)</th>
       <th style="padding:6px 10px; text-align:center;">Capacity</th>
       <th style="padding:6px 10px; text-align:center;">Ticket ทั้งหมด (ทุกกลุ่ม)</th>
       <th style="padding:6px 10px; text-align:center;">สถานะ</th>
@@ -8320,18 +8323,23 @@ function renderPivot(ft) {
     const rows = teams.length ? teams.map((t, i) => {
       const active = filterState.team === t.team;
       const provinceLabel = t.province + (t.province_count > 1 ? ` +${t.province_count - 1}` : '');
+      const groupCells = bookmarkGroups.map(g => {
+        const n = (t.group_breakdown && t.group_breakdown[g]) || 0;
+        return `<td style="padding:6px 10px; text-align:center; ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
+      }).join('');
       return `
       <tr onclick="window.__tpFilterTeam('${esc1(t.team)}','${esc1(t.skill)}','${esc1(t.region)}','${esc1(t.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${active ? '#1f6feb22' : (i % 2 ? 'var(--bg1)' : 'transparent')};">
         <td style="padding:6px 10px; font-weight:600;"><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${colorForTeam(t.team, teamOrder)}; margin-right:6px;"></span>${escapeHtml(t.team)}</td>
         <td style="padding:6px 10px;">${escapeHtml(t.skill)}</td>
         <td style="padding:6px 10px;">${escapeHtml(t.region)}</td>
         <td style="padding:6px 10px;" title="${escapeHtml(provinceLabel)}">${escapeHtml(provinceLabel)}</td>
-        <td style="padding:6px 10px; text-align:center; font-weight:700;">${t.load}</td>
+        ${groupCells}
+        <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4);">${t.load}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text3);">${t.capacity}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text2);">${t.total_workload}</td>
         <td style="padding:6px 10px; text-align:center;">${statusBadge(t.status, t.over_capacity)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="8" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
+    }).join('') : `<tr><td colspan="${4 + bookmarkGroups.length + 4}" style="padding:12px; text-align:center; color:var(--text3);">ไม่พบทีมที่จับคู่ได้จาก MatelineX</td></tr>`;
     const table = el('tp-team-table');
     table.querySelector('thead').innerHTML = thead;
     table.querySelector('tbody').innerHTML = rows;
@@ -8346,10 +8354,24 @@ function renderPivot(ft) {
       const active = highlightedRecommendation === i;
       return `
       <div onclick="window.__tpShowRecommendationOnMap(${i})" style="cursor:pointer; padding:12px 10px; border-top:1px solid var(--border); border-radius:var(--r); background:${active ? '#1f6feb1a' : 'transparent'};">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;">
           <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
-          <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(r.skill)} · ${escapeHtml(r.province)} ${escapeHtml(r.district)})</span></div>
+          <div style="font-size:13px;"><b>${escapeHtml(r.ticket_id)}</b> <span style="color:var(--text3); font-size:11px;">(${escapeHtml(r.skill)})</span></div>
           <span style="margin-left:auto; background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3); white-space:nowrap;">🗺️ ดูบนแผนที่</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding-left:36px; margin-bottom:8px; flex-wrap:wrap;">
+          <div style="background:#E24B4A14; border:1px solid #E24B4A44; border-radius:var(--r); padding:6px 12px;">
+            <div style="font-size:10px; color:#E24B4A; text-transform:uppercase; letter-spacing:.03em;">ต้นทาง</div>
+            <div style="font-size:12.5px; font-weight:700;">${escapeHtml(r.from_team)}</div>
+            <div style="font-size:11px; color:var(--text3);">${escapeHtml(r.district)}, ${escapeHtml(r.province)}</div>
+          </div>
+          <span style="color:var(--text3); font-size:16px;">→</span>
+          <div style="background:#63992214; border:1px solid #63992244; border-radius:var(--r); padding:6px 12px;">
+            <div style="font-size:10px; color:#639922; text-transform:uppercase; letter-spacing:.03em;">ปลายทางแนะนำ</div>
+            <div style="font-size:12.5px; font-weight:700;">${escapeHtml(r.to_team)}</div>
+            <div style="font-size:11px; color:var(--text3);">${escapeHtml(r.to_district)}, ${escapeHtml(r.to_province)}</div>
+          </div>
+          <span style="background:var(--bg4); padding:2px 10px; border-radius:20px; font-size:11.5px; color:var(--text2); font-weight:600;">~${r.distance_km} กม.</span>
         </div>
         <div style="font-size:12.5px; color:var(--text2); line-height:1.5; padding-left:36px;">${escapeHtml(r.reason)}</div>
       </div>`;
@@ -8450,10 +8472,14 @@ function renderPivot(ft) {
     if (!lastData) return;
     const teamOrder = lastData.teams.map(t => t.team);
     renderRegionSummary(lastData.region_summary);
-    renderTeamTable(lastData.teams, teamOrder);
+    renderTeamTable(lastData.teams, teamOrder, lastData.bookmark_groups);
     renderMap(lastData.tickets, teamOrder);
     renderDetailTable(lastData.tickets);
     renderFilterChip();
+  }
+
+  function selectedGroupCheckboxes() {
+    return [...document.querySelectorAll('.tp-group-checkbox:checked')].map(cb => cb.value);
   }
 
   async function reload() {
@@ -8461,16 +8487,18 @@ function renderPivot(ft) {
     statusEl.textContent = 'กำลังโหลด...';
     highlightedRecommendation = null;
     try {
-      const bookmarkGroup = el('tp-bookmark-group').value;
+      const groups = selectedGroupCheckboxes();
       const planningMode = el('tp-planning-mode').value;
-      const res = await fetch(`/api/team-plan?bookmark_group=${encodeURIComponent(bookmarkGroup)}&planning_mode=${encodeURIComponent(planningMode)}`);
+      const groupsParam = groups.length ? `&bookmark_groups=${encodeURIComponent(groups.join(','))}` : '';
+      const res = await fetch(`/api/team-plan?planning_mode=${encodeURIComponent(planningMode)}${groupsParam}`);
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
       lastData = data;
       filterState = { region: '', province: '', skill: '', team: '' };
       ['tp-filter-region', 'tp-filter-province', 'tp-filter-skill', 'tp-filter-team'].forEach(id => { el(id).dataset.populated = ''; el(id).innerHTML = '<option value="">ทั้งหมด</option>'; });
       populateFilterDropdowns(data.tickets);
-      el('tp-ref-time').textContent = `อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (${data.planning_mode === 'today' ? 'วางแผนวันนี้' : 'วางแผนล่วงหน้าคืนนี้เพื่อพรุ่งนี้'} · กลุ่ม ${data.bookmark_group})`;
+      const groupsLabel = data.selected_groups.length === data.bookmark_groups.length ? 'ทุกกลุ่ม' : data.selected_groups.join(', ');
+      el('tp-ref-time').textContent = `อ้างอิงจาก P0 ที่จะเกิดภายใน ${data.reference_time} (${data.planning_mode === 'today' ? 'วางแผนวันนี้' : 'วางแผนล่วงหน้าคืนนี้เพื่อพรุ่งนี้'} · กลุ่ม: ${groupsLabel})`;
       renderKPIRow(data);
       renderRecommendations(data.recommendations);
       renderAll();
@@ -8485,12 +8513,18 @@ function renderPivot(ft) {
 
   el('tp-reload').addEventListener('click', reload);
   el('tp-planning-mode').addEventListener('change', reload);
-  el('tp-bookmark-group').addEventListener('change', reload);
+  document.querySelectorAll('.tp-group-checkbox').forEach(cb => cb.addEventListener('change', reload));
   el('tp-filter-region').addEventListener('change', (e) => setFilter({ ...filterState, region: e.target.value }));
   el('tp-filter-province').addEventListener('change', (e) => setFilter({ ...filterState, province: e.target.value }));
   el('tp-filter-skill').addEventListener('change', (e) => setFilter({ ...filterState, skill: e.target.value }));
   el('tp-filter-team').addEventListener('change', (e) => setFilter({ ...filterState, team: e.target.value }));
   el('tp-clear-filter').addEventListener('click', (e) => { e.preventDefault(); window.__tpClearFilter(); });
+  el('tp-reset-filter').addEventListener('click', () => {
+    document.querySelectorAll('.tp-group-checkbox').forEach(cb => { cb.checked = true; });
+    el('tp-planning-mode').value = 'tomorrow';
+    window.__tpClearFilter();
+    reload();
+  });
 
   window.initTeamPlanTab = function () { if (!loaded) reload(); };
 })();

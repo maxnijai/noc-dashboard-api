@@ -2390,9 +2390,10 @@ def api_team_plan():
     recommendations for overloaded teams."""
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        bookmark_group = request.args.get('bookmark_group') or '7.MB with SA1-4'
+        bookmark_groups_param = request.args.get('bookmark_groups')  # comma-separated; absent/empty = all groups
+        bookmark_groups = [g.strip() for g in bookmark_groups_param.split(',') if g.strip()] if bookmark_groups_param else None
         planning_mode = request.args.get('planning_mode') or 'tomorrow'
-        data = team_planner.build_team_plan(gs_client, bookmark_group=bookmark_group, planning_mode=planning_mode)
+        data = team_planner.build_team_plan(gs_client, bookmark_groups=bookmark_groups, planning_mode=planning_mode)
         return jsonify(data)
     except Exception as e:
         log.exception("team-plan API failed")
