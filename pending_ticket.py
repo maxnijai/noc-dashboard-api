@@ -219,6 +219,41 @@ def _invalidate_work_log_cache():
         _work_log_cache["ts"] = 0
 
 
+_SUBJECT_SITE_CODE_RE = re.compile(r'\b[A-Z]{2,5}\d{3,6}[A-Z0-9_\-]*\b')
+_SUBJECT_BRACKET_RE = re.compile(r'\[[^\]]*\]')
+_SUBJECT_PAREN_RE = re.compile(r'\([^)]*\)')
+_SUBJECT_IP_RE = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
+_SUBJECT_MULTI_SPACE_RE = re.compile(r'\s+')
+_SUBJECT_LEADING_RE_RE = re.compile(r'^\s*RE\s+', re.IGNORECASE)
+_SUBJECT_DANGLING_DASH_RE = re.compile(r'\s*-\s*(?=\s|$)')
+
+
+def _auto_categorize_subject(subject):
+    """Best-effort auto-grouping of a ticket SUBJECT line into a shared
+    problem-pattern category, with no manual category list - strips the
+    parts that vary per-ticket (bracketed priority/tags, parenthetical
+    site detail, IP addresses, site codes like NAN7257) so what's left is
+    usually the recurring problem description shared across many tickets
+    with the same root cause (e.g. 'ERICSSON CELL DOWN')."""
+    s = str(subject or "").strip()
+    if not s:
+        return "(ไม่ระบุ)"
+    s = _SUBJECT_BRACKET_RE.sub(' ', s)
+    s = _SUBJECT_PAREN_RE.sub(' ', s)
+    s = _SUBJECT_LEADING_RE_RE.sub('', s.strip())
+    s = _SUBJECT_IP_RE.sub(' ', s)
+    s = _SUBJECT_SITE_CODE_RE.sub(' ', s)
+    if '|' in s:
+        parts = [p.strip(' -_') for p in s.split('|') if p.strip(' -_')]
+        if parts:
+            s = parts[-1]
+    s = s.replace('<>', ' ').replace(':', ' ')
+    s = _SUBJECT_DANGLING_DASH_RE.sub(' ', s)
+    s = _SUBJECT_MULTI_SPACE_RE.sub(' ', s).strip(' -_|:.')
+    s = s.upper()
+    return s or "(ไม่ระบุ)"
+
+
 def _row_number_from_append_response(resp):
     """Extracts the row number Sheets actually appended to from
     append_row()'s raw API response (updates.updatedRange, e.g.
@@ -602,6 +637,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         entries.append({
             "TICKETID": ticket_id,
             "SUBJECT": r.get("SUBJECT", ""),
+            "subject_category": _auto_categorize_subject(r.get("SUBJECT", "")),
             "CINAME": r.get("CINAME", ""),
             "DISTRICT": r.get("DISTRICT", ""),
             "PROVINCE": r.get("PROVINCE", ""),
@@ -693,7 +729,23 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         tickets = [e for e in detail_entries if e["Bookmark"] == bm]
         if not tickets:
             continue
-        detail_out.append({"bookmark": bm, "tickets": tickets, "total": len(tickets)})
+        block = {"bookmark": bm, "tickets": tickets, "total": len(tickets)}
+
+        # Auto-categorized Subject breakdown - only for the NSA3-4 group,
+        # per request (that bucket's tickets are varied enough, and few
+        # enough people are triaging it by hand, that grouping by
+        # recurring problem pattern actually helps there specifically).
+        if bm == "NSA3-4":
+            category_totals = {}
+            for e in tickets:
+                cat = e["subject_category"]
+                category_totals[cat] = category_totals.get(cat, 0) + 1
+            block["subject_categories"] = sorted(
+                [{"category": k, "total": v} for k, v in category_totals.items()],
+                key=lambda r: r["total"], reverse=True,
+            )
+
+        detail_out.append(block)
 
         # Among this Bookmark's over-SLA tickets, break down by PROVINCE how
         # many are still missing each of the four fields a lead needs to
