@@ -1322,12 +1322,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="tp-recommendations"></div>
     </div>
 
-    <div id="tp-cluster-section" style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2); display:none;">
-      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">🗺️ จัดกลุ่มงานใกล้กัน (NSA3-4) <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกเพื่อดูบนแผนที่)</span></div>
-      <div id="tp-cluster-desc" style="font-size:11px; color:var(--text3); margin-bottom:10px;"></div>
-      <div id="tp-clusters"></div>
-    </div>
-
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket (แยกสีตามทีม)</div>
       <div id="tp-map" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
@@ -8205,7 +8199,6 @@ function renderPivot(ft) {
   let lastData = null;
   let filterState = { region: '', province: '', skill: '', team: '' };
   let highlightedRecommendation = null;
-  let highlightedCluster = null;
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -8480,75 +8473,6 @@ function renderPivot(ft) {
     el('tp-recommendations').innerHTML = html;
   }
 
-  function renderClusters(clusters, maxKm) {
-    const section = el('tp-cluster-section');
-    if (!clusters || !clusters.length) { section.style.display = 'none'; return; }
-    section.style.display = '';
-    el('tp-cluster-desc').textContent = `พบ ${clusters.length} กลุ่มที่งานอยู่ใกล้กัน (ภายใน ${maxKm} กม.) - ไม่สนใจว่าตอนนี้ใครถืออยู่ ดูแค่ว่าใกล้กันแค่ไหน`;
-
-    const html = clusters.map((c, i) => {
-      const active = highlightedCluster === i;
-      const teamColorOf = {};
-      let colorIdx = 0;
-      const chipsHtml = c.members.map(m => {
-        let color = '#8b949e';
-        if (m.team) {
-          if (!(m.team in teamColorOf)) { teamColorOf[m.team] = TEAM_PALETTE[colorIdx % TEAM_PALETTE.length]; colorIdx++; }
-          color = teamColorOf[m.team];
-        }
-        return `<span title="${escapeHtml(m.subdistrict)}, ${escapeHtml(m.district)} ${m.team ? '· ' + escapeHtml(m.team) : '· ยังไม่มีทีม'}" style="display:inline-flex; align-items:center; gap:5px; background:var(--bg3); border:1px solid var(--border); border-left:3px solid ${color}; border-radius:6px; padding:3px 9px; font-size:11.5px;">
-          <b>${escapeHtml(m.ticket_id)}</b>${m.team ? `<span style="color:var(--text3);">${escapeHtml(m.team)}</span>` : `<span style="color:#EF9F27;">ไม่มีทีม</span>`}
-        </span>`;
-      }).join('');
-
-      const suggestionsHtml = c.skill_suggestions.map(s => {
-        const ok = s.can_absorb_all;
-        return `<div style="display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 0;">
-          <span style="width:16px; text-align:center;">${ok ? '✅' : '⚠️'}</span>
-          <span style="font-weight:700; min-width:52px;">${escapeHtml(s.skill)}</span>
-          <span>รวมที่ <b>${escapeHtml(s.anchor_team)}</b></span>
-          <span style="background:${ok ? '#63992222' : '#EF9F2722'}; color:${ok ? '#639922' : '#EF9F27'}; padding:1px 8px; border-radius:20px; font-weight:700; font-size:11px;">${s.anchor_current}/${s.member_count}</span>
-          <span style="color:var(--text3); font-size:11.5px;">${ok ? `รับที่เหลืออีก ${s.others_needed} งานได้ครบ` : `รับเพิ่มได้แค่ ${s.can_absorb}/${s.others_needed} (Capacity ไม่พอ)`}</span>
-        </div>`;
-      }).join('');
-
-      return `
-      <div onclick="window.__tpShowClusterOnMap(${i})" style="cursor:pointer; padding:12px 14px; margin-top:10px; border:1px solid ${active ? '#1f6feb' : 'var(--border)'}; border-radius:var(--r); background:${active ? '#1f6feb14' : 'var(--bg1)'};">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
-          <div style="width:24px; height:24px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex-shrink:0;">${i + 1}</div>
-          <div style="font-size:13px; font-weight:700;">${escapeHtml(c.province)}</div>
-          <span style="color:var(--text3); font-size:11.5px;">${c.member_count} งาน · รัศมี ~${c.spread_km} กม.</span>
-          <span style="margin-left:auto; background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3); white-space:nowrap;">🗺️ ดูบนแผนที่</span>
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">${chipsHtml}</div>
-        <div style="border-top:1px dashed var(--border2); padding-top:8px;">
-          ${suggestionsHtml}
-          ${c.unassigned_count ? `<div style="font-size:11.5px; color:#EF9F27; margin-top:4px;">⚠️ มี ${c.unassigned_count} งานที่ยังไม่พบทีมรับผิดชอบในกลุ่มนี้</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
-    el('tp-clusters').innerHTML = html;
-  }
-
-  window.__tpShowClusterOnMap = function (i) {
-    if (!lastData) return;
-    const c = lastData.nsa34_clusters[i];
-    if (!c) return;
-    highlightedCluster = highlightedCluster === i ? null : i;
-    renderClusters(lastData.nsa34_clusters, lastData.cluster_max_km);
-    ensureMap();
-    lineLayer.clearLayers();
-    if (highlightedCluster === null) return;
-    const circle = L.circle([c.centroid_lat, c.centroid_lon], {
-      radius: Math.max(c.spread_km, 1) * 1000, color: '#1f6feb', weight: 2, fillColor: '#1f6feb', fillOpacity: 0.08, dashArray: '6,6',
-    });
-    circle.addTo(lineLayer);
-    const bounds = c.members.map(m => [m.lat, m.lon]);
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 13 });
-    const firstMarker = teamMarkersById[c.members[0].ticket_id];
-    if (firstMarker) setTimeout(() => firstMarker.openPopup(), 200);
-  };
-
   function ensureMap() {
     if (map) return;
     map = L.map('tp-map', { zoomControl: true, preferCanvas: true }).setView([18.3, 99.8], 7);
@@ -8645,7 +8569,6 @@ function renderPivot(ft) {
     renderRegionSummary(lastData.tickets.filter(ticketMatchesFilter));
     renderTeamTable(lastData.teams, teamOrder, lastData.bookmark_groups);
     renderRecommendations(lastData.recommendations);
-    renderClusters(lastData.nsa34_clusters, lastData.cluster_max_km);
     renderMap(lastData.tickets, teamOrder);
     renderDetailTable(lastData.tickets);
     renderFilterChip();
@@ -8670,7 +8593,6 @@ function renderPivot(ft) {
     const statusEl = el('tp-status');
     statusEl.textContent = 'กำลังโหลด...';
     highlightedRecommendation = null;
-    highlightedCluster = null;
     try {
       const groups = selectedGroupCheckboxes();
       const planningMode = el('tp-planning-mode').value;

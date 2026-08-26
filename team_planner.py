@@ -95,110 +95,6 @@ def _to_float(v):
         return None
 
 
-CLUSTER_MAX_KM = 10  # tickets within this distance of each other (chained) form one cluster
-
-
-def _cluster_tickets_by_distance(tickets, max_km=CLUSTER_MAX_KM):
-    """Single-linkage clustering via union-find: two tickets end up in the
-    same cluster if connected by a chain of hops each <= max_km (not
-    necessarily directly close to every other member, same as how
-    single-linkage clustering normally works). Only tickets with valid
-    coordinates are considered; clusters of size 1 are dropped (nothing to
-    batch). O(n^2) distance checks, fine at the scale of a day's NSA3-4 P0
-    tickets for one region."""
-    located = [t for t in tickets if t["lat"] is not None and t["lon"] is not None]
-    n = len(located)
-    parent = list(range(n))
-
-    def find(i):
-        while parent[i] != i:
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        return i
-
-    def union(i, j):
-        ri, rj = find(i), find(j)
-        if ri != rj:
-            parent[ri] = rj
-
-    for i in range(n):
-        for j in range(i + 1, n):
-            if _haversine_km(located[i]["lat"], located[i]["lon"], located[j]["lat"], located[j]["lon"]) <= max_km:
-                union(i, j)
-
-    groups = {}
-    for i in range(n):
-        groups.setdefault(find(i), []).append(located[i])
-    return [members for members in groups.values() if len(members) >= 2]
-
-
-def build_nsa34_clusters(tickets, teams):
-    """Job-batching view for NSA3-4 specifically: groups nearby tickets
-    (see _cluster_tickets_by_distance) regardless of who currently holds
-    them, then - separately per skill within each cluster, since a team
-    can only take jobs matching their own skill - suggests consolidating
-    onto whichever team already holds the most of that skill's tickets in
-    the cluster (ties broken by whoever has more remaining capacity),
-    capped by how many that team can actually still fit."""
-    teams_by_name = {t["team"]: t for t in teams}
-    clusters_raw = _cluster_tickets_by_distance(tickets)
-
-    clusters = []
-    for members in clusters_raw:
-        by_skill = {}
-        unassigned = []
-        for t in members:
-            if t["team"] and t["skill"]:
-                by_skill.setdefault(t["skill"], []).append(t)
-            else:
-                unassigned.append(t)
-
-        skill_suggestions = []
-        for skill, skill_members in by_skill.items():
-            team_counts = Counter(t["team"] for t in skill_members)
-            ranked = sorted(
-                team_counts.items(),
-                key=lambda kv: (-kv[1], -teams_by_name.get(kv[0], {}).get("remaining_capacity", 0)),
-            )
-            anchor_team, anchor_current = ranked[0]
-            anchor_info = teams_by_name.get(anchor_team, {})
-            anchor_capacity = anchor_info.get("capacity", 0)
-            anchor_load = anchor_info.get("load", 0)
-            others_needed = len(skill_members) - anchor_current
-            room_left = max(0, anchor_capacity - anchor_load)
-            can_absorb = min(others_needed, room_left)
-            skill_suggestions.append({
-                "skill": skill,
-                "member_count": len(skill_members),
-                "team_counts": dict(team_counts),
-                "anchor_team": anchor_team,
-                "anchor_current": anchor_current,
-                "others_needed": others_needed,
-                "can_absorb": can_absorb,
-                "can_absorb_all": can_absorb >= others_needed,
-            })
-
-        centroid_lat = sum(t["lat"] for t in members) / len(members)
-        centroid_lon = sum(t["lon"] for t in members) / len(members)
-        spread_km = max(_haversine_km(centroid_lat, centroid_lon, t["lat"], t["lon"]) for t in members)
-
-        clusters.append({
-            "members": [{
-                "ticket_id": t["ticket_id"], "subject": t["subject"], "district": t["district"],
-                "subdistrict": t["subdistrict"], "province": t["province"],
-                "team": t["team"], "skill": t["skill"], "lat": t["lat"], "lon": t["lon"],
-            } for t in members],
-            "member_count": len(members),
-            "centroid_lat": centroid_lat, "centroid_lon": centroid_lon,
-            "spread_km": round(spread_km, 1),
-            "province": Counter(t["province"] for t in members).most_common(1)[0][0],
-            "skill_suggestions": skill_suggestions,
-            "unassigned_count": len(unassigned),
-        })
-
-    clusters.sort(key=lambda c: -c["member_count"])
-    return clusters
-
 
 def build_team_plan(gs_client, bookmark_groups=None, planning_mode="tomorrow"):
     from pending_ticket import fetch_live_rows, PENDING_TICKET_REGIONS, _classify_priority_at, _exclusive_bookmark_label
@@ -376,13 +272,6 @@ def build_team_plan(gs_client, bookmark_groups=None, planning_mode="tomorrow"):
                 })
     recommendations.sort(key=lambda r: r["distance_km"], reverse=True)
 
-    # NSA3-4 job-batching clusters - always computed from NSA3-4 tickets
-    # specifically (tickets_all_groups, not the possibly-narrower selected
-    # `tickets`), so this section works regardless of which groups happen
-    # to be checked in the main filter.
-    nsa34_tickets = [t for t in tickets_all_groups if t["bookmark_group"] == "NSA3-4"]
-    nsa34_clusters = build_nsa34_clusters(nsa34_tickets, teams)
-
     return {
         "reference_time": reference_dt.strftime("%Y-%m-%d %H:%M"),
         "planning_mode": planning_mode,
@@ -395,6 +284,4 @@ def build_team_plan(gs_client, bookmark_groups=None, planning_mode="tomorrow"):
         "unassigned": unassigned,
         "recommendations": recommendations,
         "tickets": tickets,
-        "nsa34_clusters": nsa34_clusters,
-        "cluster_max_km": CLUSTER_MAX_KM,
     }
