@@ -148,14 +148,23 @@ def fetch_live_rows(gs_client, use_cache=True):
         with _cache_lock:
             if _live_rows_cache["data"] is not None and (now - _live_rows_cache["ts"]) < LIVE_ROWS_CACHE_TTL_SECONDS:
                 return _live_rows_cache["data"]
+            # Cache is cold/stale - fetch WHILE STILL HOLDING the lock, so a
+            # second thread arriving concurrently blocks here instead of
+            # also deciding independently that a fresh Sheets read is
+            # needed. Without this, N callers hitting a cold cache at once
+            # (e.g. a page that reads this sheet twice in one request, or
+            # two people loading the same tab within the same instant) each
+            # do their own separate read instead of sharing one - a classic
+            # cache-stampede, and the likely cause of a burst of Sheets API
+            # reads tripping the per-minute read quota.
+            ws = _get_worksheet(gs_client)
+            rows = ws.get_all_records()
+            _live_rows_cache["data"] = rows
+            _live_rows_cache["ts"] = time.monotonic()
+            return rows
 
     ws = _get_worksheet(gs_client)
-    rows = ws.get_all_records()
-    if use_cache:
-        with _cache_lock:
-            _live_rows_cache["data"] = rows
-            _live_rows_cache["ts"] = now
-    return rows
+    return ws.get_all_records()
 
 
 

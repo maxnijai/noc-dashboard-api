@@ -47,14 +47,19 @@ def fetch_ggs_daily_rows(gs_client, use_cache=True):
         with _ggs_lock:
             if _ggs_cache["data"] is not None and (now - _ggs_cache["ts"]) < GGS_CACHE_TTL_SECONDS:
                 return _ggs_cache["data"]
+            # Fetch WHILE STILL HOLDING the lock (see pending_ticket.fetch_live_rows
+            # for the full rationale) - a concurrent caller hitting a cold cache
+            # at the same moment blocks here and reuses this result instead of
+            # making its own separate Sheets read.
+            sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
+            ws = sh.worksheet(GGS_DAILY_TAB)
+            rows = ws.get_all_values()
+            _ggs_cache["data"] = rows
+            _ggs_cache["ts"] = time.monotonic()
+            return rows
     sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
     ws = sh.worksheet(GGS_DAILY_TAB)
-    rows = ws.get_all_values()
-    if use_cache:
-        with _ggs_lock:
-            _ggs_cache["data"] = rows
-            _ggs_cache["ts"] = now
-    return rows
+    return ws.get_all_values()
 
 
 def build_mateline_status_lookup(gs_client, today_str):
