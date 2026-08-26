@@ -8488,37 +8488,42 @@ function renderPivot(ft) {
 
     const html = clusters.map((c, i) => {
       const active = highlightedCluster === i;
-      const membersHtml = c.members.map(m => `
-        <div style="display:flex; align-items:center; gap:8px; padding:4px 0; font-size:12px;">
-          <span style="font-weight:600;">${escapeHtml(m.ticket_id)}</span>
-          <span style="color:var(--text3);">${escapeHtml(m.subdistrict)}, ${escapeHtml(m.district)}</span>
-          <span style="margin-left:auto; ${m.team ? '' : 'color:#EF9F27;'}">${escapeHtml(m.team) || 'ยังไม่มีทีม'}</span>
-        </div>`).join('');
+      const teamColorOf = {};
+      let colorIdx = 0;
+      const chipsHtml = c.members.map(m => {
+        let color = '#8b949e';
+        if (m.team) {
+          if (!(m.team in teamColorOf)) { teamColorOf[m.team] = TEAM_PALETTE[colorIdx % TEAM_PALETTE.length]; colorIdx++; }
+          color = teamColorOf[m.team];
+        }
+        return `<span title="${escapeHtml(m.subdistrict)}, ${escapeHtml(m.district)} ${m.team ? '· ' + escapeHtml(m.team) : '· ยังไม่มีทีม'}" style="display:inline-flex; align-items:center; gap:5px; background:var(--bg3); border:1px solid var(--border); border-left:3px solid ${color}; border-radius:6px; padding:3px 9px; font-size:11.5px;">
+          <b>${escapeHtml(m.ticket_id)}</b>${m.team ? `<span style="color:var(--text3);">${escapeHtml(m.team)}</span>` : `<span style="color:#EF9F27;">ไม่มีทีม</span>`}
+        </span>`;
+      }).join('');
+
       const suggestionsHtml = c.skill_suggestions.map(s => {
         const ok = s.can_absorb_all;
-        return `<div style="margin-top:6px; padding:8px 10px; border-radius:var(--r); background:${ok ? '#63992214' : '#EF9F2714'}; border:1px solid ${ok ? '#63992244' : '#EF9F2744'};">
-          <div style="font-size:12px; font-weight:700; color:${ok ? '#639922' : '#EF9F27'};">
-            ${ok ? '✅' : '⚠️'} ${escapeHtml(s.skill)}: รวมงานไปที่ <b>${escapeHtml(s.anchor_team)}</b>
-          </div>
-          <div style="font-size:11.5px; color:var(--text2); margin-top:2px;">
-            ${escapeHtml(s.anchor_team)} มี ${s.anchor_current}/${s.member_count} งานในกลุ่มนี้อยู่แล้ว
-            ${ok
-              ? `รับที่เหลืออีก ${s.others_needed} งานได้ครบ`
-              : `รับเพิ่มได้แค่ ${s.can_absorb} จาก ${s.others_needed} งานที่เหลือ (Capacity ไม่พอ)`}
-          </div>
+        return `<div style="display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 0;">
+          <span style="width:16px; text-align:center;">${ok ? '✅' : '⚠️'}</span>
+          <span style="font-weight:700; min-width:52px;">${escapeHtml(s.skill)}</span>
+          <span>รวมที่ <b>${escapeHtml(s.anchor_team)}</b></span>
+          <span style="background:${ok ? '#63992222' : '#EF9F2722'}; color:${ok ? '#639922' : '#EF9F27'}; padding:1px 8px; border-radius:20px; font-weight:700; font-size:11px;">${s.anchor_current}/${s.member_count}</span>
+          <span style="color:var(--text3); font-size:11.5px;">${ok ? `รับที่เหลืออีก ${s.others_needed} งานได้ครบ` : `รับเพิ่มได้แค่ ${s.can_absorb}/${s.others_needed} (Capacity ไม่พอ)`}</span>
         </div>`;
       }).join('');
+
       return `
-      <div onclick="window.__tpShowClusterOnMap(${i})" style="cursor:pointer; padding:12px 10px; border-top:1px solid var(--border); border-radius:var(--r); background:${active ? '#1f6feb1a' : 'transparent'};">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap;">
-          <div style="width:26px; height:26px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">${i + 1}</div>
-          <div style="font-size:13px;"><b>${escapeHtml(c.province)}</b> <span style="color:var(--text3); font-size:11px;">(${c.member_count} งาน · กระจายในรัศมี ~${c.spread_km} กม.)</span></div>
+      <div onclick="window.__tpShowClusterOnMap(${i})" style="cursor:pointer; padding:12px 14px; margin-top:10px; border:1px solid ${active ? '#1f6feb' : 'var(--border)'}; border-radius:var(--r); background:${active ? '#1f6feb14' : 'var(--bg1)'};">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+          <div style="width:24px; height:24px; border-radius:50%; background:#1f6feb22; color:#1f6feb; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px; flex-shrink:0;">${i + 1}</div>
+          <div style="font-size:13px; font-weight:700;">${escapeHtml(c.province)}</div>
+          <span style="color:var(--text3); font-size:11.5px;">${c.member_count} งาน · รัศมี ~${c.spread_km} กม.</span>
           <span style="margin-left:auto; background:var(--bg4); padding:1px 8px; border-radius:20px; font-size:11px; color:var(--text3); white-space:nowrap;">🗺️ ดูบนแผนที่</span>
         </div>
-        <div style="padding-left:36px;">
-          ${membersHtml}
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">${chipsHtml}</div>
+        <div style="border-top:1px dashed var(--border2); padding-top:8px;">
           ${suggestionsHtml}
-          ${c.unassigned_count ? `<div style="font-size:11px; color:#EF9F27; margin-top:6px;">⚠️ มี ${c.unassigned_count} งานที่ยังไม่พบทีมรับผิดชอบในกลุ่มนี้</div>` : ''}
+          ${c.unassigned_count ? `<div style="font-size:11.5px; color:#EF9F27; margin-top:4px;">⚠️ มี ${c.unassigned_count} งานที่ยังไม่พบทีมรับผิดชอบในกลุ่มนี้</div>` : ''}
         </div>
       </div>`;
     }).join('');
