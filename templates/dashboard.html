@@ -107,8 +107,6 @@ tbody .oe-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 #fn-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map-wrap.rm-map-fullscreen #fn-map { height: calc(100vh - 32px) !important; }
-#fn-map2-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
-#fn-map2-wrap.rm-map-fullscreen #fn-map2 { height: calc(100vh - 32px) !important; }
 #sn-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #sn-map-wrap.rm-map-fullscreen #sn-map { height: calc(100vh - 32px) !important; }
 
@@ -1041,10 +1039,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
           Flood NAN Monitoring
         </div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ในจังหวัดน่าน แยกสีตาม Severity ของ ticket ที่เปิดอยู่ (จับคู่ LOCATION ID = CINAME)</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ที่มี ticket เปิดอยู่ ทุกจังหวัด แยกสีตาม Severity</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
-        <button id="fn-ticket-only-toggle" class="btn-secondary" title="ซ่อนไซต์ที่ไม่มี ticket เปิดอยู่">🔍 แสดงเฉพาะไซต์ที่มี Ticket</button>
         <button id="fn-add-marker-toggle" class="btn-secondary" title="เปิดโหมดแล้วคลิกบนแผนที่เพื่อปักหมุด Remark">📍 โหมดเพิ่มหมุด</button>
         <button id="fn-infographic" class="btn-secondary" title="สร้างภาพสรุปสถานการณ์ปัจจุบันสำหรับแชร์/พรีเซนต์">🖼️ สร้างภาพสรุป</button>
         <button id="fn-reload" class="btn-secondary">Refresh</button>
@@ -1058,7 +1055,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block;"></span> SA1-4</span>
           <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block;"></span> NSA1-2</span>
           <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#F5C518;display:inline-block;"></span> NSA3-4</span>
-          <span style="display:flex; align-items:center; gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:#8b949e;display:inline-block;"></span> ไม่มี ticket เปิดอยู่</span>
           <span style="display:flex; align-items:center; gap:5px;"><svg width="14" height="17" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#1f6feb"/><path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/></svg> ไซต์สำคัญ (DN)</span>
           <span style="display:flex; align-items:center; gap:5px;"><span style="color:#ff7b72; font-size:14px;">📌</span> หมุด Remark (manual)</span>
         </div>
@@ -1084,33 +1080,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </a>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="display:flex; flex-wrap:wrap; gap:16px;">
-        <div style="flex:1; min-width:320px;">
-          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket ตาม Severity</div>
-          <div id="fn-map-wrap" style="position:relative;">
-            <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-            <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
-          </div>
-        </div>
-        <div style="flex:1; min-width:320px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-            <div style="font-size:13px; font-weight:700;">📍 แผนที่ไซต์สำคัญ (RF Priority / Evacuation Center)</div>
-            <div style="display:flex; flex-wrap:wrap; gap:10px; font-size:11px;">
-              <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="15" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#8b949e"/><path d="M17 8l5 6-5 6-5-6z" fill="#fff"/></svg> RF Priority</span>
-              <span style="display:flex; align-items:center; gap:4px;"><svg width="12" height="15" viewBox="0 0 34 42"><path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="#8b949e"/><path d="M17 9l6 5v8h-4v-6h-4v6h-4v-8z" fill="#fff"/></svg> Evacuation Center</span>
-            </div>
-          </div>
-          <div id="fn-map2-wrap" style="position:relative;">
-            <button id="fn-map2-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-            <div id="fn-map2" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
-          </div>
-        </div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ แผนที่ Ticket ตาม Severity</div>
+      <div id="fn-map-wrap" style="position:relative;">
+        <button id="fn-map-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+        <div id="fn-map" style="height:560px; border-radius:var(--r); border:1px solid var(--border);"></div>
       </div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-        <div style="font-size:13px; font-weight:700;">📈 Trend Ticket น่าน (24 ชั่วโมงย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
+        <div style="font-size:13px; font-weight:700;">📈 Trend Ticket รวมทุกจังหวัด (3 วันย้อนหลัง) — SA Mobile / SA Online / NSA1-2 / NSA3 / NSA4</div>
         <button id="fn-trend-reload" class="btn-secondary" style="font-size:11px; padding:3px 10px;">🔄 รีเฟรช Trend</button>
       </div>
       <div id="fn-trend-status" style="font-size:11px; color:var(--text3); margin-bottom:8px;"></div>
@@ -1120,42 +1099,57 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend District — SA Mobile เท่านั้น (24 ชั่วโมงย้อนหลัง)</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Province — SA Mobile เท่านั้น (3 วันย้อนหลัง)</div>
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+        <canvas id="fn-province-trend-chart" height="90"></canvas>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend District — SA Mobile เท่านั้น (3 วันย้อนหลัง)</div>
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-district-trend-chart" height="90"></canvas>
       </div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Classification — SA Mobile เท่านั้น (24 ชั่วโมงย้อนหลัง)</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📈 Trend Classification — SA Mobile เท่านั้น (3 วันย้อนหลัง)</div>
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-classification-trend-chart" height="90"></canvas>
       </div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Province × Bookmark <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉดสีตามจำนวน Ticket)</span></div>
+      <div id="fn-classification" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="display:flex; flex-wrap:wrap; gap:16px;">
         <div style="flex:1; min-width:280px;">
-          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Severity × Bookmark (เฉพาะน่าน)</div>
-          <div id="fn-classification"></div>
-        </div>
-        <div style="flex:1; min-width:220px;">
-          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗂️ Classification (สรุปตามหมวดหมู่)</div>
-          <div id="fn-classification-summary"></div>
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗂️ Classification (สรุปตามหมวดหมู่) × Bookmark</div>
+          <div id="fn-classification-summary" style="overflow-x:auto;"></div>
         </div>
         <div style="flex:1; min-width:220px;">
           <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 District × จำนวน Ticket</div>
           <div id="fn-district-summary"></div>
         </div>
-        <div style="flex:1; min-width:220px;">
-          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🏗️ จำนวนไซต์ (Unique) ที่กระทบจริง</div>
-          <div id="fn-unique-sites"></div>
-        </div>
       </div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">💧 DN sites ที่มี Ticket เปิดอยู่</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🏗️ จำนวนไซต์ (Unique) ที่กระทบจริง — จังหวัด × Bookmark</div>
+      <div id="fn-unique-sites" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:4px;">👷 คำนวณ Workload ทีม NOD / OFC</div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">เฉพาะ Bookmark SA Mobile / Online / NSA1-2 — SA4 นับเป็นงานทีม NOD (Capacity 3 งาน/ทีม), SA1-SA3 และ NSA1-2 นับเป็นงานทีม OFC (Capacity 2 งาน/ทีม)</div>
+      <div id="fn-workload" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">💧 DN sites ที่มี Ticket เปิดอยู่ (ทุกจังหวัด)</div>
       <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="fn-dn-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
@@ -1165,17 +1159,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📍 RF Priority / Evacuation Center ที่มี Ticket เปิดอยู่</div>
-      <div style="overflow:auto; max-height:320px; border:1px solid var(--border); border-radius:var(--r);">
-        <table id="fn-priority-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
-          <thead></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เฉพาะน่าน)</div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (ทุกจังหวัด)</div>
       <div style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);">
         <table id="fn-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
           <thead></thead>
@@ -7116,13 +7100,10 @@ function renderPivot(ft) {
   let map = null;
   let markerLayer = null;
   let manualMarkerLayer = null;
-  let map2 = null;
-  let map2Layer = null;
   let lastData = null;
   let manualMarkers = [];
   let addMarkerMode = false;
-  let ticketOnly = false;
-  let filterState = { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
+  let filterState = { district: null, province: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
 
   const BOOKMARK_LABEL_TO_RAW = {
     'SA Mobile': '7.MB with SA1-4',
@@ -7139,11 +7120,12 @@ function renderPivot(ft) {
   }
 
   function isFilterActive() {
-    return !!(filterState.district || filterState.classification || filterState.severity || filterState.bookmarkRaw);
+    return !!(filterState.district || filterState.province || filterState.classification || filterState.severity || filterState.bookmarkRaw);
   }
 
   function ticketMatchesFilter(t) {
     if (filterState.district && String(t.DISTRICT || '').trim() !== filterState.district) return false;
+    if (filterState.province && String(t.PROVINCE || '').trim() !== filterState.province) return false;
     if (filterState.classification && lastClassificationSegment(t.CLASSIFICATION) !== filterState.classification) return false;
     if (filterState.severity && String(t.SEVERITY || '').trim() !== filterState.severity) return false;
     if (filterState.bookmarkRaw && String(t.Bookmark || '').trim() !== filterState.bookmarkRaw) return false;
@@ -7151,7 +7133,8 @@ function renderPivot(ft) {
   }
 
   function siteMatchesFilter(s) {
-    if (filterState.district) return (s.district_t || '').trim() === filterState.district;
+    if (filterState.district) return (s.district_e || '').trim() === filterState.district;
+    if (filterState.province) return (s.province || '').trim() === filterState.province;
     if (filterState.classification || filterState.severity || filterState.bookmarkRaw) {
       return (s.tickets || []).some(ticketMatchesFilter);
     }
@@ -7162,8 +7145,8 @@ function renderPivot(ft) {
     // Clicking the same filter again clears it (toggle)
     const same = JSON.stringify({ ...filterState, ...newFilter }) === JSON.stringify(filterState);
     filterState = same
-      ? { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null }
-      : { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null, ...newFilter };
+      ? { district: null, province: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null }
+      : { district: null, province: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null, ...newFilter };
     rerenderFiltered();
   }
 
@@ -7171,7 +7154,9 @@ function renderPivot(ft) {
     const chip = el('fn-filter-chip');
     if (!isFilterActive()) { chip.innerHTML = ''; return; }
     let label = '';
-    if (filterState.district) label = `District: ${filterState.district}`;
+    if (filterState.province && filterState.bookmarkLabel) label = `จังหวัด: ${filterState.province} × ${filterState.bookmarkLabel}`;
+    else if (filterState.province) label = `จังหวัด: ${filterState.province}`;
+    else if (filterState.district) label = `District: ${filterState.district}`;
     else if (filterState.classification) label = `Classification: ${filterState.classification}`;
     else if (filterState.severity || filterState.bookmarkRaw) label = `${filterState.severity || ''} ${filterState.bookmarkLabel ? '× ' + filterState.bookmarkLabel : ''}`.trim();
     chip.innerHTML = `<span style="background:var(--bg4); padding:3px 10px; border-radius:20px; color:var(--text2);">กรองอยู่: ${escapeHtml(label)}</span> <a href="#" onclick="window.__fnClearFilter(); return false;" style="color:var(--blue); margin-left:6px;">✕ ล้าง</a>`;
@@ -7180,12 +7165,16 @@ function renderPivot(ft) {
   function rerenderFiltered() {
     if (!lastData) return;
     renderMap(lastData.sites || []);
+    renderClassification(lastData.classification);
+    renderClassificationSummaryTable(lastData.classification_summary, (lastData.classification || {}).bookmarks || []);
+    renderSimpleCountTable('fn-district-summary', lastData.district_summary, 'district', 'District', 'district');
+    renderUniqueSitesTable(lastData.unique_sites_by_province, (lastData.classification || {}).bookmarks || [], lastData.unique_sites_affected);
     renderDetailTable((lastData.tickets || []).filter(ticketMatchesFilter));
     renderFilterChip();
   }
 
   window.__fnClearFilter = function () {
-    filterState = { district: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
+    filterState = { district: null, province: null, classification: null, severity: null, bookmarkRaw: null, bookmarkLabel: null };
     rerenderFiltered();
   };
 
@@ -7199,13 +7188,13 @@ function renderPivot(ft) {
     ['Over SLA', 'over_sla_day'], ['TICKETID', 'TICKETID'], ['SEVERITY', 'SEVERITY'],
     ['CREATIONDATE', 'CREATIONDATE'], ['TARGETFINISH', 'TARGETFINISH'],
     ['Aging_Flag_Group', 'Aging_Flag_Group'], ['SUBJECT', 'SUBJECT'], ['CINAME', 'CINAME'],
-    ['Bookmark', 'Bookmark'], ['DISTRICT', 'DISTRICT'], ['SUBDISTRICT', 'SUBDISTRICT'],
+    ['Bookmark', 'Bookmark'], ['PROVINCE', 'PROVINCE'], ['DISTRICT', 'DISTRICT'], ['SUBDISTRICT', 'SUBDISTRICT'],
     ['insert_time', 'insert_time'],
   ];
 
   function ensureMap() {
     if (map) return;
-    map = L.map('fn-map', { zoomControl: true, preferCanvas: true }).setView([18.78, 100.9], 9);
+    map = L.map('fn-map', { zoomControl: true, preferCanvas: true }).setView([17.8, 100.3], 7);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
     }).addTo(map);
@@ -7236,88 +7225,6 @@ function renderPivot(ft) {
       }
     });
   }
-
-  function ensureMap2() {
-    if (map2) return;
-    map2 = L.map('fn-map2', { zoomControl: true, preferCanvas: true }).setView([18.78, 100.9], 9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
-    }).addTo(map2);
-    map2Layer = L.layerGroup().addTo(map2);
-
-    const wrap2 = el('fn-map2-wrap');
-    const expandBtn2 = el('fn-map2-expand');
-    expandBtn2.addEventListener('click', () => {
-      const isFull = wrap2.classList.toggle('rm-map-fullscreen');
-      expandBtn2.textContent = isFull ? '✕' : '⛶';
-      expandBtn2.title = isFull ? 'ปิดโหมดเต็มจอ' : 'ขยายเต็มจอ';
-      setTimeout(() => map2.invalidateSize(), 100);
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && wrap2.classList.contains('rm-map-fullscreen')) {
-        wrap2.classList.remove('rm-map-fullscreen');
-        expandBtn2.textContent = '⛶';
-        expandBtn2.title = 'ขยายเต็มจอ';
-        setTimeout(() => map2.invalidateSize(), 100);
-      }
-    });
-  }
-
-  function priorityDivIcon(color, category) {
-    const fill = color || '#8b949e';
-    // Same proven teardrop-pin shape/anchor math as dnDivIcon (bottom tip
-    // = the actual marker position) - the previous version drew a bare
-    // diamond/house shape with an arbitrary iconAnchor that didn't match
-    // its visual bottom or center, so the popup connector pointed to empty
-    // space instead of the pin. Just swap the inner glyph now instead.
-    const innerGlyph = category === 'Evacuation Center'
-      ? `<path d="M17 9l6 5v8h-4v-6h-4v6h-4v-8z" fill="#fff"/>`
-      : `<path d="M17 8l5 6-5 6-5-6z" fill="#fff"/>`;
-    return L.divIcon({
-      className: '', iconSize: [34, 42], iconAnchor: [17, 42], popupAnchor: [0, -38],
-      html: `<svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
-        <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="${fill}" stroke="#fff" stroke-width="2"/>
-        ${innerGlyph}
-      </svg>`,
-    });
-  }
-
-  function priorityPopupHtml(site) {
-    const cats = (site.priority_categories || []).map(c => `${escapeHtml(c.category)}${c.detail ? ' — ' + escapeHtml(c.detail) : ''}`).join('<br>');
-    const sevColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
-    const sevCounts = {};
-    (site.tickets || []).forEach(t => {
-      const sev = String(t.SEVERITY || '').trim() || '(ไม่ระบุ)';
-      sevCounts[sev] = (sevCounts[sev] || 0) + 1;
-    });
-    const sevOrder = ['SA1', 'SA2', 'SA3', 'SA4', 'NSA1', 'NSA2', 'NSA3', 'NSA4'];
-    const sevKeys = Object.keys(sevCounts).sort((a, b) => sevOrder.indexOf(a) - sevOrder.indexOf(b));
-    const ticketTable = sevKeys.length ? `
-      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
-        ${sevKeys.map(sev => `<span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; background:${sevColors[sev] || '#8b949e'}33; color:${sevColors[sev] || 'var(--text2)'};">${escapeHtml(sev)}: ${sevCounts[sev]}</span>`).join('')}
-      </div>` : `<div style="font-size:11px; color:var(--text3); margin-top:4px;">ไม่มี ticket เปิดอยู่</div>`;
-    return `<div style="min-width:200px;">
-      <b>${escapeHtml(site.location_id)}</b><br>
-      <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)}</span><br>
-      <div style="font-size:11px; margin-top:4px; padding:4px 6px; background:var(--bg3); border-radius:6px;">${cats}</div>
-      ${ticketTable}
-    </div>`;
-  }
-
-  function renderMap2(prioritySites) {
-    ensureMap2();
-    map2Layer.clearLayers();
-    (prioritySites || []).forEach(s => {
-      if (s.lat == null || s.lon == null) return;
-      const cats = s.priority_categories || [];
-      const mainCategory = cats.some(c => c.category === 'Evacuation Center') ? 'Evacuation Center' : 'RF Priority';
-      L.marker([s.lat, s.lon], { icon: priorityDivIcon(s.color, mainCategory) })
-        .bindPopup(priorityPopupHtml(s))
-        .addTo(map2Layer);
-    });
-    setTimeout(() => { if (map2) map2.invalidateSize(); }, 50);
-  }
-
 
   function dnDivIcon(color) {
     const fill = color || '#1f6feb';
@@ -7367,7 +7274,7 @@ function renderPivot(ft) {
       </div>` : '';
     return `<div style="min-width:220px;">
       <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#1f6feb; font-weight:700;">💧 DN</span>' : ''}<br>
-      <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.name_en)} / ${escapeHtml(site.name_th)}</span><br>
+      <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.province)} · ${escapeHtml(site.district_e)} ${escapeHtml(site.subdistrict_e)}</span><br>
       <span style="font-size:11px;">CINAME: ${escapeHtml(site.location_id)}</span>
       ${ticketTable}
       ${remarkSection}
@@ -7417,8 +7324,7 @@ function renderPivot(ft) {
   function renderMap(sites) {
     ensureMap();
     markerLayer.clearLayers();
-    let visible = ticketOnly ? sites.filter(s => s.color || s.is_dn) : sites;
-    if (isFilterActive()) visible = visible.filter(siteMatchesFilter);
+    let visible = isFilterActive() ? sites.filter(siteMatchesFilter) : sites;
     visible.forEach(s => {
       if (s.lat == null || s.lon == null) return;
       const marker = s.is_dn
@@ -7478,34 +7384,47 @@ function renderPivot(ft) {
     }
   };
 
+  function heatColor(count, maxCount) {
+    if (!count) return '';
+    const intensity = Math.min(1, count / (maxCount || 1));
+    const alpha = 0.12 + intensity * 0.58;
+    return `rgba(226,75,74,${alpha.toFixed(2)})`;
+  }
+
   function renderClassification(cls) {
-    if (!cls) { el('fn-classification').innerHTML = ''; return; }
+    if (!cls || !cls.provinces || !cls.provinces.length) { el('fn-classification').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:8px;">ไม่มีข้อมูล</div>`; return; }
+    let maxCount = 0;
+    cls.provinces.forEach(p => cls.bookmarks.forEach(b => { maxCount = Math.max(maxCount, (cls.matrix[p] || {})[b] || 0); }));
     const head = cls.bookmarks.map(b => `<th style="padding:8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
-    const rows = cls.severities.map((sev, i) => {
+    const rows = cls.provinces.map((p, i) => {
       const cells = cls.bookmarks.map(b => {
-        const count = (cls.matrix[sev] || {})[b] || 0;
+        const count = (cls.matrix[p] || {})[b] || 0;
         const clickable = count > 0;
-        const isActive = filterState.severity === sev && filterState.bookmarkLabel === b;
-        const onclick = clickable ? ` onclick="window.__fnFilterSevBookmark('${sev}', '${b.replace(/'/g, "\\'")}')"` : '';
-        return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${isActive ? 'background:#E24B4A33;' : ''} ${count > 0 ? 'font-weight:700; color:#E24B4A;' : ''}">${count || '–'}</td>`;
+        const isActive = filterState.province === p && filterState.bookmarkLabel === b;
+        const bg = isActive ? '#1f6feb55' : heatColor(count, maxCount);
+        const esc1 = s => String(s).replace(/'/g, "\\'");
+        const onclick = clickable ? ` onclick="window.__fnFilterProvinceBookmark('${esc1(p)}', '${esc1(b)}')"` : '';
+        return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bg ? `background:${bg};` : ''} ${count > 0 ? 'font-weight:700; color:#fff;' : ''}">${count || '–'}</td>`;
       }).join('');
-      const rowTotal = cls.bookmarks.reduce((s, b) => s + ((cls.matrix[sev] || {})[b] || 0), 0);
+      const rowTotal = cls.bookmarks.reduce((s, b) => s + ((cls.matrix[p] || {})[b] || 0), 0);
+      const rowActive = filterState.province === p && !filterState.bookmarkLabel;
+      const esc1 = s => String(s).replace(/'/g, "\\'");
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; font-weight:600;">${escapeHtml(sev)}</td>
+        <td onclick="window.__fnFilterProvince('${esc1(p)}')" style="padding:7px 10px; font-weight:600; cursor:pointer; ${rowActive ? 'color:#1f6feb;' : ''}">${escapeHtml(p)}</td>
         ${cells}
         <td style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3);">${rowTotal || '–'}</td>
       </tr>`;
     }).join('');
     const totalCells = cls.bookmarks.map(b => {
-      const sum = cls.severities.reduce((s, sev) => s + ((cls.matrix[sev] || {})[b] || 0), 0);
+      const sum = cls.provinces.reduce((s, p) => s + ((cls.matrix[p] || {})[b] || 0), 0);
       return `<td style="padding:7px 8px; text-align:center;">${sum || '–'}</td>`;
     }).join('');
-    const grandTotal = cls.severities.reduce((s, sev) => s + cls.bookmarks.reduce((s2, b) => s2 + ((cls.matrix[sev] || {})[b] || 0), 0), 0);
+    const grandTotal = cls.provinces.reduce((s, p) => s + cls.bookmarks.reduce((s2, b) => s2 + ((cls.matrix[p] || {})[b] || 0), 0), 0);
     el('fn-classification').innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
-        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:520px;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Severity</th>${head}
+            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">จังหวัด</th>${head}
             <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
           </tr></thead>
           <tbody>${rows}
@@ -7519,8 +7438,11 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  window.__fnFilterSevBookmark = function (sev, bookmarkLabel) {
-    setFilter({ severity: sev, bookmarkRaw: BOOKMARK_LABEL_TO_RAW[bookmarkLabel] || null, bookmarkLabel });
+  window.__fnFilterProvinceBookmark = function (province, bookmarkLabel) {
+    setFilter({ province, bookmarkRaw: BOOKMARK_LABEL_TO_RAW[bookmarkLabel] || null, bookmarkLabel });
+  };
+  window.__fnFilterProvince = function (province) {
+    setFilter({ province });
   };
   window.__fnFilterDistrict = function (district) {
     setFilter({ district });
@@ -7533,8 +7455,8 @@ function renderPivot(ft) {
     const container = el(containerId);
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const body = rows.map((r, i) => {
-      const isActive = filterFn === 'district' ? filterState.district === r[labelKey] : filterState.classification === r[labelKey];
-      const handler = filterFn === 'district' ? `window.__fnFilterDistrict('${String(r[labelKey]).replace(/'/g, "\\'")}')` : `window.__fnFilterClassification('${String(r[labelKey]).replace(/'/g, "\\'")}')`;
+      const isActive = filterState.district === r[labelKey];
+      const handler = `window.__fnFilterDistrict('${String(r[labelKey]).replace(/'/g, "\\'")}')`;
       return `
       <tr onclick="${handler}" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
         <td style="padding:6px 10px;">${escapeHtml(r[labelKey])}</td>
@@ -7559,30 +7481,110 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  function renderUniqueSitesTable(rows, totalAffected) {
-    const container = el('fn-unique-sites');
+  function renderClassificationSummaryTable(rows, bookmarks) {
+    const container = el('fn-classification-summary');
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const body = rows.map((r, i) => `
-      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:6px 10px;">${escapeHtml(r.bookmark)}</td>
-        <td style="padding:6px 10px; text-align:center; font-weight:700; color:#E24B4A;">${r.total}</td>
-      </tr>`).join('');
+    const head = bookmarks.map(b => `<th style="padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
+    const body = rows.map((r, i) => {
+      const isActive = filterState.classification === r.category;
+      const cells = bookmarks.map(b => {
+        const n = (r.counts || {})[b] || 0;
+        return `<td style="padding:6px 8px; text-align:center; ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
+      }).join('');
+      return `<tr onclick="window.__fnFilterClassification('${String(r.category).replace(/'/g, "\\'")}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
+        <td style="padding:6px 10px;">${escapeHtml(r.category)}</td>
+        ${cells}
+        <td style="padding:6px 8px; text-align:center; font-weight:700; color:#E24B4A;">${r.total}</td>
+      </tr>`;
+    }).join('');
+    const grandTotal = rows.reduce((s, r) => s + (r.total || 0), 0);
+    const totalCells = bookmarks.map(b => {
+      const s = rows.reduce((s2, r) => s2 + ((r.counts || {})[b] || 0), 0);
+      return `<td style="padding:6px 8px; text-align:center;">${s || '–'}</td>`;
+    }).join('');
     container.innerHTML = `
-      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div style="overflow-x:auto; max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
-          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Bookmark</th>
-            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">ไซต์ (Unique)</th>
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Category</th>${head}
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
           </tr></thead>
           <tbody>${body}
             <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
-              <td style="padding:6px 10px;">รวมไซต์ที่กระทบจริง</td>
-              <td style="padding:6px 10px; text-align:center; color:#E24B4A;">${totalAffected != null ? totalAffected : '–'}</td>
+              <td style="padding:6px 10px;">Total</td>
+              ${totalCells}
+              <td style="padding:6px 8px; text-align:center; color:#E24B4A;">${grandTotal}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderUniqueSitesTable(rows, bookmarks, totalAffected) {
+    const container = el('fn-unique-sites');
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const head = bookmarks.map(b => `<th style="padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const body = rows.map((r, i) => {
+      const isActive = filterState.province === r.province && !filterState.bookmarkLabel;
+      const cells = bookmarks.map(b => {
+        const n = (r.counts || {})[b] || 0;
+        const clickable = n > 0;
+        const bActive = filterState.province === r.province && filterState.bookmarkLabel === b;
+        const onclick = clickable ? ` onclick="window.__fnFilterProvinceBookmark('${esc1(r.province)}','${esc1(b)}')"` : '';
+        return `<td${onclick} style="padding:6px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bActive ? 'background:#1f6feb33;' : ''} ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
+      }).join('');
+      return `<tr onclick="window.__fnFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.province)}</td>
+        ${cells}
+        <td style="padding:6px 8px; text-align:center; font-weight:800; background:var(--bg4);">${r.total}</td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:480px;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">จังหวัด</th>${head}
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม (Unique)</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">นับไซต์ไม่ซ้ำ ไม่ใช่จำนวน ticket - ไซต์เดียวกันมีหลาย ticket จะนับครั้งเดียว · รวมไซต์ที่กระทบจริงทุกจังหวัด: <b style="color:#E24B4A;">${totalAffected != null ? totalAffected : '–'}</b></div>`;
+  }
+
+  function renderWorkloadTable(rows, grandTotal, capacity) {
+    const container = el('fn-workload');
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const body = rows.map((r, i) => `
+      <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.province)}</td>
+        <td style="padding:6px 10px; text-align:center; color:#a371f7; font-weight:700;">${r.nod || '–'}</td>
+        <td style="padding:6px 10px; text-align:center; color:#1f6feb; font-weight:700;">${r.ofc || '–'}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4);">${r.total}</td>
+      </tr>`).join('');
+    const nodTeams = capacity && capacity.NOD ? Math.ceil(grandTotal.nod / capacity.NOD) : 0;
+    const ofcTeams = capacity && capacity.OFC ? Math.ceil(grandTotal.ofc / capacity.OFC) : 0;
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%; max-width:520px;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:#a371f7;">NOD</th>
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:#1f6feb;">OFC</th>
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">ผลรวม</th>
+          </tr></thead>
+          <tbody>${body}
+            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+              <td style="padding:6px 10px;">รวม</td>
+              <td style="padding:6px 10px; text-align:center; color:#a371f7;">${grandTotal.nod}</td>
+              <td style="padding:6px 10px; text-align:center; color:#1f6feb;">${grandTotal.ofc}</td>
+              <td style="padding:6px 10px; text-align:center;">${grandTotal.total}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div style="font-size:11px; color:var(--text3); margin-top:4px;">นับไซต์ไม่ซ้ำ ไม่ใช่จำนวน ticket - ไซต์เดียวกันมีหลาย ticket จะนับครั้งเดียว</div>`;
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">Capacity: NOD ${capacity.NOD} งาน/ทีม · OFC ${capacity.OFC} งาน/ทีม → ต้องใช้ทีม NOD ประมาณ <b>${nodTeams}</b> ทีม, ทีม OFC ประมาณ <b>${ofcTeams}</b> ทีม (ปัดเศษขึ้น)</div>`;
   }
 
   function renderDetailTable(tickets) {
@@ -7609,7 +7611,7 @@ function renderPivot(ft) {
     const table = el('fn-dn-table');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
-    const cols = ['LOCATION ID', 'Name', 'District', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
+    const cols = ['LOCATION ID', 'Province', 'District', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
     thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
     const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
     if (!dnSites || !dnSites.length) {
@@ -7622,38 +7624,8 @@ function renderPivot(ft) {
         const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
         rows.push(`<tr style="border-top:1px solid var(--border);">
           <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
-          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.name_en) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.province) : ''}</td>
           <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.district_e) : ''}</td>
-          <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
-          <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
-          <td style="padding:6px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
-          <td style="padding:6px 8px; white-space:normal;">${escapeHtml(t.SUBJECT)}</td>
-        </tr>`);
-      });
-    });
-    tbody.innerHTML = rows.join('');
-  }
-
-  function renderPriorityTable(prioritySites) {
-    const table = el('fn-priority-table');
-    const thead = table.querySelector('thead');
-    const tbody = table.querySelector('tbody');
-    const cols = ['LOCATION ID', 'Name', 'ประเภท', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
-    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
-    const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
-    if (!prioritySites || !prioritySites.length) {
-      tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีไซต์สำคัญที่มี ticket เปิดอยู่ตอนนี้</td></tr>`;
-      return;
-    }
-    const rows = [];
-    prioritySites.forEach(s => {
-      const catLabel = (s.priority_categories || []).map(c => c.category).join(', ');
-      (s.tickets || []).forEach((t, i) => {
-        const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
-        rows.push(`<tr style="border-top:1px solid var(--border);">
-          <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
-          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.name_en) : ''}</td>
-          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(catLabel) : ''}</td>
           <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
           <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
           <td style="padding:6px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
@@ -7677,16 +7649,18 @@ function renderPivot(ft) {
 
   let trendChart = null;
   let districtTrendChart = null;
+  let provinceTrendChart = null;
   let classificationTrendChart = null;
 
   async function loadTrends() {
     const statusEl = el('fn-trend-status');
-    statusEl.textContent = 'กำลังโหลด trend... (รอบแรกอาจใช้เวลาถึง 1-2 นาที เพราะต้องดึงไฟล์ backup ย้อนหลังทีละชั่วโมง รอบต่อไปจะเร็วขึ้นมากเพราะมีการ cache ไว้)';
+    statusEl.textContent = 'กำลังโหลด trend... (รอบแรกอาจใช้เวลาสักครู่ เพราะต้องดึงไฟล์ backup ย้อนหลังทีละชั่วโมงถึง 3 วัน รอบต่อไปจะเร็วขึ้นมากเพราะมีการ cache ไว้)';
     try {
       const res = await fetch('/api/flood-nan/trends');
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
       renderTrendChart(data.ticket_trend);
+      renderProvinceTrendChart(data.province_trend_sa_mobile);
       renderDistrictTrendChart(data.district_trend_sa_mobile);
       renderClassificationTrendChart(data.classification_trend_sa_mobile);
       statusEl.textContent = '';
@@ -7717,7 +7691,26 @@ function renderPivot(ft) {
       data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 14 } } },
+      },
+    });
+  }
+
+  function renderProvinceTrendChart(trend) {
+    if (!trend) return;
+    const ctx = el('fn-province-trend-chart').getContext('2d');
+    const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922', '#3fb950', '#f778ba', '#79c0ff', '#d2a8ff', '#ffa198'];
+    const datasets = trend.provinces.map((p, i) => ({
+      label: p, data: trend.series[p], borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length] + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
+    }));
+    if (provinceTrendChart) provinceTrendChart.destroy();
+    provinceTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: trend.dates.map(formatHourLabel), datasets },
+      options: {
+        responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 14 } } },
       },
     });
   }
@@ -7736,7 +7729,7 @@ function renderPivot(ft) {
       data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }, datalabels: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 14 } } },
       },
     });
   }
@@ -7756,7 +7749,7 @@ function renderPivot(ft) {
       data: { labels: trend.dates.map(formatHourLabel), datasets },
       options: {
         responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }, datalabels: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 14 } } },
       },
     });
   }
@@ -7769,14 +7762,13 @@ function renderPivot(ft) {
       const data = await res.json();
       lastData = data;
       renderMap(data.sites || []);
-      renderMap2(data.priority_sites || []);
       renderClassification(data.classification);
-      renderSimpleCountTable('fn-classification-summary', data.classification_summary, 'category', 'หมวดหมู่', 'classification');
+      renderClassificationSummaryTable(data.classification_summary, (data.classification || {}).bookmarks || []);
       renderSimpleCountTable('fn-district-summary', data.district_summary, 'district', 'District', 'district');
-      renderUniqueSitesTable(data.unique_sites_by_bookmark, data.unique_sites_affected);
+      renderUniqueSitesTable(data.unique_sites_by_province, (data.classification || {}).bookmarks || [], data.unique_sites_affected);
+      renderWorkloadTable(data.workload_table, data.workload_grand_total, data.workload_capacity);
       renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
       renderDnTable(data.dn_sites_with_tickets || []);
-      renderPriorityTable(data.priority_sites_with_tickets || []);
       renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
       loaded = true;
@@ -7811,7 +7803,7 @@ function renderPivot(ft) {
       legend.innerHTML = '';
       return;
     }
-    const districts = [...new Set(pts.map(s => s.district_e || '(ไม่ระบุ)'))].sort();
+    const districts = [...new Set(pts.map(s => s.province || '(ไม่ระบุ)'))].sort();
     const colorOf = {};
     districts.forEach((d, i) => { colorOf[d] = SCATTER_PALETTE[i % SCATTER_PALETTE.length]; });
 
@@ -7828,7 +7820,7 @@ function renderPivot(ft) {
 
     const circles = pts.map(s => {
       const [x, y] = toXY(s.lat, s.lon);
-      const d = s.district_e || '(ไม่ระบุ)';
+      const d = s.province || '(ไม่ระบุ)';
       const r = s.is_dn ? 5.5 : 4;
       return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${colorOf[d]}" stroke="#0d1117" stroke-width="1" opacity="0.9"/>`;
     }).join('');
@@ -7895,14 +7887,6 @@ function renderPivot(ft) {
   }
   el('fn-infographic').addEventListener('click', generateInfographic);
 
-  el('fn-ticket-only-toggle').addEventListener('click', () => {
-    ticketOnly = !ticketOnly;
-    const btn = el('fn-ticket-only-toggle');
-    btn.textContent = ticketOnly ? '🔍 แสดงทุกไซต์' : '🔍 แสดงเฉพาะไซต์ที่มี Ticket';
-    btn.style.background = ticketOnly ? '#E24B4A' : '';
-    btn.style.color = ticketOnly ? '#fff' : '';
-    if (lastData) renderMap(lastData.sites || []);
-  });
   el('fn-add-marker-toggle').addEventListener('click', () => {
     addMarkerMode = !addMarkerMode;
     const btn = el('fn-add-marker-toggle');
@@ -7918,6 +7902,7 @@ function renderPivot(ft) {
     if (!trendsLoaded) { trendsLoaded = true; loadTrends(); }
   };
 })();
+
 
 // ── SUMMARY NAN ──────────────────────────────────────────────────────────
 (function () {
