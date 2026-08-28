@@ -1,40 +1,33 @@
-"""Flood NAN Monitoring: plots every known site in Nan province on a map,
-color-coded by the worst open ticket severity found for that site (matched
-by LOCATION ID == CINAME, or LOCATION ID appearing inside SUBJECT, against
-the live Pending Ticket data), with a distinct marker for "DN"
-(important/generator-equipped) sites, plus manually-placed remark pins.
+"""Flood NAN Monitoring: region-wide (NOR1/NOR2, every province) live ticket
+map + summary tables. Historically Nan-only and driven by a separate site
+master sheet; now driven entirely by the live ticket data itself
+(REALTIME_SHEET_ID) - every "site" plotted is simply a distinct CINAME that
+currently has at least one open ticket, using that ticket's own
+LATITUDE/LONGITUDE/PROVINCE/DISTRICT/SUBDISTRICT fields directly. No site
+master lookup is needed anymore, so nothing here depends on a fixed site
+list existing or being kept up to date.
 
-Site master data comes from a SEPARATE Google Sheet (not the main
-REALTIME_SHEET_ID) - a manually maintained inventory of every physical
-site, one sheet ("ชีต1") with three stacked tables:
-  1. Site master (LOCATION ID, Type Site, ..., LATITUDE, LONGITUDE) - the
-     main table this feature reads from.
-  2. A generator/DN equipment inventory (SITE, Lat, Lon, ...) covering many
-     provinces, not just Nan - not used here directly.
-  3. A short reference list at the bottom (blank col A, site code col B,
-     literal "DN" col C) enumerating which Nan sites are flagged important.
-Both table 1's own "Type Site" == "DN" rows AND table 3's list count as
-DN sites - the two overlap for some codes but not entirely.
+"DN" (important/generator-equipped site) status is likewise now derived
+per-ticket instead of from a hand-maintained site list: a site counts as DN
+if any of its tickets has CLASSIFICATION containing "SMALL EXCHANGE" or
+CATEGORIES containing "Exchange Node".
 
-Manual remark pins are stored in their own tab ("FloodNanMarkers") inside
-REALTIME_SHEET_ID, next to TicketWorkLog - not on the foreign site-master
-sheet, which this feature only ever reads from, never writes to.
+Manual remark pins and DN site remarks are unrelated to any of the above -
+both live in their own tabs inside REALTIME_SHEET_ID and are unaffected by
+this module's scope change.
 """
 
 import logging
 import threading
 import time
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime
 
-from pending_ticket import _fetch_full_ticket_entries, ALLOWED_SEVERITIES, _exclusive_bookmark_label, fetch_live_rows
-from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_nightly_file, download_xlsx_as_rows, find_closest_file
+from pending_ticket import ALLOWED_SEVERITIES, PENDING_TICKET_REGIONS, _exclusive_bookmark_label, fetch_live_rows
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_closest_file, download_xlsx_as_rows
 from realtime_monitor import REALTIME_SHEET_ID
 
 log = logging.getLogger(__name__)
-
-NAN_SITE_SHEET_ID = "18BOiJCBQ-42QgURqnZBZSQ8hLGaxQXNuLePdMNVt3Os"
-NAN_SITE_TAB_NAME = "ชีต1"
 
 # Severity -> marker color, per the requested classification.
 SEVERITY_COLOR = {
@@ -46,8 +39,8 @@ SEVERITY_COLOR = {
 # tickets with different severities.
 SEVERITY_RANK = {"SA1": 0, "SA2": 0, "SA3": 0, "SA4": 0, "NSA1": 1, "NSA2": 1, "NSA3": 2, "NSA4": 2}
 
-# The 4 Bookmark buckets used for the severity x bookmark matrix - same
-# labels Exclusive Pending / P0 Only use (see pending_ticket.py's
+# The 4 Bookmark buckets used throughout this module - same labels
+# Exclusive Pending / P0 Only use (see pending_ticket.py's
 # EXCLUSIVE_BOOKMARK_ORDER), just relabeled here per the request wording.
 CLASSIFICATION_BOOKMARKS = [
     ("SA Mobile", "7.MB with SA1-4"),
@@ -55,16 +48,19 @@ CLASSIFICATION_BOOKMARKS = [
     ("NSA1-2", "3. All NW Incident NSA1-2"),
     ("NSA3-4", "NSA3-4"),
 ]
-CLASSIFICATION_SEVERITIES = ["SA1", "SA2", "SA3", "SA4", "NSA1", "NSA2", "NSA3", "NSA4"]
-
-_site_cache = {"data": None, "ts": 0}
-_cache_lock = threading.Lock()
-SITE_CACHE_TTL_SECONDS = 600  # site master rarely changes - safe to cache for a while
+BOOKMARK_LABEL_LOOKUP = {raw: label for label, raw in CLASSIFICATION_BOOKMARKS}
 
 MANUAL_MARKERS_TAB = "FloodNanMarkers"
 MANUAL_MARKERS_HEADER = ["id", "lat", "lon", "remark", "created_by", "created_at"]
 SITE_REMARKS_TAB = "FloodNanSiteRemarks"
 SITE_REMARKS_HEADER = ["location_id", "remark", "updated_by", "updated_at"]
+
+# NOD/OFC workload calculator capacities (jobs per team).
+WORKLOAD_CAPACITY = {"NOD": 3, "OFC": 2}
+# Only these 3 Bookmark groups count toward workload - NSA3-4 is excluded.
+WORKLOAD_BOOKMARKS = {"SA Mobile", "Online", "NSA1-2"}
+WORKLOAD_NOD_SEVERITIES = {"SA4"}
+WORKLOAD_OFC_SEVERITIES = {"SA1", "SA2", "SA3", "NSA1", "NSA2"}
 
 
 def _to_float(v):
@@ -73,83 +69,6 @@ def _to_float(v):
         return f if f else None
     except (TypeError, ValueError):
         return None
-
-
-def fetch_nan_sites(gs_client, use_cache=True):
-    """Returns [{location_id, name_en, name_th, lat, lon, district_e,
-    district_t, subdistrict_e, subdistrict_t, is_dn}, ...] for every Nan
-    site with valid coordinates."""
-    now = time.monotonic()
-    if use_cache:
-        with _cache_lock:
-            if _site_cache["data"] is not None and (now - _site_cache["ts"]) < SITE_CACHE_TTL_SECONDS:
-                return _site_cache["data"]
-
-    sh = gs_client.open_by_key(NAN_SITE_SHEET_ID)
-    ws = sh.worksheet(NAN_SITE_TAB_NAME)
-    rows = ws.get_all_values()
-
-    # --- Table 1: site master (header row has "LOCATION ID" in col A) ---
-    header_idx = None
-    for i, row in enumerate(rows):
-        if row and row[0].strip() == "LOCATION ID":
-            header_idx = i
-            break
-
-    sites = []
-    dn_codes_from_table1 = set()
-    end_idx = len(rows)
-    if header_idx is not None:
-        for i in range(header_idx + 1, len(rows)):
-            row = rows[i]
-            location_id = (row[0] if len(row) > 0 else "").strip()
-            if not location_id:
-                end_idx = i
-                break
-            type_site = (row[1] if len(row) > 1 else "").strip()
-            if type_site.upper() == "DN":
-                dn_codes_from_table1.add(location_id.upper())
-            name_en = row[7] if len(row) > 7 else ""
-            name_th = row[8] if len(row) > 8 else ""
-            district_e = row[24] if len(row) > 24 else ""
-            # Ticket data's own DISTRICT field never has the "อำเภอ" prefix
-            # (e.g. "แม่จริม"), but this site sheet's DISTRICT_T column always
-            # does (e.g. "อำเภอแม่จริม") - strip it here so site<->ticket
-            # district matching (and the click-to-filter feature) works with
-            # simple string equality instead of silently never matching.
-            district_t = (row[25] if len(row) > 25 else "").strip()
-            if district_t.startswith("อำเภอ"):
-                district_t = district_t[len("อำเภอ"):].strip()
-            subdistrict_e = row[26] if len(row) > 26 else ""
-            subdistrict_t = row[27] if len(row) > 27 else ""
-            lat = _to_float(row[28]) if len(row) > 28 else None
-            lon = _to_float(row[29]) if len(row) > 29 else None
-            if lat is None or lon is None:
-                continue
-            sites.append({
-                "location_id": location_id, "name_en": name_en, "name_th": name_th,
-                "lat": lat, "lon": lon, "district_e": district_e, "district_t": district_t,
-                "subdistrict_e": subdistrict_e, "subdistrict_t": subdistrict_t,
-            })
-
-    # --- Reference list further down: blank col A, site code col B, "DN" col C ---
-    dn_codes_from_reflist = set()
-    for row in rows[end_idx:]:
-        col_a = (row[0] if len(row) > 0 else "").strip()
-        col_b = (row[1] if len(row) > 1 else "").strip()
-        col_c = (row[2] if len(row) > 2 else "").strip()
-        if not col_a and col_b and col_c.upper() == "DN":
-            dn_codes_from_reflist.add(col_b.upper())
-
-    dn_codes = dn_codes_from_table1 | dn_codes_from_reflist
-    for s in sites:
-        s["is_dn"] = s["location_id"].upper() in dn_codes
-
-    if use_cache:
-        with _cache_lock:
-            _site_cache["data"] = sites
-            _site_cache["ts"] = now
-    return sites
 
 
 def _last_classification_segment(raw):
@@ -164,186 +83,194 @@ def _last_classification_segment(raw):
     return parts[-1] if parts else raw
 
 
-PRIORITY_SITES = [
-    ("NAN0006", "RF Priority", ""),
-    ("NAN0007", "RF Priority", ""),
-    ("NAN0035", "RF Priority", ""),
-    ("NAN0045", "RF Priority", ""),
-    ("NAN0061", "RF Priority", ""),
-    ("NAN0062", "RF Priority", ""),
-    ("NAN0074", "RF Priority", ""),
-    ("NAN0080", "RF Priority", ""),
-    ("NAN1604", "RF Priority", ""),
-    ("NAN1605", "RF Priority", ""),
-    ("NAN1616", "RF Priority", ""),
-    ("NAN6756", "RF Priority", ""),
-    ("NAN6763", "RF Priority", ""),
-    ("NAN6807", "RF Priority", ""),
-    ("NAN6818", "RF Priority", ""),
-    ("NAN7182", "RF Priority", ""),
-    ("NAN1605", "Evacuation Center", "หอประชุมอำเภอปัว, หอประชุมเทศบาลตำบลปัว"),
-    ("NAN0046", "Evacuation Center", "หอประชุมโรงเรียนชุมชนศิลาเพชร"),
-    ("NAN0137", "Evacuation Center", "วัดป่าเหมือด"),
-    ("NAN7667", "Evacuation Center", "วัดป่าเหมือด"),
-    ("NAN1803", "Evacuation Center", "บริเวณ 3 แยกทางเข้าบ้านดอนไชย"),
-    ("NAN7229", "Evacuation Center", "อบต วรนคร"),
-    ("NAN0169", "Evacuation Center", "อบต วรนคร"),
-    ("NAN7668", "Evacuation Center", "โรงเรียนบ้านเสี้ยว"),
-]
+def _is_dn_ticket(classification, categories):
+    c = str(classification or "").upper()
+    cat = str(categories or "").upper()
+    return "SMALL EXCHANGE" in c or "EXCHANGE NODE" in cat
+
+
+def _ticket_province(r):
+    return str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุจังหวัด)"
+
+
+def _scoped_live_rows(gs_client):
+    """Every live ticket row in NOR1/NOR2 with a real severity - the base
+    dataset this whole module (map, tables, and trends alike) is built
+    from. No site-master lookup or matching needed anymore: PROVINCE,
+    DISTRICT, SUBDISTRICT, LATITUDE, LONGITUDE all come straight off each
+    ticket row."""
+    all_rows = fetch_live_rows(gs_client)
+    return [
+        r for r in all_rows
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
+        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
+    ]
 
 
 def build_flood_nan_response(gs_client=None):
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
-    sites = fetch_nan_sites(gs_client)
+    scoped = _scoped_live_rows(gs_client)
     site_remarks = get_site_remarks(gs_client)
-    all_entries = _fetch_full_ticket_entries(gs_client)
 
-    # Only tickets with a real severity are relevant to plot/count.
-    live_entries = [t for t in all_entries if str(t.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES]
-    # Relabel Bookmark the same way Exclusive Pending / P0 Only do (raw
-    # values only ever cover the 3 named categories - anything else,
-    # including every NSA3/NSA4 ticket, needs this to land in the "NSA3-4"
-    # catch-all instead of never matching anything downstream).
-    for t in live_entries:
-        t["Bookmark"] = _exclusive_bookmark_label(t.get("Bookmark"))
-    tickets_by_ciname = {}
-    for t in live_entries:
-        ciname = str(t.get("CINAME", "")).strip().upper()
-        if ciname:
-            tickets_by_ciname.setdefault(ciname, []).append(t)
+    tickets = []
+    for r in scoped:
+        bm = _exclusive_bookmark_label(r.get("Bookmark"))
+        classification = r.get("CLASSIFICATION", "")
+        categories = r.get("CATEGORIES", "")
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+        tickets.append({
+            "TICKETID": r.get("TICKETID", ""), "SEVERITY": str(r.get("SEVERITY", "")).strip(),
+            "CREATIONDATE": r.get("CREATIONDATE", ""), "TARGETFINISH": r.get("TARGETFINISH", ""),
+            "CINAME": str(r.get("CINAME", "")).strip(),
+            "PROVINCE": _ticket_province(r), "DISTRICT": str(r.get("DISTRICT", "")).strip(),
+            "SUBDISTRICT": str(r.get("SUBDISTRICT", "")).strip(), "SUBJECT": r.get("SUBJECT", ""),
+            "Bookmark": bm, "CLASSIFICATION": classification, "CATEGORIES": categories,
+            "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip(), "over_sla_day": over_sla_day,
+            "insert_time": r.get("insert_time", ""),
+            "is_dn": _is_dn_ticket(classification, categories),
+            "lat": _to_float(r.get("LATITUDE")), "lon": _to_float(r.get("LONGITUDE")),
+        })
+
+    # Group into map sites by CINAME - a "site" only exists here because at
+    # least one ticket names it; sites with no open ticket are never shown.
+    sites_by_ciname = {}
+    for t in tickets:
+        ciname = t["CINAME"].upper()
+        if not ciname:
+            continue
+        entry = sites_by_ciname.setdefault(ciname, {
+            "location_id": t["CINAME"], "province": t["PROVINCE"], "district_e": t["DISTRICT"],
+            "subdistrict_e": t["SUBDISTRICT"], "lat": t["lat"], "lon": t["lon"],
+            "is_dn": False, "tickets": [],
+        })
+        if entry["lat"] is None and t["lat"] is not None:
+            entry["lat"], entry["lon"] = t["lat"], t["lon"]
+        if t["is_dn"]:
+            entry["is_dn"] = True
+        entry["tickets"].append({
+            "TICKETID": t["TICKETID"], "SEVERITY": t["SEVERITY"], "CREATIONDATE": t["CREATIONDATE"],
+            "CINAME": t["CINAME"], "PROVINCE": t["PROVINCE"], "DISTRICT": t["DISTRICT"],
+            "SUBDISTRICT": t["SUBDISTRICT"], "SUBJECT": t["SUBJECT"], "Bookmark": t["Bookmark"],
+            "CLASSIFICATION": t["CLASSIFICATION"],
+        })
 
     site_markers = []
-    matched_ticket_ids = set()
-    nan_tickets = []
-    for s in sites:
-        loc_upper = s["location_id"].upper()
-        # 1) exact CINAME match, 2) LOCATION ID appearing inside SUBJECT text
-        # (tickets often embed the site code in the subject line even when
-        # CINAME itself doesn't match, e.g. "[U05][NW] CMI0233 : ...").
-        by_ciname = tickets_by_ciname.get(loc_upper, [])
-        by_ciname_ids = {m.get("TICKETID") for m in by_ciname}
-        by_subject = [
-            t for t in live_entries
-            if loc_upper in str(t.get("SUBJECT", "")).upper() and t.get("TICKETID") not in by_ciname_ids
-        ]
-        matches = by_ciname + by_subject
-        color = None
-        if matches:
-            best = min(matches, key=lambda t: SEVERITY_RANK.get(str(t.get("SEVERITY", "")).strip(), 9))
-            color = SEVERITY_COLOR.get(str(best.get("SEVERITY", "")).strip())
-        site_markers.append({
-            "location_id": s["location_id"], "name_en": s["name_en"], "name_th": s["name_th"],
-            "lat": s["lat"], "lon": s["lon"], "is_dn": s["is_dn"], "color": color,
-            "district_e": s["district_e"], "district_t": s["district_t"], "subdistrict_e": s["subdistrict_e"],
-            "remark": site_remarks.get(loc_upper),
-            "tickets": [{
-                "TICKETID": t.get("TICKETID", ""), "SEVERITY": t.get("SEVERITY", ""),
-                "CREATIONDATE": t.get("CREATIONDATE", ""), "CINAME": t.get("CINAME", ""),
-                "DISTRICT": t.get("DISTRICT", ""), "SUBDISTRICT": t.get("SUBDISTRICT", ""),
-                "SUBJECT": t.get("SUBJECT", ""), "Bookmark": t.get("Bookmark", ""),
-                "CLASSIFICATION": t.get("CLASSIFICATION", ""),
-            } for t in matches],
-        })
-        for t in matches:
-            tid = t.get("TICKETID")
-            if tid not in matched_ticket_ids:
-                matched_ticket_ids.add(tid)
-                nan_tickets.append(t)
-
-    # Severity x Bookmark matrix (SA1-4 rows x SA Mobile/Online/NSA1-2/NSA3-4).
-    matrix = {sev: {label: 0 for label, _ in CLASSIFICATION_BOOKMARKS} for sev in CLASSIFICATION_SEVERITIES}
-    bookmark_lookup = {raw: label for label, raw in CLASSIFICATION_BOOKMARKS}
-    for t in nan_tickets:
-        sev = str(t.get("SEVERITY", "")).strip()
-        if sev not in CLASSIFICATION_SEVERITIES:
+    for ciname, s in sites_by_ciname.items():
+        if s["lat"] is None or s["lon"] is None:
             continue
-        label = bookmark_lookup.get(str(t.get("Bookmark", "")).strip())
-        if label:
-            matrix[sev][label] += 1
+        best = min(s["tickets"], key=lambda tk: SEVERITY_RANK.get(tk["SEVERITY"], 9))
+        s["color"] = SEVERITY_COLOR.get(best["SEVERITY"])
+        s["remark"] = site_remarks.get(ciname)
+        site_markers.append(s)
 
-    # CLASSIFICATION summary - last (most specific) segment, counted.
-    classification_totals = {}
-    for t in nan_tickets:
-        cat = _last_classification_segment(t.get("CLASSIFICATION"))
-        classification_totals[cat] = classification_totals.get(cat, 0) + 1
+    # Province x Bookmark matrix, ticket counts (drives both the table and
+    # its heatmap shading on the frontend).
+    provinces = sorted({t["PROVINCE"] for t in tickets})
+    matrix = {prov: {label: 0 for label, _ in CLASSIFICATION_BOOKMARKS} for prov in provinces}
+    for t in tickets:
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if label:
+            matrix[t["PROVINCE"]][label] += 1
+
+    # Classification (all provinces) x Bookmark.
+    class_bm_totals = {}
+    for t in tickets:
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if not label:
+            continue
+        cat = _last_classification_segment(t["CLASSIFICATION"])
+        class_bm_totals.setdefault(cat, {lbl: 0 for lbl, _ in CLASSIFICATION_BOOKMARKS})
+        class_bm_totals[cat][label] += 1
     classification_summary = sorted(
-        [{"category": cat, "total": total} for cat, total in classification_totals.items()],
+        [{"category": cat, "counts": counts, "total": sum(counts.values())} for cat, counts in class_bm_totals.items()],
         key=lambda r: r["total"], reverse=True,
     )
 
-    # District summary - ticket count per DISTRICT.
+    # District summary (all provinces) - ticket count per DISTRICT.
     district_totals = {}
-    for t in nan_tickets:
-        d = str(t.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
+    for t in tickets:
+        d = t["DISTRICT"] or "(ไม่ระบุ)"
         district_totals[d] = district_totals.get(d, 0) + 1
     district_summary = sorted(
         [{"district": d, "total": total} for d, total in district_totals.items()],
         key=lambda r: r["total"], reverse=True,
     )
 
-    # DN sites with at least one matched ticket - a focused subset of
-    # site_markers, kept separate since these are the highest-priority
-    # sites to check first (important/generator-equipped AND affected).
+    # DN sites with at least one ticket - a focused subset of site_markers.
     dn_sites_with_tickets = [s for s in site_markers if s["is_dn"] and s["tickets"]]
 
-    # Unique SITE count per Bookmark group - distinct from the ticket-count
-    # matrix above, since one site can have several open tickets and a
-    # ticket-count view would overstate how many physical sites are
-    # actually affected. Uses ONLY exact CINAME matches (not the looser
-    # SUBJECT-text matching used for the map/detail views) - a single
-    # ticket can legitimately mention multiple site codes in its subject
-    # (e.g. a fiber link ticket naming both endpoints), which would let one
-    # ticket inflate the count across several sites and made this number
-    # come out larger than the ticket count it's meant to be bounded by.
-    affected_sites = []
-    for s in sites:
-        loc_upper = s["location_id"].upper()
-        exact_matches = tickets_by_ciname.get(loc_upper, [])
-        if exact_matches:
-            affected_sites.append({"location_id": s["location_id"], "tickets": exact_matches})
-    unique_sites_by_bookmark = []
-    for label, raw in CLASSIFICATION_BOOKMARKS:
-        count = sum(1 for s in affected_sites if any(t.get("Bookmark") == raw for t in s["tickets"]))
-        unique_sites_by_bookmark.append({"bookmark": label, "total": count})
-
-    insert_time = all_entries[0].get("insert_time") if all_entries else None
-
-    # Priority sites (second map) - RF Priority / Evacuation Center, from a
-    # hand-curated list. Looked up from the already-built site_markers
-    # (same ticket-match/color data), grouped since one site can appear
-    # under more than one category (e.g. NAN1605 is both).
-    site_markers_by_id = {s["location_id"].upper(): s for s in site_markers}
-    priority_categories_by_id = {}
-    for code, category, detail in PRIORITY_SITES:
-        priority_categories_by_id.setdefault(code.upper(), []).append({"category": category, "detail": detail})
-    priority_sites = []
-    for code, categories in priority_categories_by_id.items():
-        base = site_markers_by_id.get(code)
-        if base is None:
+    # Unique SITE count (not ticket count) per Province x Bookmark - a
+    # single physical site with several open tickets should only count
+    # once here.
+    unique_site_sets = {prov: {label: set() for label, _ in CLASSIFICATION_BOOKMARKS} for prov in provinces}
+    for t in tickets:
+        if not t["CINAME"]:
             continue
-        priority_sites.append({**base, "priority_categories": categories})
-    priority_sites_with_tickets = [s for s in priority_sites if s["tickets"]]
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if label:
+            unique_site_sets[t["PROVINCE"]][label].add(t["CINAME"].upper())
+    unique_sites_by_province = []
+    for prov in provinces:
+        counts = {label: len(unique_site_sets[prov][label]) for label, _ in CLASSIFICATION_BOOKMARKS}
+        all_site_ids = set()
+        for s in unique_site_sets[prov].values():
+            all_site_ids |= s
+        unique_sites_by_province.append({"province": prov, "counts": counts, "total": len(all_site_ids)})
+    unique_sites_by_province.sort(key=lambda r: -r["total"])
+    unique_sites_affected = len({t["CINAME"].upper() for t in tickets if t["CINAME"]})
+
+    # NOD/OFC workload calculator: SA Mobile/Online/NSA1-2 tickets only,
+    # split by severity - SA4 is NOD's workload, everything else in scope
+    # (SA1-3, NSA1-2) is OFC's.
+    workload_by_province = {}
+    for t in tickets:
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if label not in WORKLOAD_BOOKMARKS:
+            continue
+        prov = t["PROVINCE"]
+        workload_by_province.setdefault(prov, {"NOD": 0, "OFC": 0})
+        if t["SEVERITY"] in WORKLOAD_NOD_SEVERITIES:
+            workload_by_province[prov]["NOD"] += 1
+        elif t["SEVERITY"] in WORKLOAD_OFC_SEVERITIES:
+            workload_by_province[prov]["OFC"] += 1
+    workload_table = sorted(
+        [{"province": p, "nod": c["NOD"], "ofc": c["OFC"], "total": c["NOD"] + c["OFC"]} for p, c in workload_by_province.items()],
+        key=lambda r: -r["total"],
+    )
+    workload_grand_total = {
+        "nod": sum(r["nod"] for r in workload_table),
+        "ofc": sum(r["ofc"] for r in workload_table),
+        "total": sum(r["total"] for r in workload_table),
+    }
+
+    insert_time = scoped[0].get("insert_time") if scoped else None
 
     return {
         "sites": site_markers,
-        "priority_sites": priority_sites,
-        "priority_sites_with_tickets": priority_sites_with_tickets,
-        "tickets": nan_tickets,
+        "tickets": tickets,
+        "provinces": provinces,
         "classification": {
-            "severities": CLASSIFICATION_SEVERITIES,
+            "provinces": provinces,
             "bookmarks": [label for label, _ in CLASSIFICATION_BOOKMARKS],
             "matrix": matrix,
         },
         "classification_summary": classification_summary,
         "district_summary": district_summary,
         "dn_sites_with_tickets": dn_sites_with_tickets,
-        "unique_sites_by_bookmark": unique_sites_by_bookmark,
-        "unique_sites_affected": len(affected_sites),
+        "unique_sites_by_province": unique_sites_by_province,
+        "unique_sites_affected": unique_sites_affected,
+        "workload_table": workload_table,
+        "workload_grand_total": workload_grand_total,
+        "workload_capacity": WORKLOAD_CAPACITY,
         "insert_time": insert_time,
         "total_sites": len(site_markers),
-        "total_tickets": len(nan_tickets),
+        "total_tickets": len(tickets),
     }
 
 
@@ -494,13 +421,12 @@ def delete_site_remark(gs_client, location_id):
     return True
 
 
-# ── Trend charts: hourly, from backups, scoped to Nan ───────────────────
+# ── Trend charts: hourly, from backups, region-wide ─────────────────────
 # Each hour's classification result is cached forever once computed (a
 # finished hour's backup never changes) - only the CURRENT hour is ever
-# freshly fetched from the live sheet. First load over a 24h cold cache
-# means downloading up to 24 backup files sequentially (slow, possibly a
-# minute or more); every load after that is fast since almost every hour
-# is already cached.
+# freshly fetched from the live sheet. First load over a 3-day cold cache
+# means downloading up to 72 backup files sequentially (slow); every load
+# after that is fast since almost every hour is already cached.
 
 _nan_trend_hour_cache = {}
 _nan_trend_cache_lock = threading.Lock()
@@ -508,29 +434,30 @@ _nan_trend_cache_lock = threading.Lock()
 TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2", "NSA3", "NSA4"]
 
 
-def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
+def _classify_tickets_for_trend(rows):
     """rows: raw ticket row dicts (from fetch_live_rows or a downloaded
     backup snapshot - same shape either way). Returns (category_counts,
-    sa_mobile_by_district, sa_mobile_by_classification) for tickets matched
-    to a Nan site, the same CINAME-or-SUBJECT matching used for the main
-    map."""
+    sa_mobile_by_district, sa_mobile_by_province, sa_mobile_by_classification)
+    for every NOR1/NOR2 ticket - no site matching needed, every row already
+    carries its own province/district."""
     counts = {k: 0 for k in TREND_CATEGORIES}
     sa_mobile_by_district = {}
+    sa_mobile_by_province = {}
     sa_mobile_by_classification = {}
     for r in rows:
+        region = str(r.get("Region", "")).strip()
+        if region not in PENDING_TICKET_REGIONS:
+            continue
         sev = str(r.get("SEVERITY", "")).strip()
         if sev not in ALLOWED_SEVERITIES:
-            continue
-        ciname = str(r.get("CINAME", "")).strip().upper()
-        subject = str(r.get("SUBJECT", "")).upper()
-        matched = ciname in nan_ids_upper or any(loc in subject for loc in nan_ids_upper)
-        if not matched:
             continue
         bm = _exclusive_bookmark_label(r.get("Bookmark"))
         if bm == "7.MB with SA1-4":
             counts["SA Mobile"] += 1
             district = str(r.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
             sa_mobile_by_district[district] = sa_mobile_by_district.get(district, 0) + 1
+            province = _ticket_province(r)
+            sa_mobile_by_province[province] = sa_mobile_by_province.get(province, 0) + 1
             cat = _last_classification_segment(r.get("CLASSIFICATION"))
             sa_mobile_by_classification[cat] = sa_mobile_by_classification.get(cat, 0) + 1
         elif bm == "4.FBB with SA1-4":
@@ -541,10 +468,10 @@ def _classify_nan_tickets_for_trend(rows, nan_ids_upper):
             counts["NSA3"] += 1
         elif sev == "NSA4":
             counts["NSA4"] += 1
-    return counts, sa_mobile_by_district, sa_mobile_by_classification
+    return counts, sa_mobile_by_district, sa_mobile_by_province, sa_mobile_by_classification
 
 
-def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour):
+def _get_hour_classification(gs_client, drive_service, hour_dt, current_hour):
     """Cached per-hour lookup - the current hour always refetched live,
     every past hour cached forever once computed. Backup files land near
     :29 past each hour (same pattern run_hourly_job already relies on), so
@@ -552,7 +479,7 @@ def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, c
     hour_key = hour_dt.strftime("%Y-%m-%dT%H:00")
     if hour_dt == current_hour:
         rows = fetch_live_rows(gs_client)
-        return _classify_nan_tickets_for_trend(rows, nan_ids_upper)
+        return _classify_tickets_for_trend(rows)
 
     with _nan_trend_cache_lock:
         cached = _nan_trend_hour_cache.get(hour_key)
@@ -562,71 +489,66 @@ def _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, c
     search_target = hour_dt.replace(minute=29)
     file_info = find_closest_file(drive_service, search_target, window_minutes=25)
     if file_info is None:
-        result = ({k: None for k in TREND_CATEGORIES}, {}, {})
+        result = ({k: None for k in TREND_CATEGORIES}, {}, {}, {})
     else:
         file_id, _matched_dt, _filename = file_info
         backup_rows = download_xlsx_as_rows(drive_service, file_id)
-        result = _classify_nan_tickets_for_trend(backup_rows, nan_ids_upper)
+        result = _classify_tickets_for_trend(backup_rows)
 
     with _nan_trend_cache_lock:
         _nan_trend_hour_cache[hour_key] = result
     return result
 
 
-def build_nan_trends(gs_client, drive_service, hours=24, top_classifications=6):
-    """Returns three trend charts in one pass (they need the same per-hour
+def _top_n_series(by_hour, labels, top_n):
+    """Picks the top-N keys by total volume across the whole window,
+    folding everything else into 'Other' - an unbounded categorical field
+    would otherwise produce an unreadable number of lines."""
+    totals = {}
+    for hour_key in labels:
+        for k, n in by_hour[hour_key].items():
+            totals[k] = totals.get(k, 0) + (n or 0)
+    top_keys = [k for k, _ in sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top_n]]
+    has_other = len(totals) > len(top_keys)
+    series = {k: [by_hour[hour_key].get(k, 0) for hour_key in labels] for k in top_keys}
+    if has_other:
+        other_keys = set(totals) - set(top_keys)
+        series["Other"] = [sum(by_hour[hour_key].get(k, 0) for k in other_keys) for hour_key in labels]
+    return series
+
+
+def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=6, top_districts=10):
+    """Returns four trend charts in one pass (they need the same per-hour
     downloads, so computing them together avoids fetching each backup file
-    3x): the 5-category hourly ticket count trend, the SA-Mobile-only
-    per-district hourly trend, and the SA-Mobile-only per-Classification
-    hourly trend (top N categories by total volume, rest folded into
-    'Other'), all over the last `hours` hours."""
-    sites = fetch_nan_sites(gs_client)
-    nan_ids_upper = {s["location_id"].upper() for s in sites}
+    4x): the 5-category hourly ticket count trend, the SA-Mobile-only
+    per-district hourly trend (top N), the SA-Mobile-only per-province
+    hourly trend, and the SA-Mobile-only per-Classification hourly trend
+    (top N), all over the last `hours` hours, region-wide."""
     current_hour = bangkok_now().replace(minute=0, second=0, microsecond=0)
     all_hours = [current_hour - timedelta(hours=i) for i in range(hours - 1, -1, -1)]  # oldest -> newest
 
     labels = []
     category_series = {k: [] for k in TREND_CATEGORIES}
     district_by_hour = {}
+    province_by_hour = {}
     classification_by_hour = {}
     for hour_dt in all_hours:
         hour_key = hour_dt.strftime("%Y-%m-%dT%H:00")
         labels.append(hour_key)
-        counts, dist_counts, class_counts = _get_hour_classification(gs_client, drive_service, nan_ids_upper, hour_dt, current_hour)
+        counts, dist_counts, prov_counts, class_counts = _get_hour_classification(gs_client, drive_service, hour_dt, current_hour)
         for k in TREND_CATEGORIES:
             category_series[k].append(counts.get(k))
         district_by_hour[hour_key] = dist_counts
+        province_by_hour[hour_key] = prov_counts
         classification_by_hour[hour_key] = class_counts
 
-    all_districts = sorted({d for hour_key in labels for d in district_by_hour[hour_key]})
-    district_series = {
-        d: [district_by_hour[hour_key].get(d, 0) for hour_key in labels]
-        for d in all_districts
-    }
-
-    # Pick the top-N Classification categories by total volume across the
-    # whole window, folding everything else into "Other" - an unbounded
-    # categorical field would otherwise produce an unreadable number of lines.
-    classification_totals = {}
-    for hour_key in labels:
-        for cat, n in classification_by_hour[hour_key].items():
-            classification_totals[cat] = classification_totals.get(cat, 0) + (n or 0)
-    top_cats = [c for c, _ in sorted(classification_totals.items(), key=lambda kv: kv[1], reverse=True)[:top_classifications]]
-    has_other = len(classification_totals) > len(top_cats)
-    classification_series = {
-        cat: [classification_by_hour[hour_key].get(cat, 0) for hour_key in labels]
-        for cat in top_cats
-    }
-    if has_other:
-        other_cats = set(classification_totals) - set(top_cats)
-        classification_series["Other"] = [
-            sum(classification_by_hour[hour_key].get(c, 0) for c in other_cats)
-            for hour_key in labels
-        ]
+    district_series = _top_n_series(district_by_hour, labels, top_districts)
+    province_series = _top_n_series(province_by_hour, labels, 999)  # small, fixed set of provinces - no real cap needed
+    classification_series = _top_n_series(classification_by_hour, labels, top_classifications)
 
     return {
         "ticket_trend": {"dates": labels, "series": category_series},
-        "district_trend_sa_mobile": {"dates": labels, "districts": all_districts, "series": district_series},
+        "district_trend_sa_mobile": {"dates": labels, "districts": list(district_series.keys()), "series": district_series},
+        "province_trend_sa_mobile": {"dates": labels, "provinces": list(province_series.keys()), "series": province_series},
         "classification_trend_sa_mobile": {"dates": labels, "categories": list(classification_series.keys()), "series": classification_series},
     }
-
