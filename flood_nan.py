@@ -18,6 +18,7 @@ this module's scope change.
 """
 
 import logging
+import re
 import threading
 import time
 import uuid
@@ -100,11 +101,10 @@ WORKLOAD_BOOKMARKS = {"SA Mobile", "Online", "NSA1-2"}
 WORKLOAD_NOD_SEVERITIES = {"SA4"}
 WORKLOAD_OFC_SEVERITIES = {"SA1", "SA2", "SA3", "NSA1", "NSA2"}
 
-
 # Static province -> region fallback (standard Upper North / Lower North
-# split) for the Workload table specifically - a province with zero
-# current tickets still needs a region to group under, but province_region
-# (derived from live ticket data above) has no entry for it in that case.
+# split) - a province with zero current tickets still needs a region to
+# group under, but province_region (derived from live ticket data) has no
+# entry for it in that case.
 PROVINCE_REGION_FALLBACK = {
     "เชียงใหม่": "NOR1", "เชียงราย": "NOR1", "ลำปาง": "NOR1", "ลำพูน": "NOR1",
     "แม่ฮ่องสอน": "NOR1", "น่าน": "NOR1", "แพร่": "NOR1", "พะเยา": "NOR1",
@@ -369,7 +369,7 @@ def build_flood_nan_response(gs_client=None):
     unique_sites_by_province.sort(key=lambda r: -r["total"])
     unique_sites_affected = len({t["CINAME"].upper() for t in tickets if t["CINAME"]})
 
-    # NOD/OFC workload calculator: real team headcount per province (from
+    # NOD/OFC workload calculator: real team headcount per site code (from
     # the reference table, PROVINCE_TEAM_COUNTS) - ticket counts (SA
     # Mobile/Online/NSA1-2 only; SA4 -> NOD's workload, SA1-3+NSA1-2 ->
     # OFC's) get DIVIDED by team count to give workload PER TEAM, not a

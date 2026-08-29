@@ -24,6 +24,7 @@ from pending_ticket import (
 import oncall
 import oncall_escalation
 import flood_nan
+import weather_layers
 import team_planner
 import summary_nan
 import auth
@@ -2340,6 +2341,23 @@ def api_flood_nan_trends():
         return jsonify(data)
     except Exception as e:
         log.exception("flood-nan trends API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/weather/rainfall-accumulation')
+def api_rainfall_accumulation():
+    """Trailing rainfall accumulation (mm) per province, from Open-Meteo -
+    one sample point per province (capital-city coordinates), since
+    Open-Meteo has no gridded/raster endpoint to draw a smooth heatmap
+    from. ?hours=24|48|72 (defaults to 24). Cached 15 min per distinct
+    hours value."""
+    try:
+        hours = int(request.args.get('hours', 24))
+        if hours not in (24, 48, 72):
+            return jsonify({'error': 'hours must be 24, 48, or 72'}), 400
+        data = weather_layers.build_rainfall_accumulation(hours)
+        return jsonify({'hours': hours, 'points': data})
+    except Exception as e:
+        log.exception("rainfall-accumulation API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/summary-nan')
