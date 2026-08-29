@@ -101,6 +101,18 @@ WORKLOAD_NOD_SEVERITIES = {"SA4"}
 WORKLOAD_OFC_SEVERITIES = {"SA1", "SA2", "SA3", "NSA1", "NSA2"}
 
 
+# Static province -> region fallback (standard Upper North / Lower North
+# split) for the Workload table specifically - a province with zero
+# current tickets still needs a region to group under, but province_region
+# (derived from live ticket data above) has no entry for it in that case.
+PROVINCE_REGION_FALLBACK = {
+    "เชียงใหม่": "NOR1", "เชียงราย": "NOR1", "ลำปาง": "NOR1", "ลำพูน": "NOR1",
+    "แม่ฮ่องสอน": "NOR1", "น่าน": "NOR1", "แพร่": "NOR1", "พะเยา": "NOR1",
+    "กำแพงเพชร": "NOR2", "เพชรบูรณ์": "NOR2", "พิจิตร": "NOR2", "พิษณุโลก": "NOR2",
+    "สุโขทัย": "NOR2", "ตาก": "NOR2", "อุตรดิตถ์": "NOR2",
+}
+
+
 def _to_float(v):
     try:
         f = float(str(v).strip())
@@ -226,28 +238,31 @@ def build_flood_nan_response(gs_client=None):
     sites_nsa34 = _build_site_group(tickets_nsa34, lambda _tk: "#F5C518")
 
     # A combined "all sites" list is still needed for DN table / infographic
-    # / unique-site counts, which look across every bookmark at once.
-    site_markers = []
-    seen_ciname = set()
-    for group in (sites_mobile_online, sites_nsa12, sites_nsa34):
-        for s in group:
-            key = s["location_id"].upper()
-            if key in seen_ciname:
-                continue
-            seen_ciname.add(key)
-            site_markers.append(s)
-    # Give the combined list a severity-based color too (used by DN table
-    # icon logic / infographic, which key off worst severity, not bookmark).
+    # / unique-site counts, which look across every bookmark at once. Built
+    # from FRESH dict copies (not shared references into the 3 per-bookmark
+    # groups above) - reusing the same object and then recoloring it here
+    # was silently overwriting sites_mobile_online's Mobile/Online color
+    # with a severity-based color for any site that also had an NSA1-2 or
+    # NSA3-4 ticket, since Python dicts are mutable references.
     site_ticket_lookup = {}
     for t in tickets:
         ciname = t["CINAME"].upper()
         if ciname:
             site_ticket_lookup.setdefault(ciname, []).append(t)
-    for s in site_markers:
-        all_tks = site_ticket_lookup.get(s["location_id"].upper(), [])
+
+    combined_by_ciname = {}
+    for group in (sites_mobile_online, sites_nsa12, sites_nsa34):
+        for s in group:
+            key = s["location_id"].upper()
+            if key not in combined_by_ciname:
+                combined_by_ciname[key] = dict(s)  # shallow copy - isolates this list's own "color" from the source group's
+    site_markers = []
+    for key, s in combined_by_ciname.items():
+        all_tks = site_ticket_lookup.get(key, [])
         if all_tks:
             best = min(all_tks, key=lambda tk: SEVERITY_RANK.get(tk["SEVERITY"], 9))
             s["color"] = SEVERITY_COLOR.get(best["SEVERITY"])
+        site_markers.append(s)
 
     # Province x Bookmark matrix, ticket counts (drives both the table and
     # its heatmap shading on the frontend). Also tracks each province's
@@ -343,7 +358,7 @@ def build_flood_nan_response(gs_client=None):
         nod_per_team = round(tickets_n["NOD"] / teams_n["NOD"], 2) if teams_n["NOD"] else None
         ofc_per_team = round(tickets_n["OFC"] / teams_n["OFC"], 2) if teams_n["OFC"] else None
         workload_table.append({
-            "province": prov,
+            "province": prov, "region": province_region.get(prov) or PROVINCE_REGION_FALLBACK.get(prov, "(ไม่ระบุ Region)"),
             "nod_tickets": tickets_n["NOD"], "nod_teams": teams_n["NOD"], "nod_per_team": nod_per_team,
             "ofc_tickets": tickets_n["OFC"], "ofc_teams": teams_n["OFC"], "ofc_per_team": ofc_per_team,
         })
@@ -614,16 +629,19 @@ def _get_hour_classification(gs_client, drive_service, hour_dt, current_hour):
     return result
 
 
-def _top_n_series(by_hour, labels, top_n):
+def _top_n_series(by_hour, labels, top_n, include_other=True):
     """Picks the top-N keys by total volume across the whole window,
-    folding everything else into 'Other' - an unbounded categorical field
-    would otherwise produce an unreadable number of lines."""
+    optionally folding everything else into 'Other' - an unbounded
+    categorical field would otherwise produce an unreadable number of
+    lines. include_other=False just drops the rest entirely (used for
+    District, where "everything outside the top 10" isn't wanted at all,
+    not even as a combined line)."""
     totals = {}
     for hour_key in labels:
         for k, n in by_hour[hour_key].items():
             totals[k] = totals.get(k, 0) + (n or 0)
     top_keys = [k for k, _ in sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:top_n]]
-    has_other = len(totals) > len(top_keys)
+    has_other = include_other and len(totals) > len(top_keys)
     series = {k: [by_hour[hour_key].get(k, 0) for hour_key in labels] for k in top_keys}
     if has_other:
         other_keys = set(totals) - set(top_keys)
@@ -656,7 +674,7 @@ def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=4, 
         province_by_hour[hour_key] = prov_counts
         classification_by_hour[hour_key] = class_counts
 
-    district_series = _top_n_series(district_by_hour, labels, top_districts)
+    district_series = _top_n_series(district_by_hour, labels, top_districts, include_other=False)
     province_series = _top_n_series(province_by_hour, labels, top_provinces)  # top 10 provinces, rest folded into "Other"
     classification_series = _top_n_series(classification_by_hour, labels, top_classifications)
 
