@@ -107,10 +107,12 @@ tbody .oe-sticky-2 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 #rm-map-wrap.rm-map-fullscreen #rm-map { height: calc(100vh - 32px) !important; }
 #fn-map-mobile-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map-mobile-wrap.rm-map-fullscreen #fn-map-mobile { height: calc(100vh - 32px) !important; }
+#fn-map-dn-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#fn-map-dn-wrap.rm-map-fullscreen #fn-map-dn { height: calc(100vh - 32px) !important; }
 #fn-map-nsa12-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #fn-map-nsa12-wrap.rm-map-fullscreen #fn-map-nsa12 { height: calc(100vh - 32px) !important; }
-#fn-map-nsa34-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
-#fn-map-nsa34-wrap.rm-map-fullscreen #fn-map-nsa34 { height: calc(100vh - 32px) !important; }
+#fn-map-nsa34power-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
+#fn-map-nsa34power-wrap.rm-map-fullscreen #fn-map-nsa34power { height: calc(100vh - 32px) !important; }
 #sn-map-wrap.rm-map-fullscreen { position: fixed; inset: 0; z-index: 9999; background: var(--bg); padding: 16px; }
 #sn-map-wrap.rm-map-fullscreen #sn-map { height: calc(100vh - 32px) !important; }
 
@@ -1078,7 +1080,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:center;">
         <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
-          <input type="checkbox" id="fn-radar-toggle"> 🌧️ Realtime Rain Radar
+          <input type="checkbox" id="fn-radar-toggle" checked> 🌧️ Realtime Rain Radar
         </label>
         <div id="fn-radar-controls" style="display:none; align-items:center; gap:6px;">
           <button id="fn-radar-prev" class="btn-secondary" style="font-size:11px; padding:2px 8px;">‹</button>
@@ -1116,32 +1118,52 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">🗺️ MAP SA1-4
-          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>Mobile</span>
-          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#1f6feb;display:inline-block;"></span>Online</span>
+          <span id="fn-map-mobile-legend-mobile" style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>Mobile</span>
+          <span id="fn-map-mobile-legend-online" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#1f6feb;display:inline-block;"></span>Online</span>
         </div>
         <div id="fn-map-mobile-wrap" style="position:relative;">
-          <button id="fn-map-mobile-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
+            <button id="fn-map-mobile-source-toggle" title="สลับ Mobile / Online" style="height:30px; padding:0 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:12px; font-weight:600;">📱 Mobile</button>
+            <button id="fn-map-mobile-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          </div>
           <div id="fn-map-mobile" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
         </div>
       </div>
 
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP DN (ไซต์สำคัญ)
+          <span style="font-size:11px; font-weight:400; color:var(--text3);">SMALL EXCHANGE / Exchange Node — ทุก Bookmark</span>
+        </div>
+        <div id="fn-map-dn-wrap" style="position:relative;">
+          <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
+            <button id="fn-map-dn-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          </div>
+          <div id="fn-map-dn" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA1-2
-          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#EF9F27;display:inline-block;"></span>NSA1-2</span>
+          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#EF9F27;display:inline-block;"></span>NSA1-2 (ไม่รวม DN)</span>
         </div>
         <div id="fn-map-nsa12-wrap" style="position:relative;">
-          <button id="fn-map-nsa12-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
+            <button id="fn-map-nsa12-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          </div>
           <div id="fn-map-nsa12" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
         </div>
       </div>
 
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4
-          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#F5C518;display:inline-block;"></span>NSA3-4</span>
-        </div>
-        <div id="fn-map-nsa34-wrap" style="position:relative;">
-          <button id="fn-map-nsa34-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-          <div id="fn-map-nsa34" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4 (NOC-NW-POWER SYSTEM)</div>
+        <div id="fn-map-nsa34power-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:10.5px;"></div>
+        <div id="fn-map-nsa34power-wrap" style="position:relative;">
+          <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
+            <button id="fn-map-nsa34power-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          </div>
+          <div id="fn-map-nsa34power" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
         </div>
       </div>
     </div>
@@ -7265,7 +7287,8 @@ function renderPivot(ft) {
     ['insert_time', 'insert_time'],
   ];
 
-  const MAP_KEYS = ['mobile', 'nsa12', 'nsa34'];
+  const MAP_KEYS = ['mobile', 'dn', 'nsa12', 'nsa34power'];
+  let mobileSourceMode = 'mobile'; // 'mobile' | 'online' - which set Map 1 currently shows
 
   function ensureMapFor(key) {
     if (maps[key] && maps[key].map) return maps[key];
@@ -7428,10 +7451,33 @@ function renderPivot(ft) {
   }
 
   function renderAllMaps(data) {
-    renderMapFor('mobile', data.sites_mobile_online || []);
+    lastData = data; // ensure available for the mobile/online toggle re-render below
+    renderMapFor('mobile', (mobileSourceMode === 'mobile' ? data.sites_mobile : data.sites_online) || []);
+    renderMapFor('dn', data.sites_dn || []);
     renderMapFor('nsa12', data.sites_nsa12 || []);
-    renderMapFor('nsa34', data.sites_nsa34 || []);
+    renderMapFor('nsa34power', data.sites_nsa34_power || []);
+    renderPowerSubclassLegend(data.power_subclass_legend || []);
   }
+
+  function renderPowerSubclassLegend(legend) {
+    const container = el('fn-map-nsa34power-legend');
+    if (!legend.length) { container.innerHTML = `<span style="color:var(--text3);">ไม่มี ticket ในกลุ่ม NOC-NW-POWER SYSTEM ตอนนี้</span>`; return; }
+    container.innerHTML = legend.map(l =>
+      `<span style="display:flex; align-items:center; gap:4px;"><span style="width:9px;height:9px;border-radius:50%;background:${l.color};display:inline-block;"></span>${escapeHtml(l.label)} (${l.count})</span>`
+    ).join('');
+  }
+
+  function setMobileSourceMode(mode) {
+    mobileSourceMode = mode;
+    const btn = el('fn-map-mobile-source-toggle');
+    btn.textContent = mode === 'mobile' ? '📱 Mobile' : '🌐 Online';
+    el('fn-map-mobile-legend-mobile').style.display = mode === 'mobile' ? 'flex' : 'none';
+    el('fn-map-mobile-legend-online').style.display = mode === 'online' ? 'flex' : 'none';
+    if (lastData) renderMapFor('mobile', (mode === 'mobile' ? lastData.sites_mobile : lastData.sites_online) || []);
+  }
+  el('fn-map-mobile-source-toggle').addEventListener('click', () => {
+    setMobileSourceMode(mobileSourceMode === 'mobile' ? 'online' : 'mobile');
+  });
 
   // ── Weather layers: Realtime Rain Radar (RainViewer) + Rainfall
   // Accumulation (Open-Meteo) - applied uniformly to all 3 maps at once
@@ -7457,6 +7503,7 @@ function renderPivot(ft) {
   let rvAnimTimer = null;
   let rvRefreshTimer = null;
   let rvLoading = false;
+  let radarAutoStarted = false;
 
   function radarTileUrl(frame) {
     return rvApiData.host + frame.path + '/' + RAINVIEWER_TILE_SIZE + '/{z}/{x}/{y}/' + RAINVIEWER_COLOR_SCHEME + '/' + RAINVIEWER_OPTIONS + '.png';
@@ -7491,13 +7538,16 @@ function renderPivot(ft) {
     });
   }
 
-  async function loadRainViewerData() {
+  async function loadRainViewerData(autoPlay) {
     try {
       const res = await fetch(RAINVIEWER_API_URL);
       const data = await res.json();
       rvApiData = data;
       rvFrames = [...(data.radar.past || []), ...(data.radar.nowcast || [])];
-      if (radarEnabled && rvFrames.length) showRadarFrame(rvFrames.length - (data.radar.nowcast || []).length - 1);
+      if (radarEnabled && rvFrames.length) {
+        showRadarFrame(rvFrames.length - (data.radar.nowcast || []).length - 1);
+        if (autoPlay && !rvPlaying) playRadarAnimation();
+      }
     } catch (e) {
       console.error('RainViewer load failed', e);
     }
@@ -7515,14 +7565,14 @@ function renderPivot(ft) {
     showRadarFrame(rvPosition + 1);
   }
 
-  function setRadarEnabled(enabled) {
+  function setRadarEnabled(enabled, autoPlay) {
     radarEnabled = enabled;
     el('fn-radar-controls').style.display = enabled ? 'flex' : 'none';
     el('fn-radar-attribution').style.display = (enabled || accumulationHours) ? '' : 'none';
     if (enabled) {
       if (rvRefreshTimer) clearInterval(rvRefreshTimer);
       rvRefreshTimer = setInterval(loadRainViewerData, RADAR_AUTO_REFRESH_MS);
-      loadRainViewerData();
+      loadRainViewerData(autoPlay);
     } else {
       stopRadarAnimation();
       if (rvRefreshTimer) { clearInterval(rvRefreshTimer); rvRefreshTimer = null; }
@@ -7533,7 +7583,7 @@ function renderPivot(ft) {
     }
   }
 
-  el('fn-radar-toggle').addEventListener('change', (e) => setRadarEnabled(e.target.checked));
+  el('fn-radar-toggle').addEventListener('change', (e) => setRadarEnabled(e.target.checked, true));
   el('fn-radar-prev').addEventListener('click', () => { stopRadarAnimation(); showRadarFrame(rvPosition - 1); });
   el('fn-radar-next').addEventListener('click', () => { stopRadarAnimation(); showRadarFrame(rvPosition + 1); });
   el('fn-radar-play').addEventListener('click', () => { if (rvPlaying) stopRadarAnimation(); else playRadarAnimation(); });
@@ -7654,7 +7704,13 @@ function renderPivot(ft) {
     const spec = BOOKMARK_HEAT[bookmark] || { rgb: '139,148,158', textDark: false };
     const intensity = Math.min(1, count / (maxCount || 1));
     const alpha = 0.12 + intensity * 0.58;
-    return { bg: `rgba(${spec.rgb},${alpha.toFixed(2)})`, color: spec.textDark && intensity > 0.45 ? '#1a1300' : '#fff' };
+    // Contrast-aware text: light backgrounds (low intensity) read better
+    // with the bookmark's own dark/saturated tone than stark white; only
+    // switch to white once the background itself is dark enough (higher
+    // intensity) to need it. Applied uniformly across every bookmark
+    // column, not just the ones that happened to need it before.
+    const darkTextColor = '#' + spec.rgb.split(',').map(n => Math.round(parseInt(n) * 0.55)).map(n => n.toString(16).padStart(2, '0')).join('');
+    return { bg: `rgba(${spec.rgb},${alpha.toFixed(2)})`, color: intensity > 0.4 ? '#fff' : darkTextColor };
   }
 
   function renderClassification(cls, provinceRegion) {
@@ -7673,7 +7729,9 @@ function renderPivot(ft) {
         const count = (counts || {})[b] || 0;
         const clickable = !isSubtotal && count > 0;
         const isActive = filterState.province === filterProvince && filterState.bookmarkLabel === b;
-        const heat = heatColorFor(b, count, maxByBookmark[b]);
+        // Subtotal rows stay plain (no heat) - this is a report/management
+        // summary line, not another data point to compare shades against.
+        const heat = isSubtotal ? { bg: '', color: 'var(--text)' } : heatColorFor(b, count, maxByBookmark[b]);
         const bg = isActive ? '#1f6feb55' : heat.bg;
         const onclick = clickable ? ` onclick="window.__fnFilterProvinceBookmark('${esc1(filterProvince)}', '${esc1(b)}')"` : '';
         return `<td${onclick} style="padding:7px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bg ? `background:${bg};` : ''} ${count > 0 ? `font-weight:700; color:${isActive ? '#fff' : heat.color};` : ''}">${count || '–'}</td>`;
@@ -7747,12 +7805,54 @@ function renderPivot(ft) {
     setFilter({ classification: category });
   };
 
+  // ── Generic column sort (click a <th> to sort asc/desc) ────────────────
+  // Applied to the flat-row tables (District, Classification Summary,
+  // Unique Sites, Detail) - each keeps its own sort state + last render
+  // args (keyed by container id) so a header click can just re-invoke the
+  // same render function with the new sort applied.
+  const tableSortState = {};
+  const lastRenderArgs = {};
+
+  function sortRowsGeneric(rows, sortState, valueFn) {
+    if (!sortState || !sortState.col) return rows;
+    const sorted = [...rows];
+    sorted.sort((a, b) => {
+      const av = valueFn(a, sortState.col), bv = valueFn(b, sortState.col);
+      if (typeof av === 'string' || typeof bv === 'string') {
+        return sortState.dir === 'asc' ? String(av).localeCompare(String(bv), 'th') : String(bv).localeCompare(String(av), 'th');
+      }
+      return sortState.dir === 'asc' ? (av - bv) : (bv - av);
+    });
+    return sorted;
+  }
+
+  function sortArrow(containerId, col) {
+    const s = tableSortState[containerId];
+    if (!s || s.col !== col) return '';
+    return s.dir === 'asc' ? ' ▲' : ' ▼';
+  }
+
+  window.__fnToggleSort = function (containerId, col) {
+    const cur = tableSortState[containerId];
+    tableSortState[containerId] = (cur && cur.col === col) ? { col, dir: cur.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'desc' };
+    const args = lastRenderArgs[containerId];
+    if (args) args.fn(...args.args);
+  };
+
+  function sortableTh(containerId, col, label, extraStyle) {
+    return `<th onclick="window.__fnToggleSort('${containerId}','${col}')" style="cursor:pointer; user-select:none; ${extraStyle || ''}">${escapeHtml(label)}${sortArrow(containerId, col)}</th>`;
+  }
+
   function renderBookmarkMatrixTable(containerId, rows, bookmarks, rowKey, rowHeader, filterFn) {
+    lastRenderArgs[containerId] = { fn: renderBookmarkMatrixTable, args: [containerId, rows, bookmarks, rowKey, rowHeader, filterFn] };
     const container = el(containerId);
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const head = bookmarks.map(b => `<th style="padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
+    const sortState = tableSortState[containerId];
+    const sortedRows = sortRowsGeneric(rows, sortState, (r, col) => col === '__label' ? r[rowKey] : (col === '__total' ? (r.total || 0) : ((r.counts || {})[col] || 0)));
+    const thStyle = 'padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);';
+    const head = bookmarks.map(b => sortableTh(containerId, b, b, thStyle)).join('');
     const activeKey = rowKey === 'district' ? filterState.district : filterState.classification;
-    const body = rows.map((r, i) => {
+    const body = sortedRows.map((r, i) => {
       const isActive = activeKey === r[rowKey];
       return `<tr onclick="${filterFn}('${String(r[rowKey]).replace(/'/g, "\\'")}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
         <td style="padding:6px 10px;">${escapeHtml(r[rowKey])}</td>
@@ -7772,8 +7872,8 @@ function renderPivot(ft) {
       <div style="overflow-x:auto; max-height:320px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
-            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">${rowHeader}</th>${head}
-            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
+            ${sortableTh(containerId, '__label', rowHeader, 'padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);')}${head}
+            ${sortableTh(containerId, '__total', 'รวม', 'padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);')}
           </tr></thead>
           <tbody>${body}
             <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
@@ -7795,54 +7895,48 @@ function renderPivot(ft) {
   }
 
   function renderUniqueSitesTable(rows, bookmarks, totalAffected) {
+    lastRenderArgs['fn-unique-sites'] = { fn: renderUniqueSitesTable, args: [rows, bookmarks, totalAffected] };
     const container = el('fn-unique-sites');
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const head = bookmarks.map(b => `<th style="padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
+    const thStyle = 'padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);';
+    const head = bookmarks.map(b => sortableTh('fn-unique-sites', b, b, thStyle)).join('');
     const esc1 = s => String(s).replace(/'/g, "\\'");
 
-    const renderRow = (label, r, isSubtotal) => {
+    // Same per-column heat scale as the Classification matrix, for a
+    // consistent professional look across both tables.
+    const maxByBookmark = {};
+    bookmarks.forEach(b => {
+      maxByBookmark[b] = Math.max(0, ...rows.map(r => (r.counts || {})[b] || 0));
+    });
+
+    // rows arrive sorted by total descending from the backend by default;
+    // a column click overrides that via the shared sort state.
+    const sortState = tableSortState['fn-unique-sites'];
+    const sortedRows = sortRowsGeneric(rows, sortState, (r, col) => col === '__label' ? r.province : (col === '__total' ? (r.total || 0) : ((r.counts || {})[col] || 0)));
+    const body = sortedRows.map(r => {
+      const isActive = filterState.province === r.province && !filterState.bookmarkLabel;
       const cells = bookmarks.map(b => {
         const n = (r.counts || {})[b] || 0;
-        const clickable = !isSubtotal && n > 0;
-        const bActive = !isSubtotal && filterState.province === r.province && filterState.bookmarkLabel === b;
+        const clickable = n > 0;
+        const bActive = filterState.province === r.province && filterState.bookmarkLabel === b;
+        const heat = heatColorFor(b, n, maxByBookmark[b]);
+        const bg = bActive ? '#1f6feb55' : heat.bg;
         const onclick = clickable ? ` onclick="window.__fnFilterProvinceBookmark('${esc1(r.province)}','${esc1(b)}')"` : '';
-        return `<td${onclick} style="padding:6px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bActive ? 'background:#1f6feb33;' : ''} ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
+        return `<td${onclick} style="padding:6px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bg ? `background:${bg};` : ''} ${n > 0 ? `font-weight:700; color:${bActive ? '#fff' : heat.color};` : ''}">${n || '–'}</td>`;
       }).join('');
-      const isActive = !isSubtotal && filterState.province === r.province && !filterState.bookmarkLabel;
-      const rowOnclick = isSubtotal ? '' : ` onclick="window.__fnFilterProvince('${esc1(r.province)}')"`;
-      return `<tr${rowOnclick} style="border-top:1px solid var(--border); background:${isSubtotal ? 'var(--bg3)' : (isActive ? '#E24B4A22' : 'transparent')}; ${isSubtotal ? '' : 'cursor:pointer;'}">
-        <td style="padding:6px 10px; font-weight:${isSubtotal ? '700' : '600'};">${escapeHtml(label)}</td>
+      return `<tr onclick="window.__fnFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); background:${isActive ? '#1f6feb22' : 'transparent'}; cursor:pointer;">
+        <td style="padding:6px 10px; font-weight:600; ${isActive ? 'color:#1f6feb;' : ''}">${escapeHtml(provShort(r.province))}</td>
         ${cells}
         <td style="padding:6px 8px; text-align:center; font-weight:800; background:var(--bg4);">${r.total || '–'}</td>
       </tr>`;
-    };
-
-    // rows already arrive sorted by total descending (backend) - grouping
-    // by region here preserves that relative order within each group.
-    const regionOrder = ['NOR1', 'NOR2'];
-    const byRegion = {};
-    rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
-    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
-
-    let body = '';
-    regions.forEach(reg => {
-      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${bookmarks.length + 2}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
-      const subtotalCounts = {};
-      let subtotalTotal = 0;
-      byRegion[reg].forEach(r => {
-        body += renderRow(provShort(r.province), r, false);
-        bookmarks.forEach(b => { subtotalCounts[b] = (subtotalCounts[b] || 0) + ((r.counts || {})[b] || 0); });
-        subtotalTotal += r.total || 0;
-      });
-      body += renderRow(`${reg} รวม`, { counts: subtotalCounts, total: subtotalTotal }, true);
-    });
+    }).join('');
 
     container.innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:480px;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">จังหวัด</th>${head}
-            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม (Unique)</th>
+            ${sortableTh('fn-unique-sites', '__label', 'จังหวัด', 'padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);')}${head}
+            ${sortableTh('fn-unique-sites', '__total', 'รวม (Unique)', 'padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);')}
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
@@ -7850,7 +7944,7 @@ function renderPivot(ft) {
       <div style="font-size:11px; color:var(--text3); margin-top:6px;">นับไซต์ไม่ซ้ำ ไม่ใช่จำนวน ticket - ไซต์เดียวกันมีหลาย ticket จะนับครั้งเดียว · รวมไซต์ที่กระทบจริงทุกจังหวัด: <b style="color:#E24B4A;">${totalAffected != null ? totalAffected : '–'}</b></div>`;
   }
 
-  function renderWorkloadTable(rows, grandTotal) {
+  function renderWorkloadTable(rows, grandTotal, unmatchedCount) {
     const container = el('fn-workload');
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const esc1 = s => String(s).replace(/'/g, "\\'");
@@ -7927,16 +8021,19 @@ function renderPivot(ft) {
           </tbody>
         </table>
       </div>
-      <div style="font-size:11px; color:var(--text3); margin-top:6px;">Workload/ทีม = จำนวน Ticket ÷ จำนวนทีมจริงของจังหวัดนั้น (จำนวนทีมอ้างอิงจากข้อมูลกำลังพลที่ให้ไว้) - เฉดสีแดงเข้มขึ้นตาม Workload/ทีม ที่สูงขึ้น</div>`;
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">Workload/ทีม = จำนวน Ticket ÷ จำนวนทีมจริงของจังหวัดนั้น (จำนวนทีมอ้างอิงจากข้อมูลกำลังพลที่ให้ไว้) - เฉดสีแดงเข้มขึ้นตาม Workload/ทีม ที่สูงขึ้น${unmatchedCount ? ` · <span style="color:#EF9F27;">⚠️ ${unmatchedCount} ticket ไม่พบใน GGS MatelineX จึงไม่ถูกนับในตารางนี้</span>` : ''}</div>`;
   }
 
   function renderDetailTable(tickets) {
+    lastRenderArgs['fn-detail-table'] = { fn: renderDetailTable, args: [tickets] };
     const table = el('fn-detail-table');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
-    thead.innerHTML = `<tr style="background:var(--bg3);">${DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left;">${label}</th>`).join('')}</tr>`;
+    thead.innerHTML = `<tr style="background:var(--bg3);">${DETAIL_COLS.map(([label, key]) => sortableTh('fn-detail-table', key, label, 'padding:6px 8px; text-align:left;')).join('')}</tr>`;
     const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
-    tbody.innerHTML = tickets.map(t => {
+    const sortState = tableSortState['fn-detail-table'];
+    const sortedTickets = sortRowsGeneric(tickets, sortState, (t, col) => col === 'over_sla_day' ? (t.over_sla_day || 0) : (t[col] || ''));
+    tbody.innerHTML = sortedTickets.map(t => {
       const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
       return `<tr style="border-top:1px solid var(--border);">${DETAIL_COLS.map(([, key]) => {
         if (key === 'SEVERITY') {
@@ -8111,7 +8208,29 @@ function renderPivot(ft) {
     if (!trend) return;
     const ctx = el('fn-classification-trend-chart').getContext('2d');
     const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922'];
-    const shortLabel = c => c === 'Other' ? 'อื่นๆ' : (c.length > 18 ? c.slice(0, 18) + '…' : c);
+    // Strip whatever prefix every real category shares (e.g. all starting
+    // with "NOC-NW-POWER SYSTEM - ...") so the legend shows just the part
+    // that actually distinguishes them - "Other" is excluded from this
+    // computation since it's a catch-all label, not a real category name.
+    const realCategories = trend.categories.filter(c => c !== 'Other');
+    let commonPrefixLen = 0;
+    if (realCategories.length > 1) {
+      const first = realCategories[0];
+      outer:
+      for (let i = 0; i < first.length; i++) {
+        for (const c of realCategories) {
+          if (c[i] !== first[i]) break outer;
+        }
+        commonPrefixLen = i + 1;
+      }
+      // Trim back to the last whole-word boundary so we don't cut mid-word.
+      while (commonPrefixLen > 0 && !/[\s\-\\\/]/.test(first[commonPrefixLen - 1])) commonPrefixLen--;
+    }
+    const shortLabel = c => {
+      if (c === 'Other') return 'อื่นๆ';
+      const trimmed = c.slice(commonPrefixLen).replace(/^[\s\-\\\/]+/, '') || c;
+      return trimmed.length > 22 ? trimmed.slice(0, 22) + '…' : trimmed;
+    };
     const datasets = trend.categories.map((c, i) => ({
       label: c, data: trend.series[c], borderColor: c === 'Other' ? '#8b949e' : palette[i % palette.length],
       backgroundColor: (c === 'Other' ? '#8b949e' : palette[i % palette.length]) + '33', tension: 0.25, spanGaps: true, pointRadius: 2,
@@ -8154,7 +8273,7 @@ function renderPivot(ft) {
       renderClassificationSummaryTable(data.classification_summary, data.extended_bookmark_labels || []);
       renderDistrictSummaryTable(data.district_summary, data.extended_bookmark_labels || []);
       renderUniqueSitesTable(data.unique_sites_by_province, data.extended_bookmark_labels || [], data.unique_sites_affected);
-      renderWorkloadTable(data.workload_table, data.workload_grand_total);
+      renderWorkloadTable(data.workload_table, data.workload_grand_total, data.workload_unmatched_count);
       renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
       renderDnTable(data.dn_sites_with_tickets || []);
       renderDnMissingWarning(data.dn_tickets_not_plotted || []);
@@ -8294,6 +8413,7 @@ function renderPivot(ft) {
   window.initFloodNanTab = function () {
     if (!loaded) reload();
     if (!trendsLoaded) { trendsLoaded = true; loadTrends(); }
+    if (!radarAutoStarted) { radarAutoStarted = true; setRadarEnabled(true, true); }
   };
 })();
 
