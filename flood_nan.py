@@ -237,6 +237,39 @@ def build_flood_nan_response(gs_client=None):
     sites_nsa12 = _build_site_group(tickets_nsa12, lambda _tk: "#EF9F27")
     sites_nsa34 = _build_site_group(tickets_nsa34, lambda _tk: "#F5C518")
 
+    # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on their
+    # map - checked against the ACTUAL built groups (not just the ticket's
+    # own row), since a ticket missing coordinates can still get plotted
+    # correctly if another ticket at the same CINAME has them (see the
+    # lat/lon fallback in _build_site_group above). The only ways a DN
+    # ticket can still be absent after that: no CINAME to group by at all,
+    # or genuinely no ticket at that CINAME (in its bookmark scope) has
+    # coordinates. Surfaced in the API response so "why isn't this DN pin
+    # showing" is directly answerable instead of requiring a code dive.
+    plotted_ciname_by_group = {
+        "7.MB with SA1-4": {s["location_id"].upper() for s in sites_mobile_online},
+        "4.FBB with SA1-4": {s["location_id"].upper() for s in sites_mobile_online},
+        "3. All NW Incident NSA1-2": {s["location_id"].upper() for s in sites_nsa12},
+        "NSA3-4": {s["location_id"].upper() for s in sites_nsa34},
+    }
+    dn_tickets_not_plotted = []
+    for t in tickets:
+        if not t["is_dn"]:
+            continue
+        plotted_set = plotted_ciname_by_group.get(t["Bookmark"], set())
+        ciname_upper = t["CINAME"].upper()
+        if not ciname_upper:
+            reason = "ไม่มี CINAME (Site ID ว่าง)"
+        elif ciname_upper not in plotted_set:
+            reason = "ไม่มีพิกัด LATITUDE/LONGITUDE (ทุก ticket ที่ไซต์นี้ในกลุ่มนี้)"
+        else:
+            continue  # actually plotted fine
+        dn_tickets_not_plotted.append({
+            "TICKETID": t["TICKETID"], "SUBJECT": t["SUBJECT"], "PROVINCE": t["PROVINCE"],
+            "DISTRICT": t["DISTRICT"], "CINAME": t["CINAME"], "Bookmark": t["Bookmark"],
+            "CLASSIFICATION": t["CLASSIFICATION"], "reason": reason,
+        })
+
     # A combined "all sites" list is still needed for DN table / infographic
     # / unique-site counts, which look across every bookmark at once. Built
     # from FRESH dict copies (not shared references into the 3 per-bookmark
@@ -329,7 +362,10 @@ def build_flood_nan_response(gs_client=None):
         all_site_ids = set()
         for s in unique_site_sets[prov].values():
             all_site_ids |= s
-        unique_sites_by_province.append({"province": prov, "counts": counts, "total": len(all_site_ids)})
+        unique_sites_by_province.append({
+            "province": prov, "region": province_region.get(prov) or PROVINCE_REGION_FALLBACK.get(prov, "(ไม่ระบุ Region)"),
+            "counts": counts, "total": len(all_site_ids),
+        })
     unique_sites_by_province.sort(key=lambda r: -r["total"])
     unique_sites_affected = len({t["CINAME"].upper() for t in tickets if t["CINAME"]})
 
@@ -397,6 +433,7 @@ def build_flood_nan_response(gs_client=None):
         "classification_summary": classification_summary,
         "district_summary": district_summary,
         "dn_sites_with_tickets": dn_sites_with_tickets,
+        "dn_tickets_not_plotted": dn_tickets_not_plotted,
         "unique_sites_by_province": unique_sites_by_province,
         "unique_sites_affected": unique_sites_affected,
         "workload_table": workload_table,
