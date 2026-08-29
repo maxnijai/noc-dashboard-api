@@ -50,13 +50,51 @@ CLASSIFICATION_BOOKMARKS = [
 ]
 BOOKMARK_LABEL_LOOKUP = {raw: label for label, raw in CLASSIFICATION_BOOKMARKS}
 
+# Extended 6-column breakdown used by Classification Summary, District, and
+# Unique Sites tables specifically - same 4 buckets, but "SA Mobile" is
+# split into SA1-2 / SA3 / SA4 for closer tracking (SA3/SA4 being the more
+# severe tier within Mobile). The Province x Bookmark heat matrix keeps the
+# plain 4-column CLASSIFICATION_BOOKMARKS set - this split wasn't requested
+# there.
+EXTENDED_BOOKMARK_LABELS = ["SA Mobile (SA1-2)", "SA Mobile (SA3)", "SA Mobile (SA4)", "Online", "NSA1-2", "NSA3-4"]
+
+
+def _extended_bookmark_label(bookmark_label, severity):
+    if bookmark_label != "SA Mobile":
+        return bookmark_label
+    if severity == "SA3":
+        return "SA Mobile (SA3)"
+    if severity == "SA4":
+        return "SA Mobile (SA4)"
+    return "SA Mobile (SA1-2)"
+
 MANUAL_MARKERS_TAB = "FloodNanMarkers"
 MANUAL_MARKERS_HEADER = ["id", "lat", "lon", "remark", "created_by", "created_at"]
 SITE_REMARKS_TAB = "FloodNanSiteRemarks"
 SITE_REMARKS_HEADER = ["location_id", "remark", "updated_by", "updated_at"]
 
-# NOD/OFC workload calculator capacities (jobs per team).
-WORKLOAD_CAPACITY = {"NOD": 3, "OFC": 2}
+# NOD/OFC workload calculator: real team counts per province (from the
+# reference headcount table provided) - ticket counts get DIVIDED by these
+# to give workload-per-team, not raw ticket totals. Keyed by full Thai
+# province name to match PROVINCE straight off the ticket data.
+PROVINCE_TEAM_COUNTS = {
+    "เชียงใหม่": {"NOD": 9, "OFC": 34},
+    "เชียงราย": {"NOD": 5, "OFC": 12},
+    "กำแพงเพชร": {"NOD": 2, "OFC": 3},
+    "ลำปาง": {"NOD": 3, "OFC": 7},
+    "ลำพูน": {"NOD": 1, "OFC": 3},
+    "แม่ฮ่องสอน": {"NOD": 3, "OFC": 10},
+    "น่าน": {"NOD": 3, "OFC": 9},
+    "เพชรบูรณ์": {"NOD": 3, "OFC": 6},
+    "พิจิตร": {"NOD": 2, "OFC": 5},
+    "แพร่": {"NOD": 2, "OFC": 3},
+    "พิษณุโลก": {"NOD": 4, "OFC": 5},
+    "พะเยา": {"NOD": 2, "OFC": 3},
+    "สุโขทัย": {"NOD": 2, "OFC": 3},
+    "ตาก": {"NOD": 3, "OFC": 6},
+    "อุตรดิตถ์": {"NOD": 2, "OFC": 3},
+}
+
 # Only these 3 Bookmark groups count toward workload - NSA3-4 is excluded.
 WORKLOAD_BOOKMARKS = {"SA Mobile", "Online", "NSA1-2"}
 WORKLOAD_NOD_SEVERITIES = {"SA4"}
@@ -128,6 +166,7 @@ def build_flood_nan_response(gs_client=None):
             "TICKETID": r.get("TICKETID", ""), "SEVERITY": str(r.get("SEVERITY", "")).strip(),
             "CREATIONDATE": r.get("CREATIONDATE", ""), "TARGETFINISH": r.get("TARGETFINISH", ""),
             "CINAME": str(r.get("CINAME", "")).strip(),
+            "Region": str(r.get("Region", "")).strip(),
             "PROVINCE": _ticket_province(r), "DISTRICT": str(r.get("DISTRICT", "")).strip(),
             "SUBDISTRICT": str(r.get("SUBDISTRICT", "")).strip(), "SUBJECT": r.get("SUBJECT", ""),
             "Bookmark": bm, "CLASSIFICATION": classification, "CATEGORIES": categories,
@@ -137,68 +176,121 @@ def build_flood_nan_response(gs_client=None):
             "lat": _to_float(r.get("LATITUDE")), "lon": _to_float(r.get("LONGITUDE")),
         })
 
-    # Group into map sites by CINAME - a "site" only exists here because at
-    # least one ticket names it; sites with no open ticket are never shown.
-    sites_by_ciname = {}
+    # Group into map sites by CINAME, split into 3 independent groups by
+    # bookmark scope (for the 3 separate maps) - a site can appear on more
+    # than one map if it has tickets in more than one scope. Each group is
+    # its own CINAME grouping (not a shared one filtered 3 ways) so a site
+    # with tickets in 2 scopes gets its OWN color/ticket-list per map.
+    def _build_site_group(ticket_subset, color_fn):
+        by_ciname = {}
+        for t in ticket_subset:
+            ciname = t["CINAME"].upper()
+            if not ciname:
+                continue
+            entry = by_ciname.setdefault(ciname, {
+                "location_id": t["CINAME"], "province": t["PROVINCE"], "district_e": t["DISTRICT"],
+                "subdistrict_e": t["SUBDISTRICT"], "lat": t["lat"], "lon": t["lon"],
+                "is_dn": False, "tickets": [],
+            })
+            if entry["lat"] is None and t["lat"] is not None:
+                entry["lat"], entry["lon"] = t["lat"], t["lon"]
+            if t["is_dn"]:
+                entry["is_dn"] = True
+            entry["tickets"].append({
+                "TICKETID": t["TICKETID"], "SEVERITY": t["SEVERITY"], "CREATIONDATE": t["CREATIONDATE"],
+                "CINAME": t["CINAME"], "PROVINCE": t["PROVINCE"], "DISTRICT": t["DISTRICT"],
+                "SUBDISTRICT": t["SUBDISTRICT"], "SUBJECT": t["SUBJECT"], "Bookmark": t["Bookmark"],
+                "CLASSIFICATION": t["CLASSIFICATION"],
+            })
+        out = []
+        for ciname, s in by_ciname.items():
+            if s["lat"] is None or s["lon"] is None:
+                continue
+            s["color"] = color_fn(s["tickets"])
+            s["remark"] = site_remarks.get(ciname)
+            out.append(s)
+        return out
+
+    def _mobile_online_color(site_tickets):
+        # Mobile (red) takes priority if a site has both, per the requested
+        # ordering ("MAP SA1-4 Mobile สีแดง Online สีฟ้า").
+        has_mobile = any(tk["Bookmark"] == "7.MB with SA1-4" for tk in site_tickets)
+        return "#E24B4A" if has_mobile else "#1f6feb"
+
+    tickets_mobile_online = [t for t in tickets if t["Bookmark"] in ("7.MB with SA1-4", "4.FBB with SA1-4")]
+    tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2"]
+    tickets_nsa34 = [t for t in tickets if t["Bookmark"] == "NSA3-4"]
+
+    sites_mobile_online = _build_site_group(tickets_mobile_online, _mobile_online_color)
+    sites_nsa12 = _build_site_group(tickets_nsa12, lambda _tk: "#EF9F27")
+    sites_nsa34 = _build_site_group(tickets_nsa34, lambda _tk: "#F5C518")
+
+    # A combined "all sites" list is still needed for DN table / infographic
+    # / unique-site counts, which look across every bookmark at once.
+    site_markers = []
+    seen_ciname = set()
+    for group in (sites_mobile_online, sites_nsa12, sites_nsa34):
+        for s in group:
+            key = s["location_id"].upper()
+            if key in seen_ciname:
+                continue
+            seen_ciname.add(key)
+            site_markers.append(s)
+    # Give the combined list a severity-based color too (used by DN table
+    # icon logic / infographic, which key off worst severity, not bookmark).
+    site_ticket_lookup = {}
     for t in tickets:
         ciname = t["CINAME"].upper()
-        if not ciname:
-            continue
-        entry = sites_by_ciname.setdefault(ciname, {
-            "location_id": t["CINAME"], "province": t["PROVINCE"], "district_e": t["DISTRICT"],
-            "subdistrict_e": t["SUBDISTRICT"], "lat": t["lat"], "lon": t["lon"],
-            "is_dn": False, "tickets": [],
-        })
-        if entry["lat"] is None and t["lat"] is not None:
-            entry["lat"], entry["lon"] = t["lat"], t["lon"]
-        if t["is_dn"]:
-            entry["is_dn"] = True
-        entry["tickets"].append({
-            "TICKETID": t["TICKETID"], "SEVERITY": t["SEVERITY"], "CREATIONDATE": t["CREATIONDATE"],
-            "CINAME": t["CINAME"], "PROVINCE": t["PROVINCE"], "DISTRICT": t["DISTRICT"],
-            "SUBDISTRICT": t["SUBDISTRICT"], "SUBJECT": t["SUBJECT"], "Bookmark": t["Bookmark"],
-            "CLASSIFICATION": t["CLASSIFICATION"],
-        })
-
-    site_markers = []
-    for ciname, s in sites_by_ciname.items():
-        if s["lat"] is None or s["lon"] is None:
-            continue
-        best = min(s["tickets"], key=lambda tk: SEVERITY_RANK.get(tk["SEVERITY"], 9))
-        s["color"] = SEVERITY_COLOR.get(best["SEVERITY"])
-        s["remark"] = site_remarks.get(ciname)
-        site_markers.append(s)
+        if ciname:
+            site_ticket_lookup.setdefault(ciname, []).append(t)
+    for s in site_markers:
+        all_tks = site_ticket_lookup.get(s["location_id"].upper(), [])
+        if all_tks:
+            best = min(all_tks, key=lambda tk: SEVERITY_RANK.get(tk["SEVERITY"], 9))
+            s["color"] = SEVERITY_COLOR.get(best["SEVERITY"])
 
     # Province x Bookmark matrix, ticket counts (drives both the table and
-    # its heatmap shading on the frontend).
+    # its heatmap shading on the frontend). Also tracks each province's
+    # Region (NOR1/NOR2, taken from its tickets) for the region-grouped
+    # rendering with subtotals.
     provinces = sorted({t["PROVINCE"] for t in tickets})
+    province_region = {}
+    for t in tickets:
+        province_region.setdefault(t["PROVINCE"], t["Region"])
     matrix = {prov: {label: 0 for label, _ in CLASSIFICATION_BOOKMARKS} for prov in provinces}
     for t in tickets:
         label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
         if label:
             matrix[t["PROVINCE"]][label] += 1
 
-    # Classification (all provinces) x Bookmark.
+    # Classification (all provinces) x extended Bookmark (SA Mobile split
+    # into SA1-2/SA3/SA4).
     class_bm_totals = {}
     for t in tickets:
         label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
         if not label:
             continue
+        label = _extended_bookmark_label(label, t["SEVERITY"])
         cat = _last_classification_segment(t["CLASSIFICATION"])
-        class_bm_totals.setdefault(cat, {lbl: 0 for lbl, _ in CLASSIFICATION_BOOKMARKS})
+        class_bm_totals.setdefault(cat, {lbl: 0 for lbl in EXTENDED_BOOKMARK_LABELS})
         class_bm_totals[cat][label] += 1
     classification_summary = sorted(
         [{"category": cat, "counts": counts, "total": sum(counts.values())} for cat, counts in class_bm_totals.items()],
         key=lambda r: r["total"], reverse=True,
     )
 
-    # District summary (all provinces) - ticket count per DISTRICT.
-    district_totals = {}
+    # District (all provinces) x extended Bookmark.
+    district_bm_totals = {}
     for t in tickets:
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if not label:
+            continue
+        label = _extended_bookmark_label(label, t["SEVERITY"])
         d = t["DISTRICT"] or "(ไม่ระบุ)"
-        district_totals[d] = district_totals.get(d, 0) + 1
+        district_bm_totals.setdefault(d, {lbl: 0 for lbl in EXTENDED_BOOKMARK_LABELS})
+        district_bm_totals[d][label] += 1
     district_summary = sorted(
-        [{"district": d, "total": total} for d, total in district_totals.items()],
+        [{"district": d, "counts": counts, "total": sum(counts.values())} for d, counts in district_bm_totals.items()],
         key=lambda r: r["total"], reverse=True,
     )
 
@@ -208,16 +300,17 @@ def build_flood_nan_response(gs_client=None):
     # Unique SITE count (not ticket count) per Province x Bookmark - a
     # single physical site with several open tickets should only count
     # once here.
-    unique_site_sets = {prov: {label: set() for label, _ in CLASSIFICATION_BOOKMARKS} for prov in provinces}
+    unique_site_sets = {prov: {label: set() for label in EXTENDED_BOOKMARK_LABELS} for prov in provinces}
     for t in tickets:
         if not t["CINAME"]:
             continue
         label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
         if label:
+            label = _extended_bookmark_label(label, t["SEVERITY"])
             unique_site_sets[t["PROVINCE"]][label].add(t["CINAME"].upper())
     unique_sites_by_province = []
     for prov in provinces:
-        counts = {label: len(unique_site_sets[prov][label]) for label, _ in CLASSIFICATION_BOOKMARKS}
+        counts = {label: len(unique_site_sets[prov][label]) for label in EXTENDED_BOOKMARK_LABELS}
         all_site_ids = set()
         for s in unique_site_sets[prov].values():
             all_site_ids |= s
@@ -225,41 +318,67 @@ def build_flood_nan_response(gs_client=None):
     unique_sites_by_province.sort(key=lambda r: -r["total"])
     unique_sites_affected = len({t["CINAME"].upper() for t in tickets if t["CINAME"]})
 
-    # NOD/OFC workload calculator: SA Mobile/Online/NSA1-2 tickets only,
-    # split by severity - SA4 is NOD's workload, everything else in scope
-    # (SA1-3, NSA1-2) is OFC's.
-    workload_by_province = {}
+    # NOD/OFC workload calculator: real team headcount per province (from
+    # the reference table, PROVINCE_TEAM_COUNTS) - ticket counts (SA
+    # Mobile/Online/NSA1-2 only; SA4 -> NOD's workload, SA1-3+NSA1-2 ->
+    # OFC's) get DIVIDED by team count to give workload PER TEAM, not a
+    # raw ticket total.
+    ticket_counts_by_province = {}
     for t in tickets:
         label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
         if label not in WORKLOAD_BOOKMARKS:
             continue
         prov = t["PROVINCE"]
-        workload_by_province.setdefault(prov, {"NOD": 0, "OFC": 0})
+        ticket_counts_by_province.setdefault(prov, {"NOD": 0, "OFC": 0})
         if t["SEVERITY"] in WORKLOAD_NOD_SEVERITIES:
-            workload_by_province[prov]["NOD"] += 1
+            ticket_counts_by_province[prov]["NOD"] += 1
         elif t["SEVERITY"] in WORKLOAD_OFC_SEVERITIES:
-            workload_by_province[prov]["OFC"] += 1
-    workload_table = sorted(
-        [{"province": p, "nod": c["NOD"], "ofc": c["OFC"], "total": c["NOD"] + c["OFC"]} for p, c in workload_by_province.items()],
-        key=lambda r: -r["total"],
-    )
+            ticket_counts_by_province[prov]["OFC"] += 1
+
+    workload_table = []
+    all_workload_provinces = sorted(set(ticket_counts_by_province) | set(PROVINCE_TEAM_COUNTS))
+    for prov in all_workload_provinces:
+        tickets_n = ticket_counts_by_province.get(prov, {"NOD": 0, "OFC": 0})
+        teams_n = PROVINCE_TEAM_COUNTS.get(prov, {"NOD": 0, "OFC": 0})
+        nod_per_team = round(tickets_n["NOD"] / teams_n["NOD"], 2) if teams_n["NOD"] else None
+        ofc_per_team = round(tickets_n["OFC"] / teams_n["OFC"], 2) if teams_n["OFC"] else None
+        workload_table.append({
+            "province": prov,
+            "nod_tickets": tickets_n["NOD"], "nod_teams": teams_n["NOD"], "nod_per_team": nod_per_team,
+            "ofc_tickets": tickets_n["OFC"], "ofc_teams": teams_n["OFC"], "ofc_per_team": ofc_per_team,
+        })
+    workload_table.sort(key=lambda r: -(r["nod_tickets"] + r["ofc_tickets"]))
     workload_grand_total = {
-        "nod": sum(r["nod"] for r in workload_table),
-        "ofc": sum(r["ofc"] for r in workload_table),
-        "total": sum(r["total"] for r in workload_table),
+        "nod_tickets": sum(r["nod_tickets"] for r in workload_table),
+        "nod_teams": sum(r["nod_teams"] for r in workload_table),
+        "ofc_tickets": sum(r["ofc_tickets"] for r in workload_table),
+        "ofc_teams": sum(r["ofc_teams"] for r in workload_table),
     }
+    if workload_grand_total["nod_teams"]:
+        workload_grand_total["nod_per_team"] = round(workload_grand_total["nod_tickets"] / workload_grand_total["nod_teams"], 2)
+    else:
+        workload_grand_total["nod_per_team"] = None
+    if workload_grand_total["ofc_teams"]:
+        workload_grand_total["ofc_per_team"] = round(workload_grand_total["ofc_tickets"] / workload_grand_total["ofc_teams"], 2)
+    else:
+        workload_grand_total["ofc_per_team"] = None
 
     insert_time = scoped[0].get("insert_time") if scoped else None
 
     return {
         "sites": site_markers,
+        "sites_mobile_online": sites_mobile_online,
+        "sites_nsa12": sites_nsa12,
+        "sites_nsa34": sites_nsa34,
         "tickets": tickets,
         "provinces": provinces,
+        "province_region": province_region,
         "classification": {
             "provinces": provinces,
             "bookmarks": [label for label, _ in CLASSIFICATION_BOOKMARKS],
             "matrix": matrix,
         },
+        "extended_bookmark_labels": EXTENDED_BOOKMARK_LABELS,
         "classification_summary": classification_summary,
         "district_summary": district_summary,
         "dn_sites_with_tickets": dn_sites_with_tickets,
@@ -267,7 +386,6 @@ def build_flood_nan_response(gs_client=None):
         "unique_sites_affected": unique_sites_affected,
         "workload_table": workload_table,
         "workload_grand_total": workload_grand_total,
-        "workload_capacity": WORKLOAD_CAPACITY,
         "insert_time": insert_time,
         "total_sites": len(site_markers),
         "total_tickets": len(tickets),
@@ -431,7 +549,7 @@ def delete_site_remark(gs_client, location_id):
 _nan_trend_hour_cache = {}
 _nan_trend_cache_lock = threading.Lock()
 
-TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2", "NSA3", "NSA4"]
+TREND_CATEGORIES = ["SA Mobile", "SA Online", "NSA1-2"]
 
 
 def _classify_tickets_for_trend(rows):
@@ -464,10 +582,6 @@ def _classify_tickets_for_trend(rows):
             counts["SA Online"] += 1
         if sev in ("NSA1", "NSA2"):
             counts["NSA1-2"] += 1
-        elif sev == "NSA3":
-            counts["NSA3"] += 1
-        elif sev == "NSA4":
-            counts["NSA4"] += 1
     return counts, sa_mobile_by_district, sa_mobile_by_province, sa_mobile_by_classification
 
 
@@ -517,7 +631,7 @@ def _top_n_series(by_hour, labels, top_n):
     return series
 
 
-def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=6, top_districts=10):
+def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=4, top_districts=10, top_provinces=10):
     """Returns four trend charts in one pass (they need the same per-hour
     downloads, so computing them together avoids fetching each backup file
     4x): the 5-category hourly ticket count trend, the SA-Mobile-only
@@ -543,7 +657,7 @@ def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=6, 
         classification_by_hour[hour_key] = class_counts
 
     district_series = _top_n_series(district_by_hour, labels, top_districts)
-    province_series = _top_n_series(province_by_hour, labels, 999)  # small, fixed set of provinces - no real cap needed
+    province_series = _top_n_series(province_by_hour, labels, top_provinces)  # top 10 provinces, rest folded into "Other"
     classification_series = _top_n_series(classification_by_hour, labels, top_classifications)
 
     return {
