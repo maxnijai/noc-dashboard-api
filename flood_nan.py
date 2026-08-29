@@ -98,8 +98,6 @@ PROVINCE_TEAM_COUNTS = {
 
 # Only these 3 Bookmark groups count toward workload - NSA3-4 is excluded.
 WORKLOAD_BOOKMARKS = {"SA Mobile", "Online", "NSA1-2"}
-WORKLOAD_NOD_SEVERITIES = {"SA4"}
-WORKLOAD_OFC_SEVERITIES = {"SA1", "SA2", "SA3", "NSA1", "NSA2"}
 
 # Static province -> region fallback (standard Upper North / Lower North
 # split) - a province with zero current tickets still needs a region to
@@ -143,6 +141,12 @@ def _ticket_province(r):
     return str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุจังหวัด)"
 
 
+# Provinces to exclude entirely from this tab - not part of the NOR1/NOR2
+# scope but occasionally appear on a ticket's PROVINCE field anyway (data
+# entry edge cases); excluded explicitly rather than guessed at.
+EXCLUDED_PROVINCES = {"นครสวรรค์", "สมุทรสาคร"}
+
+
 def _scoped_live_rows(gs_client):
     """Every live ticket row in NOR1/NOR2 with a real severity - the base
     dataset this whole module (map, tables, and trends alike) is built
@@ -166,6 +170,8 @@ def build_flood_nan_response(gs_client=None):
 
     tickets = []
     for r in scoped:
+        if _ticket_province(r) in EXCLUDED_PROVINCES:
+            continue
         bm = _exclusive_bookmark_label(r.get("Bookmark"))
         classification = r.get("CLASSIFICATION", "")
         categories = r.get("CATEGORIES", "")
@@ -188,11 +194,11 @@ def build_flood_nan_response(gs_client=None):
             "lat": _to_float(r.get("LATITUDE")), "lon": _to_float(r.get("LONGITUDE")),
         })
 
-    # Group into map sites by CINAME, split into 3 independent groups by
-    # bookmark scope (for the 3 separate maps) - a site can appear on more
-    # than one map if it has tickets in more than one scope. Each group is
-    # its own CINAME grouping (not a shared one filtered 3 ways) so a site
-    # with tickets in 2 scopes gets its OWN color/ticket-list per map.
+    # Group into map sites by CINAME, split into groups by map scope - a
+    # site can appear on more than one map if it has tickets in more than
+    # one scope. Each group is its own CINAME grouping (not a shared one
+    # filtered N ways) so a site with tickets in 2 scopes gets its OWN
+    # color/ticket-list per map.
     def _build_site_group(ticket_subset, color_fn):
         by_ciname = {}
         for t in ticket_subset:
@@ -223,45 +229,73 @@ def build_flood_nan_response(gs_client=None):
             out.append(s)
         return out
 
-    def _mobile_online_color(site_tickets):
-        # Mobile (red) takes priority if a site has both, per the requested
-        # ordering ("MAP SA1-4 Mobile สีแดง Online สีฟ้า").
-        has_mobile = any(tk["Bookmark"] == "7.MB with SA1-4" for tk in site_tickets)
-        return "#E24B4A" if has_mobile else "#1f6feb"
+    # Map 1 (toggle Mobile/Online) and Map 3 (NSA1-2) exclude DN-matching
+    # tickets - those get their own dedicated map (Map 2) instead, so a DN
+    # ticket doesn't show twice across two different maps.
+    tickets_mobile = [t for t in tickets if t["Bookmark"] == "7.MB with SA1-4" and not t["is_dn"]]
+    tickets_online = [t for t in tickets if t["Bookmark"] == "4.FBB with SA1-4" and not t["is_dn"]]
+    tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2" and not t["is_dn"]]
+    tickets_dn = [t for t in tickets if t["is_dn"]]  # every bookmark, DN is a cross-cutting site attribute
 
-    tickets_mobile_online = [t for t in tickets if t["Bookmark"] in ("7.MB with SA1-4", "4.FBB with SA1-4")]
-    tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2"]
-    tickets_nsa34 = [t for t in tickets if t["Bookmark"] == "NSA3-4"]
-
-    sites_mobile_online = _build_site_group(tickets_mobile_online, _mobile_online_color)
+    sites_mobile = _build_site_group(tickets_mobile, lambda _tk: "#E24B4A")
+    sites_online = _build_site_group(tickets_online, lambda _tk: "#1f6feb")
     sites_nsa12 = _build_site_group(tickets_nsa12, lambda _tk: "#EF9F27")
-    sites_nsa34 = _build_site_group(tickets_nsa34, lambda _tk: "#F5C518")
 
-    # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on their
-    # map - checked against the ACTUAL built groups (not just the ticket's
+    def _dn_color(site_tickets):
+        best = min(site_tickets, key=lambda tk: SEVERITY_RANK.get(tk["SEVERITY"], 9))
+        return SEVERITY_COLOR.get(best["SEVERITY"], "#1f6feb")
+
+    sites_dn = _build_site_group(tickets_dn, _dn_color)
+
+    # Map 4: NSA3-4 tickets specifically under the NOC-NW-POWER SYSTEM
+    # classification branch, sub-colored by the SPECIFIC power-related
+    # issue (the classification's last segment) so different power
+    # problems are visually distinguishable rather than one flat color.
+    # Also excludes DN matches for the same "don't show twice" reason.
+    NOC_NW_POWER_SYSTEM_TAG = "NOC-NW-POWER SYSTEM"
+    POWER_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
+    tickets_nsa34_power = [
+        t for t in tickets
+        if t["Bookmark"] == "NSA3-4" and not t["is_dn"]
+        and NOC_NW_POWER_SYSTEM_TAG in str(t["CLASSIFICATION"] or "").upper()
+    ]
+    power_subclass_counts = {}
+    for t in tickets_nsa34_power:
+        sc = _last_classification_segment(t["CLASSIFICATION"])
+        power_subclass_counts[sc] = power_subclass_counts.get(sc, 0) + 1
+    power_subclass_order = sorted(power_subclass_counts, key=lambda k: -power_subclass_counts[k])
+    power_subclass_colors = {sc: POWER_SUBCLASS_PALETTE[i % len(POWER_SUBCLASS_PALETTE)] for i, sc in enumerate(power_subclass_order)}
+
+    def _power_color(site_tickets):
+        counts = {}
+        for tk in site_tickets:
+            sc = _last_classification_segment(tk["CLASSIFICATION"])
+            counts[sc] = counts.get(sc, 0) + 1
+        best_sc = max(counts, key=counts.get)
+        return power_subclass_colors.get(best_sc, "#8b949e")
+
+    sites_nsa34_power = _build_site_group(tickets_nsa34_power, _power_color)
+    power_subclass_legend = [{"label": sc, "color": power_subclass_colors[sc], "count": power_subclass_counts[sc]} for sc in power_subclass_order]
+
+    # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on the DN
+    # map - checked against the ACTUAL built group (not just the ticket's
     # own row), since a ticket missing coordinates can still get plotted
     # correctly if another ticket at the same CINAME has them (see the
     # lat/lon fallback in _build_site_group above). The only ways a DN
     # ticket can still be absent after that: no CINAME to group by at all,
-    # or genuinely no ticket at that CINAME (in its bookmark scope) has
-    # coordinates. Surfaced in the API response so "why isn't this DN pin
-    # showing" is directly answerable instead of requiring a code dive.
-    plotted_ciname_by_group = {
-        "7.MB with SA1-4": {s["location_id"].upper() for s in sites_mobile_online},
-        "4.FBB with SA1-4": {s["location_id"].upper() for s in sites_mobile_online},
-        "3. All NW Incident NSA1-2": {s["location_id"].upper() for s in sites_nsa12},
-        "NSA3-4": {s["location_id"].upper() for s in sites_nsa34},
-    }
+    # or genuinely no ticket at that CINAME has coordinates. Surfaced in
+    # the API response so "why isn't this DN pin showing" is directly
+    # answerable instead of requiring a code dive.
+    plotted_dn_ciname = {s["location_id"].upper() for s in sites_dn}
     dn_tickets_not_plotted = []
     for t in tickets:
         if not t["is_dn"]:
             continue
-        plotted_set = plotted_ciname_by_group.get(t["Bookmark"], set())
         ciname_upper = t["CINAME"].upper()
         if not ciname_upper:
             reason = "ไม่มี CINAME (Site ID ว่าง)"
-        elif ciname_upper not in plotted_set:
-            reason = "ไม่มีพิกัด LATITUDE/LONGITUDE (ทุก ticket ที่ไซต์นี้ในกลุ่มนี้)"
+        elif ciname_upper not in plotted_dn_ciname:
+            reason = "ไม่มีพิกัด LATITUDE/LONGITUDE (ทุก ticket ที่ไซต์นี้)"
         else:
             continue  # actually plotted fine
         dn_tickets_not_plotted.append({
@@ -270,13 +304,13 @@ def build_flood_nan_response(gs_client=None):
             "CLASSIFICATION": t["CLASSIFICATION"], "reason": reason,
         })
 
-    # A combined "all sites" list is still needed for DN table / infographic
-    # / unique-site counts, which look across every bookmark at once. Built
-    # from FRESH dict copies (not shared references into the 3 per-bookmark
-    # groups above) - reusing the same object and then recoloring it here
-    # was silently overwriting sites_mobile_online's Mobile/Online color
-    # with a severity-based color for any site that also had an NSA1-2 or
-    # NSA3-4 ticket, since Python dicts are mutable references.
+    # A combined "all sites" list is still needed for the DN table /
+    # infographic / unique-site counts, which look across every bookmark
+    # at once. Built from FRESH dict copies (not shared references into
+    # the per-map groups above) - reusing the same object and then
+    # recoloring it here would silently overwrite one map's own color for
+    # any site that also appears on another map, since Python dicts are
+    # mutable references.
     site_ticket_lookup = {}
     for t in tickets:
         ciname = t["CINAME"].upper()
@@ -284,7 +318,7 @@ def build_flood_nan_response(gs_client=None):
             site_ticket_lookup.setdefault(ciname, []).append(t)
 
     combined_by_ciname = {}
-    for group in (sites_mobile_online, sites_nsa12, sites_nsa34):
+    for group in (sites_mobile, sites_online, sites_dn, sites_nsa12, sites_nsa34_power):
         for s in group:
             key = s["location_id"].upper()
             if key not in combined_by_ciname:
@@ -369,22 +403,39 @@ def build_flood_nan_response(gs_client=None):
     unique_sites_by_province.sort(key=lambda r: -r["total"])
     unique_sites_affected = len({t["CINAME"].upper() for t in tickets if t["CINAME"]})
 
-    # NOD/OFC workload calculator: real team headcount per site code (from
-    # the reference table, PROVINCE_TEAM_COUNTS) - ticket counts (SA
-    # Mobile/Online/NSA1-2 only; SA4 -> NOD's workload, SA1-3+NSA1-2 ->
-    # OFC's) get DIVIDED by team count to give workload PER TEAM, not a
-    # raw ticket total.
+    # NOD/OFC workload calculator: real team headcount per province (from
+    # the reference table, PROVINCE_TEAM_COUNTS), divided into ticket
+    # counts get DIVIDED by team count to give workload PER TEAM. The
+    # NOD-vs-OFC split itself now comes from the ACTUAL MatelineX Skill
+    # assignment (GGS Daily sheet, matched by TICKETID == Source Ticket ID
+    # / External TicketID - same lookup team_planner.py already built),
+    # not an SLA/severity-based guess. A ticket not yet in that sheet
+    # can't be confidently assigned either bucket, so it's excluded from
+    # the counts and tracked separately as "unmatched" instead of being
+    # forced into a guessed bucket.
+    from team_planner import build_team_assignment_lookup
+    try:
+        ggs_lookup, _ = build_team_assignment_lookup(gs_client)
+    except Exception:
+        log.exception("GGS Daily Skill lookup failed for workload table - continuing with everything unmatched")
+        ggs_lookup = {}
+
     ticket_counts_by_province = {}
+    workload_unmatched_count = 0
     for t in tickets:
         label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
         if label not in WORKLOAD_BOOKMARKS:
             continue
+        assignment = ggs_lookup.get(str(t["TICKETID"]).strip().upper())
+        skill = (assignment or {}).get("skill", "").strip().upper()
         prov = t["PROVINCE"]
         ticket_counts_by_province.setdefault(prov, {"NOD": 0, "OFC": 0})
-        if t["SEVERITY"] in WORKLOAD_NOD_SEVERITIES:
+        if skill == "NODE":
             ticket_counts_by_province[prov]["NOD"] += 1
-        elif t["SEVERITY"] in WORKLOAD_OFC_SEVERITIES:
+        elif skill == "OFC":
             ticket_counts_by_province[prov]["OFC"] += 1
+        else:
+            workload_unmatched_count += 1
 
     workload_table = []
     all_workload_provinces = sorted(set(ticket_counts_by_province) | set(PROVINCE_TEAM_COUNTS))
@@ -418,9 +469,12 @@ def build_flood_nan_response(gs_client=None):
 
     return {
         "sites": site_markers,
-        "sites_mobile_online": sites_mobile_online,
+        "sites_mobile": sites_mobile,
+        "sites_online": sites_online,
+        "sites_dn": sites_dn,
         "sites_nsa12": sites_nsa12,
-        "sites_nsa34": sites_nsa34,
+        "sites_nsa34_power": sites_nsa34_power,
+        "power_subclass_legend": power_subclass_legend,
         "tickets": tickets,
         "provinces": provinces,
         "province_region": province_region,
@@ -438,6 +492,7 @@ def build_flood_nan_response(gs_client=None):
         "unique_sites_affected": unique_sites_affected,
         "workload_table": workload_table,
         "workload_grand_total": workload_grand_total,
+        "workload_unmatched_count": workload_unmatched_count,
         "insert_time": insert_time,
         "total_sites": len(site_markers),
         "total_tickets": len(tickets),
@@ -686,6 +741,20 @@ def _top_n_series(by_hour, labels, top_n, include_other=True):
     return series
 
 
+_UNSPECIFIED_TREND_KEYS = {"None", "none", "(ไม่ระบุ)", "(ไม่ระบุจังหวัด)"}
+
+
+def _drop_unspecified(by_hour):
+    """Strips 'None'/unspecified entries out of each hour's counts before
+    they ever reach _top_n_series, so an unresolved province/district
+    never shows up as its own line (or gets folded into "Other") on the
+    Province/District trend charts."""
+    return {
+        hour_key: {k: n for k, n in counts.items() if k not in _UNSPECIFIED_TREND_KEYS}
+        for hour_key, counts in by_hour.items()
+    }
+
+
 def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=4, top_districts=10, top_provinces=10):
     """Returns four trend charts in one pass (they need the same per-hour
     downloads, so computing them together avoids fetching each backup file
@@ -711,8 +780,8 @@ def build_nan_trends(gs_client, drive_service, hours=72, top_classifications=4, 
         province_by_hour[hour_key] = prov_counts
         classification_by_hour[hour_key] = class_counts
 
-    district_series = _top_n_series(district_by_hour, labels, top_districts, include_other=False)
-    province_series = _top_n_series(province_by_hour, labels, top_provinces)  # top 10 provinces, rest folded into "Other"
+    district_series = _top_n_series(_drop_unspecified(district_by_hour), labels, top_districts, include_other=False)
+    province_series = _top_n_series(_drop_unspecified(province_by_hour), labels, top_provinces)  # top 10 provinces, rest folded into "Other"
     classification_series = _top_n_series(classification_by_hour, labels, top_classifications)
 
     return {
