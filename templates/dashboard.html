@@ -1075,6 +1075,33 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="fn-filter-chip" style="font-size:11px; margin-top:8px;"></div>
     </div>
 
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:18px; align-items:center;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
+          <input type="checkbox" id="fn-radar-toggle"> 🌧️ Realtime Rain Radar
+        </label>
+        <div id="fn-radar-controls" style="display:none; align-items:center; gap:6px;">
+          <button id="fn-radar-prev" class="btn-secondary" style="font-size:11px; padding:2px 8px;">‹</button>
+          <button id="fn-radar-play" class="btn-secondary" style="font-size:11px; padding:2px 8px; width:30px;">▶</button>
+          <button id="fn-radar-next" class="btn-secondary" style="font-size:11px; padding:2px 8px;">›</button>
+          <span id="fn-radar-time" style="font-size:11px; color:var(--text3); min-width:70px;">–</span>
+        </div>
+        <span style="width:1px; height:20px; background:var(--border);"></span>
+        <div style="display:flex; align-items:center; gap:6px; font-size:12px;">
+          <span>💧 Rainfall Accumulation:</span>
+          <button class="btn-secondary fn-accum-btn" data-hours="" style="font-size:11px; padding:3px 10px;">ปิด</button>
+          <button class="btn-secondary fn-accum-btn" data-hours="24" style="font-size:11px; padding:3px 10px;">24H</button>
+          <button class="btn-secondary fn-accum-btn" data-hours="48" style="font-size:11px; padding:3px 10px;">48H</button>
+          <button class="btn-secondary fn-accum-btn" data-hours="72" style="font-size:11px; padding:3px 10px;">72H</button>
+        </div>
+        <span id="fn-accum-status" style="font-size:11px; color:var(--text3);"></span>
+      </div>
+      <div id="fn-accum-legend" style="display:none; align-items:center; gap:10px; margin-top:8px; font-size:10.5px; flex-wrap:wrap;"></div>
+      <div id="fn-radar-attribution" style="display:none; font-size:10px; color:var(--text3); margin-top:6px;">
+        Weather data by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener" style="color:var(--blue);">RainViewer</a> · Rainfall accumulation by <a href="https://open-meteo.com/" target="_blank" rel="noopener" style="color:var(--blue);">Open-Meteo</a>
+      </div>
+    </div>
+
     <a href="https://nan.thaiwater.net/wl" target="_blank" rel="noopener" style="display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:16px; padding:14px 18px; background:var(--bg2); text-decoration:none; color:inherit;">
       <div style="display:flex; align-items:center; gap:12px;">
         <span style="font-size:22px;">🌊</span>
@@ -7405,6 +7432,177 @@ function renderPivot(ft) {
     renderMapFor('nsa12', data.sites_nsa12 || []);
     renderMapFor('nsa34', data.sites_nsa34 || []);
   }
+
+  // ── Weather layers: Realtime Rain Radar (RainViewer) + Rainfall
+  // Accumulation (Open-Meteo) - applied uniformly to all 3 maps at once
+  // from the single shared control bar above them. RainViewer is called
+  // directly from the browser (public API, no key needed); accumulation
+  // goes through this app's own /api/weather/rainfall-accumulation
+  // (Open-Meteo has no raster/area endpoint, so that route samples one
+  // point per province and this renders them as colored circles, not a
+  // smooth heatmap - an honest reflection of what the data actually is).
+  const RAINVIEWER_API_URL = 'https://api.rainviewer.com/public/weather-maps.json';
+  const RAINVIEWER_TILE_SIZE = 256;
+  const RAINVIEWER_COLOR_SCHEME = 2; // "Universal Blue"
+  const RAINVIEWER_OPTIONS = '1_1'; // smooth=1, snow=1
+  const RADAR_OPACITY = 0.75;
+  const RADAR_AUTO_REFRESH_MS = 10 * 60 * 1000; // 10 min
+  const RADAR_ANIMATION_DELAY_MS = 500;
+
+  let radarEnabled = false;
+  let rvApiData = null;
+  let rvFrames = [];
+  let rvPosition = 0;
+  let rvPlaying = false;
+  let rvAnimTimer = null;
+  let rvRefreshTimer = null;
+  let rvLoading = false;
+
+  function radarTileUrl(frame) {
+    return rvApiData.host + frame.path + '/' + RAINVIEWER_TILE_SIZE + '/{z}/{x}/{y}/' + RAINVIEWER_COLOR_SCHEME + '/' + RAINVIEWER_OPTIONS + '.png';
+  }
+
+  function formatRadarTime(ts) {
+    return new Date(ts * 1000).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function showRadarFrame(position) {
+    if (!rvFrames.length || rvLoading) return;
+    position = ((position % rvFrames.length) + rvFrames.length) % rvFrames.length;
+    rvPosition = position;
+    const frame = rvFrames[position];
+    el('fn-radar-time').textContent = formatRadarTime(frame.time);
+    rvLoading = true;
+    let pending = MAP_KEYS.length;
+    MAP_KEYS.forEach(key => {
+      const state = ensureMapFor(key);
+      const newLayer = L.tileLayer(radarTileUrl(frame), { tileSize: 256, opacity: 0, maxNativeZoom: 7, maxZoom: 18, zIndex: 450 });
+      newLayer.on('load', () => {
+        newLayer.setOpacity(RADAR_OPACITY);
+        if (state.radarLayer) state.map.removeLayer(state.radarLayer);
+        state.radarLayer = newLayer;
+        pending--;
+        if (pending <= 0) {
+          rvLoading = false;
+          if (rvPlaying) rvAnimTimer = setTimeout(() => showRadarFrame(rvPosition + 1), RADAR_ANIMATION_DELAY_MS);
+        }
+      });
+      newLayer.addTo(state.map);
+    });
+  }
+
+  async function loadRainViewerData() {
+    try {
+      const res = await fetch(RAINVIEWER_API_URL);
+      const data = await res.json();
+      rvApiData = data;
+      rvFrames = [...(data.radar.past || []), ...(data.radar.nowcast || [])];
+      if (radarEnabled && rvFrames.length) showRadarFrame(rvFrames.length - (data.radar.nowcast || []).length - 1);
+    } catch (e) {
+      console.error('RainViewer load failed', e);
+    }
+  }
+
+  function stopRadarAnimation() {
+    if (rvAnimTimer) { clearTimeout(rvAnimTimer); rvAnimTimer = null; }
+    rvPlaying = false;
+    el('fn-radar-play').textContent = '▶';
+  }
+
+  function playRadarAnimation() {
+    rvPlaying = true;
+    el('fn-radar-play').textContent = '⏸';
+    showRadarFrame(rvPosition + 1);
+  }
+
+  function setRadarEnabled(enabled) {
+    radarEnabled = enabled;
+    el('fn-radar-controls').style.display = enabled ? 'flex' : 'none';
+    el('fn-radar-attribution').style.display = (enabled || accumulationHours) ? '' : 'none';
+    if (enabled) {
+      if (rvRefreshTimer) clearInterval(rvRefreshTimer);
+      rvRefreshTimer = setInterval(loadRainViewerData, RADAR_AUTO_REFRESH_MS);
+      loadRainViewerData();
+    } else {
+      stopRadarAnimation();
+      if (rvRefreshTimer) { clearInterval(rvRefreshTimer); rvRefreshTimer = null; }
+      MAP_KEYS.forEach(key => {
+        const state = ensureMapFor(key);
+        if (state.radarLayer) { state.map.removeLayer(state.radarLayer); state.radarLayer = null; }
+      });
+    }
+  }
+
+  el('fn-radar-toggle').addEventListener('change', (e) => setRadarEnabled(e.target.checked));
+  el('fn-radar-prev').addEventListener('click', () => { stopRadarAnimation(); showRadarFrame(rvPosition - 1); });
+  el('fn-radar-next').addEventListener('click', () => { stopRadarAnimation(); showRadarFrame(rvPosition + 1); });
+  el('fn-radar-play').addEventListener('click', () => { if (rvPlaying) stopRadarAnimation(); else playRadarAnimation(); });
+
+  // Must match weather_layers.ACCUMULATION_BREAKS exactly (backend already
+  // returns each point's resolved color, but the legend here needs the
+  // same scale definition to describe what those colors mean).
+  const ACCUMULATION_LEGEND = [
+    { label: '0.1–10 มม.', color: '#a8d8ff' },
+    { label: '10–25 มม.', color: '#4aa3f5' },
+    { label: '25–50 มม.', color: '#1f6feb' },
+    { label: '50–100 มม.', color: '#6b3fa0' },
+    { label: '100+ มม.', color: '#c0388a' },
+  ];
+
+  let accumulationHours = '';
+
+  async function setAccumulationMode(hours) {
+    accumulationHours = hours;
+    document.querySelectorAll('.fn-accum-btn').forEach(btn => {
+      const isActive = btn.dataset.hours === String(hours);
+      btn.style.background = isActive ? '#1f6feb' : '';
+      btn.style.color = isActive ? '#fff' : '';
+      btn.style.borderColor = isActive ? '#1f6feb' : '';
+    });
+    el('fn-radar-attribution').style.display = (radarEnabled || hours) ? '' : 'none';
+
+    MAP_KEYS.forEach(key => {
+      const state = ensureMapFor(key);
+      if (!state.accumLayer) state.accumLayer = L.layerGroup().addTo(state.map);
+      state.accumLayer.clearLayers();
+    });
+
+    if (!hours) {
+      el('fn-accum-legend').style.display = 'none';
+      el('fn-accum-status').textContent = '';
+      return;
+    }
+
+    el('fn-accum-status').textContent = 'กำลังโหลด...';
+    try {
+      const res = await fetch('/api/weather/rainfall-accumulation?hours=' + encodeURIComponent(hours));
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      if (accumulationHours !== hours) return; // user switched again before this resolved
+      MAP_KEYS.forEach(key => {
+        const state = ensureMapFor(key);
+        (data.points || []).forEach(p => {
+          if (p.accumulated_mm <= 0) return;
+          const radius = 10 + Math.min(20, p.accumulated_mm / 5);
+          L.circleMarker([p.lat, p.lon], {
+            radius, color: p.color, fillColor: p.color, fillOpacity: 0.55, weight: 2,
+          }).bindTooltip(`${p.name}: ${p.accumulated_mm} มม.`, { direction: 'top' }).addTo(state.accumLayer);
+        });
+      });
+      el('fn-accum-legend').innerHTML = ACCUMULATION_LEGEND.map(l =>
+        `<span style="display:flex; align-items:center; gap:4px;"><span style="width:12px;height:12px;border-radius:50%;background:${l.color};display:inline-block; opacity:.8;"></span>${l.label}</span>`
+      ).join('');
+      el('fn-accum-legend').style.display = 'flex';
+      el('fn-accum-status').textContent = `สะสม ${hours} ชม. ย้อนหลัง (Open-Meteo)`;
+    } catch (e) {
+      console.error('Rainfall accumulation load failed', e);
+      el('fn-accum-status').textContent = 'โหลดไม่สำเร็จ: ' + e.message;
+    }
+  }
+
+  document.querySelectorAll('.fn-accum-btn').forEach(btn => {
+    btn.addEventListener('click', () => setAccumulationMode(btn.dataset.hours));
+  });
 
   function renderManualMarkers() {
     MAP_KEYS.forEach(key => {
