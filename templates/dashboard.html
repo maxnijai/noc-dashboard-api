@@ -1039,9 +1039,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="page" id="page-floodnan">
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
       <div>
-        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px;">
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
           NOR Monitoring
+          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
+          </span>
         </div>
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ที่มี ticket เปิดอยู่ ทุกจังหวัด แยกสีตาม Severity</div>
       </div>
@@ -1083,34 +1086,36 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <span style="font-size:12px; color:var(--blue); white-space:nowrap;">เปิดดู ↗</span>
     </a>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP SA1-4
-        <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>Mobile</span>
-        <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#1f6feb;display:inline-block;"></span>Online</span>
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">🗺️ MAP SA1-4
+          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>Mobile</span>
+          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#1f6feb;display:inline-block;"></span>Online</span>
+        </div>
+        <div id="fn-map-mobile-wrap" style="position:relative;">
+          <button id="fn-map-mobile-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div id="fn-map-mobile" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
       </div>
-      <div id="fn-map-mobile-wrap" style="position:relative;">
-        <button id="fn-map-mobile-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-        <div id="fn-map-mobile" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
-      </div>
-    </div>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA1-2
-        <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#EF9F27;display:inline-block;"></span>NSA1-2</span>
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA1-2
+          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#EF9F27;display:inline-block;"></span>NSA1-2</span>
+        </div>
+        <div id="fn-map-nsa12-wrap" style="position:relative;">
+          <button id="fn-map-nsa12-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div id="fn-map-nsa12" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
       </div>
-      <div id="fn-map-nsa12-wrap" style="position:relative;">
-        <button id="fn-map-nsa12-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-        <div id="fn-map-nsa12" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
-      </div>
-    </div>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4
-        <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#F5C518;display:inline-block;"></span>NSA3-4</span>
-      </div>
-      <div id="fn-map-nsa34-wrap" style="position:relative;">
-        <button id="fn-map-nsa34-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
-        <div id="fn-map-nsa34" style="height:480px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4
+          <span style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#F5C518;display:inline-block;"></span>NSA3-4</span>
+        </div>
+        <div id="fn-map-nsa34-wrap" style="position:relative;">
+          <button id="fn-map-nsa34-expand" title="ขยายเต็มจอ" style="position:absolute; top:8px; right:8px; z-index:1000; width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+          <div id="fn-map-nsa34" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+        </div>
       </div>
     </div>
 
@@ -7179,8 +7184,8 @@ function renderPivot(ft) {
     const chip = el('fn-filter-chip');
     if (!isFilterActive()) { chip.innerHTML = ''; return; }
     let label = '';
-    if (filterState.province && filterState.bookmarkLabel) label = `จังหวัด: ${filterState.province} × ${filterState.bookmarkLabel}`;
-    else if (filterState.province) label = `จังหวัด: ${filterState.province}`;
+    if (filterState.province && filterState.bookmarkLabel) label = `จังหวัด: ${provShort(filterState.province)} × ${filterState.bookmarkLabel}`;
+    else if (filterState.province) label = `จังหวัด: ${provShort(filterState.province)}`;
     else if (filterState.district) label = `District: ${filterState.district}`;
     else if (filterState.classification) label = `Classification: ${filterState.classification}`;
     else if (filterState.severity || filterState.bookmarkRaw) label = `${filterState.severity || ''} ${filterState.bookmarkLabel ? '× ' + filterState.bookmarkLabel : ''}`.trim();
@@ -7207,6 +7212,21 @@ function renderPivot(ft) {
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Short English province codes for display - the underlying filter/data
+  // values everywhere else in this tab stay the raw Thai PROVINCE name
+  // (so click-to-filter keeps comparing against what the ticket data
+  // actually has); this is purely a rendering layer.
+  const PROVINCE_SHORT_MAP = {
+    'เชียงใหม่': 'CMI', 'เชียงราย': 'CRI', 'ลำปาง': 'LPG', 'ลำพูน': 'LPN',
+    'แม่ฮ่องสอน': 'MHS', 'น่าน': 'NAN', 'แพร่': 'PHE', 'พะเยา': 'PYO',
+    'กำแพงเพชร': 'KPP', 'เพชรบูรณ์': 'PCB', 'พิจิตร': 'PCT', 'พิษณุโลก': 'PSN',
+    'สุโขทัย': 'SKT', 'ตาก': 'TAK', 'อุตรดิตถ์': 'UTR',
+  };
+  function provShort(th) {
+    const key = (th || '').trim();
+    return PROVINCE_SHORT_MAP[key] || key || '(ไม่ระบุ)';
   }
 
   const DETAIL_COLS = [
@@ -7305,7 +7325,7 @@ function renderPivot(ft) {
       </div>` : '';
     return `<div style="min-width:220px;">
       <b>${escapeHtml(site.location_id)}</b>${site.is_dn ? ' <span style="color:#1f6feb; font-weight:700;">💧 DN</span>' : ''}<br>
-      <span style="font-size:11px; color:var(--text3);">${escapeHtml(site.province)} · ${escapeHtml(site.district_e)} ${escapeHtml(site.subdistrict_e)}</span><br>
+      <span style="font-size:11px; color:var(--text3);">${escapeHtml(provShort(site.province))} · ${escapeHtml(site.district_e)} ${escapeHtml(site.subdistrict_e)}</span><br>
       <span style="font-size:11px;">CINAME: ${escapeHtml(site.location_id)}</span>
       ${ticketTable}
       ${remarkSection}
@@ -7360,7 +7380,7 @@ function renderPivot(ft) {
       if (s.lat == null || s.lon == null) return;
       const marker = s.is_dn
         ? L.marker([s.lat, s.lon], { icon: dnDivIcon(s.color) })
-        : L.circleMarker([s.lat, s.lon], { radius: s.color ? 7 : 4, color: s.color || '#8b949e', fillColor: s.color || '#8b949e', fillOpacity: 0.85, weight: 1 });
+        : L.circleMarker([s.lat, s.lon], { radius: s.color ? 3 : 2, color: s.color || '#8b949e', fillColor: s.color || '#8b949e', fillOpacity: 0.85, weight: 1 });
       marker.bindPopup(popupHtml(s));
       marker.on('popupopen', () => { popupOpenFor = s.location_id; marker.closeTooltip(); });
       marker.on('popupclose', () => { if (popupOpenFor === s.location_id) popupOpenFor = null; marker.openTooltip(); });
@@ -7484,7 +7504,7 @@ function renderPivot(ft) {
       rows += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${cls.bookmarks.length + 2}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
       const regionSubtotal = {};
       byRegion[reg].forEach(p => {
-        rows += renderRow(p, cls.matrix[p] || {}, false, p);
+        rows += renderRow(provShort(p), cls.matrix[p] || {}, false, p);
         cls.bookmarks.forEach(b => { regionSubtotal[b] = (regionSubtotal[b] || 0) + ((cls.matrix[p] || {})[b] || 0); });
       });
       rows += renderRow(`${reg} รวม`, regionSubtotal, true, null);
@@ -7588,7 +7608,7 @@ function renderPivot(ft) {
         return `<td${onclick} style="padding:6px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bActive ? 'background:#1f6feb33;' : ''} ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
       }).join('');
       return `<tr onclick="window.__fnFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.province)}</td>
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(provShort(r.province))}</td>
         ${cells}
         <td style="padding:6px 8px; text-align:center; font-weight:800; background:var(--bg4);">${r.total}</td>
       </tr>`;
@@ -7611,16 +7631,47 @@ function renderPivot(ft) {
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const fmtPerTeam = v => v == null ? '–' : v.toFixed(2);
-    const body = rows.map((r, i) => `
-      <tr onclick="window.__fnFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'}; cursor:pointer;">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.province)}</td>
+
+    const maxNod = Math.max(0, ...rows.map(r => r.nod_per_team || 0));
+    const maxOfc = Math.max(0, ...rows.map(r => r.ofc_per_team || 0));
+    const workloadHeat = (v, max) => {
+      if (v == null || !v) return '';
+      const intensity = Math.min(1, v / (max || 1));
+      const alpha = 0.12 + intensity * 0.58;
+      return `rgba(226,75,74,${alpha.toFixed(2)})`;
+    };
+
+    const renderRow = (label, r, isSubtotal) => `
+      <tr ${isSubtotal ? '' : `onclick="window.__fnFilterProvince('${esc1(r.province)}')"`} style="border-top:1px solid var(--border); background:${isSubtotal ? 'var(--bg3)' : 'transparent'}; ${isSubtotal ? '' : 'cursor:pointer;'}">
+        <td style="padding:6px 10px; font-weight:${isSubtotal ? '700' : '600'};">${escapeHtml(label)}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text2);">${r.nod_tickets || '–'}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text3);">${r.nod_teams || '–'}</td>
-        <td style="padding:6px 10px; text-align:center; color:#a371f7; font-weight:700;">${fmtPerTeam(r.nod_per_team)}</td>
+        <td style="padding:6px 10px; text-align:center; font-weight:700; ${!isSubtotal ? `background:${workloadHeat(r.nod_per_team, maxNod)};` : ''}">${fmtPerTeam(r.nod_per_team)}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text2); border-left:1px solid var(--border);">${r.ofc_tickets || '–'}</td>
         <td style="padding:6px 10px; text-align:center; color:var(--text3);">${r.ofc_teams || '–'}</td>
-        <td style="padding:6px 10px; text-align:center; color:#1f6feb; font-weight:700;">${fmtPerTeam(r.ofc_per_team)}</td>
-      </tr>`).join('');
+        <td style="padding:6px 10px; text-align:center; font-weight:700; ${!isSubtotal ? `background:${workloadHeat(r.ofc_per_team, maxOfc)};` : ''}">${fmtPerTeam(r.ofc_per_team)}</td>
+      </tr>`;
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="7" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      const regRows = byRegion[reg].sort((a, b) => (b.nod_tickets + b.ofc_tickets) - (a.nod_tickets + a.ofc_tickets));
+      const subtotal = { nod_tickets: 0, nod_teams: 0, ofc_tickets: 0, ofc_teams: 0 };
+      regRows.forEach(r => {
+        body += renderRow(provShort(r.province), r, false);
+        subtotal.nod_tickets += r.nod_tickets; subtotal.nod_teams += r.nod_teams;
+        subtotal.ofc_tickets += r.ofc_tickets; subtotal.ofc_teams += r.ofc_teams;
+      });
+      subtotal.nod_per_team = subtotal.nod_teams ? Math.round((subtotal.nod_tickets / subtotal.nod_teams) * 100) / 100 : null;
+      subtotal.ofc_per_team = subtotal.ofc_teams ? Math.round((subtotal.ofc_tickets / subtotal.ofc_teams) * 100) / 100 : null;
+      body += renderRow(`${reg} รวม`, subtotal, true);
+    });
+
     container.innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -7641,7 +7692,7 @@ function renderPivot(ft) {
           </thead>
           <tbody>${body}
             <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
-              <td style="padding:6px 10px;">รวม</td>
+              <td style="padding:6px 10px;">รวมทั้งหมด</td>
               <td style="padding:6px 10px; text-align:center;">${grandTotal.nod_tickets}</td>
               <td style="padding:6px 10px; text-align:center; color:var(--text3);">${grandTotal.nod_teams}</td>
               <td style="padding:6px 10px; text-align:center; color:#a371f7;">${fmtPerTeam(grandTotal.nod_per_team)}</td>
@@ -7652,7 +7703,7 @@ function renderPivot(ft) {
           </tbody>
         </table>
       </div>
-      <div style="font-size:11px; color:var(--text3); margin-top:6px;">Workload/ทีม = จำนวน Ticket ÷ จำนวนทีมจริงของจังหวัดนั้น (จำนวนทีมอ้างอิงจากข้อมูลกำลังพลที่ให้ไว้)</div>`;
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">Workload/ทีม = จำนวน Ticket ÷ จำนวนทีมจริงของจังหวัดนั้น (จำนวนทีมอ้างอิงจากข้อมูลกำลังพลที่ให้ไว้) - เฉดสีแดงเข้มขึ้นตาม Workload/ทีม ที่สูงขึ้น</div>`;
   }
 
   function renderDetailTable(tickets) {
@@ -7669,6 +7720,9 @@ function renderPivot(ft) {
         }
         if (key === 'over_sla_day') {
           return `<td style="padding:6px 8px; text-align:right;">${(t.over_sla_day || 0).toFixed(1)}</td>`;
+        }
+        if (key === 'PROVINCE') {
+          return `<td style="padding:6px 8px;">${escapeHtml(provShort(t.PROVINCE))}</td>`;
         }
         return `<td style="padding:6px 8px;">${escapeHtml(t[key])}</td>`;
       }).join('')}</tr>`;
@@ -7692,7 +7746,7 @@ function renderPivot(ft) {
         const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
         rows.push(`<tr style="border-top:1px solid var(--border);">
           <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
-          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.province) : ''}</td>
+          <td style="padding:6px 8px;">${i === 0 ? escapeHtml(provShort(s.province)) : ''}</td>
           <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.district_e) : ''}</td>
           <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
           <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
@@ -7912,7 +7966,7 @@ function renderPivot(ft) {
     }).join('');
     svg.innerHTML = circles;
 
-    legend.innerHTML = districts.map(d => `<span style="display:flex; align-items:center; gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${colorOf[d]};display:inline-block;"></span>${escapeInfoHtml(d)}</span>`).join('');
+    legend.innerHTML = districts.map(d => `<span style="display:flex; align-items:center; gap:5px;"><span style="width:9px;height:9px;border-radius:50%;background:${colorOf[d]};display:inline-block;"></span>${escapeInfoHtml(provShort(d))}</span>`).join('');
   }
 
   function escapeInfoHtml(s) {
