@@ -1188,6 +1188,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <tbody></tbody>
         </table>
       </div>
+      <div id="fn-dn-missing" style="margin-top:10px;"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
@@ -7280,8 +7281,8 @@ function renderPivot(ft) {
   function dnDivIcon(color) {
     const fill = color || '#1f6feb';
     return L.divIcon({
-      className: '', iconSize: [34, 42], iconAnchor: [17, 42], popupAnchor: [0, -38], tooltipAnchor: [0, -38],
-      html: `<svg width="34" height="42" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
+      className: '', iconSize: [22, 27], iconAnchor: [11, 27], popupAnchor: [0, -24], tooltipAnchor: [0, -24],
+      html: `<svg width="22" height="27" viewBox="0 0 34 42" xmlns="http://www.w3.org/2000/svg">
         <path d="M17 0C7.6 0 0 7.6 0 17c0 12.7 17 25 17 25s17-12.3 17-25C34 7.6 26.4 0 17 0z" fill="${fill}" stroke="#fff" stroke-width="2"/>
         <path d="M17 10c3 3.5 4.6 6 4.6 8.2a4.6 4.6 0 11-9.2 0c0-2.2 1.6-4.7 4.6-8.2z" fill="#fff"/>
       </svg>`,
@@ -7503,7 +7504,9 @@ function renderPivot(ft) {
     regions.forEach(reg => {
       rows += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${cls.bookmarks.length + 2}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
       const regionSubtotal = {};
-      byRegion[reg].forEach(p => {
+      const provTotal = p => cls.bookmarks.reduce((s, b) => s + ((cls.matrix[p] || {})[b] || 0), 0);
+      const sortedProvinces = [...byRegion[reg]].sort((a, b) => provTotal(b) - provTotal(a));
+      sortedProvinces.forEach(p => {
         rows += renderRow(provShort(p), cls.matrix[p] || {}, false, p);
         cls.bookmarks.forEach(b => { regionSubtotal[b] = (regionSubtotal[b] || 0) + ((cls.matrix[p] || {})[b] || 0); });
       });
@@ -7598,21 +7601,44 @@ function renderPivot(ft) {
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const head = bookmarks.map(b => `<th style="padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
     const esc1 = s => String(s).replace(/'/g, "\\'");
-    const body = rows.map((r, i) => {
-      const isActive = filterState.province === r.province && !filterState.bookmarkLabel;
+
+    const renderRow = (label, r, isSubtotal) => {
       const cells = bookmarks.map(b => {
         const n = (r.counts || {})[b] || 0;
-        const clickable = n > 0;
-        const bActive = filterState.province === r.province && filterState.bookmarkLabel === b;
+        const clickable = !isSubtotal && n > 0;
+        const bActive = !isSubtotal && filterState.province === r.province && filterState.bookmarkLabel === b;
         const onclick = clickable ? ` onclick="window.__fnFilterProvinceBookmark('${esc1(r.province)}','${esc1(b)}')"` : '';
         return `<td${onclick} style="padding:6px 8px; text-align:center; ${clickable ? 'cursor:pointer;' : ''} ${bActive ? 'background:#1f6feb33;' : ''} ${n > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${n || '–'}</td>`;
       }).join('');
-      return `<tr onclick="window.__fnFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); background:${isActive ? '#E24B4A22' : (i % 2 ? 'var(--bg1)' : 'transparent')}; cursor:pointer;">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(provShort(r.province))}</td>
+      const isActive = !isSubtotal && filterState.province === r.province && !filterState.bookmarkLabel;
+      const rowOnclick = isSubtotal ? '' : ` onclick="window.__fnFilterProvince('${esc1(r.province)}')"`;
+      return `<tr${rowOnclick} style="border-top:1px solid var(--border); background:${isSubtotal ? 'var(--bg3)' : (isActive ? '#E24B4A22' : 'transparent')}; ${isSubtotal ? '' : 'cursor:pointer;'}">
+        <td style="padding:6px 10px; font-weight:${isSubtotal ? '700' : '600'};">${escapeHtml(label)}</td>
         ${cells}
-        <td style="padding:6px 8px; text-align:center; font-weight:800; background:var(--bg4);">${r.total}</td>
+        <td style="padding:6px 8px; text-align:center; font-weight:800; background:var(--bg4);">${r.total || '–'}</td>
       </tr>`;
-    }).join('');
+    };
+
+    // rows already arrive sorted by total descending (backend) - grouping
+    // by region here preserves that relative order within each group.
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${bookmarks.length + 2}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      const subtotalCounts = {};
+      let subtotalTotal = 0;
+      byRegion[reg].forEach(r => {
+        body += renderRow(provShort(r.province), r, false);
+        bookmarks.forEach(b => { subtotalCounts[b] = (subtotalCounts[b] || 0) + ((r.counts || {})[b] || 0); });
+        subtotalTotal += r.total || 0;
+      });
+      body += renderRow(`${reg} รวม`, { counts: subtotalCounts, total: subtotalTotal }, true);
+    });
+
     container.innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:480px;">
@@ -7756,6 +7782,33 @@ function renderPivot(ft) {
       });
     });
     tbody.innerHTML = rows.join('');
+  }
+
+  function renderDnMissingWarning(missing) {
+    const container = el('fn-dn-missing');
+    if (!missing || !missing.length) { container.innerHTML = ''; return; }
+    const rows = missing.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:5px 8px;">${escapeHtml(provShort(t.PROVINCE))}</td>
+        <td style="padding:5px 8px;">${escapeHtml(t.DISTRICT)}</td>
+        <td style="padding:5px 8px;">${escapeHtml(t.CINAME) || '(ว่าง)'}</td>
+        <td style="padding:5px 8px; color:#EF9F27;">${escapeHtml(t.reason)}</td>
+        <td style="padding:5px 8px; white-space:normal; color:var(--text3);">${escapeHtml(t.SUBJECT)}</td>
+      </tr>`).join('');
+    container.innerHTML = `
+      <div style="border:1px solid #EF9F2755; background:#EF9F2712; border-radius:var(--r); padding:10px 12px;">
+        <div style="font-size:12px; font-weight:700; color:#EF9F27; margin-bottom:6px;">⚠️ พบ ${missing.length} ticket ที่เข้าเกณฑ์ DN แต่ไม่ขึ้นบน Map (ข้อมูลไม่ครบ)</div>
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%;">
+            <thead><tr style="color:var(--text3); text-align:left;">
+              <th style="padding:4px 8px;">TICKETID</th><th style="padding:4px 8px;">Province</th><th style="padding:4px 8px;">District</th>
+              <th style="padding:4px 8px;">CINAME</th><th style="padding:4px 8px;">สาเหตุ</th><th style="padding:4px 8px;">SUBJECT</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
   }
 
   async function loadManualMarkers() {
@@ -7906,6 +7959,7 @@ function renderPivot(ft) {
       renderWorkloadTable(data.workload_table, data.workload_grand_total);
       renderDetailTable((data.tickets || []).filter(ticketMatchesFilter));
       renderDnTable(data.dn_sites_with_tickets || []);
+      renderDnMissingWarning(data.dn_tickets_not_plotted || []);
       renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
       loaded = true;
