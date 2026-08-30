@@ -1044,8 +1044,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
           NOR Monitoring
-          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
-            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
+          <span id="fn-live-badge" title="ข้อมูลล่าสุดโหลดสำเร็จ" style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
+            <span id="fn-live-dot" style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span><span id="fn-live-label">LIVE</span>
           </span>
         </div>
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">ทุกไซต์ที่มี ticket เปิดอยู่ ทุกจังหวัด แยกสีตาม Severity</div>
@@ -1201,7 +1201,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Classification: Province × Bookmark <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉดสีตามจำนวน Ticket)</span></div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📊 Classification: Province × Bookmark <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉดสีตามจำนวน Ticket)</span></div>
+      <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เฉดสีเทียบเฉพาะภายในคอลัมน์เดียวกัน แต่ละ Bookmark มี scale ของตัวเอง ไม่ควรเทียบความเข้มของสีข้ามคอลัมน์กัน</div>
       <div id="fn-classification" style="overflow-x:auto;"></div>
     </div>
 
@@ -1225,7 +1226,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:4px;">👷 คำนวณ Workload ทีม NOD / OFC</div>
-      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">เฉพาะ Bookmark SA Mobile / Online / NSA1-2 — SA4 นับเป็นงานทีม NOD, SA1-SA3 และ NSA1-2 นับเป็นงานทีม OFC — หารด้วยจำนวนทีมจริงในแต่ละจังหวัด = Workload ต่อทีม</div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:10px;">เฉพาะ Bookmark SA Mobile / Online / NSA1-2 — แบ่งทีม NOD/OFC จาก <b>Skill จริงในระบบ MatelineX</b> (จับคู่ TICKETID กับ GGS Daily) ไม่ได้ estimate จาก Severity — หารด้วยจำนวนทีมจริงในแต่ละจังหวัด = Workload ต่อทีม</div>
       <div id="fn-workload" style="overflow-x:auto;"></div>
     </div>
 
@@ -7714,6 +7715,7 @@ function renderPivot(ft) {
   }
 
   function renderClassification(cls, provinceRegion) {
+    lastRenderArgs['fn-classification'] = { fn: renderClassification, args: [cls, provinceRegion] };
     if (!cls || !cls.provinces || !cls.provinces.length) { el('fn-classification').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:8px;">ไม่มีข้อมูล</div>`; return; }
     const esc1 = s => String(s).replace(/'/g, "\\'");
     // Per-column max, so each Bookmark's shading reflects its OWN range,
@@ -7722,7 +7724,8 @@ function renderPivot(ft) {
     cls.bookmarks.forEach(b => {
       maxByBookmark[b] = Math.max(0, ...cls.provinces.map(p => (cls.matrix[p] || {})[b] || 0));
     });
-    const head = cls.bookmarks.map(b => `<th style="padding:8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">${escapeHtml(b)}</th>`).join('');
+    const thStyle = 'padding:8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);';
+    const head = cls.bookmarks.map(b => sortableTh('fn-classification', b, b, thStyle)).join('');
 
     const renderRow = (label, counts, isSubtotal, filterProvince) => {
       const cells = cls.bookmarks.map(b => {
@@ -7747,6 +7750,8 @@ function renderPivot(ft) {
     };
 
     // Group provinces by Region (NOR1 first), each with a subtotal row.
+    // Within a region, rows sort by whichever column is currently chosen
+    // (defaults to row total descending, same as before sorting existed).
     const regionOrder = ['NOR1', 'NOR2'];
     const byRegion = {};
     cls.provinces.forEach(p => {
@@ -7755,13 +7760,17 @@ function renderPivot(ft) {
       byRegion[reg].push(p);
     });
     const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(r => byRegion[r]);
+    const sortState = tableSortState['fn-classification'];
+    const provTotal = p => cls.bookmarks.reduce((s, b) => s + ((cls.matrix[p] || {})[b] || 0), 0);
+    const provValue = (p, col) => col === '__label' ? p : (col === '__total' ? provTotal(p) : ((cls.matrix[p] || {})[col] || 0));
 
     let rows = '';
     regions.forEach(reg => {
       rows += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${cls.bookmarks.length + 2}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
       const regionSubtotal = {};
-      const provTotal = p => cls.bookmarks.reduce((s, b) => s + ((cls.matrix[p] || {})[b] || 0), 0);
-      const sortedProvinces = [...byRegion[reg]].sort((a, b) => provTotal(b) - provTotal(a));
+      const sortedProvinces = sortState && sortState.col
+        ? sortRowsGeneric(byRegion[reg], sortState, (p, col) => provValue(p, col))
+        : [...byRegion[reg]].sort((a, b) => provTotal(b) - provTotal(a));
       sortedProvinces.forEach(p => {
         rows += renderRow(provShort(p), cls.matrix[p] || {}, false, p);
         cls.bookmarks.forEach(b => { regionSubtotal[b] = (regionSubtotal[b] || 0) + ((cls.matrix[p] || {})[b] || 0); });
@@ -7778,8 +7787,8 @@ function renderPivot(ft) {
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
         <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:520px;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">จังหวัด</th>${head}
-            <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
+            ${sortableTh('fn-classification', '__label', 'จังหวัด', 'padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);')}${head}
+            ${sortableTh('fn-classification', '__total', 'รวม', 'padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);')}
           </tr></thead>
           <tbody>${rows}
             <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
@@ -7941,10 +7950,11 @@ function renderPivot(ft) {
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div style="font-size:11px; color:var(--text3); margin-top:6px;">นับไซต์ไม่ซ้ำ ไม่ใช่จำนวน ticket - ไซต์เดียวกันมีหลาย ticket จะนับครั้งเดียว · รวมไซต์ที่กระทบจริงทุกจังหวัด: <b style="color:#E24B4A;">${totalAffected != null ? totalAffected : '–'}</b></div>`;
+      <div style="font-size:11px; color:var(--text3); margin-top:6px;">นับไซต์ไม่ซ้ำ ไม่ใช่จำนวน ticket - ไซต์เดียวกันมีหลาย ticket จะนับครั้งเดียว · ไซต์ที่กระทบมากกว่า 1 Bookmark จะถูกนับในหลายคอลัมน์ แต่นับครั้งเดียวในคอลัมน์ "รวม" (ผลบวกแต่ละคอลัมน์จึงอาจมากกว่ารวมได้ นี่ไม่ใช่ข้อผิดพลาด) · รวมไซต์ที่กระทบจริงทุกจังหวัด: <b style="color:#E24B4A;">${totalAffected != null ? totalAffected : '–'}</b></div>`;
   }
 
   function renderWorkloadTable(rows, grandTotal, unmatchedCount) {
+    lastRenderArgs['fn-workload'] = { fn: renderWorkloadTable, args: [rows, grandTotal, unmatchedCount] };
     const container = el('fn-workload');
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const esc1 = s => String(s).replace(/'/g, "\\'");
@@ -7974,11 +7984,19 @@ function renderPivot(ft) {
     const byRegion = {};
     rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
     const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+    const sortState = tableSortState['fn-workload'];
+    const rowValue = (r, col) => {
+      if (col === '__label') return r.province;
+      if (col === '__total') return (r.nod_tickets || 0) + (r.ofc_tickets || 0);
+      return r[col] || 0;
+    };
 
     let body = '';
     regions.forEach(reg => {
       body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="7" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
-      const regRows = byRegion[reg].sort((a, b) => (b.nod_tickets + b.ofc_tickets) - (a.nod_tickets + a.ofc_tickets));
+      const regRows = sortState && sortState.col
+        ? sortRowsGeneric(byRegion[reg], sortState, rowValue)
+        : [...byRegion[reg]].sort((a, b) => (b.nod_tickets + b.ofc_tickets) - (a.nod_tickets + a.ofc_tickets));
       const subtotal = { nod_tickets: 0, nod_teams: 0, ofc_tickets: 0, ofc_teams: 0 };
       regRows.forEach(r => {
         body += renderRow(provShort(r.province), r, false);
@@ -7995,17 +8013,17 @@ function renderPivot(ft) {
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead>
             <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:1px solid var(--border2);">
-              <th rowspan="2" style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2); vertical-align:bottom;">Province</th>
+              <th rowspan="2" style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2); vertical-align:bottom; cursor:pointer; user-select:none;" onclick="window.__fnToggleSort('fn-workload','__label')">Province${sortArrow('fn-workload', '__label')}</th>
               <th colspan="3" style="padding:5px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:#a371f7; border-left:1px solid var(--border);">NOD</th>
               <th colspan="3" style="padding:5px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:#1f6feb; border-left:1px solid var(--border);">OFC</th>
             </tr>
             <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text3); border-left:1px solid var(--border);">Ticket</th>
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text3);">ทีม</th>
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text2);">Workload/ทีม</th>
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text3); border-left:1px solid var(--border);">Ticket</th>
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text3);">ทีม</th>
-              <th style="padding:5px 8px; text-align:center; font-size:10px; color:var(--text2);">Workload/ทีม</th>
+              ${sortableTh('fn-workload', 'nod_tickets', 'Ticket', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text3); border-left:1px solid var(--border);')}
+              ${sortableTh('fn-workload', 'nod_teams', 'ทีม', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text3);')}
+              ${sortableTh('fn-workload', 'nod_per_team', 'Workload/ทีม', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text2);')}
+              ${sortableTh('fn-workload', 'ofc_tickets', 'Ticket', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text3); border-left:1px solid var(--border);')}
+              ${sortableTh('fn-workload', 'ofc_teams', 'ทีม', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text3);')}
+              ${sortableTh('fn-workload', 'ofc_per_team', 'Workload/ทีม', 'padding:5px 8px; text-align:center; font-size:10px; color:var(--text2);')}
             </tr>
           </thead>
           <tbody>${body}
@@ -8051,24 +8069,36 @@ function renderPivot(ft) {
   }
 
   function renderDnTable(dnSites) {
+    lastRenderArgs['fn-dn-table'] = { fn: renderDnTable, args: [dnSites] };
     const table = el('fn-dn-table');
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
-    const cols = ['LOCATION ID', 'Province', 'District', 'TICKETID', 'SEVERITY', 'CREATIONDATE', 'SUBJECT'];
-    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(c => `<th style="padding:6px 8px; text-align:left;">${c}</th>`).join('')}</tr>`;
+    const cols = [
+      ['LOCATION ID', 'location_id'], ['Province', 'province'], ['District', 'district_e'],
+      ['# Ticket', 'ticket_count'], ['TICKETID', null], ['SEVERITY', null], ['CREATIONDATE', null], ['SUBJECT', null],
+    ];
+    thead.innerHTML = `<tr style="background:var(--bg3);">${cols.map(([label, key]) => key ? sortableTh('fn-dn-table', key, label, 'padding:6px 8px; text-align:left;') : `<th style="padding:6px 8px; text-align:left;">${escapeHtml(label)}</th>`).join('')}</tr>`;
     const pColors = { SA1: '#E24B4A', SA2: '#E24B4A', SA3: '#E24B4A', SA4: '#E24B4A', NSA1: '#EF9F27', NSA2: '#EF9F27', NSA3: '#F5C518', NSA4: '#F5C518' };
     if (!dnSites || !dnSites.length) {
       tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:10px; color:var(--text3); text-align:center;">ไม่มีไซต์ DN ที่มี ticket เปิดอยู่ตอนนี้</td></tr>`;
       return;
     }
+    // Sorted at the SITE level (a site's own tickets always stay grouped
+    // together underneath it) - sorting individual ticket rows would break
+    // the "first row shows site info, rest blank" grouping.
+    const sortState = tableSortState['fn-dn-table'];
+    const sortedSites = sortState && sortState.col
+      ? sortRowsGeneric(dnSites, sortState, (s, col) => col === 'ticket_count' ? (s.tickets || []).length : (s[col] || ''))
+      : dnSites;
     const rows = [];
-    dnSites.forEach(s => {
+    sortedSites.forEach(s => {
       (s.tickets || []).forEach((t, i) => {
         const sevColor = pColors[String(t.SEVERITY || '').trim()] || '#8b949e';
         rows.push(`<tr style="border-top:1px solid var(--border);">
           <td style="padding:6px 8px; font-weight:600;">${i === 0 ? escapeHtml(s.location_id) : ''}</td>
           <td style="padding:6px 8px;">${i === 0 ? escapeHtml(provShort(s.province)) : ''}</td>
           <td style="padding:6px 8px;">${i === 0 ? escapeHtml(s.district_e) : ''}</td>
+          <td style="padding:6px 8px; text-align:center;">${i === 0 ? (s.tickets || []).length : ''}</td>
           <td style="padding:6px 8px;">${escapeHtml(t.TICKETID)}</td>
           <td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${sevColor};margin-right:4px;"></span>${escapeHtml(t.SEVERITY)}</td>
           <td style="padding:6px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
@@ -8272,6 +8302,36 @@ function renderPivot(ft) {
     });
   }
 
+  function setLiveBadgeState(state, detail) {
+    const badge = el('fn-live-badge');
+    const dot = el('fn-live-dot');
+    const label = el('fn-live-label');
+    if (state === 'error') {
+      badge.style.background = '#8b949e18'; badge.style.borderColor = '#8b949e55'; badge.style.color = '#8b949e';
+      dot.style.background = '#8b949e'; dot.style.animation = 'none';
+      label.textContent = 'OFFLINE';
+      badge.title = detail || 'โหลดข้อมูลล่าสุดไม่สำเร็จ - ข้อมูลที่แสดงอาจไม่ใช่ปัจจุบัน';
+    } else if (state === 'stale') {
+      badge.style.background = '#EF9F2718'; badge.style.borderColor = '#EF9F2755'; badge.style.color = '#EF9F27';
+      dot.style.background = '#EF9F27'; dot.style.animation = 'none';
+      label.textContent = 'DELAYED';
+      badge.title = detail || 'ข้อมูลอาจไม่อัปเดตล่าสุด';
+    } else {
+      badge.style.background = '#E24B4A18'; badge.style.borderColor = '#E24B4A55'; badge.style.color = '#E24B4A';
+      dot.style.background = '#E24B4A'; dot.style.animation = 'pulse 1.5s ease-in-out infinite';
+      label.textContent = 'LIVE';
+      badge.title = detail || 'ข้อมูลล่าสุดโหลดสำเร็จ';
+    }
+  }
+
+  const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000; // 2 hours - a successful API call only proves the route responded, not that the underlying sheet data itself is fresh
+  function isInsertTimeStale(insertTime) {
+    if (!insertTime) return false; // can't tell either way - don't falsely warn
+    const parsed = new Date(String(insertTime).replace(' ', 'T') + '+07:00'); // insert_time is Bangkok local time
+    if (isNaN(parsed.getTime())) return false;
+    return (Date.now() - parsed.getTime()) > STALE_THRESHOLD_MS;
+  }
+
   async function reload() {
     el('fn-status').textContent = 'กำลังโหลด...';
     try {
@@ -8290,11 +8350,17 @@ function renderPivot(ft) {
       renderDnMissingWarning(data.dn_tickets_not_plotted || []);
       renderFilterChip();
       el('fn-status').textContent = `${data.total_sites} ไซต์ · ${data.total_tickets} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
+      if (isInsertTimeStale(data.insert_time)) {
+        setLiveBadgeState('stale', `ข้อมูลล่าสุด: ${data.insert_time} (เกิน 2 ชม. - โปรดตรวจสอบว่าระบบต้นทางยังอัปเดตอยู่)`);
+      } else {
+        setLiveBadgeState('live', data.insert_time ? `ข้อมูลล่าสุด: ${data.insert_time}` : 'ข้อมูลล่าสุดโหลดสำเร็จ');
+      }
       loaded = true;
       loadManualMarkers();
     } catch (e) {
       console.error('Flood NAN load failed', e);
       el('fn-status').textContent = '';
+      setLiveBadgeState('error', 'โหลดข้อมูลไม่สำเร็จ: ' + e.message);
       alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
     }
   }
