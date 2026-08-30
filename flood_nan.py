@@ -187,81 +187,6 @@ def _strip_leading_code_labels(categories):
 
 CLASSIFICATION_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
 
-# MAP SA1-4 (Mobile mode) "Major Classification" groups - an explicit,
-# fixed list (not derived/guessed), matching classification text via
-# keyword-containment after implicitly ignoring vendor prefixes (RAN-
-# ERICSSON/RAN-NOKIA/RAN-HUAWEI) and connector words (SITE DOWN, ROUTE
-# SITE DOWN) - those never appear in this list, so a raw value matches
-# whichever of these phrases it CONTAINS, regardless of what vendor
-# prefix or connector wraps it. A classification matching none of these
-# is deliberately left unmapped rather than guessed into one - callers
-# must surface that list for review, not silently drop or invent a group.
-MOBILE_MAJOR_CLASSIFICATIONS = [
-    "CELL DOWN OTHER",
-    "MAIN AC POWER FAIL",
-    "SITE DOWN OTHER",
-    "IPRAN NODE DOWN",
-    "IPRAN PORT DOWN",
-    "IPRAN DOWN",
-    "CELL UP/DOWN OTHER",
-    "SITE UP/DOWN OTHER",
-    "RECTIFIER FAIL",
-]
-
-
-def _match_major_classification(raw, known_categories):
-    """Matches a raw classification string against a FIXED list of known
-    'major' category phrases via keyword-containment (case-insensitive) -
-    vendor prefixes and connector words are irrelevant since this matches
-    by substring search, not by stripping a specific prefix pattern.
-    Returns the matched category, or None if nothing in the list matches
-    (the caller must surface these for review rather than guess)."""
-    text = raw.upper()
-    matches = [cat for cat in known_categories if cat in text]
-    if len(matches) == 1:
-        return matches[0]
-    if len(matches) > 1:
-        return max(matches, key=len)  # most specific (longest) match wins on the rare ambiguous case
-    return None
-
-
-def _build_major_classification_group(tickets_subset, known_categories):
-    """Groups tickets by MAJOR CLASSIFICATION (matched against a fixed
-    known list via _match_major_classification) instead of the raw
-    per-vendor classification text - counts merge across vendors
-    automatically since matching is by keyword, not exact string. Returns
-    (color_fn, legend, unmapped) - unmapped lists every raw classification
-    that matched none of the known categories (with its own ticket count),
-    for review rather than being silently dropped."""
-    counts = {}
-    unmapped_counts = {}
-    for t in tickets_subset:
-        raw = str(t["CLASSIFICATION"] or "").strip()
-        if not raw:
-            continue
-        matched = _match_major_classification(raw, known_categories)
-        if matched:
-            counts[matched] = counts.get(matched, 0) + 1
-        else:
-            unmapped_counts[raw] = unmapped_counts.get(raw, 0) + 1
-
-    order = sorted(counts, key=lambda k: -counts[k])
-    colors = {cat: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, cat in enumerate(order)}
-    UNMAPPED_COLOR = "#8b949e"  # neutral gray - distinct from every real category's palette color
-
-    def color_fn(site_tickets):
-        site_counts = {}
-        for tk in site_tickets:
-            raw = str(tk["CLASSIFICATION"] or "").strip()
-            matched = _match_major_classification(raw, known_categories)
-            site_counts[matched or "__unmapped__"] = site_counts.get(matched or "__unmapped__", 0) + 1
-        best = max(site_counts, key=site_counts.get)
-        return colors.get(best, UNMAPPED_COLOR)
-
-    legend = [{"label": cat, "color": colors[cat], "count": counts[cat]} for cat in order]
-    unmapped = [{"classification": raw, "count": n} for raw, n in sorted(unmapped_counts.items(), key=lambda kv: -kv[1])]
-    return color_fn, legend, unmapped
-
 
 def _build_classification_subclass_group(tickets_subset, trim_fn=None):
     """Groups the given tickets by CLASSIFICATION text with the shared
@@ -432,14 +357,10 @@ def build_flood_nan_response(gs_client=None):
     tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2" and not t["is_dn"]]
     tickets_dn = [t for t in tickets if t["is_dn"]]  # every bookmark, DN is a cross-cutting site attribute
 
-    # Map 1 sub-colors markers by CLASSIFICATION - Mobile mode groups by
-    # the fixed "Major Classification" list (vendor prefixes like
-    # RAN-ERICSSON/RAN-NOKIA/RAN-HUAWEI merge into the same group since
-    # matching is by keyword, not by vendor); Online mode keeps the
-    # simpler leading-code-strip rule since it wasn't part of that
-    # request and the 9 known categories are RAN/cell-specific terms that
-    # don't apply to broadband fault text anyway.
-    mobile_color_fn, mobile_subclass_legend, mobile_classification_unmapped = _build_major_classification_group(tickets_mobile, MOBILE_MAJOR_CLASSIFICATIONS)
+    # Map 1 sub-colors markers by CLASSIFICATION (same principle as Map 4)
+    # instead of one flat color for every Mobile/Online ticket - separate
+    # legends per mode, since the frontend swaps between them on toggle.
+    mobile_color_fn, mobile_subclass_legend = _build_classification_subclass_group(tickets_mobile, trim_fn=_strip_leading_code_labels)
     online_color_fn, online_subclass_legend = _build_classification_subclass_group(tickets_online, trim_fn=_strip_leading_code_labels)
     sites_mobile = _build_site_group(tickets_mobile, mobile_color_fn)
     sites_online = _build_site_group(tickets_online, online_color_fn)
@@ -725,7 +646,6 @@ def build_flood_nan_response(gs_client=None):
         "sites_nsa34_power": sites_nsa34_power,
         "power_subclass_legend": power_subclass_legend,
         "mobile_subclass_legend": mobile_subclass_legend,
-        "mobile_classification_unmapped": mobile_classification_unmapped,
         "online_subclass_legend": online_subclass_legend,
         "tickets": tickets,
         "provinces": provinces,
