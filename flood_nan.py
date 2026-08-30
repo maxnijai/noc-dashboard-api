@@ -111,6 +111,63 @@ PROVINCE_REGION_FALLBACK = {
 }
 
 
+def _smart_trim_labels(categories):
+    """Strips whatever word-prefix a classification value shares with AT
+    LEAST ONE OTHER value in the set (not necessarily every value) -
+    delimiter-agnostic (works on whitespace only, doesn't assume the text
+    is backslash-hierarchical, since real CLASSIFICATION values aren't
+    reliably delimited that way). A category with nothing in common with
+    any other in the set is returned untouched rather than mangled."""
+    categories = list(categories)
+    prefix_counts = {}
+    for c in categories:
+        words = c.split()
+        prefix = ""
+        for i in range(len(words) - 1):  # leave >=1 word as the distinguishing tail
+            prefix = (prefix + " " + words[i]).strip() if prefix else words[i]
+            prefix_counts[prefix] = prefix_counts.get(prefix, 0) + 1
+    trimmed = {}
+    for c in categories:
+        words = c.split()
+        prefix, best_prefix = "", ""
+        for i in range(len(words) - 1):
+            prefix = (prefix + " " + words[i]).strip() if prefix else words[i]
+            if prefix_counts.get(prefix, 0) >= 2:  # shared with at least one OTHER category
+                best_prefix = prefix
+        trimmed[c] = c[len(best_prefix):].strip(" -\\/") if best_prefix else c
+    return trimmed
+
+
+CLASSIFICATION_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
+
+
+def _build_classification_subclass_group(tickets_subset):
+    """Groups the given tickets by their RAW (untrimmed) CLASSIFICATION
+    text, builds a smart-trimmed display legend (shared prefixes stripped,
+    see _smart_trim_labels), and returns a color_fn usable with
+    _build_site_group alongside the legend list. Colors are assigned by
+    frequency (most common classification gets the first palette color) so
+    the legend and marker colors always agree."""
+    raw_counts = {}
+    for t in tickets_subset:
+        raw = str(t["CLASSIFICATION"] or "").strip() or "(ไม่ระบุ)"
+        raw_counts[raw] = raw_counts.get(raw, 0) + 1
+    trimmed_of = _smart_trim_labels(raw_counts.keys())
+    order = sorted(raw_counts, key=lambda k: -raw_counts[k])
+    colors = {raw: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, raw in enumerate(order)}
+
+    def color_fn(site_tickets):
+        counts = {}
+        for tk in site_tickets:
+            raw = str(tk["CLASSIFICATION"] or "").strip() or "(ไม่ระบุ)"
+            counts[raw] = counts.get(raw, 0) + 1
+        best_raw = max(counts, key=counts.get)
+        return colors.get(best_raw, "#8b949e")
+
+    legend = [{"label": trimmed_of[raw], "color": colors[raw], "count": raw_counts[raw]} for raw in order]
+    return color_fn, legend
+
+
 def _to_float(v):
     try:
         f = float(str(v).strip())
@@ -237,8 +294,13 @@ def build_flood_nan_response(gs_client=None):
     tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2" and not t["is_dn"]]
     tickets_dn = [t for t in tickets if t["is_dn"]]  # every bookmark, DN is a cross-cutting site attribute
 
-    sites_mobile = _build_site_group(tickets_mobile, lambda _tk: "#E24B4A")
-    sites_online = _build_site_group(tickets_online, lambda _tk: "#1f6feb")
+    # Map 1 sub-colors markers by CLASSIFICATION (same principle as Map 4)
+    # instead of one flat color for every Mobile/Online ticket - separate
+    # legends per mode, since the frontend swaps between them on toggle.
+    mobile_color_fn, mobile_subclass_legend = _build_classification_subclass_group(tickets_mobile)
+    online_color_fn, online_subclass_legend = _build_classification_subclass_group(tickets_online)
+    sites_mobile = _build_site_group(tickets_mobile, mobile_color_fn)
+    sites_online = _build_site_group(tickets_online, online_color_fn)
     sites_nsa12 = _build_site_group(tickets_nsa12, lambda _tk: "#EF9F27")
 
     def _dn_color(site_tickets):
@@ -249,33 +311,17 @@ def build_flood_nan_response(gs_client=None):
 
     # Map 4: NSA3-4 tickets specifically under the NOC-NW-POWER SYSTEM
     # classification branch, sub-colored by the SPECIFIC power-related
-    # issue (the classification's last segment) so different power
-    # problems are visually distinguishable rather than one flat color.
-    # Also excludes DN matches for the same "don't show twice" reason.
+    # issue so different power problems are visually distinguishable
+    # rather than one flat color. Also excludes DN matches for the same
+    # "don't show twice" reason.
     NOC_NW_POWER_SYSTEM_TAG = "NOC-NW-POWER SYSTEM"
-    POWER_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
     tickets_nsa34_power = [
         t for t in tickets
         if t["Bookmark"] == "NSA3-4" and not t["is_dn"]
         and NOC_NW_POWER_SYSTEM_TAG in str(t["CLASSIFICATION"] or "").upper()
     ]
-    power_subclass_counts = {}
-    for t in tickets_nsa34_power:
-        sc = _last_classification_segment(t["CLASSIFICATION"])
-        power_subclass_counts[sc] = power_subclass_counts.get(sc, 0) + 1
-    power_subclass_order = sorted(power_subclass_counts, key=lambda k: -power_subclass_counts[k])
-    power_subclass_colors = {sc: POWER_SUBCLASS_PALETTE[i % len(POWER_SUBCLASS_PALETTE)] for i, sc in enumerate(power_subclass_order)}
-
-    def _power_color(site_tickets):
-        counts = {}
-        for tk in site_tickets:
-            sc = _last_classification_segment(tk["CLASSIFICATION"])
-            counts[sc] = counts.get(sc, 0) + 1
-        best_sc = max(counts, key=counts.get)
-        return power_subclass_colors.get(best_sc, "#8b949e")
-
-    sites_nsa34_power = _build_site_group(tickets_nsa34_power, _power_color)
-    power_subclass_legend = [{"label": sc, "color": power_subclass_colors[sc], "count": power_subclass_counts[sc]} for sc in power_subclass_order]
+    power_color_fn, power_subclass_legend = _build_classification_subclass_group(tickets_nsa34_power)
+    sites_nsa34_power = _build_site_group(tickets_nsa34_power, power_color_fn)
 
     # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on the DN
     # map - checked against the ACTUAL built group (not just the ticket's
@@ -465,6 +511,55 @@ def build_flood_nan_response(gs_client=None):
     else:
         workload_grand_total["ofc_per_team"] = None
 
+    # Region -> Province summary table: SA1-4 Mobile / Online / Total /
+    # Mobile SA3, all computed directly from ticket data (no guessing).
+    # "Total Site T+D" and the two percentages that depend on it have NO
+    # data source anywhere in this codebase (only ticket-level data is
+    # available - no independent site-inventory count) - shown as None
+    # (rendered "N/A" by the frontend) rather than estimated, per explicit
+    # instruction not to guess. Total is built AS mobile+online (not
+    # independently computed) so it can never disagree with its own parts;
+    # region rows are literally the sum of their own province rows for the
+    # same reason.
+    province_summary_counts = {}
+    for t in tickets:
+        label = BOOKMARK_LABEL_LOOKUP.get(t["Bookmark"])
+        if label not in ("SA Mobile", "Online"):
+            continue
+        prov = t["PROVINCE"]
+        entry = province_summary_counts.setdefault(prov, {"sa_mobile": 0, "online": 0, "mobile_sa3": 0})
+        if label == "SA Mobile":
+            entry["sa_mobile"] += 1
+            if t["SEVERITY"] == "SA3":
+                entry["mobile_sa3"] += 1
+        else:
+            entry["online"] += 1
+
+    province_summary_rows = []
+    for prov, c in province_summary_counts.items():
+        total = c["sa_mobile"] + c["online"]
+        province_summary_rows.append({
+            "province": prov,
+            "region": province_region.get(prov) or PROVINCE_REGION_FALLBACK.get(prov, "(ไม่ระบุ Region)"),
+            "sa_mobile": c["sa_mobile"], "online": c["online"], "total": total,
+            "total_site_td": None,  # N/A - no site-inventory data source available
+            "pct_ticket_compare_site": None,  # N/A - depends on total_site_td
+            "mobile_sa3": c["mobile_sa3"],
+            "pct_site_down": None,  # N/A - depends on total_site_td
+        })
+    province_summary_rows.sort(key=lambda r: -r["total"])
+    regions_present = sorted({r["region"] for r in province_summary_rows})
+    province_summary_table = {"regions": regions_present, "rows": province_summary_rows}
+    province_summary_grand_total = {
+        "sa_mobile": sum(r["sa_mobile"] for r in province_summary_rows),
+        "online": sum(r["online"] for r in province_summary_rows),
+        "total": sum(r["total"] for r in province_summary_rows),
+        "total_site_td": None,
+        "pct_ticket_compare_site": None,
+        "mobile_sa3": sum(r["mobile_sa3"] for r in province_summary_rows),
+        "pct_site_down": None,
+    }
+
     insert_time = scoped[0].get("insert_time") if scoped else None
 
     return {
@@ -475,6 +570,8 @@ def build_flood_nan_response(gs_client=None):
         "sites_nsa12": sites_nsa12,
         "sites_nsa34_power": sites_nsa34_power,
         "power_subclass_legend": power_subclass_legend,
+        "mobile_subclass_legend": mobile_subclass_legend,
+        "online_subclass_legend": online_subclass_legend,
         "tickets": tickets,
         "provinces": provinces,
         "province_region": province_region,
@@ -494,6 +591,8 @@ def build_flood_nan_response(gs_client=None):
         "workload_grand_total": workload_grand_total,
         "workload_unmatched_count": workload_unmatched_count,
         "insert_time": insert_time,
+        "province_summary_table": province_summary_table,
+        "province_summary_grand_total": province_summary_grand_total,
         # Reuses unique_sites_affected's exact count (every ticket's CINAME,
         # not just what happened to land on one of the 4 maps) so the top
         # status line and the Unique Sites table footer can never disagree
