@@ -1118,9 +1118,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">🗺️ MAP SA1-4
-          <span id="fn-map-mobile-legend-mobile" style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>Mobile</span>
-          <span id="fn-map-mobile-legend-online" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:400;"><span style="width:9px;height:9px;border-radius:50%;background:#1f6feb;display:inline-block;"></span>Online</span>
+          <span id="fn-map-mobile-mode-label" style="font-size:11px; font-weight:400; color:var(--text3);">(โหมด: Mobile)</span>
         </div>
+        <div id="fn-map-mobile-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:10.5px;"></div>
         <div id="fn-map-mobile-wrap" style="position:relative;">
           <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
             <button id="fn-map-mobile-source-toggle" title="สลับ Mobile / Online" style="height:30px; padding:0 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:12px; font-weight:600;">📱 Mobile</button>
@@ -1198,6 +1198,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
         <canvas id="fn-classification-trend-chart" height="90"></canvas>
       </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 สรุป Province: SA1-4 Mobile / Online</div>
+      <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">ผลรวม = SA1-4 Mobile + Online (คำนวณจากสองคอลัมน์นี้เสมอ ไม่มีทางเพี้ยนกัน) · Mobile SA3 = ticket ในกลุ่ม SA1-4 Mobile ที่ Severity เป็น SA3 โดยเฉพาะ</div>
+      <div id="fn-province-summary" style="overflow-x:auto;"></div>
+      <div id="fn-province-summary-na-note" style="font-size:10.5px; color:#EF9F27; margin-top:8px;"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
@@ -7246,6 +7253,7 @@ function renderPivot(ft) {
   function rerenderFiltered() {
     if (!lastData) return;
     renderAllMaps(lastData);
+    renderProvinceSummaryTable(lastData.province_summary_table, lastData.province_summary_grand_total);
     renderClassification(lastData.classification, lastData.province_region);
     renderClassificationSummaryTable(lastData.classification_summary, lastData.extended_bookmark_labels || []);
     renderDistrictSummaryTable(lastData.district_summary, lastData.extended_bookmark_labels || []);
@@ -7457,12 +7465,13 @@ function renderPivot(ft) {
     renderMapFor('dn', data.sites_dn || []);
     renderMapFor('nsa12', data.sites_nsa12 || []);
     renderMapFor('nsa34power', data.sites_nsa34_power || []);
-    renderPowerSubclassLegend(data.power_subclass_legend || []);
+    renderClassificationLegend('fn-map-nsa34power-legend', data.power_subclass_legend || [], 'ไม่มี ticket ในกลุ่ม NOC-NW-POWER SYSTEM ตอนนี้');
+    renderClassificationLegend('fn-map-mobile-legend', (mobileSourceMode === 'mobile' ? data.mobile_subclass_legend : data.online_subclass_legend) || [], 'ไม่มี ticket ในกลุ่มนี้ตอนนี้');
   }
 
-  function renderPowerSubclassLegend(legend) {
-    const container = el('fn-map-nsa34power-legend');
-    if (!legend.length) { container.innerHTML = `<span style="color:var(--text3);">ไม่มี ticket ในกลุ่ม NOC-NW-POWER SYSTEM ตอนนี้</span>`; return; }
+  function renderClassificationLegend(containerId, legend, emptyText) {
+    const container = el(containerId);
+    if (!legend.length) { container.innerHTML = `<span style="color:var(--text3);">${emptyText}</span>`; return; }
     container.innerHTML = legend.map(l =>
       `<span style="display:flex; align-items:center; gap:4px;"><span style="width:9px;height:9px;border-radius:50%;background:${l.color};display:inline-block;"></span>${escapeHtml(l.label)} (${l.count})</span>`
     ).join('');
@@ -7472,9 +7481,11 @@ function renderPivot(ft) {
     mobileSourceMode = mode;
     const btn = el('fn-map-mobile-source-toggle');
     btn.textContent = mode === 'mobile' ? '📱 Mobile' : '🌐 Online';
-    el('fn-map-mobile-legend-mobile').style.display = mode === 'mobile' ? 'flex' : 'none';
-    el('fn-map-mobile-legend-online').style.display = mode === 'online' ? 'flex' : 'none';
-    if (lastData) renderMapFor('mobile', (mode === 'mobile' ? lastData.sites_mobile : lastData.sites_online) || []);
+    el('fn-map-mobile-mode-label').textContent = mode === 'mobile' ? '(โหมด: Mobile)' : '(โหมด: Online)';
+    if (lastData) {
+      renderMapFor('mobile', (mode === 'mobile' ? lastData.sites_mobile : lastData.sites_online) || []);
+      renderClassificationLegend('fn-map-mobile-legend', (mode === 'mobile' ? lastData.mobile_subclass_legend : lastData.online_subclass_legend) || [], 'ไม่มี ticket ในกลุ่มนี้ตอนนี้');
+    }
   }
   el('fn-map-mobile-source-toggle').addEventListener('click', () => {
     setMobileSourceMode(mobileSourceMode === 'mobile' ? 'online' : 'mobile');
@@ -7712,6 +7723,81 @@ function renderPivot(ft) {
     // column, not just the ones that happened to need it before.
     const darkTextColor = '#' + spec.rgb.split(',').map(n => Math.round(parseInt(n) * 0.55)).map(n => n.toString(16).padStart(2, '0')).join('');
     return { bg: `rgba(${spec.rgb},${alpha.toFixed(2)})`, color: intensity > 0.4 ? '#fff' : darkTextColor };
+  }
+
+  function renderProvinceSummaryTable(table, grandTotal) {
+    lastRenderArgs['fn-province-summary'] = { fn: renderProvinceSummaryTable, args: [table, grandTotal] };
+    const container = el('fn-province-summary');
+    const naNote = el('fn-province-summary-na-note');
+    if (!table || !table.rows || !table.rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; naNote.textContent = ''; return; }
+    const fmt = v => v == null ? 'N/A' : v;
+    const fmtPct = v => v == null ? 'N/A' : v.toFixed(2) + '%';
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+
+    const cols = [
+      ['sa_mobile', 'SA1-4 Mobile'], ['online', 'Online'], ['total', 'ผลรวม'],
+      ['total_site_td', 'Total Site T+D'], ['pct_ticket_compare_site', '% Ticket Compare Site'],
+      ['mobile_sa3', 'Mobile SA3'], ['pct_site_down', '% Site Down'],
+    ];
+    const thStyle = 'padding:7px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:var(--text2);';
+    const head = cols.map(([key, label]) => sortableTh('fn-province-summary', key, label, thStyle)).join('');
+
+    const renderRow = (label, r, isSubtotal, filterProvince) => {
+      const cells = cols.map(([key]) => {
+        const isPct = key.startsWith('pct_');
+        const val = r[key];
+        return `<td style="padding:6px 8px; text-align:center; ${val != null ? 'font-weight:700;' : 'color:var(--text3); font-style:italic;'}">${isPct ? fmtPct(val) : fmt(val)}</td>`;
+      }).join('');
+      const rowActive = !isSubtotal && filterState.province === filterProvince;
+      const rowOnclick = isSubtotal ? '' : ` onclick="window.__fnFilterProvince('${esc1(filterProvince)}')"`;
+      return `<tr style="border-top:1px solid var(--border); background:${isSubtotal ? 'var(--bg3)' : 'transparent'};">
+        <td${rowOnclick} style="padding:6px 10px; font-weight:${isSubtotal ? '700' : '600'}; ${isSubtotal ? '' : 'cursor:pointer;'} ${rowActive ? 'color:#1f6feb;' : ''}">${escapeHtml(label)}</td>
+        ${cells}
+      </tr>`;
+    };
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    table.rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+    const sortState = tableSortState['fn-province-summary'];
+    const rowValue = (r, col) => col === '__label' ? r.province : (r[col] == null ? -1 : r[col]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${cols.length + 1}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      const regRows = sortState && sortState.col
+        ? sortRowsGeneric(byRegion[reg], sortState, rowValue)
+        : [...byRegion[reg]].sort((a, b) => b.total - a.total);
+      const subtotal = { sa_mobile: 0, online: 0, total: 0, mobile_sa3: 0, total_site_td: null, pct_ticket_compare_site: null, pct_site_down: null };
+      regRows.forEach(r => {
+        body += renderRow(provShort(r.province), r, false, r.province);
+        subtotal.sa_mobile += r.sa_mobile; subtotal.online += r.online; subtotal.total += r.total; subtotal.mobile_sa3 += r.mobile_sa3;
+      });
+      body += renderRow(`${reg} รวม`, subtotal, true, null);
+    });
+
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%; min-width:720px;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            ${sortableTh('fn-province-summary', '__label', 'Province', 'padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);')}${head}
+          </tr></thead>
+          <tbody>${body}
+            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+              <td style="padding:6px 10px;">รวมทั้งหมด</td>
+              <td style="padding:6px 8px; text-align:center;">${grandTotal.sa_mobile}</td>
+              <td style="padding:6px 8px; text-align:center;">${grandTotal.online}</td>
+              <td style="padding:6px 8px; text-align:center;">${grandTotal.total}</td>
+              <td style="padding:6px 8px; text-align:center; color:var(--text3); font-style:italic;">N/A</td>
+              <td style="padding:6px 8px; text-align:center; color:var(--text3); font-style:italic;">N/A</td>
+              <td style="padding:6px 8px; text-align:center;">${grandTotal.mobile_sa3}</td>
+              <td style="padding:6px 8px; text-align:center; color:var(--text3); font-style:italic;">N/A</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+    naNote.textContent = '⚠️ Total Site T+D, % Ticket Compare Site, % Site Down แสดง N/A เนื่องจากยังไม่มีแหล่งข้อมูลจำนวนไซต์ทั้งหมดต่อจังหวัดในระบบนี้ (มีแต่ข้อมูลระดับ Ticket เท่านั้น) - หากมี Sheet หรือแหล่งข้อมูลนี้ แจ้งมาได้ จะเชื่อมให้คำนวณ % ได้ครบ';
   }
 
   function renderClassification(cls, provinceRegion) {
@@ -8340,6 +8426,7 @@ function renderPivot(ft) {
       const data = await res.json();
       lastData = data;
       renderAllMaps(data);
+      renderProvinceSummaryTable(data.province_summary_table, data.province_summary_grand_total);
       renderClassification(data.classification, data.province_region);
       renderClassificationSummaryTable(data.classification_summary, data.extended_bookmark_labels || []);
       renderDistrictSummaryTable(data.district_summary, data.extended_bookmark_labels || []);
