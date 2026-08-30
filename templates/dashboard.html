@@ -8208,27 +8208,38 @@ function renderPivot(ft) {
     if (!trend) return;
     const ctx = el('fn-classification-trend-chart').getContext('2d');
     const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#8b949e', '#d29922'];
-    // Strip whatever prefix every real category shares (e.g. all starting
-    // with "NOC-NW-POWER SYSTEM - ...") so the legend shows just the part
-    // that actually distinguishes them - "Other" is excluded from this
-    // computation since it's a catch-all label, not a real category name.
+    // Strip whatever word-prefix a category shares with AT LEAST ONE OTHER
+    // category (not necessarily every category in the list - a single
+    // global common-prefix check breaks the moment even one unrelated
+    // category, like "SOLAR CELL POWER ALARM", is in the mix, since it
+    // shares nothing with the "NOC-NW-POWER SYSTEM ..." cluster and drags
+    // the common prefix down to zero for everyone). "Other" is excluded
+    // from this computation since it's a catch-all label, not a real
+    // category name.
     const realCategories = trend.categories.filter(c => c !== 'Other');
-    let commonPrefixLen = 0;
-    if (realCategories.length > 1) {
-      const first = realCategories[0];
-      outer:
-      for (let i = 0; i < first.length; i++) {
-        for (const c of realCategories) {
-          if (c[i] !== first[i]) break outer;
-        }
-        commonPrefixLen = i + 1;
+    const wordsOf = c => c.split(/\s+/);
+    const prefixCounts = {};
+    realCategories.forEach(c => {
+      const words = wordsOf(c);
+      let prefix = '';
+      for (let i = 0; i < words.length - 1; i++) { // leave >=1 word as the distinguishing tail
+        prefix = prefix ? prefix + ' ' + words[i] : words[i];
+        prefixCounts[prefix] = (prefixCounts[prefix] || 0) + 1;
       }
-      // Trim back to the last whole-word boundary so we don't cut mid-word.
-      while (commonPrefixLen > 0 && !/[\s\-\\\/]/.test(first[commonPrefixLen - 1])) commonPrefixLen--;
-    }
+    });
+    const trimmedOf = {};
+    realCategories.forEach(c => {
+      const words = wordsOf(c);
+      let prefix = '', bestPrefix = '';
+      for (let i = 0; i < words.length - 1; i++) {
+        prefix = prefix ? prefix + ' ' + words[i] : words[i];
+        if (prefixCounts[prefix] >= 2) bestPrefix = prefix; // shared with at least one other category
+      }
+      trimmedOf[c] = bestPrefix ? c.slice(bestPrefix.length).replace(/^[\s\-\\\/]+/, '') : c;
+    });
     const shortLabel = c => {
       if (c === 'Other') return 'อื่นๆ';
-      const trimmed = c.slice(commonPrefixLen).replace(/^[\s\-\\\/]+/, '') || c;
+      const trimmed = trimmedOf[c] || c;
       return trimmed.length > 22 ? trimmed.slice(0, 22) + '…' : trimmed;
     };
     const datasets = trend.categories.map((c, i) => ({
