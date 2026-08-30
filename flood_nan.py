@@ -163,33 +163,71 @@ def _smart_trim_labels(categories):
     return trimmed
 
 
+def _strip_leading_code(raw):
+    """Unconditionally strips the FIRST whitespace-separated token from a
+    classification string - the source system prefixes a short fault-type
+    code (N, AN, A, I, E, ...) ahead of the real classification text, and
+    that code needs to come off regardless of whether it happens to repeat
+    elsewhere in the current data. This is a different (simpler, always-
+    applied) rule than _smart_trim_labels above, used specifically for the
+    Map 1 / Map 4 classification legends per an explicit request - two
+    values whose code differs but whose remaining text is identical (e.g.
+    "N CELL DOWN OTHER" and "A CELL DOWN OTHER") must still merge into one
+    group, which only works if every code is stripped unconditionally."""
+    raw = raw.strip()
+    parts = raw.split(None, 1)
+    return parts[1] if len(parts) == 2 else raw
+
+
+def _strip_leading_code_labels(categories):
+    """trim_fn-shaped wrapper around _strip_leading_code, for
+    _build_classification_subclass_group's trim_fn parameter."""
+    return {c: _strip_leading_code(c) for c in categories}
+
+
 CLASSIFICATION_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
 
 
-def _build_classification_subclass_group(tickets_subset):
-    """Groups the given tickets by their RAW (untrimmed) CLASSIFICATION
-    text, builds a smart-trimmed display legend (shared prefixes stripped,
-    see _smart_trim_labels), and returns a color_fn usable with
-    _build_site_group alongside the legend list. Colors are assigned by
-    frequency (most common classification gets the first palette color) so
-    the legend and marker colors always agree."""
+def _build_classification_subclass_group(tickets_subset, trim_fn=None):
+    """Groups the given tickets by CLASSIFICATION text with the shared
+    code/prefix stripped FIRST (trim_fn - defaults to _smart_trim_labels's
+    shared-multi-word-prefix rule; pass _strip_leading_code_labels for the
+    unconditional single-token-code rule used by Map 1 Mobile/Online),
+    then groups and sums ticket counts by that TRIMMED label - not by the
+    raw string. Two raw values that trim down to the same visible text
+    (e.g. "AN NODE DOWN" and "A NODE DOWN") must merge into one legend
+    entry with a combined count, not show up as separate lines with the
+    same label and different counts. Returns a color_fn usable with
+    _build_site_group alongside the legend list; colors are assigned by
+    frequency (most common trimmed classification gets the first palette
+    color) so the legend and marker colors always agree."""
+    if trim_fn is None:
+        trim_fn = _smart_trim_labels
     raw_counts = {}
     for t in tickets_subset:
         raw = str(t["CLASSIFICATION"] or "").strip() or "(ไม่ระบุ)"
         raw_counts[raw] = raw_counts.get(raw, 0) + 1
-    trimmed_of = _smart_trim_labels(raw_counts.keys())
-    order = sorted(raw_counts, key=lambda k: -raw_counts[k])
-    colors = {raw: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, raw in enumerate(order)}
+    trimmed_of = trim_fn(raw_counts.keys())
+
+    # Re-group by the TRIMMED label - this is the fix: grouping must
+    # happen AFTER stripping the code prefix, not before.
+    trimmed_counts = {}
+    for raw, n in raw_counts.items():
+        label = trimmed_of[raw]
+        trimmed_counts[label] = trimmed_counts.get(label, 0) + n
+    order = sorted(trimmed_counts, key=lambda k: -trimmed_counts[k])
+    colors = {label: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, label in enumerate(order)}
 
     def color_fn(site_tickets):
         counts = {}
         for tk in site_tickets:
             raw = str(tk["CLASSIFICATION"] or "").strip() or "(ไม่ระบุ)"
-            counts[raw] = counts.get(raw, 0) + 1
-        best_raw = max(counts, key=counts.get)
-        return colors.get(best_raw, "#8b949e")
+            label = trimmed_of.get(raw, raw)
+            counts[label] = counts.get(label, 0) + 1
+        best_label = max(counts, key=counts.get)
+        return colors.get(best_label, "#8b949e")
 
-    legend = [{"label": trimmed_of[raw], "color": colors[raw], "count": raw_counts[raw]} for raw in order]
+    legend = [{"label": label, "color": colors[label], "count": trimmed_counts[label]} for label in order]
     return color_fn, legend
 
 
@@ -322,8 +360,8 @@ def build_flood_nan_response(gs_client=None):
     # Map 1 sub-colors markers by CLASSIFICATION (same principle as Map 4)
     # instead of one flat color for every Mobile/Online ticket - separate
     # legends per mode, since the frontend swaps between them on toggle.
-    mobile_color_fn, mobile_subclass_legend = _build_classification_subclass_group(tickets_mobile)
-    online_color_fn, online_subclass_legend = _build_classification_subclass_group(tickets_online)
+    mobile_color_fn, mobile_subclass_legend = _build_classification_subclass_group(tickets_mobile, trim_fn=_strip_leading_code_labels)
+    online_color_fn, online_subclass_legend = _build_classification_subclass_group(tickets_online, trim_fn=_strip_leading_code_labels)
     sites_mobile = _build_site_group(tickets_mobile, mobile_color_fn)
     sites_online = _build_site_group(tickets_online, online_color_fn)
     sites_nsa12 = _build_site_group(tickets_nsa12, lambda _tk: "#EF9F27")
