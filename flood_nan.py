@@ -383,7 +383,7 @@ def build_flood_nan_response(gs_client=None):
         if t["Bookmark"] == "NSA3-4" and not t["is_dn"]
         and NOC_NW_POWER_SYSTEM_TAG in str(t["CLASSIFICATION"] or "").upper()
     ]
-    power_color_fn, power_subclass_legend = _build_classification_subclass_group(tickets_nsa34_power)
+    power_color_fn, power_subclass_legend = _build_classification_subclass_group(tickets_nsa34_power, trim_fn=_strip_leading_code_labels)
     sites_nsa34_power = _build_site_group(tickets_nsa34_power, power_color_fn)
 
     # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on the DN
