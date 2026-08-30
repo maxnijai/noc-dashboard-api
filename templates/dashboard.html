@@ -1131,14 +1131,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP DN (ไซต์สำคัญ)
-          <span style="font-size:11px; font-weight:400; color:var(--text3);">SMALL EXCHANGE / Exchange Node — ทุก Bookmark</span>
-        </div>
-        <div id="fn-map-dn-wrap" style="position:relative;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4 (NOC-NW-POWER SYSTEM)</div>
+        <div id="fn-map-nsa34power-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:10.5px;"></div>
+        <div id="fn-map-nsa34power-wrap" style="position:relative;">
           <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
-            <button id="fn-map-dn-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+            <button id="fn-map-nsa34power-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
           </div>
-          <div id="fn-map-dn" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+          <div id="fn-map-nsa34power" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
         </div>
       </div>
     </div>
@@ -1157,13 +1156,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP NSA3-4 (NOC-NW-POWER SYSTEM)</div>
-        <div id="fn-map-nsa34power-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:10.5px;"></div>
-        <div id="fn-map-nsa34power-wrap" style="position:relative;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:8px;">🗺️ MAP DN (ไซต์สำคัญ)
+          <span style="font-size:11px; font-weight:400; color:var(--text3);">SMALL EXCHANGE / Exchange Node — ทุก Bookmark</span>
+        </div>
+        <div id="fn-map-dn-wrap" style="position:relative;">
           <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
-            <button id="fn-map-nsa34power-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
+            <button id="fn-map-dn-expand" title="ขยายเต็มจอ" style="width:30px; height:30px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:14px;">⛶</button>
           </div>
-          <div id="fn-map-nsa34power" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+          <div id="fn-map-dn" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
         </div>
       </div>
     </div>
@@ -7734,6 +7734,28 @@ function renderPivot(ft) {
     const fmtPct = v => v == null ? 'N/A' : v.toFixed(2) + '%';
     const esc1 = s => String(s).replace(/'/g, "\\'");
 
+    // Green -> yellow -> red gradient (low % = good/green, high % = needs
+    // attention/red) - a "situation" heat scale rather than the plain
+    // volume-intensity shading used elsewhere, per what these 2 columns
+    // are meant to communicate. Scaled per-column against that column's
+    // own max among the individual province rows (subtotal rows never
+    // factor into the scale and never get shaded themselves).
+    const pctHeatColor = (pct, maxPct) => {
+      if (pct == null || !maxPct) return { bg: '', color: '' };
+      const t = Math.min(1, pct / maxPct);
+      let r, g, b;
+      if (t < 0.5) {
+        const k = t / 0.5;
+        r = Math.round(63 + (245 - 63) * k); g = Math.round(153 + (197 - 153) * k); b = Math.round(80 + (24 - 80) * k);
+      } else {
+        const k = (t - 0.5) / 0.5;
+        r = Math.round(245 + (226 - 245) * k); g = Math.round(197 + (75 - 197) * k); b = Math.round(24 + (74 - 24) * k);
+      }
+      return { bg: `rgba(${r},${g},${b},0.30)`, color: `rgb(${r},${g},${b})` };
+    };
+    const maxPctTicket = Math.max(0, ...table.rows.map(r => r.pct_ticket_compare_site || 0));
+    const maxPctDown = Math.max(0, ...table.rows.map(r => r.pct_site_down || 0));
+
     const cols = [
       ['sa_mobile', 'SA1-4 Mobile'], ['online', 'Online'], ['total', 'ผลรวม'],
       ['total_site_td', 'Total Site T+D'], ['pct_ticket_compare_site', '% Ticket Compare Site'],
@@ -7746,7 +7768,17 @@ function renderPivot(ft) {
       const cells = cols.map(([key]) => {
         const isPct = key.startsWith('pct_');
         const val = r[key];
-        return `<td style="padding:6px 8px; text-align:center; ${val != null ? 'font-weight:700;' : 'color:var(--text3); font-style:italic;'}">${isPct ? fmtPct(val) : fmt(val)}</td>`;
+        // Subtotal rows stay plain (no heat) - same rule already used for
+        // every other heat-shaded table in this tab.
+        let bg = '', textColor = '';
+        if (isPct && !isSubtotal && val != null) {
+          const heat = pctHeatColor(val, key === 'pct_ticket_compare_site' ? maxPctTicket : maxPctDown);
+          bg = heat.bg; textColor = heat.color;
+        }
+        const style = val != null
+          ? `font-weight:700; ${bg ? `background:${bg};` : ''} ${textColor ? `color:${textColor};` : ''}`
+          : 'color:var(--text3); font-style:italic;';
+        return `<td style="padding:6px 8px; text-align:center; ${style}">${isPct ? fmtPct(val) : fmt(val)}</td>`;
       }).join('');
       const rowActive = !isSubtotal && filterState.province === filterProvince;
       const rowOnclick = isSubtotal ? '' : ` onclick="window.__fnFilterProvince('${esc1(filterProvince)}')"`;
