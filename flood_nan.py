@@ -494,7 +494,14 @@ def build_flood_nan_response(gs_client=None):
         "workload_grand_total": workload_grand_total,
         "workload_unmatched_count": workload_unmatched_count,
         "insert_time": insert_time,
-        "total_sites": len(site_markers),
+        # Reuses unique_sites_affected's exact count (every ticket's CINAME,
+        # not just what happened to land on one of the 4 maps) so the top
+        # status line and the Unique Sites table footer can never disagree
+        # again - they were computed two different ways before, and an
+        # NSA3-4 ticket outside the "NOC-NW-POWER SYSTEM" branch had nowhere
+        # to be plotted on any of the 4 maps, silently missing from the old
+        # total_sites while still counted here.
+        "total_sites": unique_sites_affected,
         "total_tickets": len(tickets),
     }
 
