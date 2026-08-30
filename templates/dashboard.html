@@ -7769,11 +7769,22 @@ function renderPivot(ft) {
       const regRows = sortState && sortState.col
         ? sortRowsGeneric(byRegion[reg], sortState, rowValue)
         : [...byRegion[reg]].sort((a, b) => b.total - a.total);
-      const subtotal = { sa_mobile: 0, online: 0, total: 0, mobile_sa3: 0, total_site_td: null, pct_ticket_compare_site: null, pct_site_down: null };
+      const subtotal = { sa_mobile: 0, online: 0, total: 0, mobile_sa3: 0, total_site_td: 0, pct_ticket_compare_site: null, pct_site_down: null };
       regRows.forEach(r => {
         body += renderRow(provShort(r.province), r, false, r.province);
         subtotal.sa_mobile += r.sa_mobile; subtotal.online += r.online; subtotal.total += r.total; subtotal.mobile_sa3 += r.mobile_sa3;
+        if (r.total_site_td != null) subtotal.total_site_td += r.total_site_td;
       });
+      // Only computable once at least one member province actually has a
+      // Total Site T+D value - sums only the provinces that have one
+      // (same rule the backend already uses for the grand total row), and
+      // stays N/A (not 0) if none of them do.
+      if (subtotal.total_site_td > 0) {
+        subtotal.pct_ticket_compare_site = subtotal.total / subtotal.total_site_td * 100;
+        subtotal.pct_site_down = subtotal.mobile_sa3 / subtotal.total_site_td * 100;
+      } else {
+        subtotal.total_site_td = null;
+      }
       body += renderRow(`${reg} รวม`, subtotal, true, null);
     });
 
