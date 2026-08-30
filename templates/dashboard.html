@@ -1121,7 +1121,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <span id="fn-map-mobile-mode-label" style="font-size:11px; font-weight:400; color:var(--text3);">(โหมด: Mobile)</span>
         </div>
         <div id="fn-map-mobile-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; font-size:10.5px;"></div>
-        <div id="fn-map-mobile-unmapped" style="display:none; font-size:10.5px; color:#EF9F27; margin-bottom:8px;"></div>
         <div id="fn-map-mobile-wrap" style="position:relative;">
           <div style="position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:1000; display:flex; gap:6px;">
             <button id="fn-map-mobile-source-toggle" title="สลับ Mobile / Online" style="height:30px; padding:0 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:12px; font-weight:600;">📱 Mobile</button>
@@ -7468,7 +7467,6 @@ function renderPivot(ft) {
     renderMapFor('nsa34power', data.sites_nsa34_power || []);
     renderClassificationLegend('fn-map-nsa34power-legend', data.power_subclass_legend || [], 'ไม่มี ticket ในกลุ่ม NOC-NW-POWER SYSTEM ตอนนี้');
     renderClassificationLegend('fn-map-mobile-legend', (mobileSourceMode === 'mobile' ? data.mobile_subclass_legend : data.online_subclass_legend) || [], 'ไม่มี ticket ในกลุ่มนี้ตอนนี้');
-    renderMobileUnmappedWarning(mobileSourceMode === 'mobile' ? (data.mobile_classification_unmapped || []) : []);
   }
 
   function renderClassificationLegend(containerId, legend, emptyText) {
@@ -7479,20 +7477,6 @@ function renderPivot(ft) {
     ).join('');
   }
 
-  // Classifications that matched none of the 9 known Major Classification
-  // groups (Mobile mode only) - surfaced instead of silently dropped or
-  // guessed into a group, per explicit instruction to report new/unknown
-  // classification text for review rather than inventing a category.
-  function renderMobileUnmappedWarning(unmapped) {
-    const container = el('fn-map-mobile-unmapped');
-    if (!unmapped || !unmapped.length) { container.style.display = 'none'; container.innerHTML = ''; return; }
-    container.style.display = 'block';
-    const total = unmapped.reduce((s, u) => s + u.count, 0);
-    container.innerHTML = `⚠️ พบ ${total} ticket ที่ Classification ไม่ตรงกับ 9 กลุ่มหลักที่กำหนดไว้ (ยังไม่จัดกลุ่ม รอตรวจสอบ): ` +
-      unmapped.slice(0, 5).map(u => `${escapeHtml(u.classification)} (${u.count})`).join(', ') +
-      (unmapped.length > 5 ? ` และอีก ${unmapped.length - 5} รายการ` : '');
-  }
-
   function setMobileSourceMode(mode) {
     mobileSourceMode = mode;
     const btn = el('fn-map-mobile-source-toggle');
@@ -7501,7 +7485,6 @@ function renderPivot(ft) {
     if (lastData) {
       renderMapFor('mobile', (mode === 'mobile' ? lastData.sites_mobile : lastData.sites_online) || []);
       renderClassificationLegend('fn-map-mobile-legend', (mode === 'mobile' ? lastData.mobile_subclass_legend : lastData.online_subclass_legend) || [], 'ไม่มี ticket ในกลุ่มนี้ตอนนี้');
-      renderMobileUnmappedWarning(mode === 'mobile' ? (lastData.mobile_classification_unmapped || []) : []);
     }
   }
   el('fn-map-mobile-source-toggle').addEventListener('click', () => {
