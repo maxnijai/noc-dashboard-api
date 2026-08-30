@@ -110,6 +110,31 @@ PROVINCE_REGION_FALLBACK = {
     "สุโขทัย": "NOR2", "ตาก": "NOR2", "อุตรดิตถ์": "NOR2",
 }
 
+# "Total Site T+D" per province, from the reference site-inventory file
+# provided (Total_site.xlsx). The source splits Chiang Mai into two zones
+# (CMI1: 927, CMI2: 704) that ticket data has no way to distinguish (no
+# sub-zone field on any ticket) - rather than guess a split, เชียงใหม่ uses
+# their SUM (1631), matching the same granularity ticket data already
+# operates at. Every other province maps 1:1. Sums to 7270, matching the
+# file's own grand total exactly.
+PROVINCE_TOTAL_SITE_TD = {
+    "เชียงใหม่": 927 + 704,
+    "เชียงราย": 866,
+    "กำแพงเพชร": 387,
+    "ลำปาง": 464,
+    "ลำพูน": 314,
+    "แม่ฮ่องสอน": 326,
+    "น่าน": 390,
+    "เพชรบูรณ์": 579,
+    "พิจิตร": 263,
+    "แพร่": 245,
+    "พิษณุโลก": 572,
+    "พะเยา": 269,
+    "สุโขทัย": 286,
+    "ตาก": 439,
+    "อุตรดิตถ์": 239,
+}
+
 
 def _smart_trim_labels(categories):
     """Strips whatever word-prefix a classification value shares with AT
@@ -513,11 +538,9 @@ def build_flood_nan_response(gs_client=None):
 
     # Region -> Province summary table: SA1-4 Mobile / Online / Total /
     # Mobile SA3, all computed directly from ticket data (no guessing).
-    # "Total Site T+D" and the two percentages that depend on it have NO
-    # data source anywhere in this codebase (only ticket-level data is
-    # available - no independent site-inventory count) - shown as None
-    # (rendered "N/A" by the frontend) rather than estimated, per explicit
-    # instruction not to guess. Total is built AS mobile+online (not
+    # Total Site T+D comes from PROVINCE_TOTAL_SITE_TD (the reference
+    # inventory file) - both percentages that depend on it are now real,
+    # computed numbers, not estimates. Total is built AS mobile+online (not
     # independently computed) so it can never disagree with its own parts;
     # region rows are literally the sum of their own province rows for the
     # same reason.
@@ -535,29 +558,43 @@ def build_flood_nan_response(gs_client=None):
         else:
             entry["online"] += 1
 
+    # Every province with a known site count shows up even with zero
+    # current tickets (matching the reference file's own completeness -
+    # "% Site Down" being 0% for a quiet province is meaningful, not
+    # something to omit).
+    all_summary_provinces = sorted(set(province_summary_counts) | set(PROVINCE_TOTAL_SITE_TD))
     province_summary_rows = []
-    for prov, c in province_summary_counts.items():
+    for prov in all_summary_provinces:
+        c = province_summary_counts.get(prov, {"sa_mobile": 0, "online": 0, "mobile_sa3": 0})
         total = c["sa_mobile"] + c["online"]
+        total_site_td = PROVINCE_TOTAL_SITE_TD.get(prov)
+        pct_ticket_compare_site = round(total / total_site_td * 100, 2) if total_site_td else None
+        pct_site_down = round(c["mobile_sa3"] / total_site_td * 100, 2) if total_site_td else None
         province_summary_rows.append({
             "province": prov,
             "region": province_region.get(prov) or PROVINCE_REGION_FALLBACK.get(prov, "(ไม่ระบุ Region)"),
             "sa_mobile": c["sa_mobile"], "online": c["online"], "total": total,
-            "total_site_td": None,  # N/A - no site-inventory data source available
-            "pct_ticket_compare_site": None,  # N/A - depends on total_site_td
+            "total_site_td": total_site_td,  # None only for a province with no entry in PROVINCE_TOTAL_SITE_TD at all
+            "pct_ticket_compare_site": pct_ticket_compare_site,
             "mobile_sa3": c["mobile_sa3"],
-            "pct_site_down": None,  # N/A - depends on total_site_td
+            "pct_site_down": pct_site_down,
         })
     province_summary_rows.sort(key=lambda r: -r["total"])
     regions_present = sorted({r["region"] for r in province_summary_rows})
     province_summary_table = {"regions": regions_present, "rows": province_summary_rows}
+    grand_total_site_td = sum(r["total_site_td"] for r in province_summary_rows if r["total_site_td"] is not None) or None
+    grand_total_mobile = sum(r["sa_mobile"] for r in province_summary_rows)
+    grand_total_online = sum(r["online"] for r in province_summary_rows)
+    grand_total_all = grand_total_mobile + grand_total_online
+    grand_total_mobile_sa3 = sum(r["mobile_sa3"] for r in province_summary_rows)
     province_summary_grand_total = {
-        "sa_mobile": sum(r["sa_mobile"] for r in province_summary_rows),
-        "online": sum(r["online"] for r in province_summary_rows),
-        "total": sum(r["total"] for r in province_summary_rows),
-        "total_site_td": None,
-        "pct_ticket_compare_site": None,
-        "mobile_sa3": sum(r["mobile_sa3"] for r in province_summary_rows),
-        "pct_site_down": None,
+        "sa_mobile": grand_total_mobile,
+        "online": grand_total_online,
+        "total": grand_total_all,
+        "total_site_td": grand_total_site_td,
+        "pct_ticket_compare_site": round(grand_total_all / grand_total_site_td * 100, 2) if grand_total_site_td else None,
+        "mobile_sa3": grand_total_mobile_sa3,
+        "pct_site_down": round(grand_total_mobile_sa3 / grand_total_site_td * 100, 2) if grand_total_site_td else None,
     }
 
     insert_time = scoped[0].get("insert_time") if scoped else None
