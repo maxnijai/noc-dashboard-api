@@ -5513,7 +5513,8 @@ function renderPivot(ft) {
     // separate from renderSummaryTable since that one is aging-column
     // specific (backdated highlighting etc.), which doesn't apply here.
     const esc1 = s => String(s).replace(/'/g, "\\'");
-    const head = columns.map(c => `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">${escapeHtml(c)}</th>`).join('');
+    const colLabel = c => colFilterKey === 'province' ? provinceEnLabel(c) : c;
+    const head = columns.map(c => `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">${escapeHtml(colLabel(c))}</th>`).join('');
     const bodyRows = rows.map((r, i) => {
       const cells = columns.map(c => {
         const count = r.counts[c] || 0;
@@ -5563,6 +5564,7 @@ function renderPivot(ft) {
       return `<th style="padding:8px; text-align:center; font-size:11px; font-weight:700; background:${color}30; ${isOver ? 'color:#8B2E2E;' : 'color:var(--text2);'}">${ag}</th>`;
     }).join('');
     const esc1 = s => String(s).replace(/'/g, "\\'");
+    const displayLabel = v => rowKey === 'province' ? provinceEnLabel(v) : v;
     const rows = bookmarkBlock.rows.map((r, i) => {
       const cells = agingOrder.map(ag => {
         const count = r.counts[ag] || 0;
@@ -5578,7 +5580,7 @@ function renderPivot(ft) {
       const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       const rowTotalOnclick = (rowClickable && r.over_total > 0) ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
-        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(r[rowKey])}</td>
+        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(displayLabel(r[rowKey]))}</td>
         ${cells}
         <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'} ${rowTotalOnclick ? 'cursor:pointer;' : ''}" title="${rowTotalOnclick ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${r.over_total}</td>
       </tr>`;
@@ -5695,7 +5697,7 @@ function renderPivot(ft) {
     if (!block || !block.provinces || !block.provinces.length) return '';
     const rows = block.provinces.map((p, i) => `
       <tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; font-weight:600;">${escapeHtml(p.province)}</td>
+        <td style="padding:7px 10px; font-weight:600;">${escapeHtml(provinceEnLabel(p.province))}</td>
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_group_problem || '–'}</td>
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_action_team || '–'}</td>
         <td style="padding:7px 10px; text-align:right; font-weight:700;">${p.missing_detail || '–'}</td>
@@ -6055,7 +6057,7 @@ function renderPivot(ft) {
       const f = getSectionFilter(block.bookmark);
       const sectionId = `p0-section-${i}`;
 
-      const provinceOptions = block.rows.map(r => r.province).sort((a, b) => a.localeCompare(b, 'th'));
+      const provinceOptions = block.rows.map(r => r.province).sort((a, b) => provinceEnLabel(a).localeCompare(provinceEnLabel(b)));
       const allTickets = detailBlock ? detailBlock.tickets : [];
       const filteredTickets = allTickets.filter(t => {
         const prov = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
@@ -6102,7 +6104,7 @@ function renderPivot(ft) {
         : '';
 
       const chips = [];
-      if (f.province) chips.push(`จังหวัด: ${escapeHtml(f.province)}`);
+      if (f.province) chips.push(`จังหวัด: ${escapeHtml(provinceEnLabel(f.province))}`);
       if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
       if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
       if (f.category) chips.push(`Category: ${escapeHtml(f.category)}`);
@@ -6141,7 +6143,7 @@ function renderPivot(ft) {
               <label style="font-size:11px; display:flex; align-items:center; gap:4px; color:var(--text3);">จังหวัด:
                 <select onchange="filterP0SectionProvince('${block.bookmark.replace(/'/g, "\\'")}', this.value)" style="padding:2px 6px; font-size:11px;">
                   <option value="">ทั้งหมด</option>
-                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === f.province ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                  ${provinceOptions.map(p => `<option value="${escapeHtml(p)}" ${p === f.province ? 'selected' : ''}>${escapeHtml(provinceEnLabel(p))}</option>`).join('')}
                 </select>
               </label>
               <span style="font-size:12px; ${block.over_total > 0 ? 'color:#B23A3A; font-weight:700;' : 'color:var(--text3);'}">Over SLA รวม: ${block.over_total} tickets</span>
