@@ -187,8 +187,109 @@ def _strip_leading_code_labels(categories):
 
 CLASSIFICATION_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
 
+HIGHLIGHT_COLOR = "#E24B4A"  # red - draws attention to the one flagged fault type
+DEFAULT_OTHER_COLOR = "#8b949e"  # neutral gray - everything else, deliberately uniform
 
-def _build_classification_subclass_group(tickets_subset, trim_fn=None):
+
+def _group_colors(order, highlight_label):
+    """When highlight_label is given, returns a 2-color scheme: the
+    matching group gets HIGHLIGHT_COLOR, every other group gets the same
+    DEFAULT_OTHER_COLOR - avoids the "too many colors, hard to read"
+    (ลายตา) effect of a unique palette color per group. When
+    highlight_label is None (unchanged, default behavior), returns the
+    normal per-group palette assignment, one distinct color per group in
+    frequency order."""
+    if highlight_label is None:
+        return {cat: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, cat in enumerate(order)}
+    return {cat: (HIGHLIGHT_COLOR if cat == highlight_label else DEFAULT_OTHER_COLOR) for cat in order}
+
+# MAP SA1-4 (Mobile mode) "Major Classification" groups - an explicit,
+# fixed list (not derived/guessed), matching classification text via
+# keyword-containment after implicitly ignoring vendor prefixes (RAN-
+# ERICSSON/RAN-NOKIA/RAN-HUAWEI) and connector words (SITE DOWN, ROUTE
+# SITE DOWN) - those never appear in this list, so a raw value matches
+# whichever of these phrases it CONTAINS, regardless of what vendor
+# prefix or connector wraps it. A classification matching none of these
+# is deliberately left unmapped rather than guessed into one - callers
+# must surface that list for review, not silently drop or invent a group.
+MOBILE_MAJOR_CLASSIFICATIONS = [
+    "CELL DOWN OTHER",
+    "MAIN AC POWER FAIL",
+    "SITE DOWN OTHER",
+    "IPRAN NODE DOWN",
+    "IPRAN PORT DOWN",
+    "IPRAN DOWN",
+    "CELL UP/DOWN OTHER",
+    "SITE UP/DOWN OTHER",
+    "RECTIFIER FAIL",
+]
+
+# Map 1 (Mobile) and Map 4 (Power) marker/legend highlighting - reduces
+# each map to 2 colors (this one flagged fault type vs. everything else)
+# instead of one color per group, per explicit request that the full
+# per-group palette was too busy ("ลายตา") to read at a glance.
+MOBILE_HIGHLIGHT_CLASSIFICATION = "MAIN AC POWER FAIL"
+POWER_HIGHLIGHT_CLASSIFICATION = "SYSTEM POWER SYSTEM-NODEB MAIN POWER FAILURE"
+
+
+def _match_major_classification(raw, known_categories):
+    """Matches a raw classification string against a FIXED list of known
+    'major' category phrases via keyword-containment (case-insensitive) -
+    vendor prefixes and connector words are irrelevant since this matches
+    by substring search, not by stripping a specific prefix pattern.
+    Returns the matched category, or None if nothing in the list matches
+    (the caller must surface these for review rather than guess)."""
+    text = raw.upper()
+    matches = [cat for cat in known_categories if cat in text]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        return max(matches, key=len)  # most specific (longest) match wins on the rare ambiguous case
+    return None
+
+
+def _build_major_classification_group(tickets_subset, known_categories, highlight_label=None):
+    """Groups tickets by MAJOR CLASSIFICATION (matched against a fixed
+    known list via _match_major_classification) instead of the raw
+    per-vendor classification text - counts merge across vendors
+    automatically since matching is by keyword, not exact string.
+    highlight_label: if given, colors reduce to just 2 (that one group
+    highlighted, everything else uniform) instead of one color per group -
+    see _group_colors. Returns (color_fn, legend, unmapped) - unmapped
+    lists every raw classification that matched none of the known
+    categories (with its own ticket count), for review rather than being
+    silently dropped."""
+    counts = {}
+    unmapped_counts = {}
+    for t in tickets_subset:
+        raw = str(t["CLASSIFICATION"] or "").strip()
+        if not raw:
+            continue
+        matched = _match_major_classification(raw, known_categories)
+        if matched:
+            counts[matched] = counts.get(matched, 0) + 1
+        else:
+            unmapped_counts[raw] = unmapped_counts.get(raw, 0) + 1
+
+    order = sorted(counts, key=lambda k: -counts[k])
+    colors = _group_colors(order, highlight_label)
+    UNMAPPED_COLOR = DEFAULT_OTHER_COLOR if highlight_label is not None else "#8b949e"
+
+    def color_fn(site_tickets):
+        site_counts = {}
+        for tk in site_tickets:
+            raw = str(tk["CLASSIFICATION"] or "").strip()
+            matched = _match_major_classification(raw, known_categories)
+            site_counts[matched or "__unmapped__"] = site_counts.get(matched or "__unmapped__", 0) + 1
+        best = max(site_counts, key=site_counts.get)
+        return colors.get(best, UNMAPPED_COLOR)
+
+    legend = [{"label": cat, "color": colors[cat], "count": counts[cat]} for cat in order]
+    unmapped = [{"classification": raw, "count": n} for raw, n in sorted(unmapped_counts.items(), key=lambda kv: -kv[1])]
+    return color_fn, legend, unmapped
+
+
+def _build_classification_subclass_group(tickets_subset, trim_fn=None, highlight_label=None):
     """Groups the given tickets by CLASSIFICATION text with the shared
     code/prefix stripped FIRST (trim_fn - defaults to _smart_trim_labels's
     shared-multi-word-prefix rule; pass _strip_leading_code_labels for the
@@ -197,10 +298,10 @@ def _build_classification_subclass_group(tickets_subset, trim_fn=None):
     raw string. Two raw values that trim down to the same visible text
     (e.g. "AN NODE DOWN" and "A NODE DOWN") must merge into one legend
     entry with a combined count, not show up as separate lines with the
-    same label and different counts. Returns a color_fn usable with
-    _build_site_group alongside the legend list; colors are assigned by
-    frequency (most common trimmed classification gets the first palette
-    color) so the legend and marker colors always agree."""
+    same label and different counts. highlight_label: if given, colors
+    reduce to just 2 (that one group highlighted, everything else
+    uniform) - see _group_colors. Returns a color_fn usable with
+    _build_site_group alongside the legend list."""
     if trim_fn is None:
         trim_fn = _smart_trim_labels
     raw_counts = {}
@@ -216,7 +317,8 @@ def _build_classification_subclass_group(tickets_subset, trim_fn=None):
         label = trimmed_of[raw]
         trimmed_counts[label] = trimmed_counts.get(label, 0) + n
     order = sorted(trimmed_counts, key=lambda k: -trimmed_counts[k])
-    colors = {label: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, label in enumerate(order)}
+    colors = _group_colors(order, highlight_label)
+    fallback_color = DEFAULT_OTHER_COLOR if highlight_label is not None else "#8b949e"
 
     def color_fn(site_tickets):
         counts = {}
@@ -225,7 +327,7 @@ def _build_classification_subclass_group(tickets_subset, trim_fn=None):
             label = trimmed_of.get(raw, raw)
             counts[label] = counts.get(label, 0) + 1
         best_label = max(counts, key=counts.get)
-        return colors.get(best_label, "#8b949e")
+        return colors.get(best_label, fallback_color)
 
     legend = [{"label": label, "color": colors[label], "count": trimmed_counts[label]} for label in order]
     return color_fn, legend
@@ -357,10 +459,14 @@ def build_flood_nan_response(gs_client=None):
     tickets_nsa12 = [t for t in tickets if t["Bookmark"] == "3. All NW Incident NSA1-2" and not t["is_dn"]]
     tickets_dn = [t for t in tickets if t["is_dn"]]  # every bookmark, DN is a cross-cutting site attribute
 
-    # Map 1 sub-colors markers by CLASSIFICATION (same principle as Map 4)
-    # instead of one flat color for every Mobile/Online ticket - separate
-    # legends per mode, since the frontend swaps between them on toggle.
-    mobile_color_fn, mobile_subclass_legend = _build_classification_subclass_group(tickets_mobile, trim_fn=_strip_leading_code_labels)
+    # Map 1 sub-colors markers by CLASSIFICATION - Mobile mode groups by
+    # the fixed "Major Classification" list (vendor prefixes like
+    # RAN-ERICSSON/RAN-NOKIA/RAN-HUAWEI merge into the same group since
+    # matching is by keyword, not by vendor); Online mode keeps the
+    # simpler leading-code-strip rule since it wasn't part of that
+    # request and the 9 known categories are RAN/cell-specific terms that
+    # don't apply to broadband fault text anyway.
+    mobile_color_fn, mobile_subclass_legend, mobile_classification_unmapped = _build_major_classification_group(tickets_mobile, MOBILE_MAJOR_CLASSIFICATIONS, highlight_label=MOBILE_HIGHLIGHT_CLASSIFICATION)
     online_color_fn, online_subclass_legend = _build_classification_subclass_group(tickets_online, trim_fn=_strip_leading_code_labels)
     sites_mobile = _build_site_group(tickets_mobile, mobile_color_fn)
     sites_online = _build_site_group(tickets_online, online_color_fn)
@@ -383,7 +489,7 @@ def build_flood_nan_response(gs_client=None):
         if t["Bookmark"] == "NSA3-4" and not t["is_dn"]
         and NOC_NW_POWER_SYSTEM_TAG in str(t["CLASSIFICATION"] or "").upper()
     ]
-    power_color_fn, power_subclass_legend = _build_classification_subclass_group(tickets_nsa34_power, trim_fn=_strip_leading_code_labels)
+    power_color_fn, power_subclass_legend = _build_classification_subclass_group(tickets_nsa34_power, trim_fn=_strip_leading_code_labels, highlight_label=POWER_HIGHLIGHT_CLASSIFICATION)
     sites_nsa34_power = _build_site_group(tickets_nsa34_power, power_color_fn)
 
     # Diagnostic: DN-criteria tickets that DIDN'T end up plotted on the DN
@@ -646,6 +752,7 @@ def build_flood_nan_response(gs_client=None):
         "sites_nsa34_power": sites_nsa34_power,
         "power_subclass_legend": power_subclass_legend,
         "mobile_subclass_legend": mobile_subclass_legend,
+        "mobile_classification_unmapped": mobile_classification_unmapped,
         "online_subclass_legend": online_subclass_legend,
         "tickets": tickets,
         "provinces": provinces,
