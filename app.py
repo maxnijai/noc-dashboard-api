@@ -15,7 +15,6 @@ from realtime_monitor import (
 from pending_ticket import (
     build_pending_ticket_response,
     build_exclusive_pending_response,
-    build_online_sla_response,
     save_work_log_entry,
     rename_group_problem_value,
     build_p0_snapshot_comparison,
@@ -29,6 +28,7 @@ import weather_layers
 import team_planner
 import summary_nan
 import auth
+import sla_improvement
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2250,14 +2250,63 @@ def api_exclusive_pending():
         log.exception("exclusive-pending API failed")
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/online-sla')
-def api_online_sla():
+@app.route('/api/sla-improvement/import', methods=['POST'])
+def api_sla_improvement_import():
+    """Manual daily import of the Online SA1-4 SLA Improvement Excel
+    export - replaces the in-memory dataset ONLY if the whole file parses
+    successfully (see sla_improvement.import_excel_file), so a bad upload
+    never breaks whatever was already loaded."""
     try:
-        _, gs_client = get_drive_and_sheets_clients()
-        data = build_online_sla_response(gs_client)
+        if 'file' not in request.files:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        if not f.filename.lower().endswith(('.xlsx', '.xlsm')):
+            return jsonify({'error': 'รองรับเฉพาะไฟล์ .xlsx เท่านั้น'}), 400
+        tmp_path = os.path.join('/tmp', f'sla_import_{secrets.token_hex(8)}.xlsx')
+        f.save(tmp_path)
+        try:
+            result = sla_improvement.import_excel_file(tmp_path, f.filename)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        return jsonify(result)
+    except sla_improvement.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sla-improvement import failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement')
+def api_sla_improvement():
+    try:
+        data = sla_improvement.build_sla_improvement_response()
+        if data is None:
+            return jsonify({'has_data': False})
+        data['has_data'] = True
         return jsonify(data)
     except Exception as e:
-        log.exception("online-sla API failed")
+        log.exception("sla-improvement API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/drill-down')
+def api_sla_improvement_drill_down():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        result = sla_improvement.drill_down_root_cause(
+            rows,
+            problem=request.args.get('problem') or None,
+            sub_cause=request.args.get('sub_cause') or None,
+            ci_name=request.args.get('ci_name') or None,
+        )
+        return jsonify(result)
+    except Exception as e:
+        log.exception("sla-improvement drill-down API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
