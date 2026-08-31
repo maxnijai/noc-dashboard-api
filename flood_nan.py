@@ -191,14 +191,26 @@ HIGHLIGHT_COLOR = "#E24B4A"  # red - draws attention to the one flagged fault ty
 DEFAULT_OTHER_COLOR = "#4a4f57"  # dark gray - everything else, deliberately uniform and visually recessive against the red highlight
 
 
+def _normalize_for_match(s):
+    """Collapses ANY run of whitespace (including non-breaking spaces,
+    tabs, or other invisible whitespace variants that can sneak in from a
+    spreadsheet source) down to single regular spaces, then trims and
+    uppercases - a plain .strip() only handles the two ends of the
+    string, not irregular whitespace hiding in the middle, which is
+    enough to break a naive comparison even when the text looks
+    identical to the eye."""
+    return re.sub(r"\s+", " ", str(s or "")).strip().upper()
+
+
 def _is_highlight_match(cat, highlight_label):
     """Case-insensitive, bidirectional-substring match rather than exact
     string equality - the group label computed from real data can end up
     slightly longer or shorter than the target phrase depending on
     whatever surrounding text the source system includes (extra spacing,
     a slightly different prefix remnant, etc.), so a strict == comparison
-    is fragile here in a way a keyword match isn't."""
-    a, b = cat.strip().upper(), highlight_label.strip().upper()
+    is fragile here in a way a keyword match isn't. Whitespace is fully
+    normalized (not just trimmed) before comparing."""
+    a, b = _normalize_for_match(cat), _normalize_for_match(highlight_label)
     return a == b or a in b or b in a
 
 
@@ -227,9 +239,6 @@ MOBILE_MAJOR_CLASSIFICATIONS = [
     "CELL DOWN OTHER",
     "MAIN AC POWER FAIL",
     "SITE DOWN OTHER",
-    "IPRAN NODE DOWN",
-    "IPRAN PORT DOWN",
-    "IPRAN DOWN",
     "CELL UP/DOWN OTHER",
     "SITE UP/DOWN OTHER",
     "RECTIFIER FAIL",
