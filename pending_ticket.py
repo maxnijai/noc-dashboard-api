@@ -1070,3 +1070,192 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "groups": groups,
     }
+
+
+# ── Online SA1-4 SLA Monitoring ─────────────────────────────────────────
+# New tab built on the exact same data source, Region/Severity filtering,
+# and P0/P1 priority formula as Focus Priority 0 above (_classify_priority,
+# imported from realtime_monitor - the "tomorrow 01:15" reference point is
+# NOT reimplemented here, just reused) - scoped to the "Online" bookmark
+# ("4.FBB with SA1-4") and P0+P1 together. Adds SLA Progress % (elapsed
+# time / total CREATIONDATE-to-TARGETFINISH duration) and a hazard-hours
+# Early Warning window - neither exists anywhere else in this codebase,
+# since the existing Aging_Flag_Group is a different concept (buckets by
+# how overdue an ALREADY-late ticket is, not by progress toward a
+# not-yet-due deadline). This system has no CLOSEDTIME field anywhere and
+# fetch_live_rows() only ever returns currently-pending tickets, so every
+# entry here is implicitly "still open" by construction - confirmed
+# acceptable, no closed-ticket tracking needed.
+
+ONLINE_BOOKMARK_RAW = "4.FBB with SA1-4"
+
+
+def _sla_risk_bucket(now_dt, target_dt, progress_pct):
+    """🔴 over / 🟠 >=75% / 🟡 >=50% / 🔵 normal (<50%) - Over is decided
+    by the clock (now past TARGETFINISH), matching how priority P0/P1
+    already treat lateness; the other 3 buckets split the SLA Progress %
+    range. Returns None if progress_pct couldn't be computed (missing/
+    invalid CREATIONDATE or TARGETFINISH) - never guesses a bucket for
+    that ticket rather than misclassifying it."""
+    if target_dt and now_dt > target_dt:
+        return "over"
+    if progress_pct is None:
+        return None
+    if progress_pct >= 75:
+        return "risk75"
+    if progress_pct >= 50:
+        return "risk50"
+    return "normal"
+
+
+def build_online_sla_response(gs_client=None):
+    """Online SA1-4 SLA Monitoring - see module-level comment above for
+    what's reused vs new. Returns entries (ticket-level, sorted by
+    remaining SLA time ascending - most urgent first), KPI counts, a
+    Region->Province risk table, and an SLA-Duration distribution (+ x
+    Province) table. SLA Duration groups are DISCOVERED from real data
+    (rounded CREATIONDATE-to-TARGETFINISH days), never hardcoded."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    all_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    scoped = [
+        r for r in all_rows
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
+        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
+        and str(r.get("Bookmark", "")).strip() == ONLINE_BOOKMARK_RAW
+    ]
+    work_log = load_work_log(gs_client)
+    try:
+        mateline_lookup = build_mateline_status_lookup(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("GGS Daily mateline lookup failed for Online SLA - falling back to empty for this response")
+        mateline_lookup = {}
+
+    entries = []
+    for r in scoped:
+        priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        if priority not in ("P0", "P1"):
+            continue
+
+        creation_dt = _parse_dt(r.get("CREATIONDATE"))
+        target_dt = _parse_dt(r.get("TARGETFINISH"))
+
+        sla_duration_days = None
+        sla_progress_pct = None
+        remaining_hours = None
+        if creation_dt and target_dt:
+            total_seconds = (target_dt - creation_dt).total_seconds()
+            if total_seconds > 0:
+                sla_duration_days = round(total_seconds / 86400)
+                elapsed_seconds = (now_dt - creation_dt).total_seconds()
+                sla_progress_pct = round(max(0, elapsed_seconds) / total_seconds * 100, 1)
+            remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2)
+
+        sla_risk = _sla_risk_bucket(now_dt, target_dt, sla_progress_pct)
+
+        ticket_id = str(r.get("TICKETID", "")).strip()
+        wl = work_log.get(ticket_id, {})
+        mateline = mateline_lookup.get(ticket_id.upper()) or {
+            "status_mateline": "(ไม่พบใน MatelineX)", "mateline_wo_status": "",
+        }
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+
+        entries.append({
+            "TICKETID": ticket_id,
+            "SUBJECT": r.get("SUBJECT", ""),
+            "CINAME": r.get("CINAME", ""),
+            "DISTRICT": r.get("DISTRICT", ""),
+            "PROVINCE": str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุ)",
+            "Region": r.get("Region", ""),
+            "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
+            "priority": priority,
+            "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
+            "CREATIONDATE": r.get("CREATIONDATE", ""),
+            "TARGETFINISH": r.get("TARGETFINISH", ""),
+            "sla_duration_days": sla_duration_days,
+            "sla_progress_pct": sla_progress_pct,
+            "sla_risk": sla_risk,  # 'over' | 'risk75' | 'risk50' | 'normal' | None
+            "remaining_hours": remaining_hours,
+            "early_warning_2h": remaining_hours is not None and 0 <= remaining_hours <= 2,
+            "early_warning_6h": remaining_hours is not None and 0 <= remaining_hours <= 6,
+            "early_warning_12h": remaining_hours is not None and 0 <= remaining_hours <= 12,
+            "over_sla_day": over_sla_day,
+            "status_mateline": mateline["status_mateline"],
+            "mateline_wo_status": mateline["mateline_wo_status"],
+            "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
+            "action_team": wl.get("action_team", ""),
+        })
+
+    # Most urgent (soonest TARGETFINISH / least remaining time) first -
+    # entries with no computable remaining_hours sort last, not first.
+    entries.sort(key=lambda e: e["remaining_hours"] if e["remaining_hours"] is not None else float("inf"))
+
+    total = len(entries)
+    risk_counts = {"over": 0, "risk75": 0, "risk50": 0, "normal": 0}
+    for e in entries:
+        if e["sla_risk"] in risk_counts:
+            risk_counts[e["sla_risk"]] += 1
+    ew_counts = {
+        "2h": sum(1 for e in entries if e["early_warning_2h"]),
+        "6h": sum(1 for e in entries if e["early_warning_6h"]),
+        "12h": sum(1 for e in entries if e["early_warning_12h"]),
+    }
+
+    # Region -> Province risk table.
+    province_stats = {}
+    for e in entries:
+        p = province_stats.setdefault(e["PROVINCE"], {
+            "province": e["PROVINCE"], "region": e["Region"],
+            "total": 0, "over": 0, "risk75": 0, "risk50": 0, "normal": 0,
+        })
+        p["total"] += 1
+        if e["sla_risk"] in p:
+            p[e["sla_risk"]] += 1
+    province_table = sorted(province_stats.values(), key=lambda r: -r["total"])
+    critical_province = max(province_table, key=lambda r: r["over"])["province"] if any(r["over"] for r in province_table) else None
+
+    # SLA Duration distribution - groups DISCOVERED from real data, not
+    # a hardcoded list.
+    duration_counts = {}
+    for e in entries:
+        key = f"{e['sla_duration_days']} Days" if e["sla_duration_days"] is not None else "(ไม่ระบุ)"
+        duration_counts[key] = duration_counts.get(key, 0) + 1
+    duration_table = sorted(
+        [{"sla_duration": k, "ticket_count": v} for k, v in duration_counts.items()],
+        key=lambda r: -r["ticket_count"],
+    )
+
+    # SLA Duration x Province.
+    dp_stats = {}
+    for e in entries:
+        dkey = f"{e['sla_duration_days']} Days" if e["sla_duration_days"] is not None else "(ไม่ระบุ)"
+        key = (dkey, e["PROVINCE"])
+        dp = dp_stats.setdefault(key, {
+            "sla_duration": dkey, "province": e["PROVINCE"],
+            "total": 0, "over": 0, "risk75": 0, "risk50": 0,
+        })
+        dp["total"] += 1
+        if e["sla_risk"] in dp:
+            dp[e["sla_risk"]] += 1
+    duration_province_table = sorted(dp_stats.values(), key=lambda r: -r["total"])
+
+    return {
+        "entries": entries,
+        "kpi": {
+            "total": total,
+            "over_sla": risk_counts["over"], "risk_75": risk_counts["risk75"],
+            "risk_50": risk_counts["risk50"], "normal": risk_counts["normal"],
+            "early_warning_2h": ew_counts["2h"], "early_warning_6h": ew_counts["6h"], "early_warning_12h": ew_counts["12h"],
+            "critical_province": critical_province,
+        },
+        "province_table": province_table,
+        "duration_table": duration_table,
+        "duration_province_table": duration_province_table,
+        "insert_time": scoped[0].get("insert_time") if scoped else None,
+    }

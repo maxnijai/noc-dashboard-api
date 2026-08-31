@@ -15,6 +15,7 @@ from realtime_monitor import (
 from pending_ticket import (
     build_pending_ticket_response,
     build_exclusive_pending_response,
+    build_online_sla_response,
     save_work_log_entry,
     rename_group_problem_value,
     build_p0_snapshot_comparison,
@@ -2247,6 +2248,16 @@ def api_exclusive_pending():
         return jsonify(data)
     except Exception as e:
         log.exception("exclusive-pending API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/online-sla')
+def api_online_sla():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_online_sla_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("online-sla API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
