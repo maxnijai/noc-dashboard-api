@@ -728,6 +728,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="4.2" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="#E24B4A"/></svg>
     Focus Priority 0 Ticket
   </div>
+  <div class="nav-item" onclick="showPage('onlinesla')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#EF9F27" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Online SA1-4
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -948,6 +952,71 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
     <div id="p0-body"></div>
+  </div>
+
+  <!-- ONLINE SA1-4 SLA MONITORING -->
+  <div class="page" id="page-onlinesla">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#EF9F27" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Online SA1-4 SLA Monitoring
+          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
+          </span>
+        </div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Bookmark "Online" (4.FBB with SA1-4) เฉพาะ Priority P0 + P1 — SLA Progress % คำนวณจาก CREATIONDATE ถึง TARGETFINISH</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="onsla-status" style="font-size:13px; color:var(--text); font-weight:700;"></span>
+        <button id="onsla-reload" class="btn-secondary">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px;" id="onsla-kpi-grid"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        <select id="onsla-f-province" class="btn-secondary" style="padding:5px 10px;"><option value="">ทุกจังหวัด</option></select>
+        <select id="onsla-f-duration" class="btn-secondary" style="padding:5px 10px;"><option value="">ทุก SLA Duration</option></select>
+        <select id="onsla-f-priority" class="btn-secondary" style="padding:5px 10px;">
+          <option value="">ทุก Priority</option><option value="P0">P0</option><option value="P1">P1</option>
+        </select>
+        <select id="onsla-f-risk" class="btn-secondary" style="padding:5px 10px;">
+          <option value="">ทุก SLA Risk</option>
+          <option value="over">🔴 Over SLA</option><option value="risk75">🟠 ≥75%</option>
+          <option value="risk50">🟡 ≥50%</option><option value="normal">🔵 Normal</option>
+        </select>
+        <div id="onsla-filter-chip" style="font-size:11px;"></div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ SLA Risk ตามจังหวัด (Region → Province)</div>
+      <div id="onsla-province-table" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">⏱️ SLA Duration ที่พบในข้อมูลจริง</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">คำนวณสดจาก TARGETFINISH − CREATIONDATE ปัดเป็นวันที่ใกล้ที่สุด ไม่ได้กำหนดตายตัว</div>
+        <div id="onsla-duration-table" style="overflow-x:auto;"></div>
+      </div>
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">⏱️ SLA Duration × Province</div>
+        <div id="onsla-duration-province-table" style="overflow-x:auto; max-height:320px; overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เรียงตามเวลาคงเหลือ ด่วนที่สุดก่อน)</div>
+      <div style="overflow-x:auto; max-height:480px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table id="onsla-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- P0 ONLY LINE SUMMARY MODAL -->
@@ -4137,6 +4206,7 @@ function showPage(id) {
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
+  if (id==='onlinesla') { setTimeout(()=>{ if (window.initOnlineSlaTab) window.initOnlineSlaTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -6310,6 +6380,256 @@ function renderPivot(ft) {
   el('p0-reload').addEventListener('click', () => { reload(); loadP0SnapshotComparison('p0'); });
   window.initP0OnlyTab = function () { if (!loaded) reload(); };
   window.__reloadP0 = reload;
+})();
+
+// ── ONLINE SA1-4 SLA MONITORING ─────────────────────────────────────────
+(function () {
+  let loaded = false;
+  let lastData = null;
+  let filterState = { province: '', duration: '', priority: '', risk: '' };
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
+
+  function ticketMatchesFilter(e) {
+    if (filterState.province && e.PROVINCE !== filterState.province) return false;
+    if (filterState.duration != null && filterState.duration !== '' && String(e.sla_duration_days) !== filterState.duration) return false;
+    if (filterState.priority && e.priority !== filterState.priority) return false;
+    if (filterState.risk && e.sla_risk !== filterState.risk) return false;
+    return true;
+  }
+
+  function renderKpiGrid(kpi) {
+    const cards = [
+      { label: 'Total Online SA1-4', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
+      { label: '🔴 Over SLA', value: kpi.over_sla, color: '#E24B4A', bg: '#E24B4A14' },
+      { label: '🟠 ≥75% SLA', value: kpi.risk_75, color: '#EF9F27', bg: '#EF9F2714' },
+      { label: '🟡 ≥50% SLA', value: kpi.risk_50, color: '#F5C518', bg: '#F5C51814' },
+      { label: '🔵 Normal', value: kpi.normal, color: '#1f6feb', bg: '#1f6feb14' },
+      { label: '⚠️ Due ≤2h', value: kpi.early_warning_2h, color: '#E24B4A', bg: '#E24B4A14' },
+      { label: '⚠️ Due ≤6h', value: kpi.early_warning_6h, color: '#EF9F27', bg: '#EF9F2714' },
+      { label: '⚠️ Due ≤12h', value: kpi.early_warning_12h, color: '#F5C518', bg: '#F5C51814' },
+    ];
+    if (kpi.critical_province) {
+      cards.push({ label: 'Critical Province', value: PROVINCE_EN(kpi.critical_province), color: '#E24B4A', bg: '#E24B4A14', small: true });
+    }
+    el('onsla-kpi-grid').innerHTML = cards.map(c => `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+        <div style="font-size:${c.small ? '18px' : '28px'}; font-weight:800; color:${c.color}; line-height:1.1;">${escapeHtml(c.value != null ? c.value : '–')}</div>
+        <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
+      </div>`).join('');
+  }
+
+  function riskBadge(risk) {
+    const map = { over: ['🔴', '#E24B4A', 'Over SLA'], risk75: ['🟠', '#EF9F27', '≥75%'], risk50: ['🟡', '#F5C518', '≥50%'], normal: ['🔵', '#1f6feb', 'Normal'] };
+    const [icon, color, label] = map[risk] || ['⚪', 'var(--text3)', '–'];
+    return `<span style="color:${color}; font-weight:700;">${icon} ${label}</span>`;
+  }
+
+  function renderProvinceTable(rows) {
+    const container = el('onsla-province-table');
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="6" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase;">${escapeHtml(reg)}</td></tr>`;
+      const subtotal = { total: 0, over: 0, risk75: 0, risk50: 0, normal: 0 };
+      byRegion[reg].forEach(r => {
+        const isActive = filterState.province === r.province;
+        body += `<tr onclick="window.__onslaFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
+          <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+          <td style="padding:6px 8px; text-align:center; min-width:64px;">${r.total}</td>
+          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#E24B4A; font-weight:700;">${r.over || '–'}</td>
+          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#EF9F27;">${r.risk75 || '–'}</td>
+          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#F5C518;">${r.risk50 || '–'}</td>
+          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#1f6feb;">${r.normal || '–'}</td>
+        </tr>`;
+        subtotal.total += r.total; subtotal.over += r.over; subtotal.risk75 += r.risk75; subtotal.risk50 += r.risk50; subtotal.normal += r.normal;
+      });
+      body += `<tr style="border-top:1px solid var(--border); background:var(--bg3); font-weight:700;">
+        <td style="padding:6px 10px;">${escapeHtml(reg)} รวม</td>
+        <td style="padding:6px 8px; text-align:center;">${subtotal.total}</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A;">${subtotal.over || '–'}</td>
+        <td style="padding:6px 8px; text-align:center; color:#EF9F27;">${subtotal.risk75 || '–'}</td>
+        <td style="padding:6px 8px; text-align:center; color:#F5C518;">${subtotal.risk50 || '–'}</td>
+        <td style="padding:6px 8px; text-align:center; color:#1f6feb;">${subtotal.normal || '–'}</td>
+      </tr>`;
+    });
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#E24B4A;">Over</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#EF9F27;">≥75%</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#F5C518;">≥50%</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#1f6feb;">Normal</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderDurationTable(rows) {
+    const container = el('onsla-duration-table');
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const body = rows.map(r => {
+      const durationVal = r.sla_duration.replace(' Days', '');
+      const isActive = filterState.duration === durationVal;
+      return `<tr onclick="window.__onslaFilterDuration('${esc1(durationVal)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.sla_duration)}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:64px; font-weight:700;">${r.ticket_count}</td>
+      </tr>`;
+    }).join('');
+    const total = rows.reduce((s, r) => s + r.ticket_count, 0);
+    container.innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">SLA Duration</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket</th>
+          </tr></thead>
+          <tbody>${body}
+            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
+              <td style="padding:6px 10px;">Total</td><td style="padding:6px 8px; text-align:center;">${total}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderDurationProvinceTable(rows) {
+    const container = el('onsla-duration-province-table');
+    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const body = rows.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.sla_duration)}</td>
+        <td style="padding:6px 10px;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:56px;">${r.total}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#E24B4A;">${r.over || '–'}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#EF9F27;">${r.risk75 || '–'}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#F5C518;">${r.risk50 || '–'}</td>
+      </tr>`).join('');
+    container.innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
+          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">SLA</th>
+          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#E24B4A;">Over</th>
+          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#EF9F27;">≥75%</th>
+          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#F5C518;">≥50%</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>`;
+  }
+
+  const DETAIL_COLS = [
+    ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SLA Risk', 'sla_risk'],
+    ['เหลือเวลา (ชม.)', 'remaining_hours'], ['SLA Progress %', 'sla_progress_pct'], ['SLA Duration', 'sla_duration_days'],
+    ['Province', 'PROVINCE'], ['SUBJECT', 'SUBJECT'], ['CINAME', 'CINAME'],
+    ['TARGETFINISH', 'TARGETFINISH'], ['MatelineX Status', 'status_mateline'],
+  ];
+
+  function renderDetailTable(entries) {
+    const table = el('onsla-detail-table');
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    thead.innerHTML = `<tr style="background:var(--bg3);">${DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left;">${escapeHtml(label)}</th>`).join('')}</tr>`;
+    tbody.innerHTML = entries.map(e => `<tr style="border-top:1px solid var(--border);">${DETAIL_COLS.map(([, key]) => {
+      if (key === 'sla_risk') return `<td style="padding:6px 8px;">${riskBadge(e.sla_risk)}</td>`;
+      if (key === 'remaining_hours') return `<td style="padding:6px 8px; text-align:right; ${e.remaining_hours != null && e.remaining_hours < 0 ? 'color:#E24B4A; font-weight:700;' : ''}">${e.remaining_hours != null ? e.remaining_hours.toFixed(1) : '–'}</td>`;
+      if (key === 'sla_progress_pct') return `<td style="padding:6px 8px; text-align:right;">${e.sla_progress_pct != null ? e.sla_progress_pct.toFixed(1) + '%' : '–'}</td>`;
+      if (key === 'sla_duration_days') return `<td style="padding:6px 8px; text-align:right;">${e.sla_duration_days != null ? e.sla_duration_days + 'd' : '–'}</td>`;
+      if (key === 'PROVINCE') return `<td style="padding:6px 8px;">${escapeHtml(PROVINCE_EN(e.PROVINCE))}</td>`;
+      return `<td style="padding:6px 8px;">${escapeHtml(e[key])}</td>`;
+    }).join('')}</tr>`).join('');
+  }
+
+  function renderFilterChip() {
+    const chips = [];
+    if (filterState.province) chips.push(`จังหวัด: ${escapeHtml(PROVINCE_EN(filterState.province))}`);
+    if (filterState.duration !== '') chips.push(`SLA Duration: ${escapeHtml(filterState.duration)} Days`);
+    if (filterState.priority) chips.push(`Priority: ${escapeHtml(filterState.priority)}`);
+    if (filterState.risk) chips.push(`SLA Risk: ${escapeHtml(filterState.risk)}`);
+    const container = el('onsla-filter-chip');
+    if (!chips.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `<span style="background:var(--bg4); padding:3px 10px; border-radius:20px; color:var(--text2);">กรองอยู่: ${chips.join(' · ')}</span> <a href="#" onclick="window.__onslaClearFilter(); return false;" style="color:var(--blue); margin-left:6px;">✕ ล้าง</a>`;
+  }
+
+  function rerenderFiltered() {
+    if (!lastData) return;
+    renderDetailTable(lastData.entries.filter(ticketMatchesFilter));
+    renderFilterChip();
+  }
+
+  window.__onslaFilterProvince = function (prov) {
+    filterState.province = filterState.province === prov ? '' : prov;
+    el('onsla-f-province').value = filterState.province;
+    rerenderFiltered();
+  };
+  window.__onslaFilterDuration = function (d) {
+    filterState.duration = filterState.duration === d ? '' : d;
+    el('onsla-f-duration').value = filterState.duration;
+    rerenderFiltered();
+  };
+  window.__onslaClearFilter = function () {
+    filterState = { province: '', duration: '', priority: '', risk: '' };
+    ['onsla-f-province', 'onsla-f-duration', 'onsla-f-priority', 'onsla-f-risk'].forEach(id => { el(id).value = ''; });
+    rerenderFiltered();
+  };
+
+  function populateFilterDropdowns(data) {
+    const provinces = [...new Set(data.entries.map(e => e.PROVINCE))].sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
+    el('onsla-f-province').innerHTML = `<option value="">ทุกจังหวัด</option>` + provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
+    const durations = [...new Set(data.entries.map(e => e.sla_duration_days).filter(d => d != null))].sort((a, b) => a - b);
+    el('onsla-f-duration').innerHTML = `<option value="">ทุก SLA Duration</option>` + durations.map(d => `<option value="${d}">${d} Days</option>`).join('');
+  }
+
+  ['onsla-f-province', 'onsla-f-duration', 'onsla-f-priority', 'onsla-f-risk'].forEach(id => {
+    el(id).addEventListener('change', (e) => {
+      const key = id.replace('onsla-f-', '');
+      filterState[key] = e.target.value;
+      rerenderFiltered();
+    });
+  });
+
+  async function reload() {
+    el('onsla-status').textContent = 'กำลังโหลด...';
+    try {
+      const res = await fetch('/api/online-sla');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      renderKpiGrid(data.kpi);
+      renderProvinceTable(data.province_table);
+      renderDurationTable(data.duration_table);
+      renderDurationProvinceTable(data.duration_province_table);
+      populateFilterDropdowns(data);
+      renderDetailTable(data.entries.filter(ticketMatchesFilter));
+      renderFilterChip();
+      el('onsla-status').textContent = `${data.kpi.total} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
+      loaded = true;
+    } catch (e) {
+      console.error('Online SLA load failed', e);
+      el('onsla-status').textContent = '';
+      alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+    }
+  }
+
+  el('onsla-reload').addEventListener('click', reload);
+  window.initOnlineSlaTab = function () { if (!loaded) reload(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
