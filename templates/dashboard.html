@@ -728,9 +728,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="4.2" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="#E24B4A"/></svg>
     Focus Priority 0 Ticket
   </div>
-  <div class="nav-item" onclick="showPage('onlinesla')">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#EF9F27" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Online SA1-4
+  <div class="nav-item" onclick="showPage('slaimprove')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13l3.5-5 3 3L13.5 3" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 3h3.5v3.5" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Online SA1-4 SLA Improvement
   </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
@@ -954,67 +954,87 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div id="p0-body"></div>
   </div>
 
-  <!-- ONLINE SA1-4 SLA MONITORING -->
-  <div class="page" id="page-onlinesla">
+  <!-- ONLINE SA1-4 SLA IMPROVEMENT -->
+  <div class="page" id="page-slaimprove">
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
       <div>
         <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
-          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#EF9F27" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Online SA1-4 SLA Monitoring
-          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
-            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
-          </span>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13l3.5-5 3 3L13.5 3" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 3h3.5v3.5" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Online SA1-4 SLA Improvement
         </div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Bookmark "Online" (4.FBB with SA1-4) ทุก Priority (P0/P1/P2) — SLA Progress % คำนวณจาก CREATIONDATE ถึง TARGETFINISH</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">วิเคราะห์ย้อนหลัง (Closed Ticket) — Over SLA อยู่ที่ไหน เกิดจากอะไร ควร Improve จุดไหนก่อน</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
-        <span id="onsla-status" style="font-size:13px; color:var(--text); font-weight:700;"></span>
-        <button id="onsla-reload" class="btn-secondary">🔄 Refresh</button>
+        <span id="sla-import-status" style="font-size:12px; color:var(--text3);"></span>
+        <input type="file" id="sla-import-file" accept=".xlsx,.xlsm" style="display:none;">
+        <button id="sla-import-btn" class="btn-secondary" style="font-weight:700;">📥 IMPORT NEW DATA</button>
       </div>
     </div>
 
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px;" id="onsla-kpi-grid"></div>
-
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
-        <select id="onsla-f-province" class="btn-secondary" style="padding:5px 10px;"><option value="">ทุกจังหวัด</option></select>
-        <select id="onsla-f-duration" class="btn-secondary" style="padding:5px 10px;"><option value="">ทุก SLA Duration</option></select>
-        <select id="onsla-f-priority" class="btn-secondary" style="padding:5px 10px;">
-          <option value="">ทุก Priority</option><option value="P0">P0</option><option value="P1">P1</option>
-        </select>
-        <select id="onsla-f-risk" class="btn-secondary" style="padding:5px 10px;">
-          <option value="">ทุก SLA Risk</option>
-          <option value="over">🔴 Over SLA</option><option value="risk75">🟠 ≥75%</option>
-          <option value="risk50">🟡 ≥50%</option><option value="normal">🔵 Normal</option>
-        </select>
-        <div id="onsla-filter-chip" style="font-size:11px;"></div>
-      </div>
+    <div id="sla-no-data" style="display:none; border:1px dashed var(--border2); border-radius:var(--r); padding:40px; text-align:center; color:var(--text3); margin-bottom:16px;">
+      ยังไม่มีข้อมูล — กด "📥 IMPORT NEW DATA" เพื่ออัปโหลดไฟล์ Excel (.xlsx) เริ่มต้นใช้งาน
     </div>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">🗺️ SLA Risk ตามจังหวัด (Region → Province)</div>
-      <div id="onsla-province-table" style="overflow-x:auto;"></div>
-    </div>
+    <div id="sla-content" style="display:none;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px;" id="sla-kpi-grid"></div>
 
-    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
-      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">⏱️ SLA Duration ที่พบในข้อมูลจริง</div>
-        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">คำนวณสดจาก TARGETFINISH − CREATIONDATE ปัดเป็นวันที่ใกล้ที่สุด ไม่ได้กำหนดตายตัว</div>
-        <div id="onsla-duration-table" style="overflow-x:auto;"></div>
+      <div style="border:2px solid #E24B4A55; border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:linear-gradient(180deg,#E24B4A0d,var(--bg2));">
+        <div style="font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:6px;">☀️ Morning War Room <span id="sla-warroom-date" style="font-weight:400; color:var(--text3); font-size:11px;"></span></div>
+        <div id="sla-warroom-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;"></div>
       </div>
-      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">⏱️ SLA Duration × Province</div>
-        <div id="onsla-duration-province-table" style="overflow-x:auto; max-height:320px; overflow-y:auto;"></div>
-      </div>
-    </div>
 
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📋 รายละเอียด Ticket (เรียงตามเวลาคงเหลือ ด่วนที่สุดก่อน)</div>
-      <div style="overflow-x:auto; max-height:480px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
-        <table id="onsla-detail-table" style="border-collapse:collapse; font-size:12px; white-space:nowrap; width:100%;">
-          <thead></thead>
-          <tbody></tbody>
-        </table>
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+          <div style="font-size:13px; font-weight:700;">📈 % Over SLA Trend</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+              <button class="sla-toggle-btn" data-group="gran" data-val="daily" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">Daily</button>
+              <button class="sla-toggle-btn" data-group="gran" data-val="weekly" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">Weekly (ISO)</button>
+            </div>
+            <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+              <button class="sla-toggle-btn" data-group="scope" data-val="overall" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">Overall</button>
+              <button class="sla-toggle-btn" data-group="scope" data-val="region" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">Region</button>
+              <button class="sla-toggle-btn" data-group="scope" data-val="province" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">Province</button>
+            </div>
+            <select id="sla-trend-province-select" class="btn-secondary" style="display:none; padding:3px 8px; font-size:11px;"></select>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+          <canvas id="sla-trend-chart" height="90"></canvas>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">🔴 Worst (สูงกว่าเฉลี่ย 1.25 เท่า) · 🟠 At Risk (สูงกว่าเฉลี่ย) · 🔵 Good (ต่ำกว่าหรือเท่าเฉลี่ย) — เฉลี่ยรวม: <span id="sla-overall-pct"></span></div>
+        <div id="sla-province-table" style="overflow-x:auto;"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <div style="font-size:13px; font-weight:700;">🔍 Root Cause Drill-Down</div>
+          <div id="sla-drilldown-breadcrumb" style="font-size:11.5px;"></div>
+        </div>
+        <div id="sla-drilldown-content"></div>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🎯 Top Problem (Pareto)</div>
+          <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เรียงจากสัดส่วนของ Over SLA ทั้งหมดที่มาจาก Problem นี้</div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><canvas id="sla-pareto-chart" height="140"></canvas></div>
+        </div>
+        <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🏗️ Top CI_Name</div>
+          <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">CI ที่มี Over SLA สูงสุด (ทั้ง Dataset)</div>
+          <div id="sla-top-ci-table" style="overflow-x:auto; max-height:280px; overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 ตารางสรุป Management</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">Impact: 🟣 Priority Improvement (จำนวนเยอะ+% สูง) · 🔵 High Impact (จำนวนเยอะ) · 🟠 High Risk (% สูง แต่จำนวนไม่มาก) · ⚪ Normal</div>
+        <div id="sla-management-table" style="overflow-x:auto;"></div>
       </div>
     </div>
   </div>
@@ -4206,7 +4226,7 @@ function showPage(id) {
   if (id==='realtimemonitor') { setTimeout(()=>{ if (window.initRealtimeMonitorTab) window.initRealtimeMonitorTab(); },50); }
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
-  if (id==='onlinesla') { setTimeout(()=>{ if (window.initOnlineSlaTab) window.initOnlineSlaTab(); },50); }
+  if (id==='slaimprove') { setTimeout(()=>{ if (window.initSlaImproveTab) window.initSlaImproveTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -6382,11 +6402,15 @@ function renderPivot(ft) {
   window.__reloadP0 = reload;
 })();
 
-// ── ONLINE SA1-4 SLA MONITORING ─────────────────────────────────────────
+// ── ONLINE SA1-4 SLA IMPROVEMENT ────────────────────────────────────────
 (function () {
   let loaded = false;
   let lastData = null;
-  let filterState = { province: '', duration: '', priority: '', risk: '' };
+  let trendChart = null;
+  let paretoChart = null;
+  let trendState = { gran: 'daily', scope: 'overall', province: null };
+  let drillState = { problem: null, sub_cause: null, ci_name: null };
+  let mgmtSort = { col: 'pct_over', dir: 'desc' };
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -6394,256 +6418,392 @@ function renderPivot(ft) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
+  const fmtPct = v => v == null ? '–' : v.toFixed(2) + '%';
 
-  function ticketMatchesFilter(e) {
-    if (filterState.province && e.PROVINCE !== filterState.province) return false;
-    if (filterState.duration != null && filterState.duration !== '' && String(e.sla_duration_label) !== filterState.duration) return false;
-    if (filterState.priority && e.priority !== filterState.priority) return false;
-    if (filterState.risk && e.sla_risk !== filterState.risk) return false;
-    return true;
+  function tierBadge(tier) {
+    const map = { worst: ['🔴', '#E24B4A', 'Worst'], at_risk: ['🟠', '#EF9F27', 'At Risk'], good: ['🔵', '#1f6feb', 'Good'] };
+    const [icon, color, label] = map[tier] || ['⚪', 'var(--text3)', '–'];
+    return `<span style="color:${color}; font-weight:700;">${icon} ${label}</span>`;
   }
-
-  function renderKpiGrid(kpi) {
-    const cards = [
-      { label: 'Total Online SA1-4', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
-      { label: 'Priority Mix', value: null, color: 'var(--text)', bg: 'var(--bg2)', priorityMix: true },
-      { label: '🔴 Over SLA', value: kpi.over_sla, color: '#E24B4A', bg: '#E24B4A14' },
-      { label: '🟠 ≥75% SLA', value: kpi.risk_75, color: '#EF9F27', bg: '#EF9F2714' },
-      { label: '🟡 ≥50% SLA', value: kpi.risk_50, color: '#F5C518', bg: '#F5C51814' },
-      { label: '🔵 Normal', value: kpi.normal, color: '#1f6feb', bg: '#1f6feb14' },
-      { label: '⚠️ Due ≤2h', value: kpi.early_warning_2h, color: '#E24B4A', bg: '#E24B4A14' },
-      { label: '⚠️ Due ≤6h', value: kpi.early_warning_6h, color: '#EF9F27', bg: '#EF9F2714' },
-      { label: '⚠️ Due ≤12h', value: kpi.early_warning_12h, color: '#F5C518', bg: '#F5C51814' },
-    ];
-    if (kpi.critical_province) {
-      cards.push({ label: 'Critical Province', value: PROVINCE_EN(kpi.critical_province), color: '#E24B4A', bg: '#E24B4A14', small: true });
-    }
-    el('onsla-kpi-grid').innerHTML = cards.map(c => {
-      if (c.priorityMix) {
-        return `<div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
-          <div style="display:flex; gap:10px; font-size:20px; font-weight:800; line-height:1.1;">
-            <span style="color:#E24B4A;">P0 ${kpi.priority_p0}</span><span style="color:#EF9F27;">P1 ${kpi.priority_p1}</span><span style="color:var(--text3);">P2 ${kpi.priority_p2}</span>
-          </div>
-          <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)} — แสดงรวมทุก Priority ในตารางด้านล่าง</div>
-        </div>`;
-      }
-      return `<div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
-        <div style="font-size:${c.small ? '18px' : '28px'}; font-weight:800; color:${c.color}; line-height:1.1;">${escapeHtml(c.value != null ? c.value : '–')}</div>
-        <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
-      </div>`;
-    }).join('');
-  }
-
-  function riskBadge(risk) {
-    const map = { over: ['🔴', '#E24B4A', 'Over SLA'], risk75: ['🟠', '#EF9F27', '≥75%'], risk50: ['🟡', '#F5C518', '≥50%'], normal: ['🔵', '#1f6feb', 'Normal'] };
-    const [icon, color, label] = map[risk] || ['⚪', 'var(--text3)', '–'];
+  function impactBadge(cls) {
+    const map = {
+      priority_improvement: ['🟣', '#a371f7', 'Priority Improvement'], high_impact: ['🔵', '#1f6feb', 'High Impact'],
+      high_risk: ['🟠', '#EF9F27', 'High Risk'], normal: ['⚪', 'var(--text3)', 'Normal'],
+    };
+    const [icon, color, label] = map[cls] || ['⚪', 'var(--text3)', '–'];
     return `<span style="color:${color}; font-weight:700;">${icon} ${label}</span>`;
   }
 
-  function renderProvinceTable(rows) {
-    const container = el('onsla-province-table');
-    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const regionOrder = ['NOR1', 'NOR2'];
-    const byRegion = {};
-    rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
-    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
-    const esc1 = s => String(s).replace(/'/g, "\\'");
+  // ── KPI grid ─────────────────────────────────────────────────────────
+  function renderKpiGrid(kpi) {
+    const cards = [
+      { label: 'Total Online Ticket', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
+      { label: '🔴 Over SLA', value: kpi.over, color: '#E24B4A', bg: '#E24B4A14' },
+      { label: '% Over SLA', value: fmtPct(kpi.pct_over), color: '#E24B4A', bg: '#E24B4A14' },
+      { label: 'Best Region', value: kpi.best_region ? `${escapeHtml(kpi.best_region.region)} (${fmtPct(kpi.best_region.pct_over)})` : '–', color: '#1f6feb', bg: '#1f6feb14', small: true },
+      { label: 'Worst Region', value: kpi.worst_region ? `${escapeHtml(kpi.worst_region.region)} (${fmtPct(kpi.worst_region.pct_over)})` : '–', color: '#E24B4A', bg: '#E24B4A14', small: true },
+      { label: 'Best Province', value: kpi.best_province ? `${escapeHtml(PROVINCE_EN(kpi.best_province.province))} (${fmtPct(kpi.best_province.pct_over)})` : '–', color: '#1f6feb', bg: '#1f6feb14', small: true },
+      { label: 'Worst Province', value: kpi.worst_province ? `${escapeHtml(PROVINCE_EN(kpi.worst_province.province))} (${fmtPct(kpi.worst_province.pct_over)})` : '–', color: '#E24B4A', bg: '#E24B4A14', small: true },
+    ];
+    el('sla-kpi-grid').innerHTML = cards.map(c => `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+        <div style="font-size:${c.small ? '15px' : '28px'}; font-weight:800; color:${c.color}; line-height:1.2;">${c.value != null ? c.value : '–'}</div>
+        <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
+      </div>`).join('');
+    if (kpi.top_improvement_opportunity) {
+      el('sla-kpi-grid').innerHTML += `
+        <div style="grid-column:1/-1; border:1px solid #a371f755; border-radius:var(--r); padding:12px 14px; background:#a371f714;">
+          <div style="font-size:11px; color:var(--text2); margin-bottom:2px;">🎯 Top Improvement Opportunity</div>
+          <div style="font-size:14px; font-weight:700; color:#a371f7;">${escapeHtml(kpi.top_improvement_opportunity)}</div>
+        </div>`;
+    }
+  }
 
-    let body = '';
-    regions.forEach(reg => {
-      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="6" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase;">${escapeHtml(reg)}</td></tr>`;
-      const subtotal = { total: 0, over: 0, risk75: 0, risk50: 0, normal: 0 };
-      byRegion[reg].forEach(r => {
-        const isActive = filterState.province === r.province;
-        body += `<tr onclick="window.__onslaFilterProvince('${esc1(r.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
-          <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))}</td>
-          <td style="padding:6px 8px; text-align:center; min-width:64px;">${r.total}</td>
-          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#E24B4A; font-weight:700;">${r.over || '–'}</td>
-          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#EF9F27;">${r.risk75 || '–'}</td>
-          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#F5C518;">${r.risk50 || '–'}</td>
-          <td style="padding:6px 8px; text-align:center; min-width:64px; color:#1f6feb;">${r.normal || '–'}</td>
-        </tr>`;
-        subtotal.total += r.total; subtotal.over += r.over; subtotal.risk75 += r.risk75; subtotal.risk50 += r.risk50; subtotal.normal += r.normal;
-      });
-      body += `<tr style="border-top:1px solid var(--border); background:var(--bg3); font-weight:700;">
-        <td style="padding:6px 10px;">${escapeHtml(reg)} รวม</td>
-        <td style="padding:6px 8px; text-align:center;">${subtotal.total}</td>
-        <td style="padding:6px 8px; text-align:center; color:#E24B4A;">${subtotal.over || '–'}</td>
-        <td style="padding:6px 8px; text-align:center; color:#EF9F27;">${subtotal.risk75 || '–'}</td>
-        <td style="padding:6px 8px; text-align:center; color:#F5C518;">${subtotal.risk50 || '–'}</td>
-        <td style="padding:6px 8px; text-align:center; color:#1f6feb;">${subtotal.normal || '–'}</td>
-      </tr>`;
+  // ── War Room ─────────────────────────────────────────────────────────
+  function renderWarRoom(wr) {
+    if (!wr) { el('sla-warroom-grid').innerHTML = ''; el('sla-warroom-date').textContent = ''; return; }
+    el('sla-warroom-date').textContent = `(ข้อมูลล่าสุดในไฟล์: ${wr.as_of_date})`;
+    const items = [
+      { label: '📊 Overall วันนั้น', value: `${wr.today_total} Ticket · ${wr.today_over} Over (${fmtPct(wr.today_pct_over)})` },
+      { label: '🔴 Top Problem', value: wr.top_problem_today ? `${escapeHtml(wr.top_problem_today.label)} (${wr.top_problem_today.over})` : '–' },
+      { label: '🔴 Top Province', value: wr.top_province_today ? `${escapeHtml(PROVINCE_EN(wr.top_province_today.province))} (${wr.top_province_today.over} Over)` : '–' },
+      { label: '🔴 Top CI', value: wr.top_ci_today ? `${escapeHtml(wr.top_ci_today.label)}` : '–' },
+      { label: '🎯 Improvement Focus', value: wr.improvement_focus || '–' },
+    ];
+    el('sla-warroom-grid').innerHTML = items.map(it => `
+      <div>
+        <div style="font-size:10.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px;">${it.label}</div>
+        <div style="font-size:13px; font-weight:700;">${it.value}</div>
+      </div>`).join('');
+  }
+
+  // ── Trend chart ──────────────────────────────────────────────────────
+  function currentTrendSeries() {
+    const t = lastData.trend[trendState.gran];
+    if (trendState.scope === 'overall') return { overall: t.overall };
+    if (trendState.scope === 'region') return t.by_region;
+    if (trendState.scope === 'province' && trendState.province) return { [trendState.province]: t.by_province[trendState.province] };
+    return {};
+  }
+
+  function renderTrendChart() {
+    const seriesMap = currentTrendSeries();
+    const allPeriods = new Set();
+    Object.values(seriesMap).forEach(s => (s || []).forEach(p => allPeriods.add(p.period)));
+    const periods = [...allPeriods].sort();
+    const palette = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518'];
+    const datasets = Object.entries(seriesMap).map(([name, series], i) => {
+      const byPeriod = {};
+      (series || []).forEach(p => { byPeriod[p.period] = p.pct_over; });
+      return {
+        label: name === 'overall' ? 'ภาพรวม' : (trendState.scope === 'province' ? PROVINCE_EN(name) : name),
+        data: periods.map(p => byPeriod[p] != null ? byPeriod[p] : null),
+        borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length] + '33',
+        tension: 0.25, spanGaps: true, pointRadius: 2,
+      };
     });
-    container.innerHTML = `
+    const ctx = el('sla-trend-chart').getContext('2d');
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: periods, datasets },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => v + '%' } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 16 } } },
+      },
+    });
+  }
+
+  document.querySelectorAll('.sla-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.dataset.group, val = btn.dataset.val;
+      document.querySelectorAll(`.sla-toggle-btn[data-group="${group}"]`).forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      trendState[group === 'gran' ? 'gran' : 'scope'] = val;
+      el('sla-trend-province-select').style.display = (group === 'scope' && val === 'province') ? 'inline-block' : 'none';
+      if (group === 'scope' && val === 'province' && !trendState.province && lastData) {
+        const first = Object.keys(lastData.trend.daily.by_province)[0];
+        trendState.province = first;
+        el('sla-trend-province-select').value = first;
+      }
+      renderTrendChart();
+    });
+  });
+  el('sla-trend-province-select').addEventListener('change', (e) => { trendState.province = e.target.value; renderTrendChart(); });
+
+  // ── Province ranking table ──────────────────────────────────────────
+  function renderProvinceTable(ranking) {
+    el('sla-overall-pct').textContent = fmtPct(ranking.overall_pct_over);
+    const maxPct = Math.max(0, ...ranking.rows.map(r => r.pct_over || 0));
+    const body = ranking.rows.map(r => {
+      const intensity = maxPct ? Math.min(1, (r.pct_over || 0) / maxPct) : 0;
+      const bg = `rgba(226,75,74,${(0.08 + intensity * 0.45).toFixed(2)})`;
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.region)}</td>
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:64px;">${r.total}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:64px; color:#E24B4A; font-weight:700;">${r.over}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:80px; font-weight:800; background:${bg};">${fmtPct(r.pct_over)}</td>
+        <td style="padding:6px 8px; text-align:center; min-width:100px;">${tierBadge(r.tier)}</td>
+      </tr>`;
+    }).join('');
+    el('sla-province-table').innerHTML = `
       <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Region</th>
             <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
             <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
             <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#E24B4A;">Over</th>
-            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#EF9F27;">≥75%</th>
-            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#F5C518;">≥50%</th>
-            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#1f6feb;">Normal</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">% Over</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Tier</th>
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>`;
   }
 
-  function renderDurationTable(rows) {
-    const container = el('onsla-duration-table');
-    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const esc1 = s => String(s).replace(/'/g, "\\'");
-    const body = rows.map(r => {
-      const isActive = filterState.duration === r.sla_duration;
-      return `<tr onclick="window.__onslaFilterDuration('${esc1(r.sla_duration)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.sla_duration)}</td>
-        <td style="padding:6px 8px; text-align:center; min-width:64px; font-weight:700;">${r.ticket_count}</td>
-      </tr>`;
-    }).join('');
-    const total = rows.reduce((s, r) => s + r.ticket_count, 0);
+  // ── Root cause drill-down ────────────────────────────────────────────
+  const DRILL_LABELS = { PROBLEM: 'Problem', SUB_CAUSE: 'Sub-Cause', CI_Name: 'CI Name', province: 'Province' };
+
+  function renderBreadcrumb() {
+    const parts = [`<a href="#" onclick="window.__slaDrillReset(); return false;" style="color:var(--blue);">ทั้งหมด</a>`];
+    if (drillState.problem) parts.push(`<a href="#" onclick="window.__slaDrillTo('problem'); return false;" style="color:var(--blue);">${escapeHtml(drillState.problem)}</a>`);
+    if (drillState.sub_cause) parts.push(`<a href="#" onclick="window.__slaDrillTo('sub_cause'); return false;" style="color:var(--blue);">${escapeHtml(drillState.sub_cause)}</a>`);
+    if (drillState.ci_name) parts.push(`<span style="color:var(--text);">${escapeHtml(drillState.ci_name)}</span>`);
+    el('sla-drilldown-breadcrumb').innerHTML = parts.join(' <span style="color:var(--text3);">›</span> ');
+  }
+
+  window.__slaDrillReset = function () { drillState = { problem: null, sub_cause: null, ci_name: null }; loadDrillDown(); };
+  window.__slaDrillTo = function (level) {
+    if (level === 'problem') { drillState.sub_cause = null; drillState.ci_name = null; }
+    if (level === 'sub_cause') { drillState.ci_name = null; }
+    loadDrillDown();
+  };
+  window.__slaDrillSelect = function (label) {
+    if (!drillState.problem) drillState.problem = label;
+    else if (!drillState.sub_cause) drillState.sub_cause = label;
+    else if (!drillState.ci_name) drillState.ci_name = label;
+    loadDrillDown();
+  };
+
+  function renderDrillDownContent(dd) {
+    renderBreadcrumb();
+    const container = el('sla-drilldown-content');
+    if (dd.next_level === 'province' && dd.tickets) {
+      const optRows = dd.options.map(o => `
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(o.label))}</td>
+          <td style="padding:6px 8px; text-align:center;">${o.total}</td>
+          <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${o.over}</td>
+          <td style="padding:6px 8px; text-align:center;">${fmtPct(o.pct_over)}</td>
+        </tr>`).join('');
+      const ticketRows = dd.tickets.map(t => `
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:5px 8px;">${escapeHtml(t.TICKETID)}</td>
+          <td style="padding:5px 8px;">${escapeHtml(PROVINCE_EN(t.province))}</td>
+          <td style="padding:5px 8px;">${escapeHtml(t.CREATIONDATE)}</td>
+          <td style="padding:5px 8px;">${escapeHtml(t.TARGETFINISH)}</td>
+        </tr>`).join('');
+      container.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; gap:16px;">
+          <div style="flex:1; min-width:260px;">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:6px; color:var(--text2);">Province ที่มี Over SLA จากจุดนี้ (${dd.matched_over_tickets} Ticket)</div>
+            <table style="border-collapse:collapse; font-size:12px; width:100%; border:1px solid var(--border); border-radius:var(--r);">
+              <thead><tr style="background:var(--bg3);"><th style="padding:6px 10px; text-align:left;">Province</th><th style="padding:6px 8px;">Total</th><th style="padding:6px 8px;">Over</th><th style="padding:6px 8px;">%</th></tr></thead>
+              <tbody>${optRows}</tbody>
+            </table>
+          </div>
+          <div style="flex:1; min-width:300px;">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:6px; color:var(--text2);">รายการ Ticket (สูงสุด 200 รายการ)</div>
+            <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
+              <table style="border-collapse:collapse; font-size:11.5px; width:100%;">
+                <thead><tr style="background:var(--bg3); position:sticky; top:0;"><th style="padding:5px 8px; text-align:left;">TICKETID</th><th style="padding:5px 8px; text-align:left;">Province</th><th style="padding:5px 8px; text-align:left;">Created</th><th style="padding:5px 8px; text-align:left;">Target</th></tr></thead>
+                <tbody>${ticketRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+    const rows = dd.options.map(o => `
+      <tr onclick="window.__slaDrillSelect('${escapeHtml(o.label).replace(/'/g, "\\'")}')" style="border-top:1px solid var(--border); cursor:pointer;">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(o.label)}</td>
+        <td style="padding:6px 8px; text-align:center;">${o.total}</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${o.over}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(o.pct_over)}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(o.share_of_total_over)}</td>
+      </tr>`).join('');
     container.innerHTML = `
-      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+      <div style="font-size:11.5px; color:var(--text3); margin-bottom:6px;">คลิกแถวเพื่อ Drill ต่อ (${DRILL_LABELS[dd.next_level] || dd.next_level}) — พบ ${dd.matched_over_tickets} Over SLA Ticket ในขอบเขตนี้</div>
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); max-height:320px; overflow-y:auto;">
         <table style="border-collapse:collapse; font-size:12px; width:100%;">
-          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">SLA Duration</th>
-            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket</th>
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); position:sticky; top:0;">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">${DRILL_LABELS[dd.next_level] || dd.next_level}</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#E24B4A;">Over</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">% Over</th>
+            <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Share of Total Over</th>
           </tr></thead>
-          <tbody>${body}
-            <tr style="border-top:2px solid var(--border2); background:var(--bg4); font-weight:700;">
-              <td style="padding:6px 10px;">Total</td><td style="padding:6px 8px; text-align:center;">${total}</td>
-            </tr>
-          </tbody>
+          <tbody>${rows}</tbody>
         </table>
       </div>`;
   }
 
-  function renderDurationProvinceTable(rows) {
-    const container = el('onsla-duration-province-table');
-    if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
-    const body = rows.map(r => `
+  async function loadDrillDown() {
+    const params = new URLSearchParams();
+    if (drillState.problem) params.set('problem', drillState.problem);
+    if (drillState.sub_cause) params.set('sub_cause', drillState.sub_cause);
+    if (drillState.ci_name) params.set('ci_name', drillState.ci_name);
+    try {
+      const res = await fetch('/api/sla-improvement/drill-down?' + params.toString());
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const dd = await res.json();
+      renderDrillDownContent(dd);
+    } catch (e) {
+      el('sla-drilldown-content').innerHTML = `<div style="color:#E24B4A; font-size:12px;">โหลดไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  // ── Pareto + Top CI ──────────────────────────────────────────────────
+  function renderParetoChart(topProblems) {
+    const labels = topProblems.map(p => p.label.length > 24 ? p.label.slice(0, 24) + '…' : p.label);
+    const shares = topProblems.map(p => p.share_of_total_over);
+    let cumulative = 0;
+    const cumulativeLine = shares.map(s => { cumulative += s; return Math.round(cumulative * 100) / 100; });
+    const ctx = el('sla-pareto-chart').getContext('2d');
+    if (paretoChart) paretoChart.destroy();
+    paretoChart = new Chart(ctx, {
+      data: {
+        labels,
+        datasets: [
+          { type: 'bar', label: '% ของ Over SLA', data: shares, backgroundColor: '#E24B4A99', yAxisID: 'y' },
+          { type: 'line', label: 'สะสม %', data: cumulativeLine, borderColor: '#1f6feb', yAxisID: 'y', tension: 0.2, pointRadius: 3 },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: false } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }, x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } } },
+      },
+    });
+  }
+
+  function renderTopCiTable(topCi) {
+    const body = topCi.map(c => `
       <tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.sla_duration)}</td>
-        <td style="padding:6px 10px;">${escapeHtml(PROVINCE_EN(r.province))}</td>
-        <td style="padding:6px 8px; text-align:center; min-width:56px;">${r.total}</td>
-        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#E24B4A;">${r.over || '–'}</td>
-        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#EF9F27;">${r.risk75 || '–'}</td>
-        <td style="padding:6px 8px; text-align:center; min-width:56px; color:#F5C518;">${r.risk50 || '–'}</td>
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(c.label)}</td>
+        <td style="padding:6px 8px; text-align:center;">${c.total}</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${c.over}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(c.pct_over)}</td>
       </tr>`).join('');
-    container.innerHTML = `
+    el('sla-top-ci-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
-        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">
-          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">SLA</th>
-          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
-          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
-          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#E24B4A;">Over</th>
-          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#EF9F27;">≥75%</th>
-          <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:#F5C518;">≥50%</th>
+        <thead><tr style="background:var(--bg3); position:sticky; top:0;">
+          <th style="padding:6px 10px; text-align:left;">CI_Name</th><th style="padding:6px 8px;">Total</th><th style="padding:6px 8px;">Over</th><th style="padding:6px 8px;">%</th>
         </tr></thead>
         <tbody>${body}</tbody>
       </table>`;
   }
 
-  const DETAIL_COLS = [
-    ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SLA Risk', 'sla_risk'],
-    ['เหลือเวลา (ชม.)', 'remaining_hours'], ['SLA Progress %', 'sla_progress_pct'], ['SLA Duration', 'sla_duration_label'],
-    ['Province', 'PROVINCE'], ['SUBJECT', 'SUBJECT'], ['CINAME', 'CINAME'],
-    ['TARGETFINISH', 'TARGETFINISH'], ['MatelineX Status', 'status_mateline'],
-  ];
-
-  function renderDetailTable(entries) {
-    const table = el('onsla-detail-table');
-    const thead = table.querySelector('thead');
-    const tbody = table.querySelector('tbody');
-    thead.innerHTML = `<tr style="background:var(--bg3);">${DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left;">${escapeHtml(label)}</th>`).join('')}</tr>`;
-    tbody.innerHTML = entries.map(e => `<tr style="border-top:1px solid var(--border);">${DETAIL_COLS.map(([, key]) => {
-      if (key === 'sla_risk') return `<td style="padding:6px 8px;">${riskBadge(e.sla_risk)}</td>`;
-      if (key === 'remaining_hours') return `<td style="padding:6px 8px; text-align:right; ${e.remaining_hours != null && e.remaining_hours < 0 ? 'color:#E24B4A; font-weight:700;' : ''}">${e.remaining_hours != null ? e.remaining_hours.toFixed(1) : '–'}</td>`;
-      if (key === 'sla_progress_pct') return `<td style="padding:6px 8px; text-align:right;">${e.sla_progress_pct != null ? e.sla_progress_pct.toFixed(1) + '%' : '–'}</td>`;
-      if (key === 'sla_duration_label') return `<td style="padding:6px 8px; text-align:right;">${e.sla_duration_label != null ? escapeHtml(e.sla_duration_label) : '–'}</td>`;
-      if (key === 'PROVINCE') return `<td style="padding:6px 8px;">${escapeHtml(PROVINCE_EN(e.PROVINCE))}</td>`;
-      return `<td style="padding:6px 8px;">${escapeHtml(e[key])}</td>`;
-    }).join('')}</tr>`).join('');
-  }
-
-  function renderFilterChip() {
-    const chips = [];
-    if (filterState.province) chips.push(`จังหวัด: ${escapeHtml(PROVINCE_EN(filterState.province))}`);
-    if (filterState.duration !== '') chips.push(`SLA Duration: ${escapeHtml(filterState.duration)}`);
-    if (filterState.priority) chips.push(`Priority: ${escapeHtml(filterState.priority)}`);
-    if (filterState.risk) chips.push(`SLA Risk: ${escapeHtml(filterState.risk)}`);
-    const container = el('onsla-filter-chip');
-    if (!chips.length) { container.innerHTML = ''; return; }
-    container.innerHTML = `<span style="background:var(--bg4); padding:3px 10px; border-radius:20px; color:var(--text2);">กรองอยู่: ${chips.join(' · ')}</span> <a href="#" onclick="window.__onslaClearFilter(); return false;" style="color:var(--blue); margin-left:6px;">✕ ล้าง</a>`;
-  }
-
-  function rerenderFiltered() {
-    if (!lastData) return;
-    renderDetailTable(lastData.entries.filter(ticketMatchesFilter));
-    renderFilterChip();
-  }
-
-  window.__onslaFilterProvince = function (prov) {
-    filterState.province = filterState.province === prov ? '' : prov;
-    el('onsla-f-province').value = filterState.province;
-    rerenderFiltered();
-  };
-  window.__onslaFilterDuration = function (d) {
-    filterState.duration = filterState.duration === d ? '' : d;
-    el('onsla-f-duration').value = filterState.duration;
-    rerenderFiltered();
-  };
-  window.__onslaClearFilter = function () {
-    filterState = { province: '', duration: '', priority: '', risk: '' };
-    ['onsla-f-province', 'onsla-f-duration', 'onsla-f-priority', 'onsla-f-risk'].forEach(id => { el(id).value = ''; });
-    rerenderFiltered();
-  };
-
-  function populateFilterDropdowns(data) {
-    const provinces = [...new Set(data.entries.map(e => e.PROVINCE))].sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
-    el('onsla-f-province').innerHTML = `<option value="">ทุกจังหวัด</option>` + provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
-    // Unique (label, hours) pairs, sorted by the underlying HOUR count
-    // (not alphabetically by label text - "12 Hours" would otherwise sort
-    // before "4 Hours").
-    const durationMap = new Map();
-    data.entries.forEach(e => { if (e.sla_duration_label != null) durationMap.set(e.sla_duration_label, e.sla_duration_hours); });
-    const durations = [...durationMap.entries()].sort((a, b) => a[1] - b[1]);
-    el('onsla-f-duration').innerHTML = `<option value="">ทุก SLA Duration</option>` + durations.map(([label]) => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`).join('');
-  }
-
-  ['onsla-f-province', 'onsla-f-duration', 'onsla-f-priority', 'onsla-f-risk'].forEach(id => {
-    el(id).addEventListener('change', (e) => {
-      const key = id.replace('onsla-f-', '');
-      filterState[key] = e.target.value;
-      rerenderFiltered();
+  // ── Management table (sortable) ─────────────────────────────────────
+  function renderManagementTable(rows) {
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[mgmtSort.col], bv = b[mgmtSort.col];
+      const cmp = typeof av === 'string' ? String(av).localeCompare(String(bv)) : (av || 0) - (bv || 0);
+      return mgmtSort.dir === 'asc' ? cmp : -cmp;
     });
-  });
+    const cols = [['region', 'Region'], ['province', 'Province'], ['total', 'Total'], ['over', 'Over SLA'], ['pct_over', '% Over SLA'], ['rank', 'Rank'], ['impact', 'Impact']];
+    const head = cols.map(([key, label]) => {
+      const arrow = mgmtSort.col === key ? (mgmtSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+      return `<th onclick="window.__slaMgmtSort('${key}')" style="padding:7px 8px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2); cursor:pointer; user-select:none;">${label}${arrow}</th>`;
+    }).join('');
+    const body = sorted.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px;">${escapeHtml(r.region)}</td>
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+        <td style="padding:6px 8px; text-align:center;">${r.total}</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
+        <td style="padding:6px 8px; text-align:center;">#${r.rank}</td>
+        <td style="padding:6px 8px; text-align:center;">${impactBadge(r.impact)}</td>
+      </tr>`).join('');
+    el('sla-management-table').innerHTML = `
+      <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+  window.__slaMgmtSort = function (col) {
+    mgmtSort = mgmtSort.col === col ? { col, dir: mgmtSort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'desc' };
+    renderManagementTable(lastData.management_table);
+  };
 
-  async function reload() {
-    el('onsla-status').textContent = 'กำลังโหลด...';
-    try {
-      const res = await fetch('/api/online-sla');
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
-      const data = await res.json();
-      lastData = data;
-      renderKpiGrid(data.kpi);
-      renderProvinceTable(data.province_table);
-      renderDurationTable(data.duration_table);
-      renderDurationProvinceTable(data.duration_province_table);
-      populateFilterDropdowns(data);
-      renderDetailTable(data.entries.filter(ticketMatchesFilter));
-      renderFilterChip();
-      el('onsla-status').textContent = `${data.kpi.total} ticket${data.insert_time ? ' · ข้อมูลล่าสุด: ' + data.insert_time : ''}`;
-      loaded = true;
-    } catch (e) {
-      console.error('Online SLA load failed', e);
-      el('onsla-status').textContent = '';
-      alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+  // ── Main render / reload ────────────────────────────────────────────
+  function render(data) {
+    lastData = data;
+    el('sla-no-data').style.display = 'none';
+    el('sla-content').style.display = 'block';
+    renderKpiGrid(data.executive_kpi);
+    renderWarRoom(data.war_room);
+    const provinces = Object.keys(data.trend.daily.by_province).sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
+    el('sla-trend-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
+    renderTrendChart();
+    renderProvinceTable(data.province_ranking);
+    drillState = { problem: null, sub_cause: null, ci_name: null };
+    loadDrillDown();
+    renderParetoChart(data.root_cause.top_problems);
+    renderTopCiTable(data.root_cause.top_ci);
+    renderManagementTable(data.management_table);
+    if (data.import_warnings && data.import_warnings.length) {
+      el('sla-import-status').innerHTML = `<span style="color:#EF9F27;">⚠️ ${escapeHtml(data.import_warnings.join(' · '))}</span>`;
+    } else {
+      el('sla-import-status').textContent = `นำเข้าล่าสุด: ${data.imported_at || '–'} (${data.row_count} แถว)`;
     }
   }
 
-  el('onsla-reload').addEventListener('click', reload);
-  window.initOnlineSlaTab = function () { if (!loaded) reload(); };
+  async function reload() {
+    try {
+      const res = await fetch('/api/sla-improvement');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      if (!data.has_data) {
+        el('sla-no-data').style.display = 'block';
+        el('sla-content').style.display = 'none';
+        el('sla-import-status').textContent = '';
+      } else {
+        render(data);
+      }
+      loaded = true;
+    } catch (e) {
+      console.error('SLA Improvement load failed', e);
+      el('sla-import-status').innerHTML = `<span style="color:#E24B4A;">โหลดไม่สำเร็จ: ${escapeHtml(e.message)}</span>`;
+    }
+  }
+
+  el('sla-import-btn').addEventListener('click', () => el('sla-import-file').click());
+  el('sla-import-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    el('sla-import-status').innerHTML = `<span style="color:var(--text3);">กำลัง Import...</span>`;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/sla-improvement/import', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `Import failed (${res.status})`);
+      await reload();
+    } catch (err) {
+      el('sla-import-status').innerHTML = `<span style="color:#E24B4A;">❌ ${escapeHtml(err.message)}</span>`;
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  window.initSlaImproveTab = function () { if (!loaded) reload(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
