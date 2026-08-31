@@ -191,6 +191,17 @@ HIGHLIGHT_COLOR = "#E24B4A"  # red - draws attention to the one flagged fault ty
 DEFAULT_OTHER_COLOR = "#4a4f57"  # dark gray - everything else, deliberately uniform and visually recessive against the red highlight
 
 
+def _is_highlight_match(cat, highlight_label):
+    """Case-insensitive, bidirectional-substring match rather than exact
+    string equality - the group label computed from real data can end up
+    slightly longer or shorter than the target phrase depending on
+    whatever surrounding text the source system includes (extra spacing,
+    a slightly different prefix remnant, etc.), so a strict == comparison
+    is fragile here in a way a keyword match isn't."""
+    a, b = cat.strip().upper(), highlight_label.strip().upper()
+    return a == b or a in b or b in a
+
+
 def _group_colors(order, highlight_label):
     """When highlight_label is given, returns a 2-color scheme: the
     matching group gets HIGHLIGHT_COLOR, every other group gets the same
@@ -201,7 +212,7 @@ def _group_colors(order, highlight_label):
     frequency order."""
     if highlight_label is None:
         return {cat: CLASSIFICATION_SUBCLASS_PALETTE[i % len(CLASSIFICATION_SUBCLASS_PALETTE)] for i, cat in enumerate(order)}
-    return {cat: (HIGHLIGHT_COLOR if cat == highlight_label else DEFAULT_OTHER_COLOR) for cat in order}
+    return {cat: (HIGHLIGHT_COLOR if _is_highlight_match(cat, highlight_label) else DEFAULT_OTHER_COLOR) for cat in order}
 
 # MAP SA1-4 (Mobile mode) "Major Classification" groups - an explicit,
 # fixed list (not derived/guessed), matching classification text via
