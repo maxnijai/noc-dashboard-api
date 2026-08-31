@@ -7481,18 +7481,16 @@ function renderPivot(ft) {
     ).join('');
   }
 
-  // Classifications that matched none of the 9 known Major Classification
-  // groups (Mobile mode only) - surfaced instead of silently dropped or
-  // guessed into a group, per explicit instruction to report new/unknown
-  // classification text for review rather than inventing a category.
+  // Classifications that matched none of the known Major Classification
+  // groups (Mobile mode only). The backend still computes and returns
+  // this list (mobile_classification_unmapped) in case it's needed again
+  // later, but per explicit request the box itself is no longer shown -
+  // this function is now a deliberate no-op rather than removed outright,
+  // so turning it back on later is a one-line change, not a rebuild.
   function renderMobileUnmappedWarning(unmapped) {
     const container = el('fn-map-mobile-unmapped');
-    if (!unmapped || !unmapped.length) { container.style.display = 'none'; container.innerHTML = ''; return; }
-    container.style.display = 'block';
-    const total = unmapped.reduce((s, u) => s + u.count, 0);
-    container.innerHTML = `⚠️ พบ ${total} ticket ที่ Classification ไม่ตรงกับ 9 กลุ่มหลักที่กำหนดไว้ (ยังไม่จัดกลุ่ม รอตรวจสอบ): ` +
-      unmapped.slice(0, 5).map(u => `${escapeHtml(u.classification)} (${u.count})`).join(', ') +
-      (unmapped.length > 5 ? ` และอีก ${unmapped.length - 5} รายการ` : '');
+    container.style.display = 'none';
+    container.innerHTML = '';
   }
 
   function setMobileSourceMode(mode) {
@@ -7997,7 +7995,11 @@ function renderPivot(ft) {
   };
 
   function sortableTh(containerId, col, label, extraStyle) {
-    return `<th onclick="window.__fnToggleSort('${containerId}','${col}')" style="cursor:pointer; user-select:none; ${extraStyle || ''}">${escapeHtml(label)}${sortArrow(containerId, col)}</th>`;
+    // Numeric/percentage columns (center-aligned) get a shared minimum
+    // width so they line up consistently across the different tables in
+    // this tab, instead of each one auto-sizing to its own content only.
+    const baseWidth = (extraStyle || '').includes('text-align:center') ? 'min-width:64px; ' : '';
+    return `<th onclick="window.__fnToggleSort('${containerId}','${col}')" style="cursor:pointer; user-select:none; ${baseWidth}${extraStyle || ''}">${escapeHtml(label)}${sortArrow(containerId, col)}</th>`;
   }
 
   function renderBookmarkMatrixTable(containerId, rows, bookmarks, rowKey, rowHeader, filterFn) {
