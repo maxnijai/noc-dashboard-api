@@ -1090,6 +1090,19 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
 ONLINE_BOOKMARK_RAW = "4.FBB with SA1-4"
 
 
+def _format_sla_duration_label(hours):
+    """Displays SLA duration at whatever precision is actually meaningful
+    - a 4-hour or 12-hour SLA needs to show as "4 Hours"/"12 Hours", not
+    get rounded away to "0 Days" (which is what happened when this
+    grouped by whole days only). Clean day-aligned multiples (24h, 72h,
+    ...) show as "N Days" for readability; anything else shows in hours."""
+    if hours is None:
+        return None
+    if hours >= 24 and hours % 24 == 0:
+        return f"{int(hours // 24)} Days"
+    return f"{int(hours)} Hours"
+
+
 def _sla_risk_bucket(now_dt, target_dt, progress_pct):
     """🔴 over / 🟠 >=75% / 🟡 >=50% / 🔵 normal (<50%) - Over is decided
     by the clock (now past TARGETFINISH), matching how priority P0/P1
@@ -1111,10 +1124,13 @@ def _sla_risk_bucket(now_dt, target_dt, progress_pct):
 def build_online_sla_response(gs_client=None):
     """Online SA1-4 SLA Monitoring - see module-level comment above for
     what's reused vs new. Returns entries (ticket-level, sorted by
-    remaining SLA time ascending - most urgent first), KPI counts, a
+    remaining SLA time ascending - most urgent first) for EVERY priority
+    (P0/P1/P2 all included, not just P0+P1), KPI counts (including a
+    priority breakdown so "everything together" stays readable), a
     Region->Province risk table, and an SLA-Duration distribution (+ x
-    Province) table. SLA Duration groups are DISCOVERED from real data
-    (rounded CREATIONDATE-to-TARGETFINISH days), never hardcoded."""
+    Province) table. SLA Duration groups are DISCOVERED from real data at
+    HOUR precision (never hardcoded, never rounded away to whole days -
+    a 4h or 12h SLA needs to stay visible as such)."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
 
@@ -1136,19 +1152,21 @@ def build_online_sla_response(gs_client=None):
     entries = []
     for r in scoped:
         priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
-        if priority not in ("P0", "P1"):
-            continue
+        if priority is None:
+            continue  # unparseable TARGETFINISH - can't classify at all, not even as P2
 
         creation_dt = _parse_dt(r.get("CREATIONDATE"))
         target_dt = _parse_dt(r.get("TARGETFINISH"))
 
-        sla_duration_days = None
+        sla_duration_hours = None
+        sla_duration_label = None
         sla_progress_pct = None
         remaining_hours = None
         if creation_dt and target_dt:
             total_seconds = (target_dt - creation_dt).total_seconds()
             if total_seconds > 0:
-                sla_duration_days = round(total_seconds / 86400)
+                sla_duration_hours = round(total_seconds / 3600)
+                sla_duration_label = _format_sla_duration_label(sla_duration_hours)
                 elapsed_seconds = (now_dt - creation_dt).total_seconds()
                 sla_progress_pct = round(max(0, elapsed_seconds) / total_seconds * 100, 1)
             remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2)
@@ -1178,7 +1196,8 @@ def build_online_sla_response(gs_client=None):
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
             "CREATIONDATE": r.get("CREATIONDATE", ""),
             "TARGETFINISH": r.get("TARGETFINISH", ""),
-            "sla_duration_days": sla_duration_days,
+            "sla_duration_hours": sla_duration_hours,
+            "sla_duration_label": sla_duration_label,
             "sla_progress_pct": sla_progress_pct,
             "sla_risk": sla_risk,  # 'over' | 'risk75' | 'risk50' | 'normal' | None
             "remaining_hours": remaining_hours,
@@ -1198,9 +1217,12 @@ def build_online_sla_response(gs_client=None):
 
     total = len(entries)
     risk_counts = {"over": 0, "risk75": 0, "risk50": 0, "normal": 0}
+    priority_counts = {"P0": 0, "P1": 0, "P2": 0}
     for e in entries:
         if e["sla_risk"] in risk_counts:
             risk_counts[e["sla_risk"]] += 1
+        if e["priority"] in priority_counts:
+            priority_counts[e["priority"]] += 1
     ew_counts = {
         "2h": sum(1 for e in entries if e["early_warning_2h"]),
         "6h": sum(1 for e in entries if e["early_warning_6h"]),
@@ -1220,11 +1242,11 @@ def build_online_sla_response(gs_client=None):
     province_table = sorted(province_stats.values(), key=lambda r: -r["total"])
     critical_province = max(province_table, key=lambda r: r["over"])["province"] if any(r["over"] for r in province_table) else None
 
-    # SLA Duration distribution - groups DISCOVERED from real data, not
-    # a hardcoded list.
+    # SLA Duration distribution - groups DISCOVERED from real data at HOUR
+    # precision, not a hardcoded list, and not rounded away to whole days.
     duration_counts = {}
     for e in entries:
-        key = f"{e['sla_duration_days']} Days" if e["sla_duration_days"] is not None else "(ไม่ระบุ)"
+        key = e["sla_duration_label"] or "(ไม่ระบุ)"
         duration_counts[key] = duration_counts.get(key, 0) + 1
     duration_table = sorted(
         [{"sla_duration": k, "ticket_count": v} for k, v in duration_counts.items()],
@@ -1234,7 +1256,7 @@ def build_online_sla_response(gs_client=None):
     # SLA Duration x Province.
     dp_stats = {}
     for e in entries:
-        dkey = f"{e['sla_duration_days']} Days" if e["sla_duration_days"] is not None else "(ไม่ระบุ)"
+        dkey = e["sla_duration_label"] or "(ไม่ระบุ)"
         key = (dkey, e["PROVINCE"])
         dp = dp_stats.setdefault(key, {
             "sla_duration": dkey, "province": e["PROVINCE"],
@@ -1253,6 +1275,7 @@ def build_online_sla_response(gs_client=None):
             "risk_50": risk_counts["risk50"], "normal": risk_counts["normal"],
             "early_warning_2h": ew_counts["2h"], "early_warning_6h": ew_counts["6h"], "early_warning_12h": ew_counts["12h"],
             "critical_province": critical_province,
+            "priority_p0": priority_counts["P0"], "priority_p1": priority_counts["P1"], "priority_p2": priority_counts["P2"],
         },
         "province_table": province_table,
         "duration_table": duration_table,
