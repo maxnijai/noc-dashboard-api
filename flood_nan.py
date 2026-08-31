@@ -188,7 +188,7 @@ def _strip_leading_code_labels(categories):
 CLASSIFICATION_SUBCLASS_PALETTE = ['#E24B4A', '#1f6feb', '#EF9F27', '#639922', '#a371f7', '#F5C518', '#ff7b72', '#58a6ff', '#d29922', '#3fb950']
 
 HIGHLIGHT_COLOR = "#E24B4A"  # red - draws attention to the one flagged fault type
-DEFAULT_OTHER_COLOR = "#8b949e"  # neutral gray - everything else, deliberately uniform
+DEFAULT_OTHER_COLOR = "#4a4f57"  # dark gray - everything else, deliberately uniform and visually recessive against the red highlight
 
 
 def _group_colors(order, highlight_label):
