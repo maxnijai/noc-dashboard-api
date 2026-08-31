@@ -965,7 +965,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
           </span>
         </div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Bookmark "Online" (4.FBB with SA1-4) เฉพาะ Priority P0 + P1 — SLA Progress % คำนวณจาก CREATIONDATE ถึง TARGETFINISH</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Bookmark "Online" (4.FBB with SA1-4) ทุก Priority (P0/P1/P2) — SLA Progress % คำนวณจาก CREATIONDATE ถึง TARGETFINISH</div>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span id="onsla-status" style="font-size:13px; color:var(--text); font-weight:700;"></span>
@@ -6397,7 +6397,7 @@ function renderPivot(ft) {
 
   function ticketMatchesFilter(e) {
     if (filterState.province && e.PROVINCE !== filterState.province) return false;
-    if (filterState.duration != null && filterState.duration !== '' && String(e.sla_duration_days) !== filterState.duration) return false;
+    if (filterState.duration != null && filterState.duration !== '' && String(e.sla_duration_label) !== filterState.duration) return false;
     if (filterState.priority && e.priority !== filterState.priority) return false;
     if (filterState.risk && e.sla_risk !== filterState.risk) return false;
     return true;
@@ -6406,6 +6406,7 @@ function renderPivot(ft) {
   function renderKpiGrid(kpi) {
     const cards = [
       { label: 'Total Online SA1-4', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
+      { label: 'Priority Mix', value: null, color: 'var(--text)', bg: 'var(--bg2)', priorityMix: true },
       { label: '🔴 Over SLA', value: kpi.over_sla, color: '#E24B4A', bg: '#E24B4A14' },
       { label: '🟠 ≥75% SLA', value: kpi.risk_75, color: '#EF9F27', bg: '#EF9F2714' },
       { label: '🟡 ≥50% SLA', value: kpi.risk_50, color: '#F5C518', bg: '#F5C51814' },
@@ -6417,11 +6418,20 @@ function renderPivot(ft) {
     if (kpi.critical_province) {
       cards.push({ label: 'Critical Province', value: PROVINCE_EN(kpi.critical_province), color: '#E24B4A', bg: '#E24B4A14', small: true });
     }
-    el('onsla-kpi-grid').innerHTML = cards.map(c => `
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+    el('onsla-kpi-grid').innerHTML = cards.map(c => {
+      if (c.priorityMix) {
+        return `<div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+          <div style="display:flex; gap:10px; font-size:20px; font-weight:800; line-height:1.1;">
+            <span style="color:#E24B4A;">P0 ${kpi.priority_p0}</span><span style="color:#EF9F27;">P1 ${kpi.priority_p1}</span><span style="color:var(--text3);">P2 ${kpi.priority_p2}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)} — แสดงรวมทุก Priority ในตารางด้านล่าง</div>
+        </div>`;
+      }
+      return `<div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
         <div style="font-size:${c.small ? '18px' : '28px'}; font-weight:800; color:${c.color}; line-height:1.1;">${escapeHtml(c.value != null ? c.value : '–')}</div>
         <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   function riskBadge(risk) {
@@ -6485,9 +6495,8 @@ function renderPivot(ft) {
     if (!rows || !rows.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const body = rows.map(r => {
-      const durationVal = r.sla_duration.replace(' Days', '');
-      const isActive = filterState.duration === durationVal;
-      return `<tr onclick="window.__onslaFilterDuration('${esc1(durationVal)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
+      const isActive = filterState.duration === r.sla_duration;
+      return `<tr onclick="window.__onslaFilterDuration('${esc1(r.sla_duration)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};">
         <td style="padding:6px 10px; font-weight:600;">${escapeHtml(r.sla_duration)}</td>
         <td style="padding:6px 8px; text-align:center; min-width:64px; font-weight:700;">${r.ticket_count}</td>
       </tr>`;
@@ -6537,7 +6546,7 @@ function renderPivot(ft) {
 
   const DETAIL_COLS = [
     ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SLA Risk', 'sla_risk'],
-    ['เหลือเวลา (ชม.)', 'remaining_hours'], ['SLA Progress %', 'sla_progress_pct'], ['SLA Duration', 'sla_duration_days'],
+    ['เหลือเวลา (ชม.)', 'remaining_hours'], ['SLA Progress %', 'sla_progress_pct'], ['SLA Duration', 'sla_duration_label'],
     ['Province', 'PROVINCE'], ['SUBJECT', 'SUBJECT'], ['CINAME', 'CINAME'],
     ['TARGETFINISH', 'TARGETFINISH'], ['MatelineX Status', 'status_mateline'],
   ];
@@ -6551,7 +6560,7 @@ function renderPivot(ft) {
       if (key === 'sla_risk') return `<td style="padding:6px 8px;">${riskBadge(e.sla_risk)}</td>`;
       if (key === 'remaining_hours') return `<td style="padding:6px 8px; text-align:right; ${e.remaining_hours != null && e.remaining_hours < 0 ? 'color:#E24B4A; font-weight:700;' : ''}">${e.remaining_hours != null ? e.remaining_hours.toFixed(1) : '–'}</td>`;
       if (key === 'sla_progress_pct') return `<td style="padding:6px 8px; text-align:right;">${e.sla_progress_pct != null ? e.sla_progress_pct.toFixed(1) + '%' : '–'}</td>`;
-      if (key === 'sla_duration_days') return `<td style="padding:6px 8px; text-align:right;">${e.sla_duration_days != null ? e.sla_duration_days + 'd' : '–'}</td>`;
+      if (key === 'sla_duration_label') return `<td style="padding:6px 8px; text-align:right;">${e.sla_duration_label != null ? escapeHtml(e.sla_duration_label) : '–'}</td>`;
       if (key === 'PROVINCE') return `<td style="padding:6px 8px;">${escapeHtml(PROVINCE_EN(e.PROVINCE))}</td>`;
       return `<td style="padding:6px 8px;">${escapeHtml(e[key])}</td>`;
     }).join('')}</tr>`).join('');
@@ -6560,7 +6569,7 @@ function renderPivot(ft) {
   function renderFilterChip() {
     const chips = [];
     if (filterState.province) chips.push(`จังหวัด: ${escapeHtml(PROVINCE_EN(filterState.province))}`);
-    if (filterState.duration !== '') chips.push(`SLA Duration: ${escapeHtml(filterState.duration)} Days`);
+    if (filterState.duration !== '') chips.push(`SLA Duration: ${escapeHtml(filterState.duration)}`);
     if (filterState.priority) chips.push(`Priority: ${escapeHtml(filterState.priority)}`);
     if (filterState.risk) chips.push(`SLA Risk: ${escapeHtml(filterState.risk)}`);
     const container = el('onsla-filter-chip');
@@ -6593,8 +6602,13 @@ function renderPivot(ft) {
   function populateFilterDropdowns(data) {
     const provinces = [...new Set(data.entries.map(e => e.PROVINCE))].sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
     el('onsla-f-province').innerHTML = `<option value="">ทุกจังหวัด</option>` + provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
-    const durations = [...new Set(data.entries.map(e => e.sla_duration_days).filter(d => d != null))].sort((a, b) => a - b);
-    el('onsla-f-duration').innerHTML = `<option value="">ทุก SLA Duration</option>` + durations.map(d => `<option value="${d}">${d} Days</option>`).join('');
+    // Unique (label, hours) pairs, sorted by the underlying HOUR count
+    // (not alphabetically by label text - "12 Hours" would otherwise sort
+    // before "4 Hours").
+    const durationMap = new Map();
+    data.entries.forEach(e => { if (e.sla_duration_label != null) durationMap.set(e.sla_duration_label, e.sla_duration_hours); });
+    const durations = [...durationMap.entries()].sort((a, b) => a[1] - b[1]);
+    el('onsla-f-duration').innerHTML = `<option value="">ทุก SLA Duration</option>` + durations.map(([label]) => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`).join('');
   }
 
   ['onsla-f-province', 'onsla-f-duration', 'onsla-f-priority', 'onsla-f-risk'].forEach(id => {
