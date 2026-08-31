@@ -1004,10 +1004,14 @@ def _count_p0_by_group(rows, reference_dt):
         if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
             continue
         priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
-        if priority != "P0":
-            continue
         for key in P0_COMPARISON_GROUPS:
-            if row_matches_view(r, key):
+            if not row_matches_view(r, key):
+                continue
+            # Same exception as the P0 Only detail/matrix view: the FBB
+            # (Online, "4.FBB with SA1-4") group counts P0+P1 together;
+            # every other group stays strict P0-only, unchanged.
+            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            if priority in allowed:
                 counts[key] += 1
     return counts
 
