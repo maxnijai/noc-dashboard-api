@@ -676,9 +676,19 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             over_sla_day = float(over_sla_day)
         except (TypeError, ValueError):
             over_sla_day = 0
+        bookmark_label = _exclusive_bookmark_label(r.get("Bookmark"))
         priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
-        if priority_filter and priority != priority_filter:
-            continue
+        if priority_filter:
+            # Explicit exception: on the P0-scoped view (P0 Only), the
+            # "Online" bookmark (4.FBB with SA1-4) specifically shows P0
+            # AND P1 together - every other bookmark still shows exactly
+            # priority_filter, unchanged.
+            if priority_filter == "P0" and bookmark_label == "4.FBB with SA1-4":
+                allowed_priorities = {"P0", "P1"}
+            else:
+                allowed_priorities = {priority_filter}
+            if priority not in allowed_priorities:
+                continue
         entries.append({
             "TICKETID": ticket_id,
             "SUBJECT": r.get("SUBJECT", ""),
@@ -689,7 +699,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "Region": r.get("Region", ""),
             "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
             "priority": priority,
-            "Bookmark": _exclusive_bookmark_label(r.get("Bookmark")),
+            "Bookmark": bookmark_label,
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
             "action_team": wl.get("action_team", ""),
