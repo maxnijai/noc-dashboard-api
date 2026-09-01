@@ -964,10 +964,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
         <div style="font-size:12px; color:var(--text3); margin-top:2px;">วิเคราะห์ย้อนหลัง (Closed Ticket) — Over SLA อยู่ที่ไหน เกิดจากอะไร ควร Improve จุดไหนก่อน</div>
       </div>
-      <div style="display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <span id="sla-import-status" style="font-size:12px; color:var(--text3);"></span>
         <input type="file" id="sla-import-file" accept=".xlsx,.xlsm" style="display:none;">
         <button id="sla-import-btn" class="btn-secondary" style="font-weight:700;">📥 IMPORT NEW DATA</button>
+        <span id="sla-mapping-status" style="font-size:12px; color:var(--text3);"></span>
+        <input type="file" id="sla-mapping-file" accept=".xlsx,.xlsm" style="display:none;">
+        <button id="sla-mapping-btn" class="btn-secondary" title="Import ไฟล์ CI_Name → Node ID → Lat/Lon">📍 Import Mapping</button>
       </div>
     </div>
 
@@ -1081,6 +1084,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
           <select id="sla-reverse-problem-select" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">— เลือก Problem —</option></select>
           <select id="sla-reverse-subcause-select" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">— เลือก Sub-Cause —</option></select>
+          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <button class="sla-reverse-mode-btn" data-val="over_only" style="padding:5px 10px; font-size:12px; border:none; background:var(--bg4); cursor:pointer;">🔴 Over SLA Only</button>
+            <button class="sla-reverse-mode-btn" data-val="all" style="padding:5px 10px; font-size:12px; border:none; background:transparent; cursor:pointer;">🔵 All Tickets</button>
+          </div>
           <button id="sla-reverse-go-btn" class="btn-secondary" style="font-weight:700;">🔎 วิเคราะห์</button>
         </div>
       </div>
@@ -1136,12 +1143,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
   <!-- SLA IMPROVEMENT: REVERSE ANALYSIS MODAL -->
   <div id="sla-reverse-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('sla-reverse-modal').style.display='none'">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:760px;margin:40px auto;padding:0;overflow:hidden;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:920px;margin:30px auto;padding:0;overflow:hidden;">
       <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
         <span id="sla-reverse-modal-title" style="font-weight:700;font-size:14px;">🔄 Reverse Analysis</span>
         <button onclick="document.getElementById('sla-reverse-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
       </div>
-      <div id="sla-reverse-modal-body" style="padding:16px 18px; max-height:70vh; overflow-y:auto;"></div>
+      <div id="sla-reverse-modal-body" style="padding:16px 18px; max-height:78vh; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -6707,16 +6714,19 @@ function renderPivot(ft) {
     }
   };
 
-  function miniRankTable(title, rows, labelHeader) {
+  function miniRankTable(title, rows, labelHeader, reverseKind) {
     if (!rows.length) return `<div style="flex:1; min-width:200px;"><div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">${title}</div><div style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</div></div>`;
-    const body = rows.map(r => `
-      <tr style="border-top:1px solid var(--border);">
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const body = rows.map(r => {
+      const clickAttr = reverseKind ? ` onclick="window.__slaOpenReverseFromHeatmap('${reverseKind}','${esc1(r.label)}')" style="cursor:pointer;" title="คลิกเพื่อเปิด Reverse Analysis"` : '';
+      return `<tr${clickAttr} style="border-top:1px solid var(--border);">
         <td style="padding:4px 8px; font-weight:600;">${escapeHtml(r.label)}</td>
         <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
         <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     return `<div style="flex:1; min-width:200px;">
-      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">${title}</div>
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">${title}${reverseKind ? ' <span style="font-weight:400; color:var(--text3);">(คลิกเพื่อ Reverse Analysis)</span>' : ''}</div>
       <table style="border-collapse:collapse; font-size:11px; width:100%; border:1px solid var(--border);">
         <thead><tr style="background:var(--bg3);"><th style="padding:4px 8px; text-align:left;">${labelHeader}</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th></tr></thead>
         <tbody>${body}</tbody>
@@ -6733,8 +6743,8 @@ function renderPivot(ft) {
         <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800; color:#E24B4A;">${fmtPct(dd.pct_over)}</div><div style="font-size:10.5px; color:var(--text2);">% Over SLA</div></div>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
-        ${miniRankTable('🔴 Top Problem', dd.top_problems.slice(0, 5), 'Problem')}
-        ${miniRankTable('🔴 Top Sub-Cause', dd.top_sub_causes.slice(0, 5), 'Sub-Cause')}
+        ${miniRankTable('🔴 Top Problem', dd.top_problems.slice(0, 5), 'Problem', 'problem')}
+        ${miniRankTable('🔴 Top Sub-Cause', dd.top_sub_causes.slice(0, 5), 'Sub-Cause', 'sub_cause')}
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
         ${miniRankTable('🔴 Top CI', dd.top_ci.slice(0, 5), 'CI_Name')}
@@ -6746,7 +6756,11 @@ function renderPivot(ft) {
       </div>`;
   }
 
-  // ── Reverse Analysis (Problem/Sub-Cause -> Province -> District -> CI)
+  // ── Reverse Analysis (Problem/Sub-Cause -> Province -> District -> CI -> Node -> Map)
+  let reverseMode = 'over_only';
+  let reverseMap = null;
+  let lastReverseContext = { problem: '', subCause: '' };
+
   function populateReverseSelectors(rootCause) {
     el('sla-reverse-problem-select').innerHTML = `<option value="">— เลือก Problem —</option>` +
       rootCause.top_problems.map(p => `<option value="${escapeHtml(p.label)}">${escapeHtml(p.label)} (${p.over})</option>`).join('');
@@ -6754,17 +6768,24 @@ function renderPivot(ft) {
       rootCause.top_sub_causes.map(p => `<option value="${escapeHtml(p.label)}">${escapeHtml(p.label)} (${p.over})</option>`).join('');
   }
 
-  el('sla-reverse-go-btn').addEventListener('click', async () => {
-    const problem = el('sla-reverse-problem-select').value;
-    const subCause = el('sla-reverse-subcause-select').value;
+  document.querySelectorAll('.sla-reverse-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sla-reverse-mode-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      reverseMode = btn.dataset.val;
+    });
+  });
+
+  async function runReverseAnalysis(problem, subCause) {
     if (!problem && !subCause) { alert('กรุณาเลือก Problem หรือ Sub-Cause อย่างน้อย 1 อย่าง'); return; }
+    lastReverseContext = { problem, subCause };
     const modal = el('sla-reverse-modal');
     const body = el('sla-reverse-modal-body');
     el('sla-reverse-modal-title').textContent = `🔄 ${problem || ''}${problem && subCause ? ' + ' : ''}${subCause || ''}`;
     body.innerHTML = `<div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
     modal.style.display = 'block';
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ mode: reverseMode });
       if (problem) params.set('problem', problem);
       if (subCause) params.set('sub_cause', subCause);
       const res = await fetch('/api/sla-improvement/reverse-analysis?' + params.toString());
@@ -6773,41 +6794,133 @@ function renderPivot(ft) {
     } catch (e) {
       body.innerHTML = `<div style="color:#E24B4A; font-size:12px;">โหลดไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
     }
+  }
+
+  el('sla-reverse-go-btn').addEventListener('click', () => {
+    runReverseAnalysis(el('sla-reverse-problem-select').value, el('sla-reverse-subcause-select').value);
   });
 
+  // Called from the Heatmap Drilldown modal (window.__slaOpenReverseFromHeatmap)
+  // to connect "31/08 -> PCB -> 41% -> click Problem -> Reverse Analysis"
+  // into one flow, per explicit request - reuses this exact same panel,
+  // no separate code path.
+  window.__slaOpenReverseFromHeatmap = function (kind, label) {
+    document.getElementById('sla-heatmap-modal').style.display = 'none';
+    if (kind === 'problem') {
+      el('sla-reverse-problem-select').value = label;
+      el('sla-reverse-subcause-select').value = '';
+      runReverseAnalysis(label, '');
+    } else {
+      el('sla-reverse-subcause-select').value = label;
+      el('sla-reverse-problem-select').value = '';
+      runReverseAnalysis('', label);
+    }
+  };
+
+  const PRIORITY_BADGE = { high: ['🔴', '#E24B4A', 'High'], medium: ['🟠', '#EF9F27', 'Medium'], low: ['🔵', 'var(--text3)', 'Low'] };
+  function priorityBadge(p) {
+    const [icon, color, label] = PRIORITY_BADGE[p] || ['⚪', 'var(--text3)', '–'];
+    return `<span style="color:${color}; font-weight:700;">${icon} ${label}</span>`;
+  }
+  function mappingStatusText(status) {
+    if (status === 'matched') return '';
+    if (status === 'invalid_coordinate') return '<span style="color:#EF9F27; font-size:9.5px;"> (พิกัดไม่ถูกต้อง)</span>';
+    return '<span style="color:var(--text3); font-size:9.5px;"> (Mapping Not Found)</span>';
+  }
+
+  function renderReverseMap(flatTable) {
+    const mapEl = el('sla-reverse-map');
+    if (!mapEl) return;
+    if (reverseMap) { reverseMap.remove(); reverseMap = null; }
+    const withCoords = flatTable.filter(r => r.latitude != null && r.longitude != null);
+    if (!withCoords.length) {
+      mapEl.innerHTML = `<div style="padding:20px; text-align:center; font-size:12px; color:var(--text3);">ไม่มี CI ที่ Mapping พิกัดได้ในผลลัพธ์นี้</div>`;
+      return;
+    }
+    reverseMap = L.map(mapEl, { scrollWheelZoom: false }).setView([withCoords[0].latitude, withCoords[0].longitude], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(reverseMap);
+    const bounds = [];
+    withCoords.forEach(r => {
+      const color = PRIORITY_BADGE[r.priority] ? PRIORITY_BADGE[r.priority][1] : '#1f6feb';
+      const marker = L.circleMarker([r.latitude, r.longitude], { radius: 7, color, fillColor: color, fillOpacity: 0.75, weight: 1.5 }).addTo(reverseMap);
+      marker.bindPopup(`
+        <b>${escapeHtml(r.ci_name)}</b><br>
+        Node ID: ${escapeHtml(r.node_id || '–')}<br>
+        Province: ${escapeHtml(PROVINCE_EN(r.province))} · District: ${escapeHtml(r.district)}<br>
+        Total: ${r.total} · Over SLA: ${r.over} (${fmtPct(r.pct_over)})<br>
+        Priority: ${priorityBadge(r.priority)}
+      `);
+      bounds.push([r.latitude, r.longitude]);
+    });
+    if (bounds.length > 1) reverseMap.fitBounds(bounds, { padding: [20, 20] });
+  }
+
+  function buildExportUrl(level, format) {
+    const params = new URLSearchParams({ mode: reverseMode, level, format });
+    if (lastReverseContext.problem) params.set('problem', lastReverseContext.problem);
+    if (lastReverseContext.subCause) params.set('sub_cause', lastReverseContext.subCause);
+    return '/api/sla-improvement/reverse-analysis/export?' + params.toString();
+  }
+
   function renderReverseAnalysisModal(rev) {
+    const modeLabel = rev.mode === 'all' ? '🔵 All Tickets' : '🔴 Over SLA Only';
     const regionRows = rev.by_region.map(r => `
-      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(r.label)}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
+      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(r.label)}</td><td style="padding:5px 8px; text-align:center;">${r.total}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_problem)}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
     const provinceRows = rev.by_province.slice(0, 10).map(r => `
-      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.label))}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
+      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.label))}</td><td style="padding:5px 8px; text-align:center;">${r.total}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_problem)}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
+    const hasMapping = !!rev.mapping_quality;
     const flatRows = rev.flat_table.slice(0, 30).map(r => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:4px 8px;">${escapeHtml(PROVINCE_EN(r.province))}</td>
         <td style="padding:4px 8px;">${escapeHtml(r.district)}</td>
-        <td style="padding:4px 8px;">${escapeHtml(r.ci_name)}</td>
+        <td style="padding:4px 8px;">${escapeHtml(r.ci_name)}${hasMapping ? mappingStatusText(r.mapping_status) : ''}</td>
+        ${hasMapping ? `<td style="padding:4px 8px;">${escapeHtml(r.node_id || '–')}</td>` : ''}
         <td style="padding:4px 8px; text-align:center;">${r.total}</td>
         <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
         <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
+        <td style="padding:4px 8px; text-align:center;">${fmtPct(r.share_of_total_problem)}</td>
+        <td style="padding:4px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td>
+        <td style="padding:4px 8px; text-align:center; white-space:nowrap;">${priorityBadge(r.priority)}</td>
       </tr>`).join('');
+    const mappingSummary = hasMapping
+      ? `<div style="font-size:11px; color:var(--text3); margin-bottom:8px;">📍 CI Mapping: <b style="color:var(--text2);">${rev.mapping_quality.matched}</b> Matched · <b style="color:var(--text2);">${rev.mapping_quality.not_found}</b> Not Found · Match Rate <b style="color:var(--text2);">${fmtPct(rev.mapping_quality.match_rate)}</b></div>`
+      : `<div style="font-size:11px; color:#EF9F27; margin-bottom:8px;">⚠️ ยังไม่ได้ Import Mapping File — กด "📍 Import Mapping" ด้านบนเพื่อดู Node ID / Map</div>`;
+
     el('sla-reverse-modal-body').innerHTML = `
-      <div style="font-size:12.5px; margin-bottom:12px;">Total <b>${rev.total}</b> Ticket · Over SLA <b style="color:#E24B4A;">${rev.over}</b> (${fmtPct(rev.pct_over)})</div>
-      <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
-        <div style="flex:1; min-width:200px;">
-          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Region</div>
-          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Region</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share</th></tr></thead><tbody>${regionRows}</tbody></table>
-        </div>
-        <div style="flex:1; min-width:240px;">
-          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Province (Top 10)</div>
-          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Province</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share</th></tr></thead><tbody>${provinceRows}</tbody></table>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <div style="font-size:12.5px;">Mode: <b>${modeLabel}</b> · Total <b>${rev.total}</b> Ticket · Over SLA <b style="color:#E24B4A;">${rev.over}</b> (${fmtPct(rev.pct_over)})</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <a href="${buildExportUrl('summary', 'xlsx')}" class="btn-secondary" style="font-size:11px; text-decoration:none;">📥 Summary .xlsx</a>
+          <a href="${buildExportUrl('summary', 'csv')}" class="btn-secondary" style="font-size:11px; text-decoration:none;">📥 Summary .csv</a>
+          <a href="${buildExportUrl('detail', 'xlsx')}" class="btn-secondary" style="font-size:11px; text-decoration:none;">📥 Detail .xlsx</a>
+          <a href="${buildExportUrl('detail', 'csv')}" class="btn-secondary" style="font-size:11px; text-decoration:none;">📥 Detail .csv</a>
         </div>
       </div>
-      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">Province × District × CI_Name ${rev.flat_table_truncated ? '(แสดง 30 จาก ' + rev.flat_table.length + '+ แถว)' : ''}</div>
-      <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border);">
+      ${mappingSummary}
+      <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
+        <div style="flex:1; min-width:220px;">
+          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Region</div>
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Region</th><th style="padding:5px 8px;">Total</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share Vol</th><th style="padding:5px 8px;">Share Over</th></tr></thead><tbody>${regionRows}</tbody></table>
+        </div>
+        <div style="flex:1; min-width:260px;">
+          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Province (Top 10)</div>
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Province</th><th style="padding:5px 8px;">Total</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share Vol</th><th style="padding:5px 8px;">Share Over</th></tr></thead><tbody>${provinceRows}</tbody></table>
+        </div>
+      </div>
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">Province × District × CI_Name ${rev.flat_table_truncated ? '(แสดง 30 จาก ' + rev.flat_table_full_count + ' แถว — Export เพื่อดูครบ)' : ''}</div>
+      <div style="max-height:240px; overflow-y:auto; border:1px solid var(--border); margin-bottom:14px;">
         <table style="border-collapse:collapse; font-size:11px; width:100%;">
-          <thead><tr style="background:var(--bg3); position:sticky; top:0;"><th style="padding:4px 8px; text-align:left;">Province</th><th style="padding:4px 8px; text-align:left;">District</th><th style="padding:4px 8px; text-align:left;">CI_Name</th><th style="padding:4px 8px;">Total</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th></tr></thead>
+          <thead><tr style="background:var(--bg3); position:sticky; top:0;">
+            <th style="padding:4px 8px; text-align:left;">Province</th><th style="padding:4px 8px; text-align:left;">District</th><th style="padding:4px 8px; text-align:left;">CI_Name</th>
+            ${hasMapping ? '<th style="padding:4px 8px; text-align:left;">Node ID</th>' : ''}
+            <th style="padding:4px 8px;">Total</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%Over</th><th style="padding:4px 8px;">Share Vol</th><th style="padding:4px 8px;">Share Over</th><th style="padding:4px 8px;">Priority</th>
+          </tr></thead>
           <tbody>${flatRows}</tbody>
         </table>
-      </div>`;
+      </div>
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🗺️ CI Location Map</div>
+      <div id="sla-reverse-map" style="height:280px; border-radius:var(--r); border:1px solid var(--border);"></div>`;
+    renderReverseMap(rev.flat_table);
   }
 
   function renderHeatmapTable() {
@@ -7355,7 +7468,39 @@ function renderPivot(ft) {
     }
   });
 
-  window.initSlaImproveTab = function () { if (!loaded) reload(); };
+  function renderMappingStatus(status) {
+    if (!status.has_data) { el('sla-mapping-status').textContent = ''; return; }
+    const s = status.stats;
+    el('sla-mapping-status').innerHTML = `<span title="${s.total_rows} แถว, Node ID ไม่ซ้ำ ${s.distinct_node_ids}">📍 Mapping: ${status.filename} (${s.distinct_node_ids} Node)</span>`;
+  }
+  async function loadMappingStatus() {
+    try {
+      const res = await fetch('/api/sla-improvement/mapping/status');
+      if (res.ok) renderMappingStatus(await res.json());
+    } catch (e) { /* non-critical - reverse analysis just shows without mapping if this fails */ }
+  }
+
+  el('sla-mapping-btn').addEventListener('click', () => el('sla-mapping-file').click());
+  el('sla-mapping-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    el('sla-mapping-status').innerHTML = `<span style="color:var(--text3);">กำลัง Import Mapping...</span>`;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/sla-improvement/mapping/import', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `Import failed (${res.status})`);
+      el('sla-mapping-status').innerHTML = `<span style="color:#639922;">✅ Matched: ${result.distinct_node_ids} Node · Import สำเร็จ</span>`;
+      await loadMappingStatus();
+    } catch (err) {
+      el('sla-mapping-status').innerHTML = `<span style="color:#E24B4A;">❌ ${escapeHtml(err.message)}</span>`;
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  window.initSlaImproveTab = function () { if (!loaded) reload(); loadMappingStatus(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
