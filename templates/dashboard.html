@@ -1005,6 +1005,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🌡️ Improvement Heatmap — % Over SLA ตามจังหวัด</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เขียว = % Over ต่ำ (ดี) · แดง = % Over สูง (แย่) — ไล่แถวจากซ้ายไปขวาเพื่อดู Improvement รายวัน/สัปดาห์</div>
+        <div style="display:flex; gap:6px; margin-bottom:10px;">
+          <button class="sla-heatmap-toggle-btn" data-val="daily" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:var(--bg4); cursor:pointer;">รายวัน (14 วันล่าสุด)</button>
+          <button class="sla-heatmap-toggle-btn" data-val="weekly" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">รายสัปดาห์ (ISO)</button>
+        </div>
+        <div id="sla-heatmap-table" style="overflow-x:auto;"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">🔴 Worst (สูงกว่าเฉลี่ย 1.25 เท่า) · 🟠 At Risk (สูงกว่าเฉลี่ย) · 🔵 Good (ต่ำกว่าหรือเท่าเฉลี่ย) — เฉลี่ยรวม: <span id="sla-overall-pct"></span></div>
         <div id="sla-province-table" style="overflow-x:auto;"></div>
@@ -6487,6 +6497,43 @@ function renderPivot(ft) {
   }
 
   function renderTrendChart() {
+    const ctx = el('sla-trend-chart').getContext('2d');
+    if (trendChart) trendChart.destroy();
+
+    if (trendState.scope === 'overall') {
+      // Matches the reference: 100% stacked bar (green=%within, red=%over,
+      // value labels on each segment) + an orange rolling-average line of
+      // %over on top - the backend already computes the rolling average
+      // (7 periods trailing, daily=7-day / weekly=7-week).
+      const series = lastData.trend[trendState.gran].overall;
+      const periods = series.map(p => p.period);
+      trendChart = new Chart(ctx, {
+        data: {
+          labels: periods,
+          datasets: [
+            { type: 'bar', label: '%within', data: series.map(p => p.pct_within), backgroundColor: '#639922', stack: 's', order: 2,
+              datalabels: { display: true, color: '#fff', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+            { type: 'bar', label: '%over', data: series.map(p => p.pct_over), backgroundColor: '#E24B4A99', stack: 's', order: 2,
+              datalabels: { display: true, color: '#7a1f1f', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', formatter: v => v != null ? Math.round(v) + '%' : '' } },
+            { type: 'line', label: `Avg ${trendState.gran === 'daily' ? '7D' : '7W'}% over`, data: series.map(p => p.rolling_avg_pct_over),
+              borderColor: '#F5C518', backgroundColor: '#F5C518', borderWidth: 2, tension: 0.2, pointRadius: 2, order: 1,
+              datalabels: { display: true, color: '#8a6d00', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', offset: 6, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: true } },
+          scales: {
+            y: { beginAtZero: true, max: 100, stacked: true, ticks: { callback: v => v + '%' } },
+            x: { stacked: true, ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 20, font: { size: 9 } } },
+          },
+        },
+      });
+      return;
+    }
+
+    // Region / Province comparison - multiple series, a stacked bar per
+    // series would be unreadable, so this stays a plain %over line chart.
     const seriesMap = currentTrendSeries();
     const allPeriods = new Set();
     Object.values(seriesMap).forEach(s => (s || []).forEach(p => allPeriods.add(p.period)));
@@ -6502,8 +6549,6 @@ function renderPivot(ft) {
         tension: 0.25, spanGaps: true, pointRadius: 2,
       };
     });
-    const ctx = el('sla-trend-chart').getContext('2d');
-    if (trendChart) trendChart.destroy();
     trendChart = new Chart(ctx, {
       type: 'line',
       data: { labels: periods, datasets },
@@ -6533,6 +6578,60 @@ function renderPivot(ft) {
   el('sla-trend-province-select').addEventListener('change', (e) => { trendState.province = e.target.value; renderTrendChart(); });
 
   // ── Province ranking table ──────────────────────────────────────────
+  // ── Improvement heatmap (daily last-14-days / weekly) ───────────────
+  let heatmapGran = 'daily';
+  document.querySelectorAll('.sla-heatmap-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sla-heatmap-toggle-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      heatmapGran = btn.dataset.val;
+      renderHeatmapTable();
+    });
+  });
+
+  function heatmapCellColor(pct) {
+    if (pct == null) return { bg: 'var(--bg1)', color: 'var(--text3)' };
+    // green (low %over, good) -> yellow -> red (high %over, bad), scaled
+    // against a fixed 0-50% range (SLA %over rarely exceeds this, and a
+    // fixed scale - not a per-column max - is what lets you compare
+    // improvement ACROSS periods/columns, which is the whole point here).
+    const t = Math.min(1, pct / 50);
+    let r, g, b;
+    if (t < 0.5) {
+      const k = t / 0.5;
+      r = Math.round(63 + (245 - 63) * k); g = Math.round(153 + (197 - 153) * k); b = Math.round(80 + (24 - 80) * k);
+    } else {
+      const k = (t - 0.5) / 0.5;
+      r = Math.round(245 + (226 - 245) * k); g = Math.round(197 + (75 - 197) * k); b = Math.round(24 + (74 - 24) * k);
+    }
+    return { bg: `rgba(${r},${g},${b},0.55)`, color: t > 0.55 ? '#fff' : '#1a1300' };
+  }
+
+  function renderHeatmapTable() {
+    const hm = lastData.improvement_heatmap[heatmapGran];
+    if (!hm || !hm.rows.length) { el('sla-heatmap-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
+    const periodLabel = p => heatmapGran === 'weekly' ? p.replace(/^\d{4}-/, '') : p.slice(5); // "2026-W34"->"W34", "2026-08-30"->"08-30"
+    const head = hm.periods.map(p => `<th style="padding:6px 6px; text-align:center; font-size:9.5px; color:var(--text2); white-space:nowrap;">${escapeHtml(periodLabel(p))}</th>`).join('');
+    const body = hm.rows.map(r => {
+      const cells = r.cells.map(c => {
+        const heat = heatmapCellColor(c.pct_over);
+        const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%)` : `${c.period}: ไม่มีข้อมูล`;
+        return `<td title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color};">${c.total ? Math.round(c.pct_over) + '%' : '–'}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+        ${cells}
+      </tr>`;
+    }).join('');
+    el('sla-heatmap-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>${head}
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>`;
+  }
+
   function renderProvinceTable(ranking) {
     el('sla-overall-pct').textContent = fmtPct(ranking.overall_pct_over);
     const maxPct = Math.max(0, ...ranking.rows.map(r => r.pct_over || 0));
@@ -6752,6 +6851,7 @@ function renderPivot(ft) {
     const provinces = Object.keys(data.trend.daily.by_province).sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
     el('sla-trend-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
     renderTrendChart();
+    renderHeatmapTable();
     renderProvinceTable(data.province_ranking);
     drillState = { problem: null, sub_cause: null, ci_name: null };
     loadDrillDown();
