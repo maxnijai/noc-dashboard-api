@@ -2347,6 +2347,39 @@ def api_sla_improvement_province_drill_down():
         log.exception("sla-improvement province-drill-down API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sla-improvement/reverse-analysis')
+def api_sla_improvement_reverse_analysis():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        problem = request.args.get('problem') or None
+        sub_cause = request.args.get('sub_cause') or None
+        if not problem and not sub_cause:
+            return jsonify({'error': 'กรุณาระบุ problem หรือ sub_cause อย่างน้อย 1 อย่าง'}), 400
+        result = sla_improvement.build_reverse_analysis(rows, problem=problem, sub_cause=sub_cause)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("sla-improvement reverse-analysis API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/heatmap-drill-down')
+def api_sla_improvement_heatmap_drill_down():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        province = request.args.get('province')
+        period = request.args.get('period')
+        granularity = request.args.get('granularity', 'daily')
+        if not province or not period:
+            return jsonify({'error': 'กรุณาระบุ province และ period'}), 400
+        result = sla_improvement.build_heatmap_cell_drilldown(rows, period, province, granularity=granularity)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("sla-improvement heatmap-drill-down API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/flood-nan')
 def api_flood_nan():
     """Every known Nan-province site plotted on a map, color-coded by the

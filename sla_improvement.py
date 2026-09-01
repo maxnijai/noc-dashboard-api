@@ -870,6 +870,128 @@ def drill_down_province_detail(rows, province, district=None, problem=None, sub_
     return result
 
 
+# ── Reverse Root Cause Analysis (Problem/Sub-Cause -> Province -> District
+# -> CI_Name) - additive only, does not touch drill_down_root_cause or
+# drill_down_province_detail above, which stay exactly as they were. ────
+
+def build_reverse_analysis(rows, problem=None, sub_cause=None):
+    """Given a PROBLEM and/or SUB_CAUSE selection, returns where those
+    tickets concentrate: Region/Province summary, Province/District
+    summary, and a flat Province+District+CI_Name breakdown table (per
+    the example table shape in the request). Filters to whichever of
+    problem/sub_cause was given - both together narrows further, matching
+    "Problem / Sub-Cause" as independent, combinable selectors."""
+    scoped = rows
+    if problem:
+        scoped = [r for r in scoped if r["PROBLEM"] == problem]
+    if sub_cause:
+        scoped = [r for r in scoped if r["SUB_CAUSE"] == sub_cause]
+    total_all, over_all = _split_over(scoped)
+
+    def _group_summary(key_fn):
+        counts = {}
+        for r in scoped:
+            k = key_fn(r)
+            counts.setdefault(k, {"total": 0, "over": 0})
+            counts[k]["total"] += 1
+            if r["TICKET_SLA"] == "over":
+                counts[k]["over"] += 1
+        out = [{"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+                "share_of_total_over": _pct(v["over"], over_all)} for k, v in counts.items() if v["over"] > 0]
+        out.sort(key=lambda e: -e["over"])
+        return out
+
+    by_region = _group_summary(lambda r: r["region"])
+    by_province = _group_summary(lambda r: r["province"])
+
+    # Flat Province+District+CI_Name table, one row per combination that
+    # has at least one Over SLA ticket - matches the example table shape
+    # exactly (Province | District | CI_Name | Total | Over SLA | %).
+    flat_counts = {}
+    for r in scoped:
+        key = (r["region"], r["province"], _normalize_district(r["DISTRICT_EN"]), r["CI_Name"])
+        flat_counts.setdefault(key, {"total": 0, "over": 0})
+        flat_counts[key]["total"] += 1
+        if r["TICKET_SLA"] == "over":
+            flat_counts[key]["over"] += 1
+    flat_table = [
+        {"region": k[0], "province": k[1], "district": k[2], "ci_name": k[3],
+         "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+         "share_of_total_over": _pct(v["over"], over_all)}
+        for k, v in flat_counts.items() if v["over"] > 0
+    ]
+    flat_table.sort(key=lambda e: -e["over"])
+
+    return {
+        "problem": problem, "sub_cause": sub_cause,
+        "total": total_all, "over": over_all, "pct_over": _pct(over_all, total_all),
+        "by_region": by_region, "by_province": by_province,
+        "flat_table": flat_table[:200],  # capped - a detail table, not a full export
+        "flat_table_truncated": len(flat_table) > 200,
+    }
+
+
+# ── Heatmap cell click -> "why?" drilldown - additive only, reuses the
+# exact same Over SLA / Province / District / Problem / Sub-Cause / CI
+# logic as everything above, just re-scoped to one date (or week) + one
+# province. ──────────────────────────────────────────────────────────
+
+def build_heatmap_cell_drilldown(rows, period, province, granularity="daily", top_n=5):
+    """period: an iso_date ("2026-08-31") for granularity="daily", or an
+    iso_week ("2026-W35") for granularity="weekly" - matches exactly what
+    the Improvement Heatmap's own period labels already are, so the
+    frontend can pass the clicked cell's period straight through with no
+    reformatting. Returns Total/Over/%Over for that exact cell plus Top
+    Problem/Sub-Cause/CI/District within it, and an auto-generated
+    Improvement Focus insight - same "no hardcoded text" approach as the
+    Province Deep Dive insight."""
+    date_key = "iso_week" if granularity == "weekly" else "iso_date"
+    scoped = [r for r in rows if r["province"] == province and r[date_key] == period]
+    total, over = _split_over(scoped)
+    pct_over = _pct(over, total)
+
+    top_problems = _ranked_group(scoped, "PROBLEM", top_n)
+    top_sub_causes = _ranked_group(scoped, "SUB_CAUSE", top_n)
+    top_ci = _ranked_group(scoped, "CI_Name", top_n)
+    district_counts = {}
+    for r in scoped:
+        d = _normalize_district(r["DISTRICT_EN"])
+        district_counts.setdefault(d, {"total": 0, "over": 0})
+        district_counts[d]["total"] += 1
+        if r["TICKET_SLA"] == "over":
+            district_counts[d]["over"] += 1
+    top_districts = [{"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+                       "share_of_total_over": _pct(v["over"], over)} for k, v in district_counts.items() if v["over"] > 0]
+    top_districts.sort(key=lambda e: -e["over"])
+    top_districts = top_districts[:top_n]
+
+    top_problem = top_problems[0] if top_problems else None
+    top_sub_cause = top_sub_causes[0] if top_sub_causes else None
+    top_ci_item = top_ci[0] if top_ci else None
+    top_district = top_districts[0] if top_districts else None
+
+    focus_lines = [f"{province} มี % Over SLA {pct_over}% ในช่วง {period}" if pct_over is not None else None]
+    if top_district:
+        focus_lines.append(f"ประมาณ {top_district['share_of_total_over']}% ของ Over SLA มาจาก District {top_district['label']}")
+    if top_problem:
+        focus_lines.append(f"{top_problem['label']} เป็นปัญหาหลัก")
+    if top_sub_cause:
+        focus_lines.append(f"{top_sub_cause['label']} เป็นสาเหตุหลัก")
+    if top_ci_item:
+        focus_lines.append(f"CI {top_ci_item['label']} มี Over SLA สูงสุด ({top_ci_item['over']} Ticket)")
+    parts = [x for x in [top_district and top_district['label'], top_problem and top_problem['label'], top_sub_cause and top_sub_cause['label'], top_ci_item and top_ci_item['label']] if x]
+    if parts:
+        focus_lines.append("ควรเริ่มตรวจสอบ " + " / ".join(parts) + " ก่อน")
+
+    return {
+        "province": province, "period": period, "granularity": granularity,
+        "total": total, "over": over, "pct_over": pct_over,
+        "top_problems": top_problems, "top_sub_causes": top_sub_causes,
+        "top_ci": top_ci, "top_districts": top_districts,
+        "improvement_focus": [l for l in focus_lines if l],
+    }
+
+
 def build_sla_improvement_response(top_n=15):
     """Orchestrates every analysis above from whatever's currently in the
     in-memory store - raises if no data has been imported yet (the route
