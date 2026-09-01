@@ -290,6 +290,182 @@ def get_rows():
         return _store["rows"]
 
 
+# ── CI_Name -> Node ID -> Lat/Lon mapping (separate import, separate
+# store) - additive only, has NO effect on the ticket dataset store above
+# or anything that reads it. Confirmed against the actual mapping file:
+# there is no literal "CI_Name" column in it - "Node ID" IS the matching
+# key (97.5% of ticket CI_Name values match directly after
+# strip+uppercase normalization; the remainder are a different equipment
+# category - EDFA amplifiers - or apparent source typos, correctly left
+# as "Mapping Not Found" rather than guessed). ─────────────────────────
+
+MAPPING_REQUIRED_COLUMNS = ["Node ID", "Latitude", "Longitude"]
+
+_mapping_store = {"lookup": None, "stats": None, "imported_at": None, "filename": None}
+_mapping_store_lock = threading.Lock()
+
+
+def _resolve_mapping_store_path():
+    candidates = ["/data/sla_mapping_store.pkl", os.path.join(os.path.dirname(os.path.abspath(__file__)), "sla_mapping_store.pkl")]
+    for path in candidates:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            probe = path + ".probe"
+            with open(probe, "w") as f:
+                f.write("probe")
+            os.remove(probe)
+            return path
+        except OSError:
+            continue
+    return None
+
+
+_MAPPING_STORE_FILE_PATH = _resolve_mapping_store_path()
+
+
+def _save_mapping_store_to_disk():
+    if not _MAPPING_STORE_FILE_PATH:
+        return
+    try:
+        with _mapping_store_lock:
+            snapshot = dict(_mapping_store)
+        tmp_path = _MAPPING_STORE_FILE_PATH + ".tmp"
+        with open(tmp_path, "wb") as f:
+            pickle.dump(snapshot, f)
+        os.replace(tmp_path, _MAPPING_STORE_FILE_PATH)
+    except Exception:
+        log.exception("Failed to persist CI/Node mapping to disk")
+
+
+def _load_mapping_store_from_disk():
+    if not _MAPPING_STORE_FILE_PATH or not os.path.exists(_MAPPING_STORE_FILE_PATH):
+        return
+    try:
+        with open(_MAPPING_STORE_FILE_PATH, "rb") as f:
+            loaded = pickle.load(f)
+        with _mapping_store_lock:
+            _mapping_store.update(loaded)
+        log.info(f"Loaded persisted CI/Node mapping from disk: {len(loaded.get('lookup') or {})} nodes, imported_at={loaded.get('imported_at')}")
+    except Exception:
+        log.exception("Failed to load persisted CI/Node mapping from disk - starting empty")
+
+
+_load_mapping_store_from_disk()
+
+
+def _normalize_node_key(s):
+    return re.sub(r"\s+", " ", str(s or "")).strip().upper()
+
+
+def parse_mapping_file(file_path):
+    """Reads the Node ID/Lat/Lon mapping file, validates required
+    columns, and builds a lookup keyed by normalized (strip+upper) Node
+    ID. Rows missing Node ID are skipped; rows with a valid Node ID but
+    missing/invalid lat-lon are still kept in the lookup (so a CI still
+    resolves to its Node ID/Region/Province/District even if it can't be
+    plotted), just flagged so the map layer can skip them. Duplicate Node
+    IDs keep the FIRST occurrence (confirmed: in the real file, every
+    duplicate has identical coordinates anyway, so this is safe)."""
+    wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+    ws = wb[wb.sheetnames[0]]
+    rows_iter = ws.iter_rows(values_only=True)
+    try:
+        header_row = next(rows_iter)
+    except StopIteration:
+        raise ImportValidationError("ไฟล์ Mapping ว่างเปล่า ไม่มีข้อมูล")
+    headers = [str(h).strip() if h is not None else "" for h in header_row]
+    header_idx = {h: i for i, h in enumerate(headers)}
+
+    missing = [c for c in MAPPING_REQUIRED_COLUMNS if c not in header_idx]
+    if missing:
+        raise ImportValidationError(f"ไฟล์ Mapping ขาด Column ที่จำเป็น: {', '.join(missing)}")
+
+    get_extra = lambda raw, col: raw[header_idx[col]] if col in header_idx and header_idx[col] < len(raw) else None
+
+    lookup = {}
+    total_rows = 0
+    missing_node_id = 0
+    invalid_coord = 0
+    duplicate_node_id = 0
+    for raw in rows_iter:
+        total_rows += 1
+        node_id = get_extra(raw, "Node ID")
+        if not node_id or not str(node_id).strip():
+            missing_node_id += 1
+            continue
+        key = _normalize_node_key(node_id)
+        lat, lon = get_extra(raw, "Latitude"), get_extra(raw, "Longitude")
+        has_valid_coord = False
+        try:
+            if lat is not None and lon is not None:
+                latf, lonf = float(lat), float(lon)
+                if latf != 0 and lonf != 0:
+                    has_valid_coord = True
+        except (TypeError, ValueError):
+            pass
+        if not has_valid_coord:
+            invalid_coord += 1
+        if key in lookup:
+            duplicate_node_id += 1
+            continue  # keep first occurrence
+        lookup[key] = {
+            "node_id": str(node_id).strip(),
+            "node_type": str(get_extra(raw, "Node Type") or "").strip(),
+            "latitude": float(lat) if has_valid_coord else None,
+            "longitude": float(lon) if has_valid_coord else None,
+            "region_node_id": str(get_extra(raw, "Region Node ID") or "").strip(),
+            "province_node_id": str(get_extra(raw, "Province Node ID") or "").strip(),
+            "district_node_id": str(get_extra(raw, "District Node ID") or "").strip(),
+        }
+
+    if not lookup:
+        raise ImportValidationError("ไม่พบข้อมูลที่ใช้งานได้เลยในไฟล์ Mapping นี้ (ไม่มี Node ID ที่อ่านได้)")
+
+    stats = {
+        "total_rows": total_rows, "distinct_node_ids": len(lookup),
+        "missing_node_id_rows": missing_node_id, "duplicate_node_id_rows": duplicate_node_id,
+        "invalid_coord_nodes": invalid_coord,
+    }
+    return lookup, stats
+
+
+def import_mapping_file(file_path, filename):
+    """Same never-corrupt-on-bad-import guarantee as import_excel_file
+    above - only replaces the mapping store if parsing succeeds fully."""
+    lookup, stats = parse_mapping_file(file_path)
+    with _mapping_store_lock:
+        _mapping_store["lookup"] = lookup
+        _mapping_store["stats"] = stats
+        _mapping_store["imported_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _mapping_store["filename"] = filename
+    _save_mapping_store_to_disk()
+    return {"filename": filename, **stats}
+
+
+def get_mapping_status():
+    with _mapping_store_lock:
+        return {
+            "has_data": _mapping_store["lookup"] is not None,
+            "imported_at": _mapping_store["imported_at"],
+            "filename": _mapping_store["filename"],
+            "stats": _mapping_store["stats"],
+        }
+
+
+def get_mapping_lookup():
+    with _mapping_store_lock:
+        return _mapping_store["lookup"]
+
+
+def match_ci_to_node(ci_name, mapping_lookup):
+    """Returns the matched node dict, or None (caller renders "Mapping
+    Not Found") - mapping_lookup may itself be None if no mapping file
+    has been imported yet, which this handles the same way (no match)."""
+    if not mapping_lookup:
+        return None
+    return mapping_lookup.get(_normalize_node_key(ci_name))
+
+
 def _pct(numerator, denominator):
     return round(numerator / denominator * 100, 2) if denominator else None
 
@@ -874,13 +1050,83 @@ def drill_down_province_detail(rows, province, district=None, problem=None, sub_
 # -> CI_Name) - additive only, does not touch drill_down_root_cause or
 # drill_down_province_detail above, which stay exactly as they were. ────
 
-def build_reverse_analysis(rows, problem=None, sub_cause=None):
+def _build_reverse_flat_entities(scoped, total_all, over_all, mode, mapping_lookup):
+    """The full (uncapped) CI-level flat entity list with Priority and
+    mapping enrichment - shared by build_reverse_analysis (which caps it
+    for the API/on-screen table) and the export builder (which needs the
+    complete set), so the two can never compute this differently."""
+    flat_counts = {}
+    for r in scoped:
+        key = (r["region"], r["province"], _normalize_district(r["DISTRICT_EN"]), r["CI_Name"])
+        flat_counts.setdefault(key, {"total": 0, "over": 0})
+        flat_counts[key]["total"] += 1
+        if r["TICKET_SLA"] == "over":
+            flat_counts[key]["over"] += 1
+    entities = [
+        {"region": k[0], "province": k[1], "district": k[2], "ci_name": k[3],
+         "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+         "share_of_total_problem": _pct(v["total"], total_all), "share_of_total_over": _pct(v["over"], over_all)}
+        for k, v in flat_counts.items() if (v["over"] > 0 if mode == "over_only" else v["total"] > 0)
+    ]
+
+    # Data-driven Improvement Priority (High/Medium/Low) - never % alone:
+    # combines this entity's share of total problem volume with its share
+    # of total Over SLA, thresholds are the data's own median, not fixed
+    # constants.
+    problem_shares = sorted(e["share_of_total_problem"] for e in entities if e["share_of_total_problem"])
+    over_shares = sorted(e["share_of_total_over"] for e in entities if e["share_of_total_over"])
+    med_problem_share = problem_shares[len(problem_shares) // 2] if problem_shares else 0
+    med_over_share = over_shares[len(over_shares) // 2] if over_shares else 0
+    for e in entities:
+        high_volume = e["share_of_total_problem"] >= med_problem_share and e["share_of_total_problem"] > 0
+        high_sla_impact = e["share_of_total_over"] >= med_over_share and e["share_of_total_over"] > 0
+        if high_volume and high_sla_impact:
+            e["priority"] = "high"
+        elif high_volume or high_sla_impact:
+            e["priority"] = "medium"
+        else:
+            e["priority"] = "low"
+
+    mapping_matched = mapping_not_found = 0
+    if mapping_lookup:
+        for e in entities:
+            node = match_ci_to_node(e["ci_name"], mapping_lookup)
+            if node:
+                mapping_matched += 1
+                e["node_id"] = node["node_id"]
+                e["latitude"] = node["latitude"]
+                e["longitude"] = node["longitude"]
+                e["mapping_status"] = "matched" if node["latitude"] is not None else "invalid_coordinate"
+            else:
+                mapping_not_found += 1
+                e["node_id"] = None
+                e["latitude"] = None
+                e["longitude"] = None
+                e["mapping_status"] = "not_found"
+
+    entities.sort(key=lambda e: -(e["over"] if mode == "over_only" else e["total"]))
+    mapping_quality = None
+    if mapping_lookup:
+        total_ci = mapping_matched + mapping_not_found
+        mapping_quality = {"matched": mapping_matched, "not_found": mapping_not_found, "match_rate": _pct(mapping_matched, total_ci) if total_ci else None}
+    return entities, mapping_quality
+
+
+def build_reverse_analysis(rows, problem=None, sub_cause=None, mode="over_only", mapping_lookup=None):
     """Given a PROBLEM and/or SUB_CAUSE selection, returns where those
     tickets concentrate: Region/Province summary, Province/District
-    summary, and a flat Province+District+CI_Name breakdown table (per
-    the example table shape in the request). Filters to whichever of
-    problem/sub_cause was given - both together narrows further, matching
-    "Problem / Sub-Cause" as independent, combinable selectors."""
+    summary, and a flat Province+District+CI_Name breakdown table.
+    mode="over_only" (the original, still the default so the existing
+    route/frontend behave identically if they don't pass mode) includes
+    only combinations with at least one Over SLA ticket, sorted by Over
+    descending. mode="all" includes every combination with any ticket at
+    all, sorted by Total descending - "where does this problem happen
+    most" vs "where does it cause SLA problems", per explicit request.
+    Both share_of_total_problem (of TOTAL volume) and share_of_total_over
+    are always included regardless of mode, since neither should be used
+    alone. mapping_lookup (optional): enriches each flat_table row with
+    Node ID/Lat/Lon (or "not_found") and a data-driven Improvement
+    Priority tier - omitted entirely if no mapping has been imported."""
     scoped = rows
     if problem:
         scoped = [r for r in scoped if r["PROBLEM"] == problem]
@@ -897,38 +1143,27 @@ def build_reverse_analysis(rows, problem=None, sub_cause=None):
             if r["TICKET_SLA"] == "over":
                 counts[k]["over"] += 1
         out = [{"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
-                "share_of_total_over": _pct(v["over"], over_all)} for k, v in counts.items() if v["over"] > 0]
-        out.sort(key=lambda e: -e["over"])
+                "share_of_total_problem": _pct(v["total"], total_all), "share_of_total_over": _pct(v["over"], over_all)}
+               for k, v in counts.items() if (v["over"] > 0 if mode == "over_only" else v["total"] > 0)]
+        out.sort(key=lambda e: -(e["over"] if mode == "over_only" else e["total"]))
         return out
 
     by_region = _group_summary(lambda r: r["region"])
     by_province = _group_summary(lambda r: r["province"])
 
-    # Flat Province+District+CI_Name table, one row per combination that
-    # has at least one Over SLA ticket - matches the example table shape
-    # exactly (Province | District | CI_Name | Total | Over SLA | %).
-    flat_counts = {}
-    for r in scoped:
-        key = (r["region"], r["province"], _normalize_district(r["DISTRICT_EN"]), r["CI_Name"])
-        flat_counts.setdefault(key, {"total": 0, "over": 0})
-        flat_counts[key]["total"] += 1
-        if r["TICKET_SLA"] == "over":
-            flat_counts[key]["over"] += 1
-    flat_table = [
-        {"region": k[0], "province": k[1], "district": k[2], "ci_name": k[3],
-         "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
-         "share_of_total_over": _pct(v["over"], over_all)}
-        for k, v in flat_counts.items() if v["over"] > 0
-    ]
-    flat_table.sort(key=lambda e: -e["over"])
+    flat_entries, mapping_quality = _build_reverse_flat_entities(scoped, total_all, over_all, mode, mapping_lookup)
 
-    return {
-        "problem": problem, "sub_cause": sub_cause,
+    result = {
+        "problem": problem, "sub_cause": sub_cause, "mode": mode,
         "total": total_all, "over": over_all, "pct_over": _pct(over_all, total_all),
         "by_region": by_region, "by_province": by_province,
-        "flat_table": flat_table[:200],  # capped - a detail table, not a full export
-        "flat_table_truncated": len(flat_table) > 200,
+        "flat_table": flat_entries[:200],  # capped for display - export endpoints return the full set
+        "flat_table_truncated": len(flat_entries) > 200,
+        "flat_table_full_count": len(flat_entries),
     }
+    if mapping_quality:
+        result["mapping_quality"] = mapping_quality
+    return result
 
 
 # ── Heatmap cell click -> "why?" drilldown - additive only, reuses the
@@ -990,6 +1225,91 @@ def build_heatmap_cell_drilldown(rows, period, province, granularity="daily", to
         "top_ci": top_ci, "top_districts": top_districts,
         "improvement_focus": [l for l in focus_lines if l],
     }
+
+
+def build_reverse_analysis_export_rows(rows, problem=None, sub_cause=None, mode="over_only", mapping_lookup=None):
+    """Full (uncapped) Summary + Detail row sets for the Export buttons -
+    Summary is the same flat CI-level breakdown as build_reverse_analysis
+    (ranked, with Priority), Detail is one row per matching TICKET. Calls
+    the same shared helper build_reverse_analysis itself uses, so the
+    exported numbers can never drift from what the on-screen table
+    shows."""
+    scoped = rows
+    if problem:
+        scoped = [r for r in scoped if r["PROBLEM"] == problem]
+    if sub_cause:
+        scoped = [r for r in scoped if r["SUB_CAUSE"] == sub_cause]
+    total_all, over_all = _split_over(scoped)
+    flat_entries, _mapping_quality = _build_reverse_flat_entities(scoped, total_all, over_all, mode, mapping_lookup)
+
+    summary_rows = []
+    for i, e in enumerate(flat_entries, start=1):
+        summary_rows.append({
+            "Rank": i, "Region": e["region"], "Province": e["province"], "District": e["district"],
+            "Problem": problem or "", "Sub-Cause": sub_cause or "", "CI_Name": e["ci_name"],
+            "Node ID": e.get("node_id") or "", "Latitude": e.get("latitude"), "Longitude": e.get("longitude"),
+            "Total Ticket": e["total"], "Over SLA": e["over"], "% Over SLA": e["pct_over"],
+            "Share of Total Problem (%)": e["share_of_total_problem"], "Share of Total Over SLA (%)": e["share_of_total_over"],
+            "Improvement Priority": e.get("priority", ""),
+        })
+
+    detail_rows = []
+    for r in scoped:
+        node = match_ci_to_node(r["CI_Name"], mapping_lookup) if mapping_lookup else None
+        detail_rows.append({
+            "TICKETID": r["TICKETID"], "Region": r["region"], "Province": r["province"],
+            "District": _normalize_district(r["DISTRICT_EN"]), "Problem": r["PROBLEM"], "Sub-Cause": r["SUB_CAUSE"],
+            "CI_Name": r["CI_Name"], "Node ID": node["node_id"] if node else "",
+            "Latitude": node["latitude"] if node else None, "Longitude": node["longitude"] if node else None,
+            "TICKET_SLA": r["TICKET_SLA"], "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S"),
+            "TARGETFINISH": r["TARGETFINISH"].strftime("%Y-%m-%d %H:%M:%S"),
+        })
+    return summary_rows, detail_rows
+
+
+def _dict_rows_to_xlsx_bytes(rows, headers, sheet_title):
+    """Generic in-memory .xlsx builder for a list of dicts - same styling
+    approach as build_pending_ticket_xlsx elsewhere in this app (header
+    fill/font, auto column width, frozen header row), reused here rather
+    than reinvented."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_title[:31]  # Excel sheet name length limit
+    ws.append(headers)
+    header_fill = PatternFill(start_color="1F6FEB", end_color="1F6FEB", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+    for row in rows:
+        ws.append([row.get(h, "") for h in headers])
+    for i, header in enumerate(headers, start=1):
+        col_letter = get_column_letter(i)
+        max_len = max([len(str(header))] + [len(str(row.get(header, ""))) for row in rows] or [10])
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _dict_rows_to_csv_bytes(rows, headers):
+    import io, csv
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue().encode("utf-8-sig")  # BOM so Excel opens Thai/UTF-8 text correctly
+
+
+SUMMARY_EXPORT_HEADERS = ["Rank", "Region", "Province", "District", "Problem", "Sub-Cause", "CI_Name", "Node ID", "Latitude", "Longitude", "Total Ticket", "Over SLA", "% Over SLA", "Share of Total Problem (%)", "Share of Total Over SLA (%)", "Improvement Priority"]
+DETAIL_EXPORT_HEADERS = ["TICKETID", "Region", "Province", "District", "Problem", "Sub-Cause", "CI_Name", "Node ID", "Latitude", "Longitude", "TICKET_SLA", "CREATIONDATE", "TARGETFINISH"]
 
 
 def build_sla_improvement_response(top_n=15):

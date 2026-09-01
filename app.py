@@ -2357,10 +2357,92 @@ def api_sla_improvement_reverse_analysis():
         sub_cause = request.args.get('sub_cause') or None
         if not problem and not sub_cause:
             return jsonify({'error': 'กรุณาระบุ problem หรือ sub_cause อย่างน้อย 1 อย่าง'}), 400
-        result = sla_improvement.build_reverse_analysis(rows, problem=problem, sub_cause=sub_cause)
+        mode = request.args.get('mode', 'over_only')
+        if mode not in ('over_only', 'all'):
+            return jsonify({'error': 'mode ต้องเป็น over_only หรือ all'}), 400
+        mapping_lookup = sla_improvement.get_mapping_lookup()
+        result = sla_improvement.build_reverse_analysis(rows, problem=problem, sub_cause=sub_cause, mode=mode, mapping_lookup=mapping_lookup)
         return jsonify(result)
     except Exception as e:
         log.exception("sla-improvement reverse-analysis API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/reverse-analysis/export')
+def api_sla_improvement_reverse_analysis_export():
+    """Downloads the FULL (uncapped) reverse-analysis result for the
+    current problem/sub_cause/mode selection - level=summary (CI-level,
+    ranked, with Priority) or level=detail (one row per ticket), format=
+    xlsx or csv. Respects the exact same filters as the on-screen panel,
+    per explicit "Export ต้องเคารพ Filter ปัจจุบันทั้งหมด" instruction."""
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        problem = request.args.get('problem') or None
+        sub_cause = request.args.get('sub_cause') or None
+        if not problem and not sub_cause:
+            return jsonify({'error': 'กรุณาระบุ problem หรือ sub_cause อย่างน้อย 1 อย่าง'}), 400
+        mode = request.args.get('mode', 'over_only')
+        level = request.args.get('level', 'summary')
+        fmt = request.args.get('format', 'xlsx')
+        if level not in ('summary', 'detail'):
+            return jsonify({'error': 'level ต้องเป็น summary หรือ detail'}), 400
+        if fmt not in ('xlsx', 'csv'):
+            return jsonify({'error': 'format ต้องเป็น xlsx หรือ csv'}), 400
+        mapping_lookup = sla_improvement.get_mapping_lookup()
+        summary_rows, detail_rows = sla_improvement.build_reverse_analysis_export_rows(
+            rows, problem=problem, sub_cause=sub_cause, mode=mode, mapping_lookup=mapping_lookup)
+        export_rows = summary_rows if level == 'summary' else detail_rows
+        headers = sla_improvement.SUMMARY_EXPORT_HEADERS if level == 'summary' else sla_improvement.DETAIL_EXPORT_HEADERS
+        ts = datetime.now().strftime('%Y-%m-%d_%H%M')
+        base_name = f"reverse-analysis-{level}-{ts}"
+        if fmt == 'xlsx':
+            file_bytes = sla_improvement._dict_rows_to_xlsx_bytes(export_rows, headers, level.capitalize())
+            return Response(file_bytes, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             headers={'Content-Disposition': f'attachment; filename="{base_name}.xlsx"'})
+        else:
+            file_bytes = sla_improvement._dict_rows_to_csv_bytes(export_rows, headers)
+            return Response(file_bytes, mimetype='text/csv',
+                             headers={'Content-Disposition': f'attachment; filename="{base_name}.csv"'})
+    except Exception as e:
+        log.exception("sla-improvement reverse-analysis export failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/mapping/import', methods=['POST'])
+def api_sla_improvement_mapping_import():
+    """Manual import of the CI_Name(Node ID)/Latitude/Longitude mapping
+    file - a SEPARATE store from the ticket dataset (importing one never
+    affects the other), same never-corrupt-on-bad-file guarantee."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        if not f.filename.lower().endswith(('.xlsx', '.xlsm')):
+            return jsonify({'error': 'รองรับเฉพาะไฟล์ .xlsx เท่านั้น'}), 400
+        tmp_path = os.path.join('/tmp', f'sla_mapping_import_{secrets.token_hex(8)}.xlsx')
+        f.save(tmp_path)
+        try:
+            result = sla_improvement.import_mapping_file(tmp_path, f.filename)
+        finally:
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        return jsonify(result)
+    except sla_improvement.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sla-improvement mapping import failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/mapping/status')
+def api_sla_improvement_mapping_status():
+    try:
+        return jsonify(sla_improvement.get_mapping_status())
+    except Exception as e:
+        log.exception("sla-improvement mapping status failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/sla-improvement/heatmap-drill-down')
