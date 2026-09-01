@@ -276,16 +276,37 @@ def _trend_series(rows, date_key):
     series = []
     for period in sorted(buckets.keys()):
         total, over = _split_over(buckets[period])
-        series.append({"period": period, "total": total, "over": over, "pct_over": _pct(over, total)})
+        within = total - over
+        series.append({
+            "period": period, "total": total, "over": over, "within": within,
+            "pct_over": _pct(over, total), "pct_within": _pct(within, total),
+        })
     return series
+
+
+def _with_rolling_avg(series, window=7):
+    """Adds a trailing N-period rolling average of pct_over to each point
+    (e.g. the "Avg 7D% over" line) - trailing only (never looks ahead),
+    and only computed once enough prior periods exist to average over,
+    matching how a 7-day rolling average is normally read on a chart."""
+    out = []
+    for i, p in enumerate(series):
+        window_pts = series[max(0, i - window + 1):i + 1]
+        vals = [w["pct_over"] for w in window_pts if w["pct_over"] is not None]
+        rolling = round(sum(vals) / len(vals), 2) if vals else None
+        out.append({**p, "rolling_avg_pct_over": rolling})
+    return out
 
 
 def build_trend(rows):
     """Returns daily and weekly series, each with overall + by-region +
     by-province breakdowns. Precomputed for every province/region since
-    this only runs once per import, not per page view."""
-    result = {"daily": {"overall": _trend_series(rows, "iso_date"), "by_region": {}, "by_province": {}},
-              "weekly": {"overall": _trend_series(rows, "iso_week"), "by_region": {}, "by_province": {}}}
+    this only runs once per import, not per page view. The "overall"
+    series also carries a 7-period rolling average of %Over (daily = 7
+    day rolling, weekly = 7 week rolling), matching the reference chart's
+    "Avg 7D% over" line."""
+    result = {"daily": {"overall": _with_rolling_avg(_trend_series(rows, "iso_date")), "by_region": {}, "by_province": {}},
+              "weekly": {"overall": _with_rolling_avg(_trend_series(rows, "iso_week")), "by_region": {}, "by_province": {}}}
     regions = sorted({r["region"] for r in rows})
     provinces = sorted({r["province"] for r in rows})
     for reg in regions:
@@ -297,6 +318,44 @@ def build_trend(rows):
         result["daily"]["by_province"][prov] = _trend_series(prov_rows, "iso_date")
         result["weekly"]["by_province"][prov] = _trend_series(prov_rows, "iso_week")
     return result
+
+
+def build_improvement_heatmap(rows, daily_periods=14):
+    """Two heatmaps (daily + weekly) of %Over SLA by Province, meant to
+    visualize improvement/regression over time at a glance - daily is
+    capped to the most recent `daily_periods` days (per explicit request,
+    to keep it readable) so it doesn't sprawl across months; weekly shows
+    every ISO week present in the data (naturally a much shorter list)."""
+    provinces = sorted({r["province"] for r in rows}, key=lambda p: -sum(1 for r in rows if r["province"] == p))
+    all_daily_periods = sorted({r["iso_date"] for r in rows})
+    recent_daily_periods = all_daily_periods[-daily_periods:]
+    all_weekly_periods = sorted({r["iso_week"] for r in rows})
+
+    def _matrix(ordered_periods, date_key):
+        period_set = set(ordered_periods)  # fast membership check only - iteration must use the ORDERED list below, or cell order won't match the periods header
+        by_province_period = {}
+        for r in rows:
+            period = r[date_key]
+            if period not in period_set:
+                continue
+            key = (r["province"], period)
+            by_province_period.setdefault(key, {"total": 0, "over": 0})
+            by_province_period[key]["total"] += 1
+            if r["TICKET_SLA"] == "over":
+                by_province_period[key]["over"] += 1
+        rows_out = []
+        for prov in provinces:
+            cells = []
+            for period in ordered_periods:
+                cell = by_province_period.get((prov, period))
+                cells.append({"period": period, "total": cell["total"] if cell else 0, "over": cell["over"] if cell else 0, "pct_over": _pct(cell["over"], cell["total"]) if cell else None})
+            rows_out.append({"province": prov, "region": next(r["region"] for r in rows if r["province"] == prov), "cells": cells})
+        return rows_out
+
+    return {
+        "daily": {"periods": recent_daily_periods, "rows": _matrix(recent_daily_periods, "iso_date")},
+        "weekly": {"periods": all_weekly_periods, "rows": _matrix(all_weekly_periods, "iso_week")},
+    }
 
 
 # ── Root cause drill-down (Problem -> Sub-Cause -> CI -> Province) ─────
@@ -529,6 +588,7 @@ def build_sla_improvement_response(top_n=15):
 
     province_ranking = build_province_ranking(rows)
     trend = build_trend(rows)
+    improvement_heatmap = build_improvement_heatmap(rows)
     root_cause = build_root_cause(rows, top_n=top_n)
     impact_risk = build_impact_risk(rows)
     executive_kpi = build_executive_kpi(rows, province_ranking, root_cause)
@@ -542,6 +602,7 @@ def build_sla_improvement_response(top_n=15):
         "war_room": war_room,
         "province_ranking": province_ranking,
         "trend": trend,
+        "improvement_heatmap": improvement_heatmap,
         "root_cause": root_cause,
         "impact_risk": impact_risk,
         "management_table": management_table,
