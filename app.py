@@ -2309,6 +2309,44 @@ def api_sla_improvement_drill_down():
         log.exception("sla-improvement drill-down API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sla-improvement/province-detail')
+def api_sla_improvement_province_detail():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        province = request.args.get('province')
+        if not province:
+            return jsonify({'error': 'กรุณาระบุ province'}), 400
+        province_ranking = sla_improvement.build_province_ranking(rows)
+        result = sla_improvement.build_province_deep_dive(rows, province_ranking, province)
+        if result is None:
+            return jsonify({'error': f'ไม่พบข้อมูลของจังหวัด {province}'}), 404
+        return jsonify(result)
+    except Exception as e:
+        log.exception("sla-improvement province-detail API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/province-drill-down')
+def api_sla_improvement_province_drill_down():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        province = request.args.get('province')
+        if not province:
+            return jsonify({'error': 'กรุณาระบุ province'}), 400
+        result = sla_improvement.drill_down_province_detail(
+            rows, province,
+            district=request.args.get('district') or None,
+            problem=request.args.get('problem') or None,
+            sub_cause=request.args.get('sub_cause') or None,
+        )
+        return jsonify(result)
+    except Exception as e:
+        log.exception("sla-improvement province-drill-down API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/flood-nan')
 def api_flood_nan():
     """Every known Nan-province site plotted on a map, color-coded by the

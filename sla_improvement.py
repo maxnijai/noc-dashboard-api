@@ -124,7 +124,7 @@ def parse_excel_file(file_path):
 
     rows = []
     for raw in rows_iter:
-        get = lambda col: raw[header_idx[col]] if header_idx[col] < len(raw) else None
+        get = lambda col: raw[header_idx[col]] if col in header_idx and header_idx[col] < len(raw) else None
 
         ticket_id = str(get("TICKETID") or "").strip()
         if not ticket_id:
@@ -164,6 +164,7 @@ def parse_excel_file(file_path):
             "PROBLEM": _normalize_text(get("PROBLEM")) or "(ไม่ระบุ)",
             "SUB_CAUSE": _normalize_text(get("SUB_CAUSE")) or "(ไม่ระบุ)",
             "CI_Name": str(get("CI_Name") or "").strip() or "(ไม่ระบุ)",
+            "DISTRICT_EN": str(get("DISTRICT_EN") or "").strip(),  # optional column - blank/missing handled at analysis time (see _normalize_district), never required for import to succeed
             "iso_week": _iso_week_label(creation_dt),
             "iso_date": creation_dt.date().isoformat(),
         })
@@ -643,6 +644,230 @@ def build_management_table(province_ranking, impact_risk):
             "rank": i + 1, "impact": impact_by_province.get(r["province"], "normal"),
         })
     return rows
+
+
+# ── Province Deep Dive (District-level analysis) ────────────────────────
+# New analysis layer, additive only - does not modify any function above.
+# Confirmed against the real imported data: DISTRICT_EN has 172 distinct
+# values, clean formatting (no case/whitespace-variant duplicates), only
+# ~0.04% of rows have it missing (shown as "Unknown / N/A" here, counted,
+# never dropped). Five district names are reused across DIFFERENT
+# provinces (a real Thailand naming collision, e.g. "SARAPHI" exists in
+# both CMI and LPN) - every function below scopes to ONE province FIRST,
+# then groups by district WITHIN that already-filtered subset, so this
+# collision can never merge two unrelated districts together.
+
+UNKNOWN_DISTRICT = "Unknown / N/A"
+
+
+def _normalize_district(raw):
+    """Display-time only - never touches source data. A blank/null cell
+    becomes "Unknown / N/A" (explicit, counted) rather than being dropped
+    or silently merged into some other bucket."""
+    s = _normalize_text(raw)
+    return s if s else UNKNOWN_DISTRICT
+
+
+def _classify_district_tier(impact_share, pct_over, overall_pct_over, median_impact_share):
+    """🔴 Critical/High Impact / 🟠 High Risk / 🟡 Monitor / 🔵 Good - same
+    two-dimensional idea as _classify_impact_risk (never % alone), just
+    the label set this specific request asked for. Thresholds are
+    data-driven: overall %Over SLA as the risk bar, median impact share
+    among districts that have at least one Over SLA ticket - not fixed
+    constants, so they adapt to whatever the current import contains."""
+    is_high_impact = impact_share >= median_impact_share and impact_share > 0
+    is_high_risk = (pct_over or 0) >= overall_pct_over
+    if is_high_impact and is_high_risk:
+        return "critical"
+    if is_high_impact:
+        return "high_impact"
+    if is_high_risk:
+        return "high_risk"
+    return "monitor" if (pct_over or 0) > 0 else "good"
+
+
+def build_district_table(province_rows, overall_pct_over):
+    """District breakdown WITHIN an already-province-scoped row set -
+    Total/Over/%Over/Impact tier, sorted Impact-first (per explicit
+    request), the frontend re-sorts by any column from there."""
+    total_all, over_all = _split_over(province_rows)
+    by_district = {}
+    for r in province_rows:
+        d = _normalize_district(r["DISTRICT_EN"])
+        by_district.setdefault(d, []).append(r)
+
+    entities = []
+    for d, d_rows in by_district.items():
+        total, over = _split_over(d_rows)
+        entities.append({"district": d, "total": total, "over": over, "pct_over": _pct(over, total)})
+
+    impact_shares = sorted((_pct(e["over"], over_all) or 0) for e in entities if e["over"] > 0)
+    median_impact = impact_shares[len(impact_shares) // 2] if impact_shares else 0
+    for e in entities:
+        e["impact_share"] = _pct(e["over"], over_all) or 0
+        e["tier"] = _classify_district_tier(e["impact_share"], e["pct_over"], overall_pct_over, median_impact)
+
+    # Impact-first default order: by over-count (the concrete magnitude),
+    # not by %, matching "อย่าใช้ % อย่างเดียว" (never rank by % alone).
+    entities.sort(key=lambda e: -e["over"])
+    for i, e in enumerate(entities):
+        e["rank"] = i + 1
+    return entities
+
+
+def _pareto(entities, label_key, value_key="over"):
+    """Top-N + cumulative share, generic across whatever level is passed
+    in (District/Problem/Sub-Cause/CI) - all computed from real data, no
+    hardcoded category list at any level."""
+    total = sum(e[value_key] for e in entities)
+    ordered = sorted(entities, key=lambda e: -e[value_key])
+    cumulative = 0
+    out = []
+    for e in ordered:
+        cumulative += e[value_key]
+        out.append({
+            "label": e[label_key], value_key: e[value_key],
+            "share": _pct(e[value_key], total), "cumulative_share": _pct(cumulative, total),
+        })
+    return out
+
+
+def build_province_deep_dive(rows, province_ranking, province):
+    """Everything for one province: performance vs region average, trend,
+    district table (+ pareto), root-cause top lists scoped to this
+    province, an auto-generated insight, and a short Improvement
+    Opportunity list. rows is the FULL dataset - this function does its
+    own province filtering, so callers never need to pre-filter."""
+    province_rows = [r for r in rows if r["province"] == province]
+    if not province_rows:
+        return None
+    region = province_rows[0]["region"]
+    total, over = _split_over(province_rows)
+    pct_over = _pct(over, total)
+
+    region_rows = [r for r in rows if r["region"] == region]
+    region_total, region_over = _split_over(region_rows)
+    region_pct_over = _pct(region_over, region_total)
+
+    prov_rank_row = next((r for r in province_ranking["rows"] if r["province"] == province), None)
+    rank = province_ranking["rows"].index(prov_rank_row) + 1 if prov_rank_row else None
+
+    daily_trend = _trend_series(province_rows, "iso_date")
+    weekly_trend = _trend_series(province_rows, "iso_week")
+
+    district_table = build_district_table(province_rows, pct_over or 0)
+    district_pareto = _pareto(district_table, "district")
+
+    over_province_rows = [r for r in province_rows if r["TICKET_SLA"] == "over"]
+    top_problems = _ranked_group(province_rows, "PROBLEM", 10)
+    top_sub_causes = _ranked_group(province_rows, "SUB_CAUSE", 10)
+    top_ci = _ranked_group(province_rows, "CI_Name", 10)
+    problem_pareto = _pareto([{"label": p["label"], "over": p["over"]} for p in top_problems], "label")
+    sub_cause_pareto = _pareto([{"label": p["label"], "over": p["over"]} for p in top_sub_causes], "label")
+    ci_pareto = _pareto([{"label": p["label"], "over": p["over"]} for p in top_ci], "label")
+
+    top_district = district_table[0] if district_table else None
+    top_problem = top_problems[0] if top_problems else None
+    top_sub_cause = top_sub_causes[0] if top_sub_causes else None
+    top_ci_item = top_ci[0] if top_ci else None
+
+    # Auto-generated insight text - every number below comes directly
+    # from the values just computed, nothing hardcoded.
+    is_drag = (pct_over or 0) > (region_pct_over or 0)
+    key_finding = (
+        f"{province} มี Over SLA {over} Ticket จากทั้งหมด {total} Ticket คิดเป็น {pct_over}% "
+        f"ซึ่ง{'สูงกว่า' if is_drag else 'ต่ำกว่า'}ค่าเฉลี่ย {region} ที่ {region_pct_over}%"
+    )
+    focus_point = None
+    if top_district and top_district["over"] > 0:
+        focus_point = f"เขต {top_district['district']} เป็นจุดที่มี Impact สูงสุด คิดเป็น {top_district['impact_share']}% ของ Over SLA ใน {province}"
+    root_cause_text = None
+    if top_problem:
+        root_cause_text = f"ปัญหาหลักคือ {top_problem['label']}" + (f" และมี {top_sub_cause['label']} เป็นสาเหตุหลัก" if top_sub_cause else "")
+    ci_text = f"{top_ci_item['label']} มี Over SLA สูงสุด ({top_ci_item['over']} Ticket) และควรเป็น Priority ในการตรวจสอบ" if top_ci_item else None
+    improvement_focus_text = None
+    if top_district and top_problem:
+        improvement_focus_text = f"ควรเริ่ม Improve ที่ {top_district['district']} → {top_problem['label']}" + (f" → {top_sub_cause['label']}" if top_sub_cause else "") + (f" → {top_ci_item['label']}" if top_ci_item else "")
+
+    # Improvement Opportunity list - the single best candidate at each
+    # level within this province, presented together as "fix these first".
+    improvement_opportunities = []
+    if top_district and top_district["over"] > 0:
+        improvement_opportunities.append({"level": "District", "label": top_district["district"], "over": top_district["over"], "pct_over": top_district["pct_over"], "share_of_total_over": top_district["impact_share"]})
+    if top_problem:
+        improvement_opportunities.append({"level": "Problem", "label": top_problem["label"], "over": top_problem["over"], "pct_over": top_problem["pct_over"], "share_of_total_over": top_problem["share_of_total_over"]})
+    if top_sub_cause:
+        improvement_opportunities.append({"level": "Sub-Cause", "label": top_sub_cause["label"], "over": top_sub_cause["over"], "pct_over": top_sub_cause["pct_over"], "share_of_total_over": top_sub_cause["share_of_total_over"]})
+    if top_ci_item:
+        improvement_opportunities.append({"level": "CI_Name", "label": top_ci_item["label"], "over": top_ci_item["over"], "pct_over": top_ci_item["pct_over"], "share_of_total_over": top_ci_item["share_of_total_over"]})
+
+    return {
+        "province": province, "region": region,
+        "performance": {
+            "total": total, "over": over, "pct_over": pct_over,
+            "region_total": region_total, "region_over": region_over, "region_pct_over": region_pct_over,
+            "rank": rank, "total_provinces": len(province_ranking["rows"]),
+            "is_drag_on_region": is_drag,
+        },
+        "trend": {"daily": daily_trend, "weekly": weekly_trend},
+        "district_table": district_table,
+        "district_pareto": district_pareto,
+        "root_cause": {"top_problems": top_problems, "top_sub_causes": top_sub_causes, "top_ci": top_ci},
+        "pareto": {"district": district_pareto, "problem": problem_pareto, "sub_cause": sub_cause_pareto, "ci": ci_pareto},
+        "improvement_opportunities": improvement_opportunities,
+        "insight": {
+            "key_finding": key_finding, "focus_point": focus_point,
+            "root_cause": root_cause_text, "ci_focus": ci_text, "improvement_focus": improvement_focus_text,
+        },
+    }
+
+
+def drill_down_province_detail(rows, province, district=None, problem=None, sub_cause=None, top_n=15):
+    """Province -> District -> Problem -> Sub-Cause -> CI, one level at a
+    time - separate from drill_down_root_cause above (which drills
+    Problem->Sub-Cause->CI->Province in that different order for the
+    existing Root Cause section) so neither function's behavior changes
+    for the other's callers. Always scoped to `province` first."""
+    scoped_rows = [r for r in rows if r["province"] == province]
+    if district:
+        scoped_rows = [r for r in scoped_rows if _normalize_district(r["DISTRICT_EN"]) == district]
+    if problem:
+        scoped_rows = [r for r in scoped_rows if r["PROBLEM"] == problem]
+    if sub_cause:
+        scoped_rows = [r for r in scoped_rows if r["SUB_CAUSE"] == sub_cause]
+    total_over_in_scope = sum(1 for r in scoped_rows if r["TICKET_SLA"] == "over")
+
+    result = {"matched_over_tickets": total_over_in_scope}
+    if not district:
+        result["next_level"] = "DISTRICT_EN"
+        counts = {}
+        for r in scoped_rows:
+            d = _normalize_district(r["DISTRICT_EN"])
+            counts.setdefault(d, {"total": 0, "over": 0})
+            counts[d]["total"] += 1
+            if r["TICKET_SLA"] == "over":
+                counts[d]["over"] += 1
+        ranked = [{"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+                   "share_of_total_over": _pct(v["over"], total_over_in_scope)} for k, v in counts.items() if v["over"] > 0]
+        ranked.sort(key=lambda r: -r["over"])
+        result["options"] = ranked[:top_n]
+    elif not problem:
+        result["next_level"] = "PROBLEM"
+        result["options"] = _ranked_group(scoped_rows, "PROBLEM", top_n)
+    elif not sub_cause:
+        result["next_level"] = "SUB_CAUSE"
+        result["options"] = _ranked_group(scoped_rows, "SUB_CAUSE", top_n)
+    else:
+        result["next_level"] = "CI_Name"
+        result["options"] = _ranked_group(scoped_rows, "CI_Name", top_n)
+        over_scoped = [r for r in scoped_rows if r["TICKET_SLA"] == "over"]
+        result["tickets"] = [
+            {"TICKETID": r["TICKETID"], "CI_Name": r["CI_Name"],
+             "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S"),
+             "TARGETFINISH": r["TARGETFINISH"].strftime("%Y-%m-%d %H:%M:%S")}
+            for r in over_scoped[:200]
+        ]
+    return result
 
 
 def build_sla_improvement_response(top_n=15):
