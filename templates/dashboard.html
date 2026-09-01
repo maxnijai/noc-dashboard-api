@@ -1075,6 +1075,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div id="sla-drilldown-content"></div>
       </div>
 
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🔄 Reverse Analysis — "ปัญหานี้เกิดขึ้นที่ไหนบ้าง?"</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เลือก Problem และ/หรือ Sub-Cause เพื่อดูว่ากระจุกตัวอยู่จังหวัด/อำเภอ/CI ไหน</div>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <select id="sla-reverse-problem-select" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">— เลือก Problem —</option></select>
+          <select id="sla-reverse-subcause-select" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">— เลือก Sub-Cause —</option></select>
+          <button id="sla-reverse-go-btn" class="btn-secondary" style="font-weight:700;">🔎 วิเคราะห์</button>
+        </div>
+      </div>
+
       <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
         <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
           <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🎯 Top Problem (Pareto)</div>
@@ -1110,6 +1120,28 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <button id="p0-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- SLA IMPROVEMENT: HEATMAP CELL DRILLDOWN MODAL -->
+  <div id="sla-heatmap-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('sla-heatmap-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:680px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span id="sla-heatmap-modal-title" style="font-weight:700;font-size:14px;">🔍 Heatmap Drilldown</span>
+        <button onclick="document.getElementById('sla-heatmap-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div id="sla-heatmap-modal-body" style="padding:16px 18px; max-height:70vh; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- SLA IMPROVEMENT: REVERSE ANALYSIS MODAL -->
+  <div id="sla-reverse-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('sla-reverse-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:760px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span id="sla-reverse-modal-title" style="font-weight:700;font-size:14px;">🔄 Reverse Analysis</span>
+        <button onclick="document.getElementById('sla-reverse-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div id="sla-reverse-modal-body" style="padding:16px 18px; max-height:70vh; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -6659,6 +6691,125 @@ function renderPivot(ft) {
     return { bg: `rgba(${r},${g},${b},0.55)`, color: t > 0.55 ? '#fff' : '#1a1300' };
   }
 
+  // ── Heatmap cell -> "why?" drilldown (modal) ────────────────────────
+  window.__slaOpenHeatmapDrilldown = async function (province, period, granularity) {
+    const modal = el('sla-heatmap-modal');
+    const body = el('sla-heatmap-modal-body');
+    el('sla-heatmap-modal-title').textContent = `🔍 ${PROVINCE_EN(province)} — ${period}`;
+    body.innerHTML = `<div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
+    modal.style.display = 'block';
+    try {
+      const res = await fetch(`/api/sla-improvement/heatmap-drill-down?province=${encodeURIComponent(province)}&period=${encodeURIComponent(period)}&granularity=${granularity}`);
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      renderHeatmapDrilldownModal(await res.json());
+    } catch (e) {
+      body.innerHTML = `<div style="color:#E24B4A; font-size:12px;">โหลดไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  };
+
+  function miniRankTable(title, rows, labelHeader) {
+    if (!rows.length) return `<div style="flex:1; min-width:200px;"><div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">${title}</div><div style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</div></div>`;
+    const body = rows.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:4px 8px; font-weight:600;">${escapeHtml(r.label)}</td>
+        <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
+        <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
+      </tr>`).join('');
+    return `<div style="flex:1; min-width:200px;">
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">${title}</div>
+      <table style="border-collapse:collapse; font-size:11px; width:100%; border:1px solid var(--border);">
+        <thead><tr style="background:var(--bg3);"><th style="padding:4px 8px; text-align:left;">${labelHeader}</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function renderHeatmapDrilldownModal(dd) {
+    const focusLines = dd.improvement_focus.map(l => `<div>• ${escapeHtml(l)}</div>`).join('');
+    el('sla-heatmap-modal-body').innerHTML = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:8px; margin-bottom:14px;">
+        <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800;">${dd.total}</div><div style="font-size:10.5px; color:var(--text2);">Total Ticket</div></div>
+        <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800; color:#E24B4A;">${dd.over}</div><div style="font-size:10.5px; color:var(--text2);">Over SLA</div></div>
+        <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800; color:#E24B4A;">${fmtPct(dd.pct_over)}</div><div style="font-size:10.5px; color:var(--text2);">% Over SLA</div></div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
+        ${miniRankTable('🔴 Top Problem', dd.top_problems.slice(0, 5), 'Problem')}
+        ${miniRankTable('🔴 Top Sub-Cause', dd.top_sub_causes.slice(0, 5), 'Sub-Cause')}
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
+        ${miniRankTable('🔴 Top CI', dd.top_ci.slice(0, 5), 'CI_Name')}
+        ${miniRankTable('📍 Top District', dd.top_districts.slice(0, 5), 'District')}
+      </div>
+      <div style="border:1px solid #a371f755; border-radius:var(--r); padding:10px 12px; background:#a371f714; font-size:12px; line-height:1.8;">
+        <div style="font-weight:700; margin-bottom:4px;">🎯 Improvement Focus</div>
+        ${focusLines}
+      </div>`;
+  }
+
+  // ── Reverse Analysis (Problem/Sub-Cause -> Province -> District -> CI)
+  function populateReverseSelectors(rootCause) {
+    el('sla-reverse-problem-select').innerHTML = `<option value="">— เลือก Problem —</option>` +
+      rootCause.top_problems.map(p => `<option value="${escapeHtml(p.label)}">${escapeHtml(p.label)} (${p.over})</option>`).join('');
+    el('sla-reverse-subcause-select').innerHTML = `<option value="">— เลือก Sub-Cause —</option>` +
+      rootCause.top_sub_causes.map(p => `<option value="${escapeHtml(p.label)}">${escapeHtml(p.label)} (${p.over})</option>`).join('');
+  }
+
+  el('sla-reverse-go-btn').addEventListener('click', async () => {
+    const problem = el('sla-reverse-problem-select').value;
+    const subCause = el('sla-reverse-subcause-select').value;
+    if (!problem && !subCause) { alert('กรุณาเลือก Problem หรือ Sub-Cause อย่างน้อย 1 อย่าง'); return; }
+    const modal = el('sla-reverse-modal');
+    const body = el('sla-reverse-modal-body');
+    el('sla-reverse-modal-title').textContent = `🔄 ${problem || ''}${problem && subCause ? ' + ' : ''}${subCause || ''}`;
+    body.innerHTML = `<div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
+    modal.style.display = 'block';
+    try {
+      const params = new URLSearchParams();
+      if (problem) params.set('problem', problem);
+      if (subCause) params.set('sub_cause', subCause);
+      const res = await fetch('/api/sla-improvement/reverse-analysis?' + params.toString());
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      renderReverseAnalysisModal(await res.json());
+    } catch (e) {
+      body.innerHTML = `<div style="color:#E24B4A; font-size:12px;">โหลดไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  });
+
+  function renderReverseAnalysisModal(rev) {
+    const regionRows = rev.by_region.map(r => `
+      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(r.label)}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
+    const provinceRows = rev.by_province.slice(0, 10).map(r => `
+      <tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.label))}</td><td style="padding:5px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td><td style="padding:5px 8px; text-align:center;">${fmtPct(r.share_of_total_over)}</td></tr>`).join('');
+    const flatRows = rev.flat_table.slice(0, 30).map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:4px 8px;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+        <td style="padding:4px 8px;">${escapeHtml(r.district)}</td>
+        <td style="padding:4px 8px;">${escapeHtml(r.ci_name)}</td>
+        <td style="padding:4px 8px; text-align:center;">${r.total}</td>
+        <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
+        <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
+      </tr>`).join('');
+    el('sla-reverse-modal-body').innerHTML = `
+      <div style="font-size:12.5px; margin-bottom:12px;">Total <b>${rev.total}</b> Ticket · Over SLA <b style="color:#E24B4A;">${rev.over}</b> (${fmtPct(rev.pct_over)})</div>
+      <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
+        <div style="flex:1; min-width:200px;">
+          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Region</div>
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Region</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share</th></tr></thead><tbody>${regionRows}</tbody></table>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">By Province (Top 10)</div>
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%; border:1px solid var(--border);"><thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Province</th><th style="padding:5px 8px;">Over</th><th style="padding:5px 8px;">Share</th></tr></thead><tbody>${provinceRows}</tbody></table>
+        </div>
+      </div>
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">Province × District × CI_Name ${rev.flat_table_truncated ? '(แสดง 30 จาก ' + rev.flat_table.length + '+ แถว)' : ''}</div>
+      <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border);">
+        <table style="border-collapse:collapse; font-size:11px; width:100%;">
+          <thead><tr style="background:var(--bg3); position:sticky; top:0;"><th style="padding:4px 8px; text-align:left;">Province</th><th style="padding:4px 8px; text-align:left;">District</th><th style="padding:4px 8px; text-align:left;">CI_Name</th><th style="padding:4px 8px;">Total</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th></tr></thead>
+          <tbody>${flatRows}</tbody>
+        </table>
+      </div>`;
+  }
+
   function renderHeatmapTable() {
     const hm = lastData.improvement_heatmap[heatmapGran];
     if (!hm || !hm.rows.length) { el('sla-heatmap-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
@@ -6667,8 +6818,9 @@ function renderPivot(ft) {
     const body = hm.rows.map(r => {
       const cells = r.cells.map(c => {
         const heat = heatmapCellColor(c.pct_over);
-        const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%)` : `${c.period}: ไม่มีข้อมูล`;
-        return `<td title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color};">${c.total ? Math.round(c.pct_over) + '%' : '–'}</td>`;
+        const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%) — คลิกเพื่อดูรายละเอียด` : `${c.period}: ไม่มีข้อมูล`;
+        const onclick = c.total ? ` onclick="window.__slaOpenHeatmapDrilldown('${r.province}','${c.period}','${heatmapGran}')"` : '';
+        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color}; ${c.total ? 'cursor:pointer;' : ''}">${c.total ? Math.round(c.pct_over) + '%' : '–'}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
@@ -7156,6 +7308,7 @@ function renderPivot(ft) {
     loadDrillDown();
     renderParetoChart(data.root_cause.top_problems);
     renderTopCiTable(data.root_cause.top_ci);
+    populateReverseSelectors(data.root_cause);
     renderManagementTable(data.management_table);
     if (data.import_warnings && data.import_warnings.length) {
       el('sla-import-status').innerHTML = `<span style="color:#EF9F27;">⚠️ ${escapeHtml(data.import_warnings.join(' · '))}</span>`;
