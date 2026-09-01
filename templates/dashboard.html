@@ -6507,22 +6507,33 @@ function renderPivot(ft) {
       // (7 periods trailing, daily=7-day / weekly=7-week).
       const series = lastData.trend[trendState.gran].overall;
       const periods = series.map(p => p.period);
+      // With this many bars (daily can span the whole imported dataset,
+      // 40-50+ days), per-bar text labels just collide into an unreadable
+      // wall - only show them below a density threshold; above that, the
+      // stacked bars + line still convey the trend fine on their own, and
+      // hover tooltips give the exact numbers.
+      const showLabels = periods.length <= 31;
       trendChart = new Chart(ctx, {
         data: {
           labels: periods,
           datasets: [
             { type: 'bar', label: '%within', data: series.map(p => p.pct_within), backgroundColor: '#639922', stack: 's', order: 2,
-              datalabels: { display: true, color: '#fff', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              datalabels: { display: showLabels, color: '#fff', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
             { type: 'bar', label: '%over', data: series.map(p => p.pct_over), backgroundColor: '#E24B4A99', stack: 's', order: 2,
-              datalabels: { display: true, color: '#7a1f1f', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              datalabels: { display: showLabels, color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center', formatter: v => v != null ? Math.round(v) + '%' : '' } },
             { type: 'line', label: `Avg ${trendState.gran === 'daily' ? '7D' : '7W'}% over`, data: series.map(p => p.rolling_avg_pct_over),
-              borderColor: '#F5C518', backgroundColor: '#F5C518', borderWidth: 2, tension: 0.2, pointRadius: 2, order: 1,
-              datalabels: { display: true, color: '#8a6d00', font: { size: 9, weight: 'bold' }, anchor: 'end', align: 'top', offset: 6, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              borderColor: '#8a6d00', backgroundColor: '#F5C518', borderWidth: 2, tension: 0.2, pointRadius: periods.length <= 40 ? 2 : 0, order: 1,
+              datalabels: { display: false } },
           ],
         },
         options: {
           responsive: true,
-          plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: true } },
+          layout: { padding: { top: 4 } },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
+            datalabels: { display: showLabels },
+            tooltip: { mode: 'index', intersect: false },
+          },
           scales: {
             y: { beginAtZero: true, max: 100, stacked: true, ticks: { callback: v => v + '%' } },
             x: { stacked: true, ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 20, font: { size: 9 } } },
