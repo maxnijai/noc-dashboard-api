@@ -1015,8 +1015,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
-        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">🔴 Worst (สูงกว่าเฉลี่ย 1.25 เท่า) · 🟠 At Risk (สูงกว่าเฉลี่ย) · 🔵 Good (ต่ำกว่าหรือเท่าเฉลี่ย) — เฉลี่ยรวม: <span id="sla-overall-pct"></span></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
+          <div style="font-size:13px; font-weight:700;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
+          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <button class="sla-ranking-window-btn" data-val="all" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">ทั้งหมด</button>
+            <button class="sla-ranking-window-btn" data-val="3d" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">3 Days</button>
+            <button class="sla-ranking-window-btn" data-val="5d" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">5 Days</button>
+            <button class="sla-ranking-window-btn" data-val="7d" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">7 Days</button>
+          </div>
+        </div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">🔴 Worst (สูงกว่าเฉลี่ย 1.25 เท่า) · 🟠 At Risk (สูงกว่าเฉลี่ย) · 🔵 Good (ต่ำกว่าหรือเท่าเฉลี่ย) — เฉลี่ยของช่วงที่เลือก: <span id="sla-overall-pct"></span></div>
         <div id="sla-province-table" style="overflow-x:auto;"></div>
       </div>
 
@@ -6507,23 +6515,17 @@ function renderPivot(ft) {
       // (7 periods trailing, daily=7-day / weekly=7-week).
       const series = lastData.trend[trendState.gran].overall;
       const periods = series.map(p => p.period);
-      // With this many bars (daily can span the whole imported dataset,
-      // 40-50+ days), per-bar text labels just collide into an unreadable
-      // wall - only show them below a density threshold; above that, the
-      // stacked bars + line still convey the trend fine on their own, and
-      // hover tooltips give the exact numbers.
-      const showLabels = periods.length <= 31;
       trendChart = new Chart(ctx, {
         data: {
           labels: periods,
           datasets: [
             { type: 'bar', label: '%within', data: series.map(p => p.pct_within), backgroundColor: '#639922', stack: 's', order: 2,
-              datalabels: { display: showLabels, color: '#fff', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              datalabels: { display: 'auto', color: '#fff', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
             { type: 'bar', label: '%over', data: series.map(p => p.pct_over), backgroundColor: '#E24B4A99', stack: 's', order: 2,
-              datalabels: { display: showLabels, color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center', formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              datalabels: { display: 'auto', color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center', formatter: v => v != null ? Math.round(v) + '%' : '' } },
             { type: 'line', label: `Avg ${trendState.gran === 'daily' ? '7D' : '7W'}% over`, data: series.map(p => p.rolling_avg_pct_over),
               borderColor: '#8a6d00', backgroundColor: '#F5C518', borderWidth: 2, tension: 0.2, pointRadius: periods.length <= 40 ? 2 : 0, order: 1,
-              datalabels: { display: showLabels, anchor: 'center', align: 'top', offset: 4, color: '#8a6d00', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
+              datalabels: { display: 'auto', anchor: 'center', align: 'top', offset: 4, color: '#8a6d00', font: { size: 9, weight: 'bold' }, formatter: v => v != null ? Math.round(v) + '%' : '' } },
           ],
         },
         options: {
@@ -6531,7 +6533,7 @@ function renderPivot(ft) {
           layout: { padding: { top: 4 } },
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
-            datalabels: { display: showLabels },
+            datalabels: { display: 'auto' },
             tooltip: { mode: 'index', intersect: false },
           },
           scales: {
@@ -6642,6 +6644,16 @@ function renderPivot(ft) {
         <tbody>${body}</tbody>
       </table>`;
   }
+
+  let rankingWindow = 'all';
+  document.querySelectorAll('.sla-ranking-window-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sla-ranking-window-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      rankingWindow = btn.dataset.val;
+      renderProvinceTable(lastData.province_ranking_windows[rankingWindow]);
+    });
+  });
 
   function renderProvinceTable(ranking) {
     el('sla-overall-pct').textContent = fmtPct(ranking.overall_pct_over);
@@ -6863,7 +6875,9 @@ function renderPivot(ft) {
     el('sla-trend-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
     renderTrendChart();
     renderHeatmapTable();
-    renderProvinceTable(data.province_ranking);
+    rankingWindow = 'all';
+    document.querySelectorAll('.sla-ranking-window-btn').forEach(b => { b.style.background = b.dataset.val === 'all' ? 'var(--bg4)' : 'transparent'; });
+    renderProvinceTable(data.province_ranking_windows.all);
     drillState = { problem: null, sub_cause: null, ci_name: null };
     loadDrillDown();
     renderParetoChart(data.root_cause.top_problems);
