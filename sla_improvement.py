@@ -12,6 +12,8 @@ elsewhere in this app, which doesn't apply to already-closed tickets).
 """
 
 import logging
+import os
+import pickle
 import re
 import threading
 from datetime import datetime
@@ -185,18 +187,76 @@ def parse_excel_file(file_path):
     return rows, warnings
 
 
-# ── In-memory store (this dataset is a manual daily import, not a live
-# feed - held in memory exactly like every other cache in this app,
-# replaced wholesale by the next successful import, never partially
-# updated) ───────────────────────────────────────────────────────────
+# ── In-memory store, backed by a disk snapshot for durability across
+# process restarts (deploys, crashes, Railway idle-sleep) - the store
+# itself is still what every read goes through (module-level dict, exactly
+# like every other cache in this app), the disk file is only ever
+# written to on a successful import and read once at startup, so normal
+# operation never touches disk. Data is only ever REPLACED wholesale by
+# the next successful import, never partially updated. ───────────────
 _store = {"rows": None, "warnings": [], "imported_at": None, "filename": None}
 _store_lock = threading.Lock()
 
 
+def _resolve_store_path():
+    """Prefers a Railway persistent volume mounted at /data (the
+    conventional path Railway's docs suggest) if one is actually writable;
+    falls back to a file next to this module (survives process restarts
+    within the same container, though not a fresh redeploy unless a
+    volume is attached) - returns None only if neither location is
+    writable, in which case persistence is silently disabled and the
+    dataset behaves exactly as it did before (in-memory only)."""
+    candidates = ["/data/sla_improvement_store.pkl", os.path.join(os.path.dirname(os.path.abspath(__file__)), "sla_improvement_store.pkl")]
+    for path in candidates:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            probe = path + ".probe"
+            with open(probe, "w") as f:
+                f.write("probe")
+            os.remove(probe)
+            return path
+        except OSError:
+            continue
+    return None
+
+
+_STORE_FILE_PATH = _resolve_store_path()
+
+
+def _save_store_to_disk():
+    if not _STORE_FILE_PATH:
+        return
+    try:
+        with _store_lock:
+            snapshot = dict(_store)
+        tmp_path = _STORE_FILE_PATH + ".tmp"
+        with open(tmp_path, "wb") as f:
+            pickle.dump(snapshot, f)
+        os.replace(tmp_path, _STORE_FILE_PATH)  # atomic swap - a crash mid-write never corrupts the last good snapshot
+    except Exception:
+        log.exception("Failed to persist SLA Improvement data to disk - it will still work for the rest of this process's lifetime, just won't survive a restart")
+
+
+def _load_store_from_disk():
+    if not _STORE_FILE_PATH or not os.path.exists(_STORE_FILE_PATH):
+        return
+    try:
+        with open(_STORE_FILE_PATH, "rb") as f:
+            loaded = pickle.load(f)
+        with _store_lock:
+            _store.update(loaded)
+        log.info(f"Loaded persisted SLA Improvement data from disk: {len(loaded.get('rows') or [])} rows, imported_at={loaded.get('imported_at')}")
+    except Exception:
+        log.exception("Failed to load persisted SLA Improvement data from disk - starting empty")
+
+
+_load_store_from_disk()  # attempt once at module import (app startup)
+
+
 def import_excel_file(file_path, filename):
-    """Parses + validates the file, and ONLY replaces the in-memory store
-    if parsing succeeds end to end - a bad import raises
-    ImportValidationError and leaves whatever was there before
+    """Parses + validates the file, and ONLY replaces the store (memory
+    AND the disk snapshot) if parsing succeeds end to end - a bad import
+    raises ImportValidationError and leaves whatever was there before
     untouched, so "Dashboard เดิมจะไม่ถูกแทนที่" (the existing dashboard
     is never broken by a bad upload) holds even at this layer, not just
     in the error message."""
@@ -206,6 +266,7 @@ def import_excel_file(file_path, filename):
         _store["warnings"] = warnings
         _store["imported_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         _store["filename"] = filename
+    _save_store_to_disk()
     return {"row_count": len(rows), "warnings": warnings}
 
 
