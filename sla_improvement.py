@@ -299,6 +299,17 @@ def _split_over(rows):
 
 # ── Province ranking (🔴 Worst / 🟠 At Risk / 🔵 Good) ──────────────────
 
+def _filter_last_n_days(rows, n):
+    """Rows whose iso_date falls among the most recent N distinct dates
+    present in the dataset - "recent" is anchored to the latest date
+    actually in the data (same convention as War Room's "today"), not the
+    literal calendar date, since this is a manually-imported historical
+    dataset that may lag behind or be backfilled."""
+    all_dates = sorted({r["iso_date"] for r in rows})
+    recent_dates = set(all_dates[-n:])
+    return [r for r in rows if r["iso_date"] in recent_dates]
+
+
 def build_province_ranking(rows):
     total_all, over_all = _split_over(rows)
     overall_pct = _pct(over_all, total_all) or 0
@@ -647,7 +658,17 @@ def build_sla_improvement_response(top_n=15):
     if rows is None:
         return None
 
-    province_ranking = build_province_ranking(rows)
+    province_ranking = build_province_ranking(rows)  # all-time - still feeds Executive KPI / War Room / Management table below, unchanged
+    # Windowed variants purely for the Province Ranking section's own
+    # selector (per explicit request) - "all" is the same all-time
+    # ranking above, just included here too so the frontend can switch
+    # without a second API call.
+    province_ranking_windows = {
+        "all": province_ranking,
+        "3d": build_province_ranking(_filter_last_n_days(rows, 3)),
+        "5d": build_province_ranking(_filter_last_n_days(rows, 5)),
+        "7d": build_province_ranking(_filter_last_n_days(rows, 7)),
+    }
     trend = build_trend(rows)
     improvement_heatmap = build_improvement_heatmap(rows)
     root_cause = build_root_cause(rows, top_n=top_n)
@@ -662,6 +683,7 @@ def build_sla_improvement_response(top_n=15):
         "executive_kpi": executive_kpi,
         "war_room": war_room,
         "province_ranking": province_ranking,
+        "province_ranking_windows": province_ranking_windows,
         "trend": trend,
         "improvement_heatmap": improvement_heatmap,
         "root_cause": root_cause,
