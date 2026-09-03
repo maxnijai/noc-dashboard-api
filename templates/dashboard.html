@@ -732,6 +732,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13l3.5-5 3 3L13.5 3" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 3h3.5v3.5" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Online SA1-4 SLA Improvement
   </div>
+  <div class="nav-item" onclick="showPage('onlinerealtime')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Online SA1-4 Real Time
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -1116,6 +1120,34 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">Impact: 🟣 Priority Improvement (จำนวนเยอะ+% สูง) · 🔵 High Impact (จำนวนเยอะ) · 🟠 High Risk (% สูง แต่จำนวนไม่มาก) · ⚪ Normal</div>
         <div id="sla-management-table" style="overflow-x:auto;"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ONLINE SA1-4 REAL TIME MONITORING -->
+  <div class="page" id="page-onlinerealtime">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          📡 Online SA1-4 Real Time Monitoring
+          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
+          </span>
+        </div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">
+          🕐 เวลาปัจจุบัน: <b id="ort-current-time" style="color:var(--text2);"></b>
+          &nbsp;·&nbsp; ข้อมูลอัปเดตล่าสุด: <b id="ort-last-updated" style="color:var(--text2);"></b>
+        </div>
+      </div>
+      <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:16px;" id="ort-kpi-grid"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📍 Region → Province → District <span style="font-weight:400; color:var(--text3); font-size:11px;">(เรียงตามเวลาคงเหลือน้อยสุดก่อน ในแต่ละ District)</span></div>
+      <div style="font-size:10.5px; color:var(--text3); margin-bottom:10px;">⏱️ Remaining Time นับถอยหลังสดจากเครื่องคุณเอง (ไม่ยิง API ซ้ำทุกวินาที) — ข้อมูล Ticket จะรีเฟรชตามรอบ Refresh ด้านบนเท่านั้น</div>
+      <div id="ort-table" style="overflow-x:auto;"></div>
     </div>
   </div>
 
@@ -4329,6 +4361,7 @@ function showPage(id) {
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
   if (id==='slaimprove') { setTimeout(()=>{ if (window.initSlaImproveTab) window.initSlaImproveTab(); },50); }
+  if (id==='onlinerealtime') { setTimeout(()=>{ if (window.initOnlineRealtimeTab) window.initOnlineRealtimeTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -7649,6 +7682,177 @@ function renderPivot(ft) {
   });
 
   window.initSlaImproveTab = function () { if (!loaded) reload(); loadMappingStatus(); };
+})();
+
+// ── ONLINE SA1-4 REAL TIME MONITORING ───────────────────────────────────
+(function () {
+  let loaded = false;
+  let lastData = null;
+  let entriesWithParsedTarget = []; // {..entry, _targetDate: Date|null} - parsed once per fetch, reused by every tick
+  let tickTimer = null;
+  const TICK_INTERVAL_MS = 15000; // recompute + re-render every 15s - purely local, no network call
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
+
+  // TARGETFINISH is Bangkok local time as "YYYY-MM-DD HH:MM:SS" - needs an
+  // explicit +07:00 so the browser doesn't guess UTC or its own local zone
+  // (same pattern already validated elsewhere in this app for insert_time
+  // staleness checks).
+  function parseBangkokDt(s) {
+    if (!s) return null;
+    const d = new Date(String(s).replace(' ', 'T') + '+07:00');
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatRemainingTime(hours) {
+    if (hours == null) return '–';
+    const totalMinutes = Math.round(hours * 60);
+    const sign = totalMinutes < 0 ? '-' : '';
+    const abs = Math.abs(totalMinutes);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    return `${sign}${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+  }
+
+  // Temperature scale: red (critical, close to/at deadline) -> orange ->
+  // amber -> pale yellow (plenty of time left) for the 0-24h+ window;
+  // Over SLA gets a separate, darkening-with-more-overdue critical scale.
+  // Deliberately no green or gray anywhere, per explicit request.
+  function remainingTimeColor(hours) {
+    if (hours == null) return { bg: 'var(--bg1)', color: 'var(--text3)' };
+    if (hours < 0) {
+      const overT = Math.min(1, Math.abs(hours) / 24);
+      const r = Math.round(180 - 58 * overT), g = Math.round(50 - 19 * overT), b = Math.round(50 - 19 * overT);
+      return { bg: `rgb(${r},${g},${b})`, color: '#fff' };
+    }
+    const stops = [[226, 75, 74], [239, 159, 39], [245, 197, 24], [250, 240, 200]];
+    const t = Math.min(1, hours / 24);
+    const scaled = t * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(scaled));
+    const localT = scaled - i;
+    const r = Math.round(stops[i][0] + (stops[i + 1][0] - stops[i][0]) * localT);
+    const g = Math.round(stops[i][1] + (stops[i + 1][1] - stops[i][1]) * localT);
+    const b = Math.round(stops[i][2] + (stops[i + 1][2] - stops[i][2]) * localT);
+    return { bg: `rgb(${r},${g},${b})`, color: t > 0.55 ? '#1a1300' : '#fff' };
+  }
+
+  function priorityBadge(p) {
+    const map = { P0: '#E24B4A', P1: '#EF9F27', P2: 'var(--text3)' };
+    return `<span style="color:${map[p] || 'var(--text3)'}; font-weight:800;">${escapeHtml(p)}</span>`;
+  }
+
+  function renderKpiGrid(kpi) {
+    const cards = [
+      { label: 'Total Online', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
+      { label: '🔴 Over SLA', value: kpi.over, color: '#E24B4A', bg: '#E24B4A14' },
+      { label: '🟠 Near (≤2h)', value: kpi.near, color: '#EF9F27', bg: '#EF9F2714' },
+      { label: 'P0', value: kpi.p0, color: '#E24B4A', bg: '#E24B4A14' },
+      { label: 'P1', value: kpi.p1, color: '#EF9F27', bg: '#EF9F2714' },
+      { label: 'P2', value: kpi.p2, color: 'var(--text3)', bg: 'var(--bg2)' },
+    ];
+    el('ort-kpi-grid').innerHTML = cards.map(c => `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+        <div style="font-size:26px; font-weight:800; color:${c.color}; line-height:1.1;">${c.value}</div>
+        <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
+      </div>`).join('');
+  }
+
+  const DETAIL_COLS = [
+    ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SUBJECT', 'SUBJECT'], ['DISTRICT', 'DISTRICT'],
+    ['Aging_Flag_Group', 'Aging_Flag_Group'], ['Over SLA', 'over_sla_day'], ['⏱️ Remaining Time', '_remaining'],
+    ['Team', 'team'], ['WO Status (Mateline)', 'mateline_wo_status'], ['Status Mateline', 'status_mateline'],
+    ['Group Problem', 'group_problem'], ['Action Team', 'action_team'], ['รายละเอียด', 'detail'], ['Plan Closed Date', 'plan_closed_date'],
+  ];
+
+  function renderTable() {
+    const container = el('ort-table');
+    if (!entriesWithParsedTarget.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket Online SA1-4 เปิดอยู่ตอนนี้</div>`; return; }
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    entriesWithParsedTarget.forEach(e => { (byRegion[e.Region] = byRegion[e.Region] || []).push(e); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    const head = DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); white-space:nowrap;">${label}</th>`).join('');
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${DETAIL_COLS.length}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      const byProvince = {};
+      byRegion[reg].forEach(e => { (byProvince[e.PROVINCE] = byProvince[e.PROVINCE] || []).push(e); });
+      const provinces = Object.keys(byProvince).sort((a, b) => (byProvince[a][0]._remaining ?? Infinity) - (byProvince[b][0]._remaining ?? Infinity));
+      provinces.forEach(prov => {
+        body += `<tr style="background:var(--bg1);"><td colspan="${DETAIL_COLS.length}" style="padding:4px 10px 4px 20px; font-size:10.5px; font-weight:700; color:var(--text2);">${escapeHtml(PROVINCE_EN(prov))}</td></tr>`;
+        const byDistrict = {};
+        byProvince[prov].forEach(e => { (byDistrict[e.DISTRICT] = byDistrict[e.DISTRICT] || []).push(e); });
+        // Districts ordered by their own most-urgent ticket (each district's list is already remaining-time sorted from the outer sort below)
+        const districts = Object.keys(byDistrict).sort((a, b) => (byDistrict[a][0]._remaining ?? Infinity) - (byDistrict[b][0]._remaining ?? Infinity));
+        districts.forEach(dist => {
+          const distEntries = byDistrict[dist].slice().sort((a, b) => (a._remaining ?? Infinity) - (b._remaining ?? Infinity));
+          body += `<tr><td colspan="${DETAIL_COLS.length}" style="padding:3px 10px 3px 34px; font-size:10px; color:var(--text3); font-weight:600;">📍 ${escapeHtml(dist)}</td></tr>`;
+          distEntries.forEach(en => {
+            const heat = remainingTimeColor(en._remaining);
+            const cells = DETAIL_COLS.map(([, key]) => {
+              if (key === 'priority') return `<td style="padding:5px 8px; white-space:nowrap;">${priorityBadge(en.priority)}</td>`;
+              if (key === '_remaining') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:800; background:${heat.bg}; color:${heat.color};">${formatRemainingTime(en._remaining)}</td>`;
+              if (key === 'over_sla_day') return `<td style="padding:5px 8px; text-align:center;">${en.over_sla_day || '–'}</td>`;
+              if (key === 'SUBJECT' || key === 'detail') return `<td style="padding:5px 8px; max-width:220px; white-space:normal;" title="${escapeHtml(en[key])}">${escapeHtml(en[key])}</td>`;
+              return `<td style="padding:5px 8px; white-space:nowrap;">${escapeHtml(en[key])}</td>`;
+            }).join('');
+            body += `<tr style="border-top:1px solid var(--border);">${cells}</tr>`;
+          });
+        });
+      });
+    });
+
+    container.innerHTML = `
+      <div style="overflow-x:auto; max-height:640px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table style="border-collapse:collapse; font-size:11.5px; width:100%; white-space:nowrap;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function tick() {
+    const now = new Date();
+    el('ort-current-time').textContent = now.toLocaleString('th-TH', { hour12: false });
+    entriesWithParsedTarget.forEach(e => {
+      e._remaining = e._targetDate ? (e._targetDate.getTime() - now.getTime()) / 3600000 : null;
+    });
+    renderTable();
+  }
+
+  function startTicking() {
+    if (tickTimer) clearInterval(tickTimer);
+    tick();
+    tickTimer = setInterval(tick, TICK_INTERVAL_MS);
+  }
+
+  async function reload() {
+    try {
+      const res = await fetch('/api/online-realtime');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      renderKpiGrid(data.kpi);
+      entriesWithParsedTarget = data.entries.map(e => ({ ...e, _targetDate: parseBangkokDt(e.TARGETFINISH), _remaining: e.remaining_hours }));
+      el('ort-last-updated').textContent = data.insert_time || data.generated_at || '–';
+      startTicking();
+      loaded = true;
+    } catch (e) {
+      console.error('Online Real Time load failed', e);
+      el('ort-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  el('ort-reload').addEventListener('click', reload);
+  window.initOnlineRealtimeTab = function () { if (!loaded) reload(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
