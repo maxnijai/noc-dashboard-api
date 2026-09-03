@@ -61,13 +61,21 @@ def _get_worksheet(gs_client):
 
 
 def get_insert_time(gs_client=None):
-    """Cheap poll target: just the insert_time value from the first data row,
-    without pulling the rest of the sheet. Returns None if the sheet is empty."""
+    """Cheap poll target: just the insert_time value, WITHOUT its own
+    direct Sheets read - reuses pending_ticket.fetch_live_rows's existing
+    cache (45s TTL, single-flight) instead. The previous version called
+    _get_worksheet + ws.cell() directly - THREE uncached Sheets API reads
+    per call (open spreadsheet, list worksheets, read the cell) - and the
+    frontend polls this every 30s from every open Realtime Monitor tab,
+    which is exactly the kind of cumulative read volume that trips the
+    per-minute quota (see fetch_live_rows's own comment on this same
+    problem). Local import to avoid a circular import at module load time
+    (pending_ticket already imports several names from this module)."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
-    ws = _get_worksheet(gs_client)
-    val = ws.cell(2, 1).value  # row 1 = header, row 2 = first data row, col A = insert_time
-    return val
+    from pending_ticket import fetch_live_rows
+    rows = fetch_live_rows(gs_client)
+    return rows[0].get("insert_time") if rows else None
 
 
 def _parse_dt(s):
