@@ -6206,20 +6206,29 @@ function renderPivot(ft) {
     ['le_12h', '🔵 ≤12 ชม.', '#1f6feb'], ['gt_12h', '⚪ >12 ชม.', 'var(--text3)'],
   ];
 
-  function renderOnlineRemainingHoursHtml(rows, bookmark, activeProvince) {
+  function renderOnlineRemainingHoursHtml(rows, bookmark, activeFilter) {
     if (!rows.length) return '';
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const bucketHead = REMAINING_HOURS_BUCKET_COLS.map(([, label, color]) => `<th style="padding:6px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:${color};">${label}</th>`).join('');
     const body = rows.map(r => {
+      const rowProvinceActive = activeFilter.province === r.province;
+      // Each bucket number is its own click target (province + that
+      // specific time-window) - only cells with a nonzero count are
+      // clickable, since filtering to an empty bucket has no purpose.
       const bucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => {
         const v = r[key];
-        return `<td style="padding:6px 8px; text-align:center; min-width:60px; ${v > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${v || '–'}</td>`;
+        const isActive = rowProvinceActive && activeFilter.remainingBucket === key;
+        const onclickAttr = v > 0 ? ` onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','${key}')"` : '';
+        const cursorStyle = v > 0 ? 'cursor:pointer;' : '';
+        return `<td${onclickAttr} style="padding:6px 8px; text-align:center; min-width:60px; ${cursorStyle} ${v > 0 ? 'font-weight:700;' : 'color:var(--text3);'} ${isActive ? 'background:#1f6feb33; color:#1f6feb;' : ''}" title="${v > 0 ? 'คลิกเพื่อกรองเฉพาะกลุ่มเวลานี้' : ''}">${v || '–'}</td>`;
       }).join('');
+      // Province name + Total cells: click filters to that province with
+      // NO bucket restriction (every Online ticket in that province).
+      const isProvinceOnlyActive = rowProvinceActive && !activeFilter.remainingBucket;
       const urgentColor = r.most_urgent_remaining_hours < 0 ? '#E24B4A' : r.most_urgent_remaining_hours <= 2 ? '#EF9F27' : 'var(--text2)';
-      const isActive = activeProvince === r.province;
-      return `<tr onclick="filterP0SectionProvince('${esc1(bookmark)}', '${esc1(isActive ? '' : r.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ในตารางด้านล่าง">
-        <td style="padding:6px 10px; font-weight:600; white-space:nowrap; ${isActive ? 'color:#1f6feb;' : ''}">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
-        <td style="padding:6px 8px; text-align:center; min-width:50px;">${r.total}</td>
+      return `<tr style="border-top:1px solid var(--border);">
+        <td onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','')" style="padding:6px 10px; font-weight:600; white-space:nowrap; cursor:pointer; ${isProvinceOnlyActive ? 'color:#1f6feb; background:#1f6feb22;' : ''}" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ทั้งหมด">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+        <td onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','')" style="padding:6px 8px; text-align:center; min-width:50px; cursor:pointer; ${isProvinceOnlyActive ? 'background:#1f6feb22;' : ''}" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ทั้งหมด">${r.total}</td>
         ${bucketCells}
         <td style="padding:6px 8px; text-align:left; font-size:11px; white-space:nowrap;" title="${escapeHtml(r.most_urgent_subject)}">
           <span style="color:${urgentColor}; font-weight:700;">${r.most_urgent_remaining_hours.toFixed(1)} ชม.</span>
@@ -6292,7 +6301,7 @@ function renderPivot(ft) {
   let sectionCategoryAgingMode = {}; // bookmark -> 'aging' | 'province' (which dimension is the Category matrix's columns), per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
-    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '' });
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '', remainingBucket: '' });
   }
 
   function render(data) {
@@ -6324,10 +6333,19 @@ function renderPivot(ft) {
           const planDate = t.plan_closed_date || '';
           if (isNoPlan ? !!planDate : planDate !== f.planDate) return false;
         }
+        if (f.remainingBucket) {
+          // Matches the exact same boundaries the backend uses to build
+          // online_remaining_hours_by_province's bucket counts, so a
+          // click on "12 tickets ≤2h" always shows exactly those 12.
+          const h = t.remaining_hours;
+          if (h == null) return false;
+          const bucket = h < 0 ? 'over' : h <= 2 ? 'le_2h' : h <= 6 ? 'le_6h' : h <= 12 ? 'le_12h' : 'gt_12h';
+          if (bucket !== f.remainingBucket) return false;
+        }
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || f.remainingBucket || searchQuery);
 
       const matrixBlock = f.province
         ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
@@ -6403,7 +6421,7 @@ function renderPivot(ft) {
             </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
-            ${block.bookmark === '4.FBB with SA1-4' ? renderOnlineRemainingHoursHtml(data.online_remaining_hours_by_province || [], block.bookmark, f.province) : ''}
+            ${block.bookmark === '4.FBB with SA1-4' ? renderOnlineRemainingHoursHtml(data.online_remaining_hours_by_province || [], block.bookmark, f) : ''}
             ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')}
             ${sideBySide}
             ${detailHtml}
@@ -6424,6 +6442,13 @@ function renderPivot(ft) {
     const same = f.province === province && f.aging === aging;
     f.province = same ? '' : province;
     f.aging = same ? '' : aging;
+    if (lastData) render(lastData);
+  };
+  window.filterP0OnlineBucket = function (bookmark, province, bucketKey) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && (f.remainingBucket || '') === bucketKey;
+    f.province = same ? '' : province;
+    f.remainingBucket = same ? '' : bucketKey;
     if (lastData) render(lastData);
   };
   window.filterP0PlanDateCell = function (bookmark, groupProblem, planDate) {
