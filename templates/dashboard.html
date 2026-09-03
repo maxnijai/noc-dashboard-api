@@ -951,6 +951,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
+    <div id="p0-online-remaining" style="margin-bottom:18px;"></div>
     <div id="p0-body"></div>
   </div>
 
@@ -6201,6 +6202,49 @@ function renderPivot(ft) {
     if (targetEl) targetEl.innerHTML = renderTotalP0CompareInner(data);
   };
 
+  const REMAINING_HOURS_BUCKET_COLS = [
+    ['over', '🔴 เกินแล้ว', '#E24B4A'], ['le_2h', '🟠 ≤2 ชม.', '#EF9F27'], ['le_6h', '🟡 ≤6 ชม.', '#F5C518'],
+    ['le_12h', '🔵 ≤12 ชม.', '#1f6feb'], ['gt_12h', '⚪ >12 ชม.', 'var(--text3)'],
+  ];
+
+  function renderOnlineRemainingHours(rows) {
+    const container = el('p0-online-remaining');
+    if (!rows.length) { container.innerHTML = ''; return; }
+    const bucketHead = REMAINING_HOURS_BUCKET_COLS.map(([, label, color]) => `<th style="padding:6px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:${color};">${label}</th>`).join('');
+    const body = rows.map(r => {
+      const bucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => {
+        const v = r[key];
+        return `<td style="padding:6px 8px; text-align:center; min-width:60px; ${v > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${v || '–'}</td>`;
+      }).join('');
+      const urgentColor = r.most_urgent_remaining_hours < 0 ? '#E24B4A' : r.most_urgent_remaining_hours <= 2 ? '#EF9F27' : 'var(--text2)';
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+        <td style="padding:6px 8px; text-align:center; min-width:50px;">${r.total}</td>
+        ${bucketCells}
+        <td style="padding:6px 8px; text-align:left; font-size:11px; white-space:nowrap;" title="${escapeHtml(r.most_urgent_subject)}">
+          <span style="color:${urgentColor}; font-weight:700;">${r.most_urgent_remaining_hours.toFixed(1)} ชม.</span>
+          <span style="color:var(--text3);"> — ${escapeHtml(r.most_urgent_ticket)}</span>
+        </td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:14px; font-weight:700; margin-bottom:2px;">⏱️ Online SA1-4 (4.FBB) — เวลาคงเหลือถึง TARGETFINISH ตามจังหวัด</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เรียงจากจังหวัดที่ Ticket เร่งด่วนที่สุดก่อน (เวลาคงเหลือน้อยสุด) — คลิกแถวเพื่อกรอง Ticket จังหวัดนั้นด้านล่าง</div>
+        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+              <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+              <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+              ${bucketHead}
+              <th style="padding:7px 8px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket เร่งด่วนที่สุด</th>
+            </tr></thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
   function renderExecutiveSummary(data) {
     const totalP0 = data.total_over_sla || 0;
 
@@ -6236,6 +6280,7 @@ function renderPivot(ft) {
 
   function render(data) {
     renderExecutiveSummary(data);
+    renderOnlineRemainingHours(data.online_remaining_hours_by_province || []);
     const detailByBookmark = {};
     (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
     const provinceByBookmark = {};
