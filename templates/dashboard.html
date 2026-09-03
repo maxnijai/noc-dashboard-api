@@ -1008,11 +1008,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
-        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🌡️ Improvement Heatmap — % Over SLA ตามจังหวัด</div>
-        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เขียว = % Over ต่ำ (ดี) · แดง = % Over สูง (แย่) — ไล่แถวจากซ้ายไปขวาเพื่อดู Improvement รายวัน/สัปดาห์</div>
-        <div style="display:flex; gap:6px; margin-bottom:10px;">
-          <button class="sla-heatmap-toggle-btn" data-val="daily" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:var(--bg4); cursor:pointer;">รายวัน (14 วันล่าสุด)</button>
-          <button class="sla-heatmap-toggle-btn" data-val="weekly" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">รายสัปดาห์ (ISO)</button>
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🌡️ Improvement Heatmap — <span id="sla-heatmap-metric-title">% Over SLA</span>ตามจังหวัด</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เขียว = ต่ำ (ดี) · แดง = สูง (แย่) — ไล่แถวจากซ้ายไปขวาเพื่อดู Improvement รายวัน/สัปดาห์</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; align-items:center;">
+          <div style="display:flex; gap:6px;">
+            <button class="sla-heatmap-toggle-btn" data-val="daily" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:var(--bg4); cursor:pointer;">รายวัน (14 วันล่าสุด)</button>
+            <button class="sla-heatmap-toggle-btn" data-val="weekly" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">รายสัปดาห์ (ISO)</button>
+          </div>
+          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <button class="sla-heatmap-metric-btn" data-val="pct" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">% Over SLA</button>
+            <button class="sla-heatmap-metric-btn" data-val="count" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">Over SLA (จำนวน)</button>
+          </div>
         </div>
         <div id="sla-heatmap-table" style="overflow-x:auto;"></div>
       </div>
@@ -6671,6 +6677,7 @@ function renderPivot(ft) {
   // ── Province ranking table ──────────────────────────────────────────
   // ── Improvement heatmap (daily last-14-days / weekly) ───────────────
   let heatmapGran = 'daily';
+  let heatmapMetric = 'pct'; // 'pct' | 'count'
   document.querySelectorAll('.sla-heatmap-toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sla-heatmap-toggle-btn').forEach(b => { b.style.background = 'transparent'; });
@@ -6679,14 +6686,27 @@ function renderPivot(ft) {
       renderHeatmapTable();
     });
   });
+  document.querySelectorAll('.sla-heatmap-metric-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sla-heatmap-metric-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      heatmapMetric = btn.dataset.val;
+      el('sla-heatmap-metric-title').textContent = heatmapMetric === 'pct' ? '% Over SLA ' : 'จำนวน Over SLA ';
+      renderHeatmapTable();
+    });
+  });
 
-  function heatmapCellColor(pct) {
-    if (pct == null) return { bg: 'var(--bg1)', color: 'var(--text3)' };
-    // green (low %over, good) -> yellow -> red (high %over, bad), scaled
-    // against a fixed 0-50% range (SLA %over rarely exceeds this, and a
-    // fixed scale - not a per-column max - is what lets you compare
-    // improvement ACROSS periods/columns, which is the whole point here).
-    const t = Math.min(1, pct / 50);
+  function heatmapCellColor(value, maxValue) {
+    if (value == null) return { bg: 'var(--bg1)', color: 'var(--text3)' };
+    // green (low, good) -> yellow -> red (high, bad). % mode keeps the
+    // original fixed 0-50% scale (SLA %over rarely exceeds this, and a
+    // fixed scale is what lets you compare improvement ACROSS periods,
+    // which is the whole point here); count mode has no such natural
+    // ceiling, so it scales against the current table's own max count -
+    // still comparable across periods/provinces since it's ONE shared
+    // max for the whole table, not a per-cell or per-column one.
+    const ceiling = maxValue || 50;
+    const t = Math.min(1, value / ceiling);
     let r, g, b;
     if (t < 0.5) {
       const k = t / 0.5;
@@ -6928,12 +6948,19 @@ function renderPivot(ft) {
     if (!hm || !hm.rows.length) { el('sla-heatmap-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const periodLabel = p => heatmapGran === 'weekly' ? p.replace(/^\d{4}-/, '') : p.slice(5); // "2026-W34"->"W34", "2026-08-30"->"08-30"
     const head = hm.periods.map(p => `<th style="padding:6px 6px; text-align:center; font-size:9.5px; color:var(--text2); white-space:nowrap;">${escapeHtml(periodLabel(p))}</th>`).join('');
+    // Count mode has no natural ceiling like %(0-100) does, so scale
+    // against this table's own max Over SLA count - one shared ceiling
+    // for the whole table, so cells stay comparable to each other exactly
+    // like % mode's fixed 0-50 scale does.
+    const maxOver = heatmapMetric === 'count' ? Math.max(1, ...hm.rows.flatMap(r => r.cells.map(c => c.over || 0))) : null;
     const body = hm.rows.map(r => {
       const cells = r.cells.map(c => {
-        const heat = heatmapCellColor(c.pct_over);
+        const cellValue = heatmapMetric === 'count' ? (c.total ? c.over : null) : c.pct_over;
+        const heat = heatmapCellColor(cellValue, heatmapMetric === 'count' ? maxOver : null);
         const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%) — คลิกเพื่อดูรายละเอียด` : `${c.period}: ไม่มีข้อมูล`;
         const onclick = c.total ? ` onclick="window.__slaOpenHeatmapDrilldown('${r.province}','${c.period}','${heatmapGran}')"` : '';
-        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color}; ${c.total ? 'cursor:pointer;' : ''}">${c.total ? Math.round(c.pct_over) + '%' : '–'}</td>`;
+        const displayValue = c.total ? (heatmapMetric === 'count' ? c.over : Math.round(c.pct_over) + '%') : '–';
+        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color}; ${c.total ? 'cursor:pointer;' : ''}">${displayValue}</td>`;
       }).join('');
       return `<tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
