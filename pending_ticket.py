@@ -622,6 +622,49 @@ def _exclusive_bookmark_label(raw):
     return raw if raw in BOOKMARK_SORT_ORDER else "NSA3-4"
 
 
+def build_online_remaining_hours_by_province(entries):
+    """For the "4.FBB with SA1-4" (Online) bookmark specifically - groups
+    by Province, and for each: bucket counts by remaining time to
+    TARGETFINISH (already overdue / <=2h / <=6h / <=12h / >12h), plus the
+    single most urgent ticket (soonest TARGETFINISH) as a concrete
+    reference. Sorted so the province with the most urgent situation
+    (soonest TARGETFINISH) appears first - "เรียงจากน้อยไปมาก" per
+    explicit request - so a reader can see at a glance where to focus
+    first for planning. Entries with no parseable TARGETFINISH are
+    excluded (their remaining time genuinely isn't known, not guessed)."""
+    online_entries = [e for e in entries if e["Bookmark"] == "4.FBB with SA1-4" and e["remaining_hours"] is not None]
+    by_province = {}
+    for e in online_entries:
+        by_province.setdefault(e["PROVINCE"], []).append(e)
+
+    rows = []
+    for prov, prov_entries in by_province.items():
+        prov_entries = sorted(prov_entries, key=lambda e: e["remaining_hours"])
+        most_urgent = prov_entries[0]
+        buckets = {"over": 0, "le_2h": 0, "le_6h": 0, "le_12h": 0, "gt_12h": 0}
+        for e in prov_entries:
+            h = e["remaining_hours"]
+            if h < 0:
+                buckets["over"] += 1
+            elif h <= 2:
+                buckets["le_2h"] += 1
+            elif h <= 6:
+                buckets["le_6h"] += 1
+            elif h <= 12:
+                buckets["le_12h"] += 1
+            else:
+                buckets["gt_12h"] += 1
+        rows.append({
+            "region": prov_entries[0]["Region"], "province": prov, "total": len(prov_entries),
+            **buckets,
+            "most_urgent_ticket": most_urgent["TICKETID"],
+            "most_urgent_remaining_hours": most_urgent["remaining_hours"],
+            "most_urgent_subject": most_urgent["SUBJECT"],
+        })
+    rows.sort(key=lambda r: r["most_urgent_remaining_hours"])
+    return rows
+
+
 def build_exclusive_pending_response(gs_client=None, priority_filter=None, restrict_to_over_sla=True):
     """Morning-meeting view: how many pending tickets per Bookmark are stuck
     on which Group Problem, broken out by aging bucket - plus the full
@@ -689,6 +732,8 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
                 allowed_priorities = {priority_filter}
             if priority not in allowed_priorities:
                 continue
+        target_dt = _parse_dt(r.get("TARGETFINISH"))
+        remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2) if target_dt else None
         entries.append({
             "TICKETID": ticket_id,
             "SUBJECT": r.get("SUBJECT", ""),
@@ -709,6 +754,8 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "over_sla_day": over_sla_day,
             "status_mateline": mateline["status_mateline"],
             "mateline_wo_status": mateline["mateline_wo_status"],
+            "TARGETFINISH": r.get("TARGETFINISH", ""),
+            "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
         })
 
     # Summary matrix: bookmark -> group_problem -> aging_key -> count
@@ -902,6 +949,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         "detail": detail_out,
         "unspecified_by_province": unspecified_by_province_out,
         "group_problem_by_plan_date": group_problem_by_plan_date_out,
+        "online_remaining_hours_by_province": build_online_remaining_hours_by_province(entries),
         "total_over_sla": len(detail_entries),
         "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         # insert_time is stamped by the EXTERNAL system (SCCD+ITSM) on the raw
