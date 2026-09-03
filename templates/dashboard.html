@@ -7699,6 +7699,18 @@ function renderPivot(ft) {
   }
   const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
 
+  // Short English province codes for the group-header badge - the
+  // underlying grouping/filtering everywhere else stays keyed by the raw
+  // Thai PROVINCE value the ticket data actually has; this is purely a
+  // rendering-layer badge, matching the same short-code convention
+  // already used elsewhere in this app.
+  const PROVINCE_SHORT_MAP = {
+    'เชียงใหม่': 'CMI', 'เชียงราย': 'CRI', 'ลำปาง': 'LPG', 'ลำพูน': 'LPN',
+    'แม่ฮ่องสอน': 'MHS', 'น่าน': 'NAN', 'แพร่': 'PHE', 'พะเยา': 'PYO',
+    'กำแพงเพชร': 'KPP', 'เพชรบูรณ์': 'PCB', 'พิจิตร': 'PCT', 'พิษณุโลก': 'PSN',
+    'สุโขทัย': 'SKT', 'ตาก': 'TAK', 'อุตรดิตถ์': 'UTR',
+  };
+
   // TARGETFINISH is Bangkok local time as "YYYY-MM-DD HH:MM:SS" - needs an
   // explicit +07:00 so the browser doesn't guess UTC or its own local zone
   // (same pattern already validated elsewhere in this app for insert_time
@@ -7782,19 +7794,34 @@ function renderPivot(ft) {
 
     let body = '';
     regions.forEach(reg => {
-      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${DETAIL_COLS.length}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${DETAIL_COLS.length}" style="padding:7px 10px; font-size:12px; font-weight:800; color:var(--text2); text-transform:uppercase; letter-spacing:.04em;">🌐 ${escapeHtml(reg)}</td></tr>`;
       const byProvince = {};
       byRegion[reg].forEach(e => { (byProvince[e.PROVINCE] = byProvince[e.PROVINCE] || []).push(e); });
       const provinces = Object.keys(byProvince).sort((a, b) => (byProvince[a][0]._remaining ?? Infinity) - (byProvince[b][0]._remaining ?? Infinity));
       provinces.forEach(prov => {
-        body += `<tr style="background:var(--bg1);"><td colspan="${DETAIL_COLS.length}" style="padding:4px 10px 4px 20px; font-size:10.5px; font-weight:700; color:var(--text2);">${escapeHtml(PROVINCE_EN(prov))}</td></tr>`;
+        const provTickets = byProvince[prov];
+        const provCode = PROVINCE_SHORT_MAP[prov] || '';
+        body += `<tr style="background:#1f6feb14; border-top:2px solid var(--border2);">
+          <td colspan="${DETAIL_COLS.length}" style="padding:6px 10px 6px 18px;">
+            <span style="display:inline-flex; align-items:center; gap:8px;">
+              ${provCode ? `<span style="background:#1f6feb; color:#fff; font-size:10.5px; font-weight:800; letter-spacing:.03em; padding:2px 8px; border-radius:4px;">${escapeHtml(provCode)}</span>` : ''}
+              <span style="font-size:13px; font-weight:800; color:var(--text);">${escapeHtml(PROVINCE_EN(prov))}</span>
+              <span style="font-size:10.5px; font-weight:600; color:var(--text3);">${provTickets.length} Ticket</span>
+            </span>
+          </td>
+        </tr>`;
         const byDistrict = {};
-        byProvince[prov].forEach(e => { (byDistrict[e.DISTRICT] = byDistrict[e.DISTRICT] || []).push(e); });
+        provTickets.forEach(e => { (byDistrict[e.DISTRICT] = byDistrict[e.DISTRICT] || []).push(e); });
         // Districts ordered by their own most-urgent ticket (each district's list is already remaining-time sorted from the outer sort below)
         const districts = Object.keys(byDistrict).sort((a, b) => (byDistrict[a][0]._remaining ?? Infinity) - (byDistrict[b][0]._remaining ?? Infinity));
         districts.forEach(dist => {
           const distEntries = byDistrict[dist].slice().sort((a, b) => (a._remaining ?? Infinity) - (b._remaining ?? Infinity));
-          body += `<tr><td colspan="${DETAIL_COLS.length}" style="padding:3px 10px 3px 34px; font-size:10px; color:var(--text3); font-weight:600;">📍 ${escapeHtml(dist)}</td></tr>`;
+          body += `<tr style="background:var(--bg1);">
+            <td colspan="${DETAIL_COLS.length}" style="padding:5px 10px 5px 34px; border-left:3px solid #1f6feb55;">
+              <span style="font-size:11.5px; font-weight:700; color:var(--text2);">📍 ${escapeHtml(dist)}</span>
+              <span style="font-size:10px; font-weight:600; color:var(--text3); margin-left:6px;">${distEntries.length} Ticket</span>
+            </td>
+          </tr>`;
           distEntries.forEach(en => {
             const heat = remainingTimeColor(en._remaining);
             const cells = DETAIL_COLS.map(([, key]) => {
