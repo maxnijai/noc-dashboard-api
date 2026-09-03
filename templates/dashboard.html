@@ -951,7 +951,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
-    <div id="p0-online-remaining" style="margin-bottom:18px;"></div>
     <div id="p0-body"></div>
   </div>
 
@@ -6207,9 +6206,9 @@ function renderPivot(ft) {
     ['le_12h', '🔵 ≤12 ชม.', '#1f6feb'], ['gt_12h', '⚪ >12 ชม.', 'var(--text3)'],
   ];
 
-  function renderOnlineRemainingHours(rows) {
-    const container = el('p0-online-remaining');
-    if (!rows.length) { container.innerHTML = ''; return; }
+  function renderOnlineRemainingHoursHtml(rows, bookmark, activeProvince) {
+    if (!rows.length) return '';
+    const esc1 = s => String(s).replace(/'/g, "\\'");
     const bucketHead = REMAINING_HOURS_BUCKET_COLS.map(([, label, color]) => `<th style="padding:6px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:${color};">${label}</th>`).join('');
     const body = rows.map(r => {
       const bucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => {
@@ -6217,8 +6216,9 @@ function renderPivot(ft) {
         return `<td style="padding:6px 8px; text-align:center; min-width:60px; ${v > 0 ? 'font-weight:700;' : 'color:var(--text3);'}">${v || '–'}</td>`;
       }).join('');
       const urgentColor = r.most_urgent_remaining_hours < 0 ? '#E24B4A' : r.most_urgent_remaining_hours <= 2 ? '#EF9F27' : 'var(--text2)';
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+      const isActive = activeProvince === r.province;
+      return `<tr onclick="filterP0SectionProvince('${esc1(bookmark)}', '${esc1(isActive ? '' : r.province)}')" style="border-top:1px solid var(--border); cursor:pointer; background:${isActive ? '#1f6feb22' : 'transparent'};" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ในตารางด้านล่าง">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap; ${isActive ? 'color:#1f6feb;' : ''}">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
         <td style="padding:6px 8px; text-align:center; min-width:50px;">${r.total}</td>
         ${bucketCells}
         <td style="padding:6px 8px; text-align:left; font-size:11px; white-space:nowrap;" title="${escapeHtml(r.most_urgent_subject)}">
@@ -6227,10 +6227,27 @@ function renderPivot(ft) {
         </td>
       </tr>`;
     }).join('');
-    container.innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+
+    // Grand Total row - sums every bucket + overall Total across every
+    // province shown, matching the same no-heat/no-onclick convention
+    // used by every other summary row in this tab.
+    const totals = { total: 0, over: 0, le_2h: 0, le_6h: 0, le_12h: 0, gt_12h: 0 };
+    rows.forEach(r => {
+      totals.total += r.total;
+      REMAINING_HOURS_BUCKET_COLS.forEach(([key]) => { totals[key] += r[key]; });
+    });
+    const totalBucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => `<td style="padding:6px 8px; text-align:center;">${totals[key] || '–'}</td>`).join('');
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+      <td style="padding:6px 10px;">รวมทั้งหมด</td>
+      <td style="padding:6px 8px; text-align:center;">${totals.total}</td>
+      ${totalBucketCells}
+      <td style="padding:6px 8px;"></td>
+    </tr>`;
+
+    return `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:12px;">
         <div style="font-size:14px; font-weight:700; margin-bottom:2px;">⏱️ Online SA1-4 (4.FBB) — เวลาคงเหลือถึง TARGETFINISH ตามจังหวัด</div>
-        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เรียงจากจังหวัดที่ Ticket เร่งด่วนที่สุดก่อน (เวลาคงเหลือน้อยสุด) — คลิกแถวเพื่อกรอง Ticket จังหวัดนั้นด้านล่าง</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เรียงจากจังหวัดที่ Ticket เร่งด่วนที่สุดก่อน (เวลาคงเหลือน้อยสุด) — คลิกแถวเพื่อกรอง Ticket จังหวัดนั้นทั้งหมดในการ์ดนี้ (Sync กับ Matrix/Detail ด้านล่าง)</div>
         <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
           <table style="border-collapse:collapse; font-size:12px; width:100%;">
             <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
@@ -6239,7 +6256,7 @@ function renderPivot(ft) {
               ${bucketHead}
               <th style="padding:7px 8px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket เร่งด่วนที่สุด</th>
             </tr></thead>
-            <tbody>${body}</tbody>
+            <tbody>${body}${totalRow}</tbody>
           </table>
         </div>
       </div>`;
@@ -6280,7 +6297,6 @@ function renderPivot(ft) {
 
   function render(data) {
     renderExecutiveSummary(data);
-    renderOnlineRemainingHours(data.online_remaining_hours_by_province || []);
     const detailByBookmark = {};
     (data.detail || []).forEach(d => { detailByBookmark[d.bookmark] = d; });
     const provinceByBookmark = {};
@@ -6387,6 +6403,7 @@ function renderPivot(ft) {
             </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
+            ${block.bookmark === '4.FBB with SA1-4' ? renderOnlineRemainingHoursHtml(data.online_remaining_hours_by_province || [], block.bookmark, f.province) : ''}
             ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')}
             ${sideBySide}
             ${detailHtml}
