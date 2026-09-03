@@ -29,6 +29,7 @@ import team_planner
 import summary_nan
 import auth
 import sla_improvement
+import online_realtime
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2460,6 +2461,16 @@ def api_sla_improvement_heatmap_drill_down():
         return jsonify(result)
     except Exception as e:
         log.exception("sla-improvement heatmap-drill-down API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/online-realtime')
+def api_online_realtime():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = online_realtime.build_online_realtime_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("online-realtime API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
