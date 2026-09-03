@@ -6951,22 +6951,56 @@ function renderPivot(ft) {
     // Count mode has no natural ceiling like %(0-100) does, so scale
     // against this table's own max Over SLA count - one shared ceiling
     // for the whole table, so cells stay comparable to each other exactly
-    // like % mode's fixed 0-50 scale does.
+    // like % mode's fixed 0-50 scale does. Subtotal/Grand Total rows are
+    // deliberately excluded from this max (and never get heat-shaded
+    // themselves) - same convention as every other summary-row table in
+    // this tab (Province Ranking, Management table, etc).
     const maxOver = heatmapMetric === 'count' ? Math.max(1, ...hm.rows.flatMap(r => r.cells.map(c => c.over || 0))) : null;
-    const body = hm.rows.map(r => {
-      const cells = r.cells.map(c => {
+
+    function renderDataRow(label, cellsData, isSummaryRow) {
+      const cells = hm.periods.map((period, i) => {
+        const c = cellsData[i];
         const cellValue = heatmapMetric === 'count' ? (c.total ? c.over : null) : c.pct_over;
-        const heat = heatmapCellColor(cellValue, heatmapMetric === 'count' ? maxOver : null);
-        const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%) — คลิกเพื่อดูรายละเอียด` : `${c.period}: ไม่มีข้อมูล`;
-        const onclick = c.total ? ` onclick="window.__slaOpenHeatmapDrilldown('${r.province}','${c.period}','${heatmapGran}')"` : '';
+        const heat = isSummaryRow ? { bg: '', color: 'var(--text)' } : heatmapCellColor(cellValue, heatmapMetric === 'count' ? maxOver : null);
+        const title = c.total ? `${period}: ${c.over}/${c.total} (${c.pct_over}%)${isSummaryRow ? '' : ' — คลิกเพื่อดูรายละเอียด'}` : `${period}: ไม่มีข้อมูล`;
+        const onclick = (c.total && !isSummaryRow) ? ` onclick="window.__slaOpenHeatmapDrilldown('${c.province}','${period}','${heatmapGran}')"` : '';
         const displayValue = c.total ? (heatmapMetric === 'count' ? c.over : Math.round(c.pct_over) + '%') : '–';
-        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color}; ${c.total ? 'cursor:pointer;' : ''}">${displayValue}</td>`;
+        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${(c.total && !isSummaryRow) ? 'cursor:pointer;' : ''}">${displayValue}</td>`;
       }).join('');
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+      return `<tr style="border-top:1px solid var(--border); ${isSummaryRow ? 'background:var(--bg3); font-weight:700;' : ''}">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${label}</td>
         ${cells}
       </tr>`;
-    }).join('');
+    }
+
+    // Sums SEPARATELY per period column across a group of province rows -
+    // pct_over is recomputed from summed over/total (never averaged
+    // percentages directly, which would misrepresent provinces with very
+    // different ticket volumes).
+    function sumCells(rowsInGroup) {
+      return hm.periods.map((period, i) => {
+        let total = 0, over = 0;
+        rowsInGroup.forEach(r => { total += r.cells[i].total; over += r.cells[i].over; });
+        return { period, province: null, total, over, pct_over: total ? Math.round(over / total * 10000) / 100 : null };
+      });
+    }
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    hm.rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${hm.periods.length + 1}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      byRegion[reg].forEach(r => {
+        const cellsWithProvince = r.cells.map(c => ({ ...c, province: r.province }));
+        body += renderDataRow(`${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px; font-weight:400;">(${escapeHtml(r.region)})</span>`, cellsWithProvince, false);
+      });
+      body += renderDataRow(`${escapeHtml(reg)} รวม`, sumCells(byRegion[reg]), true);
+    });
+    body += renderDataRow('รวมทั้งหมด', sumCells(hm.rows), true);
+
     el('sla-heatmap-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
