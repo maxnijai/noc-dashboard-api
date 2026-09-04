@@ -1195,7 +1195,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
       <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Temp Point Map <span style="font-weight:400; color:var(--text3); font-size:11px;">(เส้นเชื่อม = แนว Chain ของ Cluster — ไม่ใช่ Radius)</span></div>
       <div id="tpi-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
-      <div id="tpi-map" style="height:440px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      <div id="tpi-map" style="height:680px; border-radius:var(--r); border:1px solid var(--border);"></div>
     </div>
 
     <div id="tpi-cluster-detail" style="margin-bottom:16px;"></div>
@@ -8219,6 +8219,20 @@ function renderPivot(ft) {
       const line = L.polyline(latlngs, { color: CLUSTER_COLOR, weight: 3, opacity: 0.7 });
       line.on('click', () => window.__tpiShowClusterDetail(cid));
       lineLayer.addLayer(line);
+
+      // Cluster ID + Total Dist. label, right on the map, clickable -
+      // jumps to (and highlights) the same detail table below.
+      const totalDist = Math.max(...pts.map(p => p.cluster_distance_m || 0), 0);
+      const cLat = pts.reduce((s, p) => s + p.latitude, 0) / pts.length;
+      const cLon = pts.reduce((s, p) => s + p.longitude, 0) / pts.length;
+      const labelIcon = L.divIcon({
+        className: 'tpi-cluster-label',
+        html: `<div style="background:${CLUSTER_COLOR}; color:#fff; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.35); border:1.5px solid #fff; cursor:pointer;">${escapeHtml(cid)} · ${fmtNum(totalDist)} m</div>`,
+        iconSize: null, iconAnchor: [0, 0],
+      });
+      const labelMarker = L.marker([cLat, cLon], { icon: labelIcon, interactive: true, zIndexOffset: 1000 });
+      labelMarker.on('click', () => window.__tpiShowClusterDetail(cid));
+      lineLayer.addLayer(labelMarker);
     });
 
     filtered.forEach(p => {
@@ -8273,6 +8287,13 @@ function renderPivot(ft) {
     el('tpi-cluster-detail').scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  function makeGradient(ctx, chartArea, colorTop, colorBottom) {
+    const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0, colorTop);
+    g.addColorStop(1, colorBottom);
+    return g;
+  }
+
   function renderCharts() {
     const filtered = getFilteredPoints();
     const clusterPts = filtered.filter(p => p.is_cluster).length;
@@ -8284,14 +8305,42 @@ function renderPivot(ft) {
       type: 'bar',
       data: {
         labels: ['Total', 'Cluster Point', 'Individual Point'],
-        datasets: [{ data: [filtered.length, clusterPts, individualPts], backgroundColor: ['var(--text3)', CLUSTER_COLOR, INDIVIDUAL_COLOR] }],
+        datasets: [{
+          data: [filtered.length, clusterPts, individualPts],
+          backgroundColor: (c) => {
+            const { chart, dataIndex } = c;
+            if (!chart.chartArea) return ['#6b7fa8', CLUSTER_COLOR, INDIVIDUAL_COLOR][dataIndex];
+            const tones = [
+              ['#7c8fb8', '#4a5a80'],
+              ['#4c96ff', CLUSTER_COLOR],
+              ['#ffc069', INDIVIDUAL_COLOR],
+            ];
+            return makeGradient(chart.ctx, chart.chartArea, tones[dataIndex][0], tones[dataIndex][1]);
+          },
+          borderRadius: 8, borderSkipped: false, maxBarThickness: 90,
+        }],
       },
-      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }, datalabels: { display: false },
+          tooltip: { backgroundColor: 'rgba(20,24,32,.92)', padding: 10, cornerRadius: 8, titleFont: { weight: 700 } },
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,.12)' }, ticks: { font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 12, weight: 600 } } },
+        },
+      },
     });
 
     const byProvince = {};
     filtered.forEach(p => { (byProvince[p.province] = byProvince[p.province] || { cluster: new Set(), points: 0 }); if (p.is_cluster) byProvince[p.province].cluster.add(p.cluster_id); byProvince[p.province].points++; });
-    const provinceRows = Object.entries(byProvince).map(([prov, v]) => ({ province: prov, clusters: v.cluster.size, points: v.points })).sort((a, b) => b.clusters - a.clusters).slice(0, 10);
+    const priorityByProvince = {};
+    ((lastData && lastData.province_summary) || []).forEach(r => { priorityByProvince[r.province] = r.priority; });
+    const PRIORITY_TONES = {
+      high: ['#ff8a7a', '#E24B4A'], medium: ['#ffcf7a', '#EF9F27'], monitor: ['#5fa8ff', CLUSTER_COLOR],
+    };
+    const provinceRows = Object.entries(byProvince).map(([prov, v]) => ({ province: prov, clusters: v.cluster.size, points: v.points, priority: priorityByProvince[prov] || 'monitor' })).sort((a, b) => b.clusters - a.clusters).slice(0, 10);
 
     const ctx2 = el('tpi-province-chart').getContext('2d');
     if (provinceChart) provinceChart.destroy();
@@ -8299,9 +8348,39 @@ function renderPivot(ft) {
       type: 'bar',
       data: {
         labels: provinceRows.map(r => PROVINCE_EN(r.province)),
-        datasets: [{ label: 'Cluster', data: provinceRows.map(r => r.clusters), backgroundColor: CLUSTER_COLOR }],
+        datasets: [{
+          label: 'Cluster',
+          data: provinceRows.map(r => r.clusters),
+          backgroundColor: (c) => {
+            const { chart, dataIndex } = c;
+            const row = provinceRows[dataIndex];
+            const tone = PRIORITY_TONES[row ? row.priority : 'monitor'];
+            if (!chart.chartArea) return tone[1];
+            return makeGradient(chart.ctx, chart.chartArea, tone[0], tone[1]);
+          },
+          borderRadius: 6, borderSkipped: false, maxBarThickness: 44,
+        }],
       },
-      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }, datalabels: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(20,24,32,.92)', padding: 10, cornerRadius: 8, titleFont: { weight: 700 },
+            callbacks: {
+              afterLabel: (ctx) => {
+                const row = provinceRows[ctx.dataIndex];
+                const label = { high: '🔴 High Priority', medium: '🟠 Medium Priority', monitor: '🔵 Monitor' }[row ? row.priority : 'monitor'];
+                return label;
+              },
+            },
+          },
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,.12)' }, ticks: { font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 11, weight: 600 } } },
+        },
+      },
     });
   }
 
@@ -8313,7 +8392,8 @@ function renderPivot(ft) {
 
   function renderProvinceTable() {
     if (!lastData) return;
-    const rows = lastData.province_summary.map(r => `
+    const data = lastData.province_summary;
+    const rows = data.map(r => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region || '–')})</span></td>
         <td style="padding:6px 8px; text-align:center;">${r.total_temp_point}</td>
@@ -8324,6 +8404,27 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; text-align:center;">${fmtNum(r.avg_distance_per_cluster_m)} m</td>
         <td style="padding:6px 8px; text-align:center;">${priorityBadge(r.priority)}</td>
       </tr>`).join('');
+
+    const totalRow = data.reduce((acc, r) => ({
+      total_temp_point: acc.total_temp_point + r.total_temp_point,
+      cluster_point: acc.cluster_point + r.cluster_point,
+      cluster_count: acc.cluster_count + r.cluster_count,
+      individual_point: acc.individual_point + r.individual_point,
+      total_distance_m: acc.total_distance_m + r.total_distance_m,
+    }), { total_temp_point: 0, cluster_point: 0, cluster_count: 0, individual_point: 0, total_distance_m: 0 });
+    const avgOverall = totalRow.cluster_count ? totalRow.total_distance_m / totalRow.cluster_count : 0;
+    const totalRowHtml = `
+      <tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:800;">
+        <td style="padding:7px 10px;">รวมทั้งหมด (Total)</td>
+        <td style="padding:7px 8px; text-align:center;">${totalRow.total_temp_point}</td>
+        <td style="padding:7px 8px; text-align:center; color:${CLUSTER_COLOR};">${totalRow.cluster_point}</td>
+        <td style="padding:7px 8px; text-align:center;">${totalRow.cluster_count}</td>
+        <td style="padding:7px 8px; text-align:center; color:${INDIVIDUAL_COLOR};">${totalRow.individual_point}</td>
+        <td style="padding:7px 8px; text-align:center;">${fmtNum(totalRow.total_distance_m)} m</td>
+        <td style="padding:7px 8px; text-align:center;">${fmtNum(avgOverall)} m</td>
+        <td style="padding:7px 8px; text-align:center;">–</td>
+      </tr>`;
+
     el('tpi-province-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
@@ -8336,7 +8437,7 @@ function renderPivot(ft) {
           <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Avg Dist./Cluster</th>
           <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Priority</th>
         </tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${rows}${totalRowHtml}</tbody>
       </table>`;
   }
 
