@@ -34,27 +34,37 @@ road, and never a chain that includes a point branching off the main road
 down a soi. Checked hybrid (heuristic first, OSRM only for the genuinely
 ambiguous remainder, per explicit request to balance speed/accuracy):
 
-  - 2-point chains: a gap <= CLOSE_PAIR_INDIVIDUAL_M (explicit request) is
-    ALWAYS "Individual" - deterministic, no OSRM call needed. Above that,
-    path efficiency (see below) is meaningless for exactly 2 points, so
-    geometry alone can't tell "two repairs on the same road stretch"
-    apart from "one point on the road, one branched down a soi" (example
-    image 2/3) - every remaining 2-point chain is verified against OSRM's
-    real road-network distance; if the road route is much longer than the
-    straight-line gap (or no route exists), it's not the same road run ->
-    both points demoted to "Individual".
+  - 2-point chains: path efficiency (see below) is meaningless for
+    exactly 2 points, so geometry alone can't tell "two repairs on the
+    same road stretch" apart from "one point on the road, one branched
+    down a soi" - every 2-point chain over the CLUSTER_MIN_TOTAL_DIST_M
+    floor below is verified against OSRM's real road-network distance
+    AND the distinct named roads its route actually crosses; if the
+    route is much longer than the straight-line gap, or crosses more
+    than ROAD_NAME_COUNT_MAX distinctly-named roads (a low detour ratio
+    alone isn't reliable evidence - a route that happens to come out
+    short can still cut across several unrelated streets), it's not the
+    same road run -> both points demoted to "Individual".
 
   - 3+ point chains: a chain whose straight_line(first,last) / sum(gaps)
     is >= PATH_EFFICIENCY_CLEAR is heuristic-clear (a reasonably direct
     walk end-to-end - kept as one cluster, no OSRM call). Below that
     threshold is ambiguous - could be a genuinely curvy road (still one
-    cluster) or a point doubling back into a soi (Rule 2) or a tight
-    clump with no road at all (Rule 3). Each edge in an ambiguous chain is
-    checked against OSRM individually: edges confirmed off-road split the
-    chain there (isolating the soi branch instead of discarding the whole
-    otherwise-valid road run); any resulting 2-3 point remainder that's
-    still geometrically inefficient is demoted fully to individuals
-    (Rule 3 - not worth re-laying fiber for).
+    cluster) or a point doubling back into a soi or a tight clump with no
+    road at all. Each edge in an ambiguous chain is checked against OSRM
+    individually (same distance-ratio + road-name check as above): edges
+    confirmed off-road split the chain there (isolating the branch
+    instead of discarding the whole otherwise-valid road run).
+
+  - Blanket floor (explicit request, confirmed via example screenshots of
+    misclassified points - tight clumps/short pairs kept passing the
+    checks above purely because they're geometrically compact, e.g.
+    5-6 points bunched within 60m can trivially look "linear"): AFTER all
+    of the above, any final cluster whose total distance (first point to
+    last point) is under CLUSTER_MIN_TOTAL_DIST_M is demoted entirely to
+    Individual, no exceptions - a handful of points bunched within under
+    100m total is never worth re-laying fiber for regardless of how
+    "aligned" it nominally measures.
 
   - OSRM unreachable (network failure) always fails OPEN - the original
     500m-based chain is kept as-is rather than silently dropping data or
@@ -65,9 +75,10 @@ Total Dist. (Rule 4) is unaffected by this refinement in how it's computed
 first point to last point, never crossing between two different
 clusters" (see build_province_summary) - the refinement above just makes
 sure that number is only ever attributed to genuine road-following
-clusters, since clumps/branches are demoted to Individual before this
-runs. build_cluster_totals() below adds the per-cluster number to display
-directly on the map, per explicit request.
+clusters of meaningful length, since clumps/branches/short pairs are
+demoted to Individual before this runs. build_cluster_totals() below adds
+the per-cluster number to display directly on the map, per explicit
+request.
 """
 
 import logging
@@ -86,10 +97,11 @@ TEMP_POINT_WORKSHEET_NAME = "Map"
 
 CHAIN_DISTANCE_THRESHOLD_M = 500  # existing: max gap (haversine) to keep sequential-chaining two points together
 
-# ── Road-alignment refinement (NEW - see module docstring for the full explanation) ──
-CLOSE_PAIR_INDIVIDUAL_M = 50         # NEW (explicit request): 2-point chain gaps <= this are ALWAYS Individual - deterministic, no OSRM call
-PATH_EFFICIENCY_CLEAR = 0.75         # 3+ point chains: straight(first,last)/sum(gaps) >= this is heuristic-clear (no OSRM needed)
-ROAD_DETOUR_RATIO_MAX = 1.6          # OSRM route_distance / straight_distance above this = not the same road run (soi branch / off-road)
+# ── Road-alignment refinement (see module docstring for the full explanation) ──
+PATH_EFFICIENCY_CLEAR = 0.75          # 3+ point chains: straight(first,last)/sum(gaps) >= this is heuristic-clear (no OSRM needed)
+ROAD_DETOUR_RATIO_MAX = 1.25          # OSRM route_distance / straight_distance above this = not the same road run (soi branch / off-road) - tightened per explicit feedback (1.6 was letting cross-block "straight lines" through)
+ROAD_NAME_COUNT_MAX = 2               # route touching more distinct named roads than this = crosses through unrelated streets, not one continuous run - checked alongside the ratio above
+CLUSTER_MIN_TOTAL_DIST_M = 100        # NEW (explicit request): ANY final cluster whose total distance (first point to last) is under this is demoted entirely to Individual - a blanket floor on top of the alignment checks above, since a handful of points bunched within <100m total is never worth re-laying fiber for even when nominally "aligned"
 OSRM_BASE_URL = "http://router.project-osrm.org/route/v1/driving"
 OSRM_TIMEOUT_S = 3
 
@@ -122,37 +134,56 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     return 2 * R * math.asin(min(1, math.sqrt(a)))
 
 
-def _osrm_route_distance_m(lat1, lon1, lat2, lon2):
-    """Real road-network distance between two points via the public OSRM
-    demo server. Returns None on ANY failure (timeout, no route found,
-    bad response) - callers must treat None as "could not verify" and
-    fail open, never crash and never silently drop a point."""
+def _osrm_route_details(lat1, lon1, lat2, lon2):
+    """Real road-network distance AND the list of named roads the route
+    actually travels via the public OSRM demo server. Returns
+    (distance_m, road_names) or None on ANY failure (timeout, no route
+    found, bad response) - callers must treat None as "could not verify"
+    and fail open, never crash and never silently drop a point."""
     url = f"{OSRM_BASE_URL}/{lon1},{lat1};{lon2},{lat2}"
     try:
-        r = requests.get(url, params={"overview": "false"}, timeout=OSRM_TIMEOUT_S)
+        r = requests.get(url, params={"overview": "false", "steps": "true"}, timeout=OSRM_TIMEOUT_S)
         r.raise_for_status()
         data = r.json()
         if data.get("code") != "Ok" or not data.get("routes"):
             return None
-        return data["routes"][0]["distance"]
+        route = data["routes"][0]
+        names = []
+        for leg in route.get("legs", []):
+            for step in leg.get("steps", []):
+                name = (step.get("name") or "").strip()
+                if name and name not in names:
+                    names.append(name)
+        return route["distance"], names
     except Exception as e:
         log.warning("OSRM route lookup failed (%s,%s)->(%s,%s): %s", lat1, lon1, lat2, lon2, e)
         return None
 
 
 def _verify_edge_with_osrm(p1, p2):
-    """True = this edge looks like one continuous road run (route
-    distance not much longer than the straight-line gap). False = looks
-    like a branch/detour (e.g. one point on the main road, the other down
-    a soi) or no road connects them at all. None = OSRM could not be
-    reached - inconclusive, caller must fail open."""
+    """True = this edge looks like one continuous road run: the route
+    distance isn't much longer than the straight-line gap AND the route
+    doesn't cross through more than ROAD_NAME_COUNT_MAX distinctly-named
+    roads (a low detour ratio alone isn't enough - a route that happens
+    to be short can still cut across several unrelated streets, which
+    OSRM's own driving profile will sometimes offer as the "fastest"
+    unnamed-road shortcut even though it's not something you'd re-lay
+    fiber along). False = fails either check - a branch/detour (e.g. one
+    point on the main road, the other down a soi) or genuinely different
+    streets. None = OSRM could not be reached - inconclusive, caller must
+    fail open."""
     straight = _haversine_m(p1["latitude"], p1["longitude"], p2["latitude"], p2["longitude"])
     if straight == 0:
         return True
-    route = _osrm_route_distance_m(p1["latitude"], p1["longitude"], p2["latitude"], p2["longitude"])
-    if route is None:
+    details = _osrm_route_details(p1["latitude"], p1["longitude"], p2["latitude"], p2["longitude"])
+    if details is None:
         return None
-    return (route / straight) <= ROAD_DETOUR_RATIO_MAX
+    distance, road_names = details
+    if (distance / straight) > ROAD_DETOUR_RATIO_MAX:
+        return False
+    if len(road_names) > ROAD_NAME_COUNT_MAX:
+        return False
+    return True
 
 
 def _chain_path_efficiency(chain):
@@ -188,13 +219,12 @@ def _resolve_chain_alignment(chain):
 
     if n == 2:
         gap = chain[1]["distance_to_previous_m"]
-        if gap <= CLOSE_PAIR_INDIVIDUAL_M:
-            return [[chain[0]], [chain[1]]]  # Rule (explicit request): 2 points <=50m apart are always Individual, no OSRM call
+        if gap <= CLUSTER_MIN_TOTAL_DIST_M:
+            return [[chain[0]], [chain[1]]]  # will be demoted by the blanket total-distance floor regardless - skip the OSRM call
         # Path efficiency is meaningless for exactly 2 points (always 1.0
         # trivially - see _chain_path_efficiency docstring), so geometry
-        # alone cannot tell a real 2-repair road stretch (image-2/3-style,
-        # gap can be well over CLOSE_PAIR_INDIVIDUAL_M) apart from a
-        # branch/off-road case at a larger gap. Verify via OSRM.
+        # alone cannot tell a real 2-repair road stretch apart from a
+        # branch/off-road case. Verify via OSRM.
         aligned = _verify_edge_with_osrm(chain[0], chain[1])
         if aligned is False:
             return [[chain[0]], [chain[1]]]  # not the same road run
@@ -233,8 +263,8 @@ def _resolve_chain_alignment(chain):
     sub_chains.append(current)
 
     # Recurse on each piece: a 2-point remainder gets the same
-    # CLOSE_PAIR_INDIVIDUAL_M / OSRM check as any other 2-point chain, and
-    # a 3+ point remainder that's STILL geometrically inefficient (Rule 3's
+    # blanket-floor / OSRM check as any other 2-point chain, and a 3+
+    # point remainder that's STILL geometrically inefficient (Rule 3's
     # clump case) gets caught by the same eff-check at the top of this
     # function on the next call - no separate ad hoc logic needed here.
     out = []
@@ -436,6 +466,15 @@ def build_clusters(rows):
                         )
                     cumulative += p["distance_to_previous_m"]
                     p["cluster_distance_m"] = round(cumulative, 1)
+
+                # Blanket floor (explicit request - see module docstring):
+                # a cluster whose total distance, first point to last, is
+                # under CLUSTER_MIN_TOTAL_DIST_M is never worth re-laying
+                # fiber for even when the checks above nominally passed it -
+                # demote every point in it to Individual.
+                if is_cluster and cumulative < CLUSTER_MIN_TOTAL_DIST_M:
+                    is_cluster = False
+
                 if is_cluster:
                     cluster_counter += 1
                     cluster_id = f"C{cluster_counter:03d}"
