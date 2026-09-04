@@ -1142,7 +1142,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
     </div>
 
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:16px;" id="ort-kpi-grid"></div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:10px;" id="ort-kpi-grid"></div>
+    <div id="ort-active-filter" style="margin-bottom:16px;"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+      <div id="ort-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
+      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+    </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
       <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📍 Region → Province → District <span style="font-weight:400; color:var(--text3); font-size:11px;">(เรียงตามเวลาคงเหลือน้อยสุดก่อน ในแต่ละ District)</span></div>
@@ -1739,6 +1746,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
 if (window.Chart && window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
 </script>
@@ -7691,6 +7701,10 @@ function renderPivot(ft) {
   let entriesWithParsedTarget = []; // {..entry, _targetDate: Date|null} - parsed once per fetch, reused by every tick
   let tickTimer = null;
   const TICK_INTERVAL_MS = 15000; // recompute + re-render every 15s - purely local, no network call
+  let filterState = { priority: '', timeFilter: '' }; // priority: '' | 'P0' | 'P1' | 'P2'; timeFilter: '' | 'over' | 'near'
+  let map = null;
+  let markerClusterGroup = null;
+  const markerByTicketId = {};
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -7758,21 +7772,63 @@ function renderPivot(ft) {
     return `<span style="color:${map[p] || 'var(--text3)'}; font-weight:800;">${escapeHtml(p)}</span>`;
   }
 
+  function matchesFilter(en) {
+    if (filterState.priority && en.priority !== filterState.priority) return false;
+    if (filterState.timeFilter === 'over' && !(en._remaining != null && en._remaining < 0)) return false;
+    if (filterState.timeFilter === 'near' && !(en._remaining != null && en._remaining >= 0 && en._remaining <= 2)) return false;
+    return true;
+  }
+  function getFilteredEntries() { return entriesWithParsedTarget.filter(matchesFilter); }
+
+  function setFilter(priority, timeFilter) {
+    const same = filterState.priority === priority && filterState.timeFilter === timeFilter;
+    filterState = same ? { priority: '', timeFilter: '' } : { priority, timeFilter };
+    renderKpiGrid(lastData.kpi);
+    renderActiveFilterIndicator();
+    renderTable();
+    renderMap();
+  }
+  window.__ortClearFilter = function () {
+    filterState = { priority: '', timeFilter: '' };
+    renderKpiGrid(lastData.kpi);
+    renderActiveFilterIndicator();
+    renderTable();
+    renderMap();
+  };
+
+  function renderActiveFilterIndicator() {
+    const parts = [];
+    if (filterState.priority) parts.push(filterState.priority);
+    if (filterState.timeFilter === 'over') parts.push('Over SLA');
+    if (filterState.timeFilter === 'near') parts.push('Near (≤2h)');
+    const container = el('ort-active-filter');
+    if (!parts.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `
+      <div style="display:inline-flex; align-items:center; gap:8px; background:#1f6feb18; border:1px solid #1f6feb55; border-radius:20px; padding:5px 12px;">
+        <span style="font-size:11.5px; color:#1f6feb; font-weight:700;">🔍 Filter: ${escapeHtml(parts.join(' + '))}</span>
+        <span onclick="window.__ortClearFilter()" style="font-size:11px; color:var(--text2); cursor:pointer; font-weight:700;" title="ล้าง Filter">✕ Clear</span>
+      </div>`;
+  }
+
   function renderKpiGrid(kpi) {
     const cards = [
-      { label: 'Total Online', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)' },
-      { label: '🔴 Over SLA', value: kpi.over, color: '#E24B4A', bg: '#E24B4A14' },
-      { label: '🟠 Near (≤2h)', value: kpi.near, color: '#EF9F27', bg: '#EF9F2714' },
-      { label: 'P0', value: kpi.p0, color: '#E24B4A', bg: '#E24B4A14' },
-      { label: 'P1', value: kpi.p1, color: '#EF9F27', bg: '#EF9F2714' },
-      { label: 'P2', value: kpi.p2, color: 'var(--text3)', bg: 'var(--bg2)' },
+      { label: 'Total Online', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)', priority: '', timeFilter: '' },
+      { label: '🔴 Over SLA', value: kpi.over, color: '#E24B4A', bg: '#E24B4A14', priority: '', timeFilter: 'over' },
+      { label: '🟠 Near (≤2h)', value: kpi.near, color: '#EF9F27', bg: '#EF9F2714', priority: '', timeFilter: 'near' },
+      { label: 'P0', value: kpi.p0, color: '#E24B4A', bg: '#E24B4A14', priority: 'P0', timeFilter: '' },
+      { label: 'P1', value: kpi.p1, color: '#EF9F27', bg: '#EF9F2714', priority: 'P1', timeFilter: '' },
+      { label: 'P2', value: kpi.p2, color: 'var(--text3)', bg: 'var(--bg2)', priority: 'P2', timeFilter: '' },
     ];
-    el('ort-kpi-grid').innerHTML = cards.map(c => `
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:${c.bg};">
+    el('ort-kpi-grid').innerHTML = cards.map(c => {
+      const isActive = filterState.priority === c.priority && filterState.timeFilter === c.timeFilter && (c.priority || c.timeFilter);
+      return `
+      <div onclick="window.__ortSetFilter('${c.priority}','${c.timeFilter}')" style="border:1px solid ${isActive ? '#1f6feb' : 'var(--border)'}; border-radius:var(--r); padding:12px 14px; background:${c.bg}; cursor:pointer; ${isActive ? 'box-shadow:0 0 0 1px #1f6feb;' : ''}" title="คลิกเพื่อกรอง">
         <div style="font-size:26px; font-weight:800; color:${c.color}; line-height:1.1;">${c.value}</div>
         <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
+  window.__ortSetFilter = function (priority, timeFilter) { setFilter(priority, timeFilter); };
 
   const DETAIL_COLS = [
     ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SUBJECT', 'SUBJECT'], ['DISTRICT', 'DISTRICT'],
@@ -7783,11 +7839,13 @@ function renderPivot(ft) {
 
   function renderTable() {
     const container = el('ort-table');
+    const filtered = getFilteredEntries();
     if (!entriesWithParsedTarget.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket Online SA1-4 เปิดอยู่ตอนนี้</div>`; return; }
+    if (!filtered.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket ตรงกับ Filter ที่เลือก</div>`; return; }
 
     const regionOrder = ['NOR1', 'NOR2'];
     const byRegion = {};
-    entriesWithParsedTarget.forEach(e => { (byRegion[e.Region] = byRegion[e.Region] || []).push(e); });
+    filtered.forEach(e => { (byRegion[e.Region] = byRegion[e.Region] || []).push(e); });
     const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
 
     const head = DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); white-space:nowrap;">${label}</th>`).join('');
@@ -7825,6 +7883,11 @@ function renderPivot(ft) {
           distEntries.forEach(en => {
             const heat = remainingTimeColor(en._remaining);
             const cells = DETAIL_COLS.map(([, key]) => {
+              if (key === 'TICKETID') {
+                const clickable = en.latitude != null && en.longitude != null;
+                const onclick = clickable ? ` onclick="window.__ortFocusTicket('${en.TICKETID}')" style="cursor:pointer; color:#1f6feb; text-decoration:underline;" title="คลิกเพื่อดูตำแหน่งบน Map"` : '';
+                return `<td${onclick} style="padding:5px 8px; white-space:nowrap; font-weight:700;">${escapeHtml(en.TICKETID)}</td>`;
+              }
               if (key === 'priority') return `<td style="padding:5px 8px; white-space:nowrap;">${priorityBadge(en.priority)}</td>`;
               if (key === '_remaining') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:800; background:${heat.bg}; color:${heat.color};">${formatRemainingTime(en._remaining)}</td>`;
               if (key === 'over_sla_day') return `<td style="padding:5px 8px; text-align:center;">${en.over_sla_day || '–'}</td>`;
@@ -7861,6 +7924,78 @@ function renderPivot(ft) {
     tickTimer = setInterval(tick, TICK_INTERVAL_MS);
   }
 
+  function priorityMapColor(p) {
+    // P0=red, P1=orange - same colors as priorityBadge/KPI cards elsewhere on this page, no green/gray anywhere
+    return p === 'P0' ? '#E24B4A' : '#EF9F27';
+  }
+
+  function initMap() {
+    if (map) return;
+    map = L.map('ort-map', { scrollWheelZoom: true }).setView([18.7, 99.0], 7); // rough Northern Thailand center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    markerClusterGroup = L.markerClusterGroup({
+      iconCreateFunction: function (cluster) {
+        // Custom cluster badge - default plugin cluster color is green, which is explicitly disallowed here
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="background:#1f6feb; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4);">${count}</div>`,
+          className: '', iconSize: [36, 36],
+        });
+      },
+    });
+    map.addLayer(markerClusterGroup);
+  }
+
+  function renderMap() {
+    if (!map) initMap();
+    markerClusterGroup.clearLayers();
+    Object.keys(markerByTicketId).forEach(k => delete markerByTicketId[k]);
+
+    const filtered = getFilteredEntries();
+    const p0p1 = filtered.filter(en => en.priority === 'P0' || en.priority === 'P1');
+    const plottable = p0p1.filter(en => en.latitude != null && en.longitude != null);
+    el('ort-map-note').textContent = p0p1.length
+      ? `แสดง ${plottable.length} / ${p0p1.length} Ticket P0-P1 บน Map${plottable.length < p0p1.length ? ' (ที่เหลือยังไม่มีพิกัด CI Mapping)' : ''}`
+      : 'ไม่มี Ticket P0/P1 ที่ตรงกับ Filter ปัจจุบัน';
+
+    plottable.forEach(en => {
+      const color = priorityMapColor(en.priority);
+      const icon = L.divIcon({
+        html: `<div style="background:${color}; color:#fff; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); white-space:nowrap;">${escapeHtml(en.TICKETID)}</div>`,
+        className: '', iconAnchor: [0, 0],
+      });
+      const marker = L.marker([en.latitude, en.longitude], { icon });
+      marker.bindPopup(`
+        <div style="font-size:12px; line-height:1.7; min-width:220px;">
+          <b>${escapeHtml(en.TICKETID)}</b> ${priorityBadge(en.priority)}<br>
+          ${escapeHtml(en.SUBJECT)}<br>
+          <b>Region/Province/District:</b> ${escapeHtml(en.Region)} / ${escapeHtml(PROVINCE_EN(en.PROVINCE))} / ${escapeHtml(en.DISTRICT)}<br>
+          <b>Remaining:</b> ${formatRemainingTime(en._remaining)} · <b>Over SLA:</b> ${en.over_sla_day || '–'}<br>
+          <b>Team:</b> ${escapeHtml(en.team)}<br>
+          <b>WO Status (Mateline):</b> ${escapeHtml(en.mateline_wo_status)}<br>
+          <b>Status Mateline:</b> ${escapeHtml(en.status_mateline)}<br>
+          <b>Group Problem:</b> ${escapeHtml(en.group_problem)}<br>
+          <b>Action Team:</b> ${escapeHtml(en.action_team)}<br>
+          <b>รายละเอียด:</b> ${escapeHtml(en.detail)}<br>
+          <b>Plan Closed Date:</b> ${escapeHtml(en.plan_closed_date)}
+        </div>`);
+      markerClusterGroup.addLayer(marker);
+      markerByTicketId[en.TICKETID] = marker;
+    });
+  }
+
+  window.__ortFocusTicket = function (ticketId) {
+    const marker = markerByTicketId[ticketId];
+    if (!marker || !map) return;
+    el('ort-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (markerClusterGroup.zoomToShowLayer) {
+      markerClusterGroup.zoomToShowLayer(marker, () => marker.openPopup());
+    } else {
+      map.setView(marker.getLatLng(), 14, { animate: true });
+      marker.openPopup();
+    }
+  };
+
   async function reload() {
     try {
       const res = await fetch('/api/online-realtime');
@@ -7868,8 +8003,10 @@ function renderPivot(ft) {
       const data = await res.json();
       lastData = data;
       renderKpiGrid(data.kpi);
+      renderActiveFilterIndicator();
       entriesWithParsedTarget = data.entries.map(e => ({ ...e, _targetDate: parseBangkokDt(e.TARGETFINISH), _remaining: e.remaining_hours }));
       el('ort-last-updated').textContent = data.insert_time || data.generated_at || '–';
+      renderMap();
       startTicking();
       loaded = true;
     } catch (e) {
