@@ -34,17 +34,15 @@ road, and never a chain that includes a point branching off the main road
 down a soi. Checked hybrid (heuristic first, OSRM only for the genuinely
 ambiguous remainder, per explicit request to balance speed/accuracy):
 
-  - 2-point chains: path efficiency (see below) is meaningless for
-    exactly 2 points, so geometry alone can't tell "two repairs on the
-    same road stretch" apart from "one point on the road, one branched
-    down a soi" (example image 2/3) or "a tight off-road clump" (example
-    image 1) - the latter two can occur at any gap up to the 500m chain
-    limit, not just short ones. So every 2-point chain (other than
-    near-duplicate points a few meters apart - TIGHT_CLUMP_TRIVIAL_M) is
-    verified against OSRM's real road-network distance; if the road route
-    is much longer than the straight-line gap (or no route exists), it's
-    not the same road run -> both points demoted to "Individual"
-    (Rules 1 & 2).
+  - 2-point chains: a gap <= CLOSE_PAIR_INDIVIDUAL_M (explicit request) is
+    ALWAYS "Individual" - deterministic, no OSRM call needed. Above that,
+    path efficiency (see below) is meaningless for exactly 2 points, so
+    geometry alone can't tell "two repairs on the same road stretch"
+    apart from "one point on the road, one branched down a soi" (example
+    image 2/3) - every remaining 2-point chain is verified against OSRM's
+    real road-network distance; if the road route is much longer than the
+    straight-line gap (or no route exists), it's not the same road run ->
+    both points demoted to "Individual".
 
   - 3+ point chains: a chain whose straight_line(first,last) / sum(gaps)
     is >= PATH_EFFICIENCY_CLEAR is heuristic-clear (a reasonably direct
@@ -89,7 +87,7 @@ TEMP_POINT_WORKSHEET_NAME = "Map"
 CHAIN_DISTANCE_THRESHOLD_M = 500  # existing: max gap (haversine) to keep sequential-chaining two points together
 
 # ── Road-alignment refinement (NEW - see module docstring for the full explanation) ──
-TIGHT_CLUMP_TRIVIAL_M = 15           # 2-point chain gaps this small are the same spot in practice - skip the OSRM call, obviously fine
+CLOSE_PAIR_INDIVIDUAL_M = 50         # NEW (explicit request): 2-point chain gaps <= this are ALWAYS Individual - deterministic, no OSRM call
 PATH_EFFICIENCY_CLEAR = 0.75         # 3+ point chains: straight(first,last)/sum(gaps) >= this is heuristic-clear (no OSRM needed)
 ROAD_DETOUR_RATIO_MAX = 1.6          # OSRM route_distance / straight_distance above this = not the same road run (soi branch / off-road)
 OSRM_BASE_URL = "http://router.project-osrm.org/route/v1/driving"
@@ -190,16 +188,16 @@ def _resolve_chain_alignment(chain):
 
     if n == 2:
         gap = chain[1]["distance_to_previous_m"]
-        if gap <= TIGHT_CLUMP_TRIVIAL_M:
-            return [chain]  # essentially the same spot (duplicate/near-duplicate) - trivially fine, no OSRM call
+        if gap <= CLOSE_PAIR_INDIVIDUAL_M:
+            return [[chain[0]], [chain[1]]]  # Rule (explicit request): 2 points <=50m apart are always Individual, no OSRM call
         # Path efficiency is meaningless for exactly 2 points (always 1.0
         # trivially - see _chain_path_efficiency docstring), so geometry
         # alone cannot tell a real 2-repair road stretch (image-2/3-style,
-        # gap can be well over TIGHT_CLUMP_THRESHOLD_M) apart from a tight
-        # off-road clump (image-1-style, gap usually small). Always verify.
+        # gap can be well over CLOSE_PAIR_INDIVIDUAL_M) apart from a
+        # branch/off-road case at a larger gap. Verify via OSRM.
         aligned = _verify_edge_with_osrm(chain[0], chain[1])
         if aligned is False:
-            return [[chain[0]], [chain[1]]]  # Rules 1 & 2: not the same road run
+            return [[chain[0]], [chain[1]]]  # not the same road run
         return [chain]  # aligned (or unverifiable -> fail open)
 
     # n >= 3
@@ -234,17 +232,14 @@ def _resolve_chain_alignment(chain):
             current.append(chain[i])
     sub_chains.append(current)
 
-    # A 2-3 point remainder born from the split that's STILL geometrically
-    # inefficient is Rule 3's clump case - demote fully to individuals
-    # rather than leaving a lone rump "cluster".
+    # Recurse on each piece: a 2-point remainder gets the same
+    # CLOSE_PAIR_INDIVIDUAL_M / OSRM check as any other 2-point chain, and
+    # a 3+ point remainder that's STILL geometrically inefficient (Rule 3's
+    # clump case) gets caught by the same eff-check at the top of this
+    # function on the next call - no separate ad hoc logic needed here.
     out = []
     for sc in sub_chains:
-        if 2 <= len(sc) <= 3:
-            sub_eff = _chain_path_efficiency(sc)
-            if sub_eff is not None and sub_eff < PATH_EFFICIENCY_CLEAR:
-                out.extend([[p] for p in sc])
-                continue
-        out.append(sc)
+        out.extend(_resolve_chain_alignment(sc))
     return out
 
 
