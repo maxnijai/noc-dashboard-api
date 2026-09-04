@@ -23,6 +23,7 @@ from mateline_status import build_mateline_status_lookup
 from team_planner import build_team_assignment_lookup
 from realtime_monitor import _classify_priority, _parse_dt
 from pending_trend import bangkok_now
+import sla_improvement  # reused only for its CI_Name -> Node ID -> Lat/Lon mapping (get_mapping_lookup/match_ci_to_node) - no other coupling to that module
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ def build_online_realtime_response(gs_client=None):
     except Exception:
         log.exception("GGS Daily team lookup failed for Online Real Time - falling back to empty for this response")
         team_lookup = {}
+    # Optional - only present if someone has imported the CI/Node mapping
+    # file on the SLA Improvement tab; if not, every entry below just gets
+    # no lat/lon (map simply shows nothing plottable) rather than erroring.
+    mapping_lookup = sla_improvement.get_mapping_lookup()
 
     entries = []
     for r in scoped:
@@ -78,6 +83,8 @@ def build_online_realtime_response(gs_client=None):
             over_sla_day = float(over_sla_day)
         except (TypeError, ValueError):
             over_sla_day = 0
+        ci_name = str(r.get("CINAME", "")).strip()
+        node = sla_improvement.match_ci_to_node(ci_name, mapping_lookup) if ci_name else None
 
         entries.append({
             "TICKETID": ticket_id,
@@ -91,6 +98,10 @@ def build_online_realtime_response(gs_client=None):
             "TARGETFINISH": r.get("TARGETFINISH", ""),  # raw string - frontend parses + ticks this itself
             "remaining_hours": _remaining_hours(r.get("TARGETFINISH"), now_dt),  # snapshot at fetch time, for the initial sort/render only
             "team": team_info["team"] if team_info else "N/A",
+            "CINAME": ci_name,
+            "node_id": node["node_id"] if node else None,
+            "latitude": node["latitude"] if node else None,
+            "longitude": node["longitude"] if node else None,
             "status_mateline": mateline["status_mateline"],
             "mateline_wo_status": mateline["mateline_wo_status"],
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
