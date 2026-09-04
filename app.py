@@ -30,6 +30,7 @@ import summary_nan
 import auth
 import sla_improvement
 import online_realtime
+import temp_point_improvement
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2471,6 +2472,69 @@ def api_online_realtime():
         return jsonify(data)
     except Exception as e:
         log.exception("online-realtime API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/temp-point-improvement')
+def api_temp_point_improvement():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = temp_point_improvement.build_temp_point_response(gs_client)
+        return jsonify(data)
+    except temp_point_improvement.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("temp-point-improvement API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/temp-point-improvement/export')
+def api_temp_point_improvement_export():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        rows, warnings = temp_point_improvement.fetch_temp_point_rows(gs_client)
+        clustered, invalid = temp_point_improvement.build_clusters(rows)
+        # Respects whatever Cluster/Individual/Province/Severity filter the
+        # frontend currently has active, passed through as query params.
+        cluster_filter = request.args.get('cluster')  # 'cluster' | 'individual' | None (all)
+        province_filter = request.args.get('province') or None
+        severity_filter = request.args.get('severity') or None
+        sub_root_cause_filter = request.args.get('sub_root_cause') or None
+        month_filter = request.args.get('month') or None
+        cluster_id_filter = request.args.get('cluster_id') or None
+        fmt = request.args.get('format', 'xlsx')
+
+        def keep(p):
+            if cluster_filter == 'cluster' and not p['is_cluster']:
+                return False
+            if cluster_filter == 'individual' and p['is_cluster']:
+                return False
+            if province_filter and p['province'] != province_filter:
+                return False
+            if severity_filter and p['severity'] != severity_filter:
+                return False
+            if sub_root_cause_filter and p['sub_root_cause'] != sub_root_cause_filter:
+                return False
+            if month_filter and p['month'] != month_filter:
+                return False
+            if cluster_id_filter and p['cluster_id'] != cluster_id_filter:
+                return False
+            return True
+
+        filtered = [p for p in clustered if keep(p)]
+        export_rows = temp_point_improvement.build_export_rows(filtered)
+        headers = temp_point_improvement.DETAIL_TABLE_COLUMNS
+        ts = datetime.now().strftime('%Y-%m-%d_%H%M')
+        if fmt == 'csv':
+            file_bytes = sla_improvement._dict_rows_to_csv_bytes(export_rows, headers)
+            return Response(file_bytes, mimetype='text/csv',
+                             headers={'Content-Disposition': f'attachment; filename="temp-point-improvement-{ts}.csv"'})
+        else:
+            file_bytes = sla_improvement._dict_rows_to_xlsx_bytes(export_rows, headers, "Temp Point")
+            return Response(file_bytes, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             headers={'Content-Disposition': f'attachment; filename="temp-point-improvement-{ts}.xlsx"'})
+    except temp_point_improvement.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("temp-point-improvement export failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
