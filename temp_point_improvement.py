@@ -24,6 +24,52 @@ are ordered via a per-province greedy nearest-neighbor walk (the sheet has
 no explicit route-sequence column), then walked in that order: each
 consecutive gap <= 500m keeps the chain going; a gap > 500m starts a new
 chain. A chain of length 1 is "Individual", not a cluster.
+
+Road-alignment refinement (on top of the 500m distance-chaining above -
+confirmed via 3 example screenshots of misclassified points): passing the
+500m gap test is necessary but NOT sufficient to be a cluster. A chain (or
+part of one) is only kept as a cluster if it actually follows a single
+road run - never a tight clump of points sitting off to the side of a
+road, and never a chain that includes a point branching off the main road
+down a soi. Checked hybrid (heuristic first, OSRM only for the genuinely
+ambiguous remainder, per explicit request to balance speed/accuracy):
+
+  - 2-point chains: path efficiency (see below) is meaningless for
+    exactly 2 points, so geometry alone can't tell "two repairs on the
+    same road stretch" apart from "one point on the road, one branched
+    down a soi" (example image 2/3) or "a tight off-road clump" (example
+    image 1) - the latter two can occur at any gap up to the 500m chain
+    limit, not just short ones. So every 2-point chain (other than
+    near-duplicate points a few meters apart - TIGHT_CLUMP_TRIVIAL_M) is
+    verified against OSRM's real road-network distance; if the road route
+    is much longer than the straight-line gap (or no route exists), it's
+    not the same road run -> both points demoted to "Individual"
+    (Rules 1 & 2).
+
+  - 3+ point chains: a chain whose straight_line(first,last) / sum(gaps)
+    is >= PATH_EFFICIENCY_CLEAR is heuristic-clear (a reasonably direct
+    walk end-to-end - kept as one cluster, no OSRM call). Below that
+    threshold is ambiguous - could be a genuinely curvy road (still one
+    cluster) or a point doubling back into a soi (Rule 2) or a tight
+    clump with no road at all (Rule 3). Each edge in an ambiguous chain is
+    checked against OSRM individually: edges confirmed off-road split the
+    chain there (isolating the soi branch instead of discarding the whole
+    otherwise-valid road run); any resulting 2-3 point remainder that's
+    still geometrically inefficient is demoted fully to individuals
+    (Rule 3 - not worth re-laying fiber for).
+
+  - OSRM unreachable (network failure) always fails OPEN - the original
+    500m-based chain is kept as-is rather than silently dropping data or
+    guessing.
+
+Total Dist. (Rule 4) is unaffected by this refinement in how it's computed
+- it was always "sum of each cluster's own final cumulative distance,
+first point to last point, never crossing between two different
+clusters" (see build_province_summary) - the refinement above just makes
+sure that number is only ever attributed to genuine road-following
+clusters, since clumps/branches are demoted to Individual before this
+runs. build_cluster_totals() below adds the per-cluster number to display
+directly on the map, per explicit request.
 """
 
 import logging
@@ -32,13 +78,22 @@ import re
 import threading
 from datetime import datetime
 
+import requests
+
 log = logging.getLogger(__name__)
 
 TEMP_POINT_SHEET_ID = "15n-UyUIiR0rYgyMSanZcM4u6vkmYsTjdTFG24Rer0UQ"
 TEMP_POINT_WORKSHEET_GID = 711428479
 TEMP_POINT_WORKSHEET_NAME = "Map"
 
-CHAIN_DISTANCE_THRESHOLD_M = 500
+CHAIN_DISTANCE_THRESHOLD_M = 500  # existing: max gap (haversine) to keep sequential-chaining two points together
+
+# ── Road-alignment refinement (NEW - see module docstring for the full explanation) ──
+TIGHT_CLUMP_TRIVIAL_M = 15           # 2-point chain gaps this small are the same spot in practice - skip the OSRM call, obviously fine
+PATH_EFFICIENCY_CLEAR = 0.75         # 3+ point chains: straight(first,last)/sum(gaps) >= this is heuristic-clear (no OSRM needed)
+ROAD_DETOUR_RATIO_MAX = 1.6          # OSRM route_distance / straight_distance above this = not the same road run (soi branch / off-road)
+OSRM_BASE_URL = "http://router.project-osrm.org/route/v1/driving"
+OSRM_TIMEOUT_S = 3
 
 REQUIRED_COLUMNS = [
     "Source TT", "INC", "Site/Cable", "CI Name", "Severity", "FME", "Subject",
@@ -67,6 +122,130 @@ def _haversine_m(lat1, lon1, lat2, lon2):
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.asin(min(1, math.sqrt(a)))
+
+
+def _osrm_route_distance_m(lat1, lon1, lat2, lon2):
+    """Real road-network distance between two points via the public OSRM
+    demo server. Returns None on ANY failure (timeout, no route found,
+    bad response) - callers must treat None as "could not verify" and
+    fail open, never crash and never silently drop a point."""
+    url = f"{OSRM_BASE_URL}/{lon1},{lat1};{lon2},{lat2}"
+    try:
+        r = requests.get(url, params={"overview": "false"}, timeout=OSRM_TIMEOUT_S)
+        r.raise_for_status()
+        data = r.json()
+        if data.get("code") != "Ok" or not data.get("routes"):
+            return None
+        return data["routes"][0]["distance"]
+    except Exception as e:
+        log.warning("OSRM route lookup failed (%s,%s)->(%s,%s): %s", lat1, lon1, lat2, lon2, e)
+        return None
+
+
+def _verify_edge_with_osrm(p1, p2):
+    """True = this edge looks like one continuous road run (route
+    distance not much longer than the straight-line gap). False = looks
+    like a branch/detour (e.g. one point on the main road, the other down
+    a soi) or no road connects them at all. None = OSRM could not be
+    reached - inconclusive, caller must fail open."""
+    straight = _haversine_m(p1["latitude"], p1["longitude"], p2["latitude"], p2["longitude"])
+    if straight == 0:
+        return True
+    route = _osrm_route_distance_m(p1["latitude"], p1["longitude"], p2["latitude"], p2["longitude"])
+    if route is None:
+        return None
+    return (route / straight) <= ROAD_DETOUR_RATIO_MAX
+
+
+def _chain_path_efficiency(chain):
+    """straight_dist(first,last) / sum(consecutive gaps). 1.0 = walks
+    straight from first to last with no backtrack (what you'd expect
+    following a road). Well below 1.0 = zig-zags back and forth in a
+    small area (a clump, not a road run). NOT meaningful for chains of
+    exactly 2 points - always trivially 1.0 since there's only one gap,
+    which is why 2-point chains are judged by an OSRM road-alignment
+    check instead, not this (see _resolve_chain_alignment)."""
+    if len(chain) < 2:
+        return None
+    total_gap = sum(p["distance_to_previous_m"] for p in chain[1:])
+    if total_gap == 0:
+        return 1.0
+    straight = _haversine_m(chain[0]["latitude"], chain[0]["longitude"], chain[-1]["latitude"], chain[-1]["longitude"])
+    return straight / total_gap
+
+
+def _resolve_chain_alignment(chain):
+    """Given a chain that already passed the <=500m distance-chaining
+    rule, decide which points actually form a valid road-following
+    cluster vs which should be demoted to individual points (Rules 1-3 -
+    see module docstring). Hybrid: cheap geometry first, OSRM only for
+    the genuinely ambiguous remainder.
+
+    Returns a list of sub-chains: a chain confirmed aligned comes back
+    unsplit; a chain that fails alignment comes back as one or more
+    smaller pieces (singleton lists for anything demoted to individual)."""
+    n = len(chain)
+    if n == 1:
+        return [chain]
+
+    if n == 2:
+        gap = chain[1]["distance_to_previous_m"]
+        if gap <= TIGHT_CLUMP_TRIVIAL_M:
+            return [chain]  # essentially the same spot (duplicate/near-duplicate) - trivially fine, no OSRM call
+        # Path efficiency is meaningless for exactly 2 points (always 1.0
+        # trivially - see _chain_path_efficiency docstring), so geometry
+        # alone cannot tell a real 2-repair road stretch (image-2/3-style,
+        # gap can be well over TIGHT_CLUMP_THRESHOLD_M) apart from a tight
+        # off-road clump (image-1-style, gap usually small). Always verify.
+        aligned = _verify_edge_with_osrm(chain[0], chain[1])
+        if aligned is False:
+            return [[chain[0]], [chain[1]]]  # Rules 1 & 2: not the same road run
+        return [chain]  # aligned (or unverifiable -> fail open)
+
+    # n >= 3
+    eff = _chain_path_efficiency(chain)
+    if eff is not None and eff >= PATH_EFFICIENCY_CLEAR:
+        return [chain]  # reasonably direct walk end-to-end - heuristic-clear, no OSRM call
+
+    # Ambiguous: check each edge individually so a single bad edge (Rule 2's
+    # soi branch) isolates itself instead of discarding an otherwise-valid
+    # road run.
+    breaks = set()
+    any_verified = False
+    for i in range(1, n):
+        aligned = _verify_edge_with_osrm(chain[i - 1], chain[i])
+        if aligned is not None:
+            any_verified = True
+        if aligned is False:
+            breaks.add(i)
+
+    if not any_verified:
+        return [chain]  # OSRM unreachable for every edge - fail open, keep original chain
+    if not breaks:
+        return [chain]  # every checkable edge came back aligned - just a curvy road, not a clump
+
+    sub_chains = []
+    current = [chain[0]]
+    for i in range(1, n):
+        if i in breaks:
+            sub_chains.append(current)
+            current = [chain[i]]
+        else:
+            current.append(chain[i])
+    sub_chains.append(current)
+
+    # A 2-3 point remainder born from the split that's STILL geometrically
+    # inefficient is Rule 3's clump case - demote fully to individuals
+    # rather than leaving a lone rump "cluster".
+    out = []
+    for sc in sub_chains:
+        if 2 <= len(sc) <= 3:
+            sub_eff = _chain_path_efficiency(sc)
+            if sub_eff is not None and sub_eff < PATH_EFFICIENCY_CLEAR:
+                out.extend([[p] for p in sc])
+                continue
+        out.append(sc)
+    return out
 
 
 def _parse_complete_lat_lon(raw):
@@ -243,20 +422,34 @@ def build_clusters(rows):
             chains.append(current_chain)
 
         for chain in chains:
-            is_cluster = len(chain) > 1
-            cumulative = 0.0
-            for i, p in enumerate(chain):
-                cumulative += p["distance_to_previous_m"]
-                p["cluster_distance_m"] = round(cumulative, 1)
-            if is_cluster:
-                cluster_counter += 1
-                cluster_id = f"C{cluster_counter:03d}"
-            else:
-                cluster_id = "Individual"
-            for p in chain:
-                p["cluster_id"] = cluster_id
-                p["is_cluster"] = is_cluster
-                out.append(p)
+            # Road-alignment refinement (Rules 1-3): passing the 500m gap
+            # test alone is not enough - a chain may get split further, or
+            # demoted entirely to individuals, if it doesn't actually
+            # follow one road run. See module docstring / _resolve_chain_alignment.
+            for sub_chain in _resolve_chain_alignment(chain):
+                is_cluster = len(sub_chain) > 1
+                # Recompute distances fresh within this sub-chain - a split
+                # means its first point no longer has a meaningful "previous
+                # point", so it can't just inherit the original chain's values.
+                cumulative = 0.0
+                for i, p in enumerate(sub_chain):
+                    if i == 0:
+                        p["distance_to_previous_m"] = 0.0
+                    else:
+                        p["distance_to_previous_m"] = round(
+                            _haversine_m(sub_chain[i - 1]["latitude"], sub_chain[i - 1]["longitude"], p["latitude"], p["longitude"]), 1
+                        )
+                    cumulative += p["distance_to_previous_m"]
+                    p["cluster_distance_m"] = round(cumulative, 1)
+                if is_cluster:
+                    cluster_counter += 1
+                    cluster_id = f"C{cluster_counter:03d}"
+                else:
+                    cluster_id = "Individual"
+                for p in sub_chain:
+                    p["cluster_id"] = cluster_id
+                    p["is_cluster"] = is_cluster
+                    out.append(p)
 
     return out, invalid_out
 
@@ -340,6 +533,34 @@ def build_improvement_priority(province_summary):
     return out
 
 
+def build_cluster_totals(clustered):
+    """One row per confirmed cluster (never Individual/Invalid) - id,
+    province, point count, and Total Dist. (first point to last point
+    along that cluster's own chain, same figure build_province_summary
+    sums by province) - for the frontend to label directly on the map
+    per-cluster, per explicit request (Rule 4)."""
+    by_cluster = {}
+    for p in clustered:
+        if not p["is_cluster"]:
+            continue
+        by_cluster.setdefault(p["cluster_id"], []).append(p)
+
+    out = []
+    for cid, pts in by_cluster.items():
+        total_m = max(p["cluster_distance_m"] for p in pts)
+        out.append({
+            "cluster_id": cid,
+            "province": pts[0]["province"],
+            "region": pts[0]["region"],
+            "point_count": len(pts),
+            "total_distance_m": round(total_m, 1),
+            "centroid_lat": sum(p["latitude"] for p in pts) / len(pts),
+            "centroid_lon": sum(p["longitude"] for p in pts) / len(pts),
+        })
+    out.sort(key=lambda r: -r["total_distance_m"])
+    return out
+
+
 DETAIL_TABLE_COLUMNS = [
     "Cluster ID", "Source TT", "INC", "Site/Cable", "CI Name", "Severity", "FME", "Subject",
     "Activity Owner Group", "Sub Root Cause", "Type work", "Complete Lat Lon",
@@ -369,6 +590,7 @@ def build_temp_point_response(gs_client=None):
     summary = build_summary(clustered, invalid)
     province_summary = build_province_summary(clustered)
     province_priority = build_improvement_priority(province_summary)
+    cluster_totals = build_cluster_totals(clustered)
 
     points_out = [{
         "cluster_id": p["cluster_id"], "is_cluster": p["is_cluster"],
@@ -391,6 +613,7 @@ def build_temp_point_response(gs_client=None):
         "warnings": warnings,
         "summary": summary,
         "province_summary": province_priority,
+        "cluster_totals": cluster_totals,
         "points": points_out,
         "invalid_points": invalid_out,
         "detail_table_columns": DETAIL_TABLE_COLUMNS,
