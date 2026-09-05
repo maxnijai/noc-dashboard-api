@@ -967,6 +967,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
+    <div id="p0-trend-health" style="margin-bottom:18px;"></div>
     <div id="p0-body"></div>
   </div>
 
@@ -1151,16 +1152,29 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           &nbsp;·&nbsp; ข้อมูลอัปเดตล่าสุด: <b id="ort-last-updated" style="color:var(--text2);"></b>
         </div>
       </div>
-      <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+      <div style="display:flex; gap:8px;">
+        <button id="ort-report-btn" class="btn-secondary" style="font-weight:700;">📤 ส่งรายงาน</button>
+        <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+      </div>
     </div>
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:10px;" id="ort-kpi-grid"></div>
     <div id="ort-active-filter" style="margin-bottom:16px;"></div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
-      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:700;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <button class="ort-map-color-btn" data-mode="priority" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">🎯 Priority</button>
+            <button class="ort-map-color-btn" data-mode="mateline" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">🔧 Status Mateline</button>
+          </div>
+          <button id="ort-map-expand-btn" class="btn-secondary" style="font-size:11px;" title="ขยาย/ย่อความสูง Map">⤢ ขยาย</button>
+        </div>
+      </div>
       <div id="ort-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
-      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      <div id="ort-map-legend" style="font-size:10.5px; margin-bottom:8px;"></div>
+      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border); transition:height .2s ease;"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
@@ -1243,6 +1257,23 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
           <span id="p0-line-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
           <button id="p0-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONLINE SA1-4 REAL TIME LINE REPORT MODAL -->
+  <div id="ort-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('ort-report-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">📤 สรุป Online SA1-4 สำหรับส่ง LINE</span>
+        <button onclick="document.getElementById('ort-report-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="ort-report-text" readonly style="width:100%; height:420px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="ort-report-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="ort-report-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
         </div>
       </div>
     </div>
@@ -2055,7 +2086,92 @@ async function loadP0DailyTrendSparklines(accents, groups) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
+  if (document.getElementById('p0-trend-health')) loadProvinceTrendHealth();
 });
+
+let cachedTrendHealthData = null;
+let trendHealthExpanded = false;
+let trendHealthShowAll = false;
+
+async function loadProvinceTrendHealth() {
+  const container = document.getElementById('p0-trend-health');
+  try {
+    const res = await fetch('/api/province-trend-health');
+    if (!res.ok) { container.innerHTML = ''; return; } // quiet fail - a secondary widget, never blocks the main page
+    cachedTrendHealthData = await res.json();
+    renderProvinceTrendHealth();
+  } catch (e) {
+    console.error('Province Trend Health load failed', e);
+    container.innerHTML = '';
+  }
+}
+
+function renderProvinceTrendHealth() {
+  const data = cachedTrendHealthData;
+  const container = document.getElementById('p0-trend-health');
+  if (!data) return;
+  const s = data.summary;
+  const esc = (x) => String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const header = `
+    <div onclick="window.__toggleTrendHealth()" style="border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; background:var(--bg2); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+      <div style="display:flex; align-items:center; gap:12px; font-size:13px;">
+        <span style="font-weight:700;">🌡️ Province Trend Health (7 วัน)</span>
+        <span style="color:#E24B4A;">● ${s.worsening} แย่ลง</span>
+        <span style="color:#F5C518;">● ${s.flat} ทรงตัว</span>
+        <span style="color:#1f6feb;">● ${s.improving} ดีขึ้น</span>
+      </div>
+      <span style="font-size:12px; color:var(--text3);">${trendHealthExpanded ? 'ซ่อน ▲' : 'ดูรายละเอียด ▼'}</span>
+    </div>`;
+
+  if (!trendHealthExpanded) { container.innerHTML = header; return; }
+
+  const list = trendHealthShowAll ? data.results : data.results.filter(r => r.direction === 'worsening');
+  const dirColor = { worsening: '#E24B4A', improving: '#1f6feb', flat: '#F5C518' };
+  const dirArrow = { worsening: '↑', improving: '↓', flat: '→' };
+  const rows = list.length ? list.map(r => {
+    const color = dirColor[r.direction];
+    return `
+      <div onclick="window.__showTrendHealthDetail('${esc(r.province).replace(/'/g,"\\'")}','${r.bookmark_key}')" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-left:3px solid ${color}; background:${color}14; border-radius:0 6px 6px 0; margin-bottom:6px; cursor:pointer;">
+        <div style="flex:1;">
+          <div style="font-size:13px; color:var(--text); font-weight:600;">${esc(provinceEnLabel ? provinceEnLabel(r.province) : r.province)} <span style="color:var(--text3); font-weight:400;">— ${esc(r.bookmark_label)}</span></div>
+          <div style="font-size:11.5px; color:${color};">${r.avg_first_half_pct}% → ${r.avg_last_half_pct}% Over SLA ใน 7 วัน (${r.recent_total} ticket)</div>
+        </div>
+        <span style="font-size:16px; color:${color};">${dirArrow[r.direction]}</span>
+      </div>`;
+  }).join('') : `<div style="font-size:12.5px; color:var(--text3); text-align:center; padding:12px;">${trendHealthShowAll ? 'ไม่มีข้อมูล' : '✅ ไม่มีจังหวัดที่แย่ลงในช่วงนี้'}</div>`;
+
+  const footerLink = trendHealthShowAll
+    ? `<div onclick="window.__toggleTrendHealthShowAll()" style="margin-top:8px; font-size:11.5px; color:var(--text3); text-align:center; cursor:pointer;">← ดูเฉพาะที่แย่ลง</div>`
+    : `<div onclick="window.__toggleTrendHealthShowAll()" style="margin-top:8px; font-size:11.5px; color:var(--text3); text-align:center; cursor:pointer;">ดูทั้งหมด (${data.results.length} รายการ) →</div>`;
+
+  container.innerHTML = `
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; background:var(--bg2);">
+      <div onclick="window.__toggleTrendHealth()" style="display:flex; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:10px; cursor:pointer;">
+        <span style="font-weight:700;">🌡️ Province Trend Health (7 วัน)</span>
+        <span style="font-size:12px; color:var(--text3);">ซ่อน ▲</span>
+      </div>
+      ${rows}
+      ${footerLink}
+    </div>`;
+}
+
+window.__toggleTrendHealth = function () {
+  trendHealthExpanded = !trendHealthExpanded;
+  renderProvinceTrendHealth();
+};
+window.__toggleTrendHealthShowAll = function (e) {
+  if (e) e.stopPropagation();
+  trendHealthShowAll = !trendHealthShowAll;
+  renderProvinceTrendHealth();
+};
+window.__showTrendHealthDetail = function (province, bookmarkKey) {
+  if (!cachedTrendHealthData) return;
+  const r = cachedTrendHealthData.results.find(x => x.province === province && x.bookmark_key === bookmarkKey);
+  if (!r) return;
+  const lines = r.series.map(s => `${s.date}: ${s.pct_over != null ? s.pct_over + '%' : '–'} (${s.over}/${s.total})`).join('\n');
+  alert(`${province} — ${r.bookmark_label}\n\n${lines}`);
+};
 
 // ── Inline editing on Exclusive Pending / P0 Only detail tables ────────────
 // Only rendered at all for the small allow-list (CAN_EDIT_FROM_EXCLUSIVE_VIEWS,
@@ -5222,6 +5338,10 @@ function renderPivot(ft) {
     const datasets = agingOrder.map(k => ({
       label: k, backgroundColor: agingColors[k], stack: 'aging',
       data: breakdown.map(b => b.aging_counts[k] || 0),
+      datalabels: {
+        display: (dctx) => dctx.dataset.data[dctx.dataIndex] > 0 ? 'auto' : false,
+        color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center',
+      },
     }));
     charts[canvasId] = new Chart(ctx, {
       type: 'bar',
@@ -5229,7 +5349,10 @@ function renderPivot(ft) {
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: { x: { stacked: true, ticks: { autoSkip: false, maxRotation: 60, minRotation: 0, font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } },
-        plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
+        plugins: {
+          legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } },
+          datalabels: { display: 'auto' },
+        },
       },
     });
   }
@@ -7924,6 +8047,12 @@ function renderPivot(ft) {
   function renderTable() {
     const container = el('ort-table');
     const filtered = getFilteredEntries();
+    // Re-rendering (every 15s tick) destroys and recreates this container's
+    // whole DOM, which would otherwise silently reset any scroll position
+    // back to the top mid-read - save it here and restore after, so the
+    // live countdown never interrupts someone scrolling the table.
+    const prevScrollEl = document.getElementById('ort-table-scroll');
+    const prevScrollTop = prevScrollEl ? prevScrollEl.scrollTop : 0;
     if (!entriesWithParsedTarget.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket Online SA1-4 เปิดอยู่ตอนนี้</div>`; return; }
     if (!filtered.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket ตรงกับ Filter ที่เลือก</div>`; return; }
 
@@ -7985,12 +8114,14 @@ function renderPivot(ft) {
     });
 
     container.innerHTML = `
-      <div style="overflow-x:auto; max-height:640px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
+      <div id="ort-table-scroll" style="overflow-x:auto; max-height:640px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
         <table style="border-collapse:collapse; font-size:11.5px; width:100%; white-space:nowrap;">
           <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">${head}</tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>`;
+    const newScrollEl = document.getElementById('ort-table-scroll');
+    if (newScrollEl && prevScrollTop) newScrollEl.scrollTop = prevScrollTop;
   }
 
   function tick() {
@@ -8012,25 +8143,83 @@ function renderPivot(ft) {
     tickTimer = setInterval(tick, TICK_INTERVAL_MS);
   }
 
+  let mapColorMode = 'priority'; // 'priority' | 'mateline'
+  let mapExpanded = false;
+
   function priorityMapColor(p) {
     // P0=red, P1=orange - same colors as priorityBadge/KPI cards elsewhere on this page, no green/gray anywhere
     return p === 'P0' ? '#E24B4A' : '#EF9F27';
   }
 
+  // Status Mateline color mapping - one distinct color per stage of the
+  // Departed -> Arrived -> Completed -> Closed workflow, plus the two
+  // special states (Wait Action, Back Date) and "not found in MatelineX".
+  // No green or gray, matching this map's existing color rule.
+  const MATELINE_COLOR_MAP = {
+    'Wait Action': '#E24B4A',
+    '⚠️ Back Date': '#a371f7',
+    'Departed': '#EF9F27',
+    'Arrived': '#F5C518',
+    'Completed': '#1f6feb',
+    'Closed': '#0b3d91',
+  };
+  const MATELINE_NOT_FOUND_COLOR = '#334155';
+  function matelineMapColor(status) {
+    return MATELINE_COLOR_MAP[status] || MATELINE_NOT_FOUND_COLOR;
+  }
+  function markerColorFor(en) {
+    return mapColorMode === 'mateline' ? matelineMapColor(en.status_mateline) : priorityMapColor(en.priority);
+  }
+
+  function renderMapLegend() {
+    const items = mapColorMode === 'mateline'
+      ? [...Object.entries(MATELINE_COLOR_MAP), ['(ไม่พบใน MatelineX)', MATELINE_NOT_FOUND_COLOR]]
+      : [['P0', '#E24B4A'], ['P1', '#EF9F27']];
+    el('ort-map-legend').innerHTML = items.map(([label, color]) =>
+      `<span style="display:inline-flex; align-items:center; gap:4px; margin-right:12px;"><span style="width:9px; height:9px; border-radius:50%; background:${color}; display:inline-block;"></span>${escapeHtml(label)}</span>`
+    ).join('');
+  }
+
+  document.querySelectorAll('.ort-map-color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ort-map-color-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      mapColorMode = btn.dataset.mode;
+      renderMap();
+    });
+  });
+
+  el('ort-map-expand-btn').addEventListener('click', () => {
+    mapExpanded = !mapExpanded;
+    el('ort-map').style.height = mapExpanded ? '760px' : '420px';
+    el('ort-map-expand-btn').textContent = mapExpanded ? '⤡ ย่อ' : '⤢ ขยาย';
+    // Leaflet caches its container size - after any CSS-driven resize it
+    // must be told to re-measure, or tiles stay clipped to the old height.
+    setTimeout(() => { if (map) map.invalidateSize(); }, 210);
+  });
+
   function initMap() {
     if (map) return;
     map = L.map('ort-map', { scrollWheelZoom: true }).setView([18.7, 99.0], 7); // rough Northern Thailand center
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-    markerClusterGroup = L.markerClusterGroup({
-      iconCreateFunction: function (cluster) {
-        // Custom cluster badge - default plugin cluster color is green, which is explicitly disallowed here
-        const count = cluster.getChildCount();
-        return L.divIcon({
-          html: `<div style="background:#1f6feb; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4);">${count}</div>`,
-          className: '', iconSize: [36, 36],
-        });
-      },
-    });
+    // Falls back to a plain (non-clustering) layer group if the
+    // leaflet.markercluster CDN plugin ever fails to load - markers still
+    // need to show up reliably even without the cluster-bubble grouping.
+    try {
+      markerClusterGroup = L.markerClusterGroup({
+        iconCreateFunction: function (cluster) {
+          // Custom cluster badge - default plugin cluster color is green, which is explicitly disallowed here
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: `<div style="background:#1f6feb; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4);">${count}</div>`,
+            className: '', iconSize: [36, 36],
+          });
+        },
+      });
+    } catch (e) {
+      console.error('leaflet.markercluster unavailable, falling back to plain markers', e);
+      markerClusterGroup = L.layerGroup();
+    }
     map.addLayer(markerClusterGroup);
   }
 
@@ -8038,6 +8227,7 @@ function renderPivot(ft) {
     if (!map) initMap();
     markerClusterGroup.clearLayers();
     Object.keys(markerByTicketId).forEach(k => delete markerByTicketId[k]);
+    renderMapLegend();
 
     const filtered = getFilteredEntries();
     const p0p1 = filtered.filter(en => en.priority === 'P0' || en.priority === 'P1');
@@ -8047,7 +8237,7 @@ function renderPivot(ft) {
       : 'ไม่มี Ticket P0/P1 ที่ตรงกับ Filter ปัจจุบัน';
 
     plottable.forEach(en => {
-      const color = priorityMapColor(en.priority);
+      const color = markerColorFor(en);
       const icon = L.divIcon({
         html: `<div style="background:${color}; color:#fff; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); white-space:nowrap;">${escapeHtml(en.TICKETID)}</div>`,
         className: '', iconAnchor: [0, 0],
@@ -8094,7 +8284,15 @@ function renderPivot(ft) {
       renderActiveFilterIndicator();
       entriesWithParsedTarget = data.entries.map(e => ({ ...e, _targetDate: parseBangkokDt(e.TARGETFINISH), _remaining: e.remaining_hours }));
       el('ort-last-updated').textContent = data.insert_time || data.generated_at || '–';
-      renderMap();
+      try {
+        renderMap();
+      } catch (mapErr) {
+        // The map is a secondary view - a failure in it (e.g. a CDN plugin
+        // not loading) must never take down the table/ticking below, which
+        // is the primary, always-should-work view.
+        console.error('Map render failed, continuing without it', mapErr);
+        el('ort-map-note').textContent = 'Map โหลดไม่สำเร็จ (ตารางด้านล่างยังใช้งานได้ปกติ)';
+      }
       startTicking();
       loaded = true;
     } catch (e) {
@@ -8102,6 +8300,65 @@ function renderPivot(ft) {
       el('ort-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
     }
   }
+
+  function buildOrtLineSummaryText() {
+    if (!lastData) return '';
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeLabel = now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+    const kpi = lastData.kpi;
+
+    const lines = [];
+    lines.push('📡 Online SA1-4 Real Time — สรุปสถานการณ์');
+    lines.push(`🕐 ${dateLabel} ${timeLabel} น.`);
+    lines.push('');
+    lines.push(`📊 ภาพรวม: Total ${kpi.total} | 🔴 Over SLA ${kpi.over} | 🟠 Near(≤2h) ${kpi.near} | P0:${kpi.p0} P1:${kpi.p1} P2:${kpi.p2}`);
+
+    // Grouped by province so each province can scan just its own section -
+    // sorted worst-first (most Over SLA tickets) so the most urgent
+    // provinces are the first thing anyone reading top-to-bottom sees.
+    const byProvince = {};
+    entriesWithParsedTarget.forEach(en => {
+      const p = en.PROVINCE || '(ไม่ระบุ)';
+      byProvince[p] = byProvince[p] || { total: 0, over: 0, near: 0, entries: [] };
+      byProvince[p].total++;
+      if (en._remaining != null && en._remaining < 0) byProvince[p].over++;
+      if (en._remaining != null && en._remaining >= 0 && en._remaining <= 2) byProvince[p].near++;
+      byProvince[p].entries.push(en);
+    });
+
+    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b].over - byProvince[a].over);
+    provinces.forEach(p => {
+      const g = byProvince[p];
+      const mostUrgent = g.entries.slice().sort((a, b) => (a._remaining ?? Infinity) - (b._remaining ?? Infinity))[0];
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`📍 ${PROVINCE_EN(p)}`);
+      lines.push(`   Total ${g.total} | 🔴 Over ${g.over} | 🟠 Near ${g.near}`);
+      if (mostUrgent) {
+        lines.push(`   ⏱️ เร่งด่วนสุด: ${mostUrgent.TICKETID} เหลือ ${formatRemainingTime(mostUrgent._remaining)}`);
+      }
+    });
+    lines.push('━━━━━━━━━━━━━━');
+    return lines.join('\n');
+  }
+
+  el('ort-report-btn').addEventListener('click', () => {
+    el('ort-report-text').value = buildOrtLineSummaryText();
+    el('ort-report-copy-status').textContent = '';
+    el('ort-report-modal').style.display = 'block';
+  });
+  el('ort-report-copy-btn').addEventListener('click', async () => {
+    const textarea = el('ort-report-text');
+    const statusEl = el('ort-report-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
 
   el('ort-reload').addEventListener('click', reload);
   window.initOnlineRealtimeTab = function () { if (!loaded) reload(); };
