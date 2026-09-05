@@ -1002,10 +1002,11 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
         dates.append(date_str)
+        is_today = day == today  # today's backup may not exist yet at query time but can appear later in the day - never permanently cache a miss for it, unlike a genuinely completed past day
 
         with _p0_daily_trend_lock:
             cached = _p0_daily_trend_cache.get(date_str)
-        if cached is not None:
+        if cached is not None and not (is_today and all(v is None for v in cached.values())):
             counts = cached
         else:
             file_info = find_nightly_file(drive_service, day)
@@ -1016,8 +1017,13 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
                 rows = download_xlsx_as_rows(drive_service, file_id)
                 reference_dt = datetime.combine(day, _dtime(1, 15))
                 counts = _count_p0_by_group(rows, reference_dt)
-            with _p0_daily_trend_lock:
-                _p0_daily_trend_cache[date_str] = counts
+            # Today's result is only cached once the file was actually found
+            # (a genuine "no file yet" miss must keep re-checking on the next
+            # call); any date strictly before today is complete and fixed,
+            # so it's always safe to cache permanently, hit or miss.
+            if not is_today or file_info is not None:
+                with _p0_daily_trend_lock:
+                    _p0_daily_trend_cache[date_str] = counts
 
         for k in P0_COMPARISON_GROUPS:
             series[k].append(counts.get(k))
