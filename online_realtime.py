@@ -23,7 +23,6 @@ from mateline_status import build_mateline_status_lookup
 from team_planner import build_team_assignment_lookup
 from realtime_monitor import _classify_priority, _parse_dt
 from pending_trend import bangkok_now
-import sla_improvement  # reused only for its CI_Name -> Node ID -> Lat/Lon mapping (get_mapping_lookup/match_ci_to_node) - no other coupling to that module
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +34,23 @@ def _remaining_hours(target_finish_str, now_dt):
     if not t:
         return None
     return round((t - now_dt).total_seconds() / 3600, 3)
+
+
+def _get_ci(row, target_key):
+    """Case/whitespace-insensitive lookup into a gspread row dict - gspread's
+    get_all_records() keys each row by the EXACT header cell text with no
+    normalization, so a header with different casing or a stray space
+    ("Latitude", "LATITUDE ") would make a plain row.get("LATITUDE") miss
+    entirely and silently return None, indistinguishable from the column
+    genuinely being empty. Used for LATITUDE/LONGITUDE specifically since
+    a live sheet's header formatting isn't something this app controls."""
+    if target_key in row:
+        return row[target_key]
+    target_norm = target_key.strip().upper()
+    for k, v in row.items():
+        if str(k).strip().upper() == target_norm:
+            return v
+    return None
 
 
 def build_online_realtime_response(gs_client=None):
@@ -61,10 +77,6 @@ def build_online_realtime_response(gs_client=None):
     except Exception:
         log.exception("GGS Daily team lookup failed for Online Real Time - falling back to empty for this response")
         team_lookup = {}
-    # Optional - only present if someone has imported the CI/Node mapping
-    # file on the SLA Improvement tab; if not, every entry below just gets
-    # no lat/lon (map simply shows nothing plottable) rather than erroring.
-    mapping_lookup = sla_improvement.get_mapping_lookup()
 
     entries = []
     for r in scoped:
@@ -84,7 +96,20 @@ def build_online_realtime_response(gs_client=None):
         except (TypeError, ValueError):
             over_sla_day = 0
         ci_name = str(r.get("CINAME", "")).strip()
-        node = sla_improvement.match_ci_to_node(ci_name, mapping_lookup) if ci_name else None
+        # LATITUDE/LONGITUDE are columns directly on this same live sheet
+        # (per explicit request) - no separate mapping file needed. Kept
+        # as None (never guessed) if missing or not a valid number.
+        # _get_ci (not plain .get) guards against a header casing/whitespace
+        # mismatch silently looking identical to "column genuinely empty".
+        lat_raw = _get_ci(r, "LATITUDE")
+        lon_raw = _get_ci(r, "LONGITUDE")
+        try:
+            latitude = float(lat_raw)
+            longitude = float(lon_raw)
+            if latitude == 0 or longitude == 0:
+                latitude = longitude = None
+        except (TypeError, ValueError):
+            latitude = longitude = None
 
         entries.append({
             "TICKETID": ticket_id,
@@ -99,9 +124,10 @@ def build_online_realtime_response(gs_client=None):
             "remaining_hours": _remaining_hours(r.get("TARGETFINISH"), now_dt),  # snapshot at fetch time, for the initial sort/render only
             "team": team_info["team"] if team_info else "N/A",
             "CINAME": ci_name,
-            "node_id": node["node_id"] if node else None,
-            "latitude": node["latitude"] if node else None,
-            "longitude": node["longitude"] if node else None,
+            "latitude": latitude,
+            "longitude": longitude,
+            "_lat_raw": repr(lat_raw),  # diagnostic - remove once the coordinate gap is understood; shows exactly what was in the cell, not just "missing"
+            "_lon_raw": repr(lon_raw),
             "status_mateline": mateline["status_mateline"],
             "mateline_wo_status": mateline["mateline_wo_status"],
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
