@@ -112,7 +112,7 @@ OVER_24H_AGING_KEYS = [
     "4) OverSLA : < 3 days",
 ]
 
-REQUIRED_COLUMNS = ["Region", "SEVERITY", "TRUEOWNERGROUP", "Aging_Flag_Group", "Bookmark", "TICKETID"]
+REQUIRED_COLUMNS = ["Region", "SEVERITY", "TRUEOWNERGROUP", "Aging_Flag_Group", "Bookmark", "TICKETID", "TARGETFINISH"]
 
 
 # ---------------------------------------------------------------------------

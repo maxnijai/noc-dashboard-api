@@ -1091,7 +1091,7 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
                 cached_snapshot = _p0_snapshot_cache["data"]
 
     if cached_snapshot is not None:
-        snapshot_date, matched_dt, filename, snapshot_counts = cached_snapshot
+        snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count = cached_snapshot
     else:
         today = bangkok_now().date()
         file_info = find_nightly_file(drive_service, today)
@@ -1104,11 +1104,12 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
 
         file_id, matched_dt, filename = file_info
         snapshot_rows = download_xlsx_as_rows(drive_service, file_id)
+        snapshot_row_count = len(snapshot_rows)
         reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
         snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
         if use_cache:
             with _p0_snapshot_lock:
-                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts)
+                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count)
                 _p0_snapshot_cache["ts"] = now
 
     live_rows = fetch_live_rows(gs_client)
@@ -1129,6 +1130,7 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         "snapshot_date": snapshot_date.strftime("%Y-%m-%d"),
         "snapshot_matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "snapshot_filename": filename,
+        "snapshot_row_count": snapshot_row_count,  # diagnostic - if this is 0, the backup file itself had no rows; if >0 but every snapshot_p0 is 0, the issue is in classification/matching, not the file
         "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "groups": groups,
     }
