@@ -1028,9 +1028,11 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
                 file_id, matched_dt, filename = file_info
                 rows = download_xlsx_as_rows(drive_service, file_id)
                 reference_dt = datetime.combine(day, _dtime(1, 15))
-                counts = _count_p0_by_group(rows, reference_dt)
                 if is_today:
-                    debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts}
+                    counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
+                    debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts, "stage_counts": stage_counts}
+                else:
+                    counts = _count_p0_by_group(rows, reference_dt)
             if not is_today:
                 with _p0_daily_trend_lock:
                     _p0_daily_trend_cache[date_str] = counts
@@ -1078,6 +1080,36 @@ def _count_p0_by_group(rows, reference_dt):
             if priority in allowed:
                 counts[key] += 1
     return counts
+
+
+def _count_p0_by_group_diagnostic(rows, reference_dt):
+    """Same result as _count_p0_by_group, but also reports how many rows
+    survive each stage of the pipeline (Region/Severity filter,
+    TARGETFINISH actually parses, priority lands in P0/P1) - built to
+    pinpoint exactly where rows are being lost the next time a debug_today
+    all-zero result shows up despite a large row_count, rather than
+    guessing which stage is at fault."""
+    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    stages = {"total_rows": len(rows), "passed_region_severity": 0, "targetfinish_parsed_ok": 0, "priority_p0_or_p1": 0}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        stages["passed_region_severity"] += 1
+        if _parse_dt(r.get("TARGETFINISH")) is not None:
+            stages["targetfinish_parsed_ok"] += 1
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        if priority in ("P0", "P1"):
+            stages["priority_p0_or_p1"] += 1
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            if priority in allowed:
+                counts[key] += 1
+    return counts, stages
 
 
 def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):

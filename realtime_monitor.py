@@ -79,8 +79,18 @@ def get_insert_time(gs_client=None):
 
 
 def _parse_dt(s):
+    """Handles both a plain string cell ("2026-09-05 01:15:00") and a real
+    datetime object - openpyxl returns the latter automatically for any
+    Excel cell actually formatted as a date/time type rather than plain
+    text, and a plain s.strip() on that raises AttributeError (silently
+    caught below), which used to make every row in such a file
+    unclassifiable - a whole file's worth of tickets quietly vanishing
+    from every count with no error, rather than a parse failure on a
+    handful of malformed rows."""
     if not s:
         return None
+    if isinstance(s, datetime):
+        return s
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
             return datetime.strptime(s.strip(), fmt)
