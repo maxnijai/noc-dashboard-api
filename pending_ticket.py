@@ -990,8 +990,17 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
     same 'P0 count as it stood at ~01:15' snapshot classification the
     comparison cards already use, extended across the last `days` days
     instead of just yesterday, so each card can show a trend underneath.
-    Each past day's count is cached forever once computed (a written
-    backup file never changes); only fetched once per day per group set."""
+    Each PAST day's count is cached forever once computed (a written
+    backup file for a completed day never changes). TODAY is never
+    cached at all - re-fetched and re-computed on every call. This is
+    deliberate: an earlier version cached "today" as long as some file
+    was found, but a stale result computed once (whatever its value -
+    None OR a wrong/zero count from a since-fixed bug) would then be
+    served for the rest of the day with no way to self-correct. Today's
+    backup file also gets rewritten hourly by the external job, so unlike
+    a completed past day there's no "final" version to lock in until the
+    day is over anyway - re-fetching every time is both safer and correct.
+    """
     from pending_trend import find_nightly_file, download_xlsx_as_rows
 
     today = bangkok_now().date()
@@ -999,36 +1008,37 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
 
     dates = []
     series = {k: [] for k in P0_COMPARISON_GROUPS}
+    debug_today = None
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
         dates.append(date_str)
-        is_today = day == today  # today's backup may not exist yet at query time but can appear later in the day - never permanently cache a miss for it, unlike a genuinely completed past day
+        is_today = day == today
 
-        with _p0_daily_trend_lock:
-            cached = _p0_daily_trend_cache.get(date_str)
-        if cached is not None and not (is_today and all(v is None for v in cached.values())):
+        cached = None
+        if not is_today:
+            with _p0_daily_trend_lock:
+                cached = _p0_daily_trend_cache.get(date_str)
+        if cached is not None:
             counts = cached
         else:
             file_info = find_nightly_file(drive_service, day)
             if file_info is None:
                 counts = {k: None for k in P0_COMPARISON_GROUPS}
             else:
-                file_id, _matched_dt, _filename = file_info
+                file_id, matched_dt, filename = file_info
                 rows = download_xlsx_as_rows(drive_service, file_id)
                 reference_dt = datetime.combine(day, _dtime(1, 15))
                 counts = _count_p0_by_group(rows, reference_dt)
-            # Today's result is only cached once the file was actually found
-            # (a genuine "no file yet" miss must keep re-checking on the next
-            # call); any date strictly before today is complete and fixed,
-            # so it's always safe to cache permanently, hit or miss.
-            if not is_today or file_info is not None:
+                if is_today:
+                    debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts}
+            if not is_today:
                 with _p0_daily_trend_lock:
                     _p0_daily_trend_cache[date_str] = counts
 
         for k in P0_COMPARISON_GROUPS:
             series[k].append(counts.get(k))
 
-    return {"dates": dates, "series": series}
+    return {"dates": dates, "series": series, "debug_today": debug_today}
 
 
 def _classify_priority_at(target_finish_str, reference_dt):
