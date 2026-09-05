@@ -154,11 +154,31 @@ def _parse_ts_from_filename(name):
 def find_closest_file(drive_service, target_dt, window_minutes):
     """Return (file_id, matched_datetime, filename) for the backup file whose
     filename timestamp is closest to target_dt, searching +/- window_minutes.
-    Returns None if nothing is found within the window."""
+    Returns None if nothing is found within the window.
+
+    The Drive query filters by createdTime directly (converted from Bangkok
+    to UTC) rather than just fetching the newest 100 files and hoping the
+    target is among them - with orderBy="createdTime desc" + pageSize=100
+    and no date filter, a target file can get silently pushed out of the
+    results entirely once 100+ OTHER matching-prefix files have been
+    created after it, even though it's well within the window and still
+    exists. This is exactly the bug behind "every past day's trend point
+    works, only the newest one doesn't" - a past day's file was found and
+    cached back when fewer newer files existed yet; today's has no such
+    head start and can accumulate 100+ newer siblings by afternoon."""
     window_start = target_dt - timedelta(minutes=window_minutes)
     window_end = target_dt + timedelta(minutes=window_minutes)
+    # createdTime in the Drive query is UTC; target_dt/window_* are naive
+    # Bangkok local time, so shift by the zone's UTC offset before
+    # formatting as the RFC3339 strings the API's q= comparison expects.
+    utc_offset = datetime.now(BANGKOK_TZ).utcoffset()
+    q_start = (window_start - utc_offset).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+    q_end = (window_end - utc_offset).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
 
-    query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{FILE_PREFIX}'"
+    query = (
+        f"'{DRIVE_FOLDER_ID}' in parents and name contains '{FILE_PREFIX}' "
+        f"and createdTime >= '{q_start}' and createdTime <= '{q_end}'"
+    )
     resp = drive_service.files().list(
         q=query,
         fields="files(id, name, createdTime)",
