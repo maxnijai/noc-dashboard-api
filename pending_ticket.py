@@ -981,8 +981,41 @@ _p0_snapshot_lock = threading.Lock()
 
 P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
 
-_p0_daily_trend_cache = {}
-_p0_daily_trend_lock = threading.Lock()
+_day_rows_cache = {}
+_day_rows_lock = threading.Lock()
+
+
+def _get_rows_for_day(drive_service, day, today):
+    """Shared, cached raw-row fetch for a single day's ~01:15 backup file -
+    used by both build_p0_daily_trend and build_province_trend_health so
+    the same day's file is never downloaded twice. Returns
+    (rows_or_None, file_info_or_None) - rows is None if no file was found.
+    Caches PAST days forever (a completed day's backup file is fixed);
+    NEVER caches today (its file is rewritten hourly by the external job
+    and may not exist yet at the time of an early call - see
+    build_p0_daily_trend's docstring for the original, fuller reasoning,
+    unchanged here)."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+    date_str = day.strftime("%Y-%m-%d")
+    is_today = day == today
+
+    if not is_today:
+        with _day_rows_lock:
+            cached = _day_rows_cache.get(date_str)
+        if cached is not None:
+            return cached
+
+    file_info = find_nightly_file(drive_service, day)
+    if file_info is None:
+        result = (None, None)
+    else:
+        rows = download_xlsx_as_rows(drive_service, file_info[0])
+        result = (rows, file_info)
+
+    if not is_today:
+        with _day_rows_lock:
+            _day_rows_cache[date_str] = result
+    return result
 
 
 def build_p0_daily_trend(gs_client, drive_service, days=7):
@@ -1001,8 +1034,6 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
     a completed past day there's no "final" version to lock in until the
     day is over anyway - re-fetching every time is both safer and correct.
     """
-    from pending_trend import find_nightly_file, download_xlsx_as_rows
-
     today = bangkok_now().date()
     all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
 
@@ -1014,33 +1045,132 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
         dates.append(date_str)
         is_today = day == today
 
-        cached = None
-        if not is_today:
-            with _p0_daily_trend_lock:
-                cached = _p0_daily_trend_cache.get(date_str)
-        if cached is not None:
-            counts = cached
+        rows, file_info = _get_rows_for_day(drive_service, day, today)
+        if rows is None:
+            counts = {k: None for k in P0_COMPARISON_GROUPS}
         else:
-            file_info = find_nightly_file(drive_service, day)
-            if file_info is None:
-                counts = {k: None for k in P0_COMPARISON_GROUPS}
+            reference_dt = datetime.combine(day, _dtime(1, 15))
+            if is_today:
+                counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
+                _, matched_dt, filename = file_info
+                debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts, "stage_counts": stage_counts}
             else:
-                file_id, matched_dt, filename = file_info
-                rows = download_xlsx_as_rows(drive_service, file_id)
-                reference_dt = datetime.combine(day, _dtime(1, 15))
-                if is_today:
-                    counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
-                    debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts, "stage_counts": stage_counts}
-                else:
-                    counts = _count_p0_by_group(rows, reference_dt)
-            if not is_today:
-                with _p0_daily_trend_lock:
-                    _p0_daily_trend_cache[date_str] = counts
+                counts = _count_p0_by_group(rows, reference_dt)
 
         for k in P0_COMPARISON_GROUPS:
             series[k].append(counts.get(k))
 
     return {"dates": dates, "series": series, "debug_today": debug_today}
+
+
+def build_province_trend_health(gs_client, drive_service, days=7):
+    """For each (Province, Bookmark) combination, classifies the %Over SLA
+    trend across the last `days` as worsening / flat / improving -
+    "Province Trend Health" widget's data source.
+
+    Compares the average of the FIRST half of the window vs the LAST half
+    (not a single first-day-vs-last-day comparison, which is noisy for a
+    percentage that can swing a lot on a single ticket closing or a small
+    day's ticket count) - for days=7 that's days 1-3 averaged vs days 5-7
+    averaged, with day 4 skipped as a buffer between "before" and "after".
+
+    Combinations with too few tickets in the recent window are excluded
+    entirely (min_tickets) rather than classified - a 2-ticket province
+    can swing 0% -> 50% Over SLA on one ticket, which isn't a real trend,
+    just noise from a tiny sample.
+
+    The worsening/improving threshold is the MEDIAN absolute change across
+    all eligible combinations that day, not a fixed percentage-point
+    number, so what counts as "notably different" adapts to however
+    volatile the data currently is - matching the same data-driven
+    (never hardcoded) approach used for every other priority/tier
+    classification in this app."""
+    from ticket_views import row_matches_view, BOOKMARK_VIEWS
+
+    today = bangkok_now().date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
+    dates = [d.strftime("%Y-%m-%d") for d in all_days]
+
+    # per_day[date_str][(province, bookmark_key)] = {"total": n, "over": n}
+    per_day = {}
+    for day in all_days:
+        date_str = day.strftime("%Y-%m-%d")
+        rows, _file_info = _get_rows_for_day(drive_service, day, today)
+        per_day[date_str] = {}
+        if rows is None:
+            continue
+        reference_dt = datetime.combine(day, _dtime(1, 15))
+        for r in rows:
+            if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+                continue
+            if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+                continue
+            province = str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุ)"
+            priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+            for key in P0_COMPARISON_GROUPS:
+                if not row_matches_view(r, key):
+                    continue
+                combo = (province, key)
+                per_day[date_str].setdefault(combo, {"total": 0, "over": 0})
+                per_day[date_str][combo]["total"] += 1
+                allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+                if priority in allowed:
+                    per_day[date_str][combo]["over"] += 1
+
+    all_combos = set()
+    for d in dates:
+        all_combos.update(per_day[d].keys())
+
+    MIN_TICKETS = 5  # minimum total tickets in the recent half to be eligible for classification at all
+    half = days // 2  # days=7 -> 3; the middle day is skipped as a before/after buffer
+    results = []
+    for province, bookmark_key in all_combos:
+        series = []
+        for d in dates:
+            cell = per_day[d].get((province, bookmark_key))
+            total = cell["total"] if cell else 0
+            over = cell["over"] if cell else 0
+            pct_over = round(over / total * 100, 2) if total else None
+            series.append({"date": d, "total": total, "over": over, "pct_over": pct_over})
+
+        first_half = series[:half]
+        last_half = series[-half:]
+        recent_total = sum(s["total"] for s in last_half)
+        if recent_total < MIN_TICKETS:
+            continue  # not enough recent data to say anything meaningful
+
+        first_vals = [s["pct_over"] for s in first_half if s["pct_over"] is not None]
+        last_vals = [s["pct_over"] for s in last_half if s["pct_over"] is not None]
+        if not first_vals or not last_vals:
+            continue
+        avg_first = sum(first_vals) / len(first_vals)
+        avg_last = sum(last_vals) / len(last_vals)
+
+        results.append({
+            "province": province, "bookmark_key": bookmark_key, "bookmark_label": BOOKMARK_VIEWS[bookmark_key]["label"],
+            "avg_first_half_pct": round(avg_first, 2), "avg_last_half_pct": round(avg_last, 2),
+            "change_pct": round(avg_last - avg_first, 2), "recent_total": recent_total, "series": series,
+        })
+
+    abs_changes = sorted(abs(r["change_pct"]) for r in results)
+    threshold = abs_changes[len(abs_changes) // 2] if abs_changes else 0
+
+    for r in results:
+        if r["change_pct"] > threshold:
+            r["direction"] = "worsening"
+        elif r["change_pct"] < -threshold:
+            r["direction"] = "improving"
+        else:
+            r["direction"] = "flat"
+
+    results.sort(key=lambda r: -r["change_pct"])  # worst (most positive change) first
+    summary = {
+        "worsening": sum(1 for r in results if r["direction"] == "worsening"),
+        "flat": sum(1 for r in results if r["direction"] == "flat"),
+        "improving": sum(1 for r in results if r["direction"] == "improving"),
+    }
+    return {"dates": dates, "results": results, "summary": summary, "threshold_pct": threshold, "min_tickets": MIN_TICKETS}
+
 
 
 def _classify_priority_at(target_finish_str, reference_dt):
