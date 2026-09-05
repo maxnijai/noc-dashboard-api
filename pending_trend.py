@@ -208,6 +208,40 @@ def find_nightly_file(drive_service, target_date):
     return find_closest_file(drive_service, target_dt, window_minutes=SNAPSHOT_SEARCH_WINDOW_HOURS * 60)
 
 
+def diagnose_backup_search(drive_service, target_date):
+    """Debug helper - after 3 rounds of code fixes with no change reported,
+    this exists to answer the one question that actually matters next:
+    does a backup file for target_date exist in Drive AT ALL (anywhere in
+    the day, not just the +/-4h window), or is the nightly job itself not
+    producing one? Runs a wide, unrestricted same-day search (00:00 to
+    23:59 target_date, local time) alongside the normal +/-4h lookup, and
+    reports both raw results side by side so the two possibilities
+    (missing file vs a remaining query/window bug) are told apart by
+    what's actually in the API response - not by further guessing."""
+    day_start_utc = (datetime.combine(target_date, dtime.min) - datetime.now(BANGKOK_TZ).utcoffset()).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+    day_end_utc = (datetime.combine(target_date, dtime.max.replace(microsecond=0)) - datetime.now(BANGKOK_TZ).utcoffset()).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+    query = (
+        f"'{DRIVE_FOLDER_ID}' in parents and name contains '{FILE_PREFIX}' "
+        f"and createdTime >= '{day_start_utc}' and createdTime <= '{day_end_utc}'"
+    )
+    resp = drive_service.files().list(
+        q=query, fields="files(id, name, createdTime)", pageSize=100, orderBy="createdTime desc",
+    ).execute()
+    all_day_files = [{"name": f["name"], "createdTime": f["createdTime"]} for f in resp.get("files", [])]
+
+    normal_result = find_nightly_file(drive_service, target_date)
+    return {
+        "target_date": target_date.strftime("%Y-%m-%d"),
+        "wide_search_query": query,
+        "files_found_anywhere_that_day": all_day_files,
+        "files_found_count": len(all_day_files),
+        "normal_narrow_search_result": (
+            {"filename": normal_result[2], "matched_at": normal_result[1].strftime("%Y-%m-%d %H:%M:%S")}
+            if normal_result else None
+        ),
+    }
+
+
 def download_xlsx_as_rows(drive_service, file_id):
     """Download an xlsx from Drive and return a list of dict rows (header-keyed),
     using openpyxl in read-only/streaming mode to keep memory reasonable for ~5MB files.

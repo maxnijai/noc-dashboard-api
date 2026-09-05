@@ -2689,6 +2689,25 @@ def api_p0_daily_trend():
         log.exception("p0-daily-trend API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/p0-backup-diagnostic')
+def api_p0_backup_diagnostic():
+    """Debug-only endpoint: shows exactly what Drive returns for today's
+    (and optionally yesterday's) nightly backup search, both a wide
+    whole-day scan and the normal +/-4h lookup - to tell apart "the file
+    genuinely doesn't exist yet/at all" from "a remaining query bug" by
+    looking at raw Drive results directly, rather than guessing further."""
+    from pending_trend import diagnose_backup_search
+    from datetime import timedelta as _td
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        today = bangkok_now().date()
+        result_today = diagnose_backup_search(drive_service, today)
+        result_yesterday = diagnose_backup_search(drive_service, today - _td(days=1))
+        return jsonify({"today": result_today, "yesterday": result_yesterday})
+    except Exception as e:
+        log.exception("p0-backup-diagnostic API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/team-plan')
 def api_team_plan():
     """Smart Team Planning: P0 tickets (today's or tomorrow's, per
