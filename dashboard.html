@@ -720,6 +720,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3"/><path d="M8 0a1 1 0 011 1v1.06a6.002 6.002 0 015 5H15a1 1 0 010 2h-1.06a6.002 6.002 0 01-5 5V15a1 1 0 01-2 0v-1.06a6.002 6.002 0 01-5-5H1a1 1 0 010-2h1.06a6.002 6.002 0 015-5V1a1 1 0 011-1z" opacity=".35"/></svg>
     Realtime Monitoring
   </div>
+
+  <div class="nav-section">Ticket Monitoring</div>
   <div class="nav-item" onclick="showPage('pendingticket')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V5.41a1 1 0 00-.29-.7L9.3 1.3A1 1 0 008.59 1H4zm4 1.5L11.5 6H8V2.5zM5 8h6v1H5V8zm0 2.5h6v1H5v-1zm0 2.5h4v1H5v-1z"/></svg>
     Pending Ticket
@@ -728,14 +730,32 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="4.2" stroke="#E24B4A" stroke-width="1.5"/><circle cx="8" cy="8" r="1.4" fill="#E24B4A"/></svg>
     Focus Priority 0 Ticket
   </div>
+
+  <div class="nav-section">Online SA1-4</div>
   <div class="nav-item" onclick="showPage('slaimprove')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13l3.5-5 3 3L13.5 3" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 3h3.5v3.5" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Online SA1-4 SLA Improvement
+  </div>
+  <div class="nav-item" onclick="showPage('onlinerealtime')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Online SA1-4 Real Time
+  </div>
+
+  <div class="nav-section">Operations &amp; Planning</div>
+  <div class="nav-item" onclick="showPage('temppoint')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="12" r="1.6" stroke="#a371f7" stroke-width="1.3"/><circle cx="8" cy="7" r="1.6" stroke="#a371f7" stroke-width="1.3"/><circle cx="12.5" cy="4.5" r="1.6" stroke="#a371f7" stroke-width="1.3"/><path d="M5.3 10.9L7 8.3M9.2 6L11.2 5.3" stroke="#a371f7" stroke-width="1.3" stroke-linecap="round"/></svg>
+    Operation Temp Point
   </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
   </div>
+  <div class="nav-item" onclick="showPage('teamplan')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1zM13 7a2 2 0 100-4 2 2 0 000 4zM16 12.5c0-1.6-1-3-2.5-3.7.9.9 1.5 2.2 1.5 3.7v1.5h1v-1.5z"/></svg>
+    Smart Team Planning
+  </div>
+
+  <div class="nav-section">Regional Monitoring</div>
   <div class="nav-item" onclick="showPage('floodnan')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 9c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round"/><path d="M2 12.5c1.2-1.3 2.4-1.3 3.6 0s2.4 1.3 3.6 0 2.4-1.3 3.6 0" stroke="#58a6ff" stroke-width="1.4" stroke-linecap="round" opacity=".5"/><path d="M8 1.5c1.8 2.1 3 3.9 3 5.3a3 3 0 11-6 0c0-1.4 1.2-3.2 3-5.3z" fill="#58a6ff"/></svg>
     NOR Monitoring
@@ -743,10 +763,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="nav-item" onclick="showPage('summarynan')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm7 0h5v5H9V2zM2 9h5v5H2V9zm7 0h5v5H9V9z"/></svg>
     Summary NAN
-  </div>
-  <div class="nav-item" onclick="showPage('teamplan')">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1zM13 7a2 2 0 100-4 2 2 0 000 4zM16 12.5c0-1.6-1-3-2.5-3.7.9.9 1.5 2.2 1.5 3.7v1.5h1v-1.5z"/></svg>
-    Smart Team Planning
   </div>
 
   <div style="margin-top:14px;padding:10px 12px;">
@@ -1116,6 +1132,102 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">Impact: 🟣 Priority Improvement (จำนวนเยอะ+% สูง) · 🔵 High Impact (จำนวนเยอะ) · 🟠 High Risk (% สูง แต่จำนวนไม่มาก) · ⚪ Normal</div>
         <div id="sla-management-table" style="overflow-x:auto;"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ONLINE SA1-4 REAL TIME MONITORING -->
+  <div class="page" id="page-onlinerealtime">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="#E24B4A" stroke-width="1.5"/><path d="M8 4.5v4l2.8 1.6" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          📡 Online SA1-4 Real Time Monitoring
+          <span style="display:inline-flex; align-items:center; gap:5px; background:#E24B4A18; border:1px solid #E24B4A55; color:#E24B4A; font-size:10.5px; font-weight:700; letter-spacing:.04em; padding:2px 9px; border-radius:20px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#E24B4A; display:inline-block; animation:pulse 1.5s ease-in-out infinite;"></span>LIVE
+          </span>
+        </div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">
+          🕐 เวลาปัจจุบัน: <b id="ort-current-time" style="color:var(--text2);"></b>
+          &nbsp;·&nbsp; ข้อมูลอัปเดตล่าสุด: <b id="ort-last-updated" style="color:var(--text2);"></b>
+        </div>
+      </div>
+      <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:10px;" id="ort-kpi-grid"></div>
+    <div id="ort-active-filter" style="margin-bottom:16px;"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+      <div id="ort-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
+      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📍 Region → Province → District <span style="font-weight:400; color:var(--text3); font-size:11px;">(เรียงตามเวลาคงเหลือน้อยสุดก่อน ในแต่ละ District)</span></div>
+      <div style="font-size:10.5px; color:var(--text3); margin-bottom:10px;">⏱️ Remaining Time นับถอยหลังสดจากเครื่องคุณเอง (ไม่ยิง API ซ้ำทุกวินาที) — ข้อมูล Ticket จะรีเฟรชตามรอบ Refresh ด้านบนเท่านั้น</div>
+      <div id="ort-table" style="overflow-x:auto;"></div>
+    </div>
+  </div>
+
+  <!-- OPERATION TEMP POINT IMPROVEMENT -->
+  <div class="page" id="page-temppoint">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">🛠️ Operation Temp Point Improvement</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Chain Cluster (≤500m ระหว่างจุดติดกันตามลำดับ) — ใช้เสนอ Quota Improve Fiber · อัปเดตล่าสุด: <b id="tpi-generated-at" style="color:var(--text2);"></b></div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <a id="tpi-export-btn" href="#" class="btn-secondary" style="font-weight:700; text-decoration:none;">📥 Export Excel</a>
+        <button id="tpi-reload" class="btn-secondary">🔄 Refresh</button>
+      </div>
+    </div>
+    <div id="tpi-warnings" style="margin-bottom:10px;"></div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:16px;" id="tpi-summary-grid"></div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; background:var(--bg2); margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+      <select id="tpi-filter-region" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Region: ทั้งหมด</option></select>
+      <select id="tpi-filter-province" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Province: ทั้งหมด</option></select>
+      <select id="tpi-filter-cluster" class="btn-secondary" style="padding:5px 10px; font-size:12px;">
+        <option value="">Cluster/Individual: ทั้งหมด</option>
+        <option value="cluster">🔵 Cluster เท่านั้น</option>
+        <option value="individual">🟠 Individual เท่านั้น</option>
+      </select>
+      <select id="tpi-filter-severity" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Severity: ทั้งหมด</option></select>
+      <select id="tpi-filter-subroot" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Sub Root Cause: ทั้งหมด</option></select>
+      <select id="tpi-filter-month" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Month: ทั้งหมด</option></select>
+      <span id="tpi-clear-filter" style="display:none; font-size:11.5px; color:#1f6feb; cursor:pointer; font-weight:700;" title="ล้าง Filter ทั้งหมด">✕ Clear Filters</span>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Temp Point Map <span style="font-weight:400; color:var(--text3); font-size:11px;">(เส้นเชื่อม = แนว Chain ของ Cluster — ไม่ใช่ Radius)</span></div>
+      <div id="tpi-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
+      <div id="tpi-map" style="height:440px; border-radius:var(--r); border:1px solid var(--border);"></div>
+    </div>
+
+    <div id="tpi-cluster-detail" style="margin-bottom:16px;"></div>
+
+    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Total vs Cluster vs Individual</div>
+        <canvas id="tpi-overview-chart" height="200"></canvas>
+      </div>
+      <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:8px;">📊 Cluster by Province (Top 10)</div>
+        <canvas id="tpi-province-chart" height="200"></canvas>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Province Summary</div>
+      <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">🔴 High Priority · 🟠 Medium Priority · 🔵 Monitor — จัดอันดับจาก Cluster/Distance จริง (ไม่ Hard-code)</div>
+      <div id="tpi-province-table" style="overflow-x:auto;"></div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 Detail Table</div>
+      <div id="tpi-detail-table" style="overflow-x:auto; max-height:520px; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -1707,6 +1819,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script>
 if (window.Chart && window.ChartDataLabels) { Chart.register(ChartDataLabels); Chart.defaults.set('plugins.datalabels', { display: false }); }
 </script>
@@ -1857,7 +1972,7 @@ async function loadP0SnapshotComparison(prefix) {
     container.innerHTML = `
       <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%; background:var(--bg1);">
         <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
-          📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}) · ปัจจุบัน: ${data.current_generated_at}
+          📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}, ${data.snapshot_row_count} แถว) · ปัจจุบัน: ${data.current_generated_at}
         </div>
         <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
@@ -4329,6 +4444,8 @@ function showPage(id) {
   if (id==='pendingticket') { setTimeout(()=>{ if (window.initPendingTicketTab) window.initPendingTicketTab(); },50); }
   if (id==='p0only') { setTimeout(()=>{ if (window.initP0OnlyTab) window.initP0OnlyTab(); },50); }
   if (id==='slaimprove') { setTimeout(()=>{ if (window.initSlaImproveTab) window.initSlaImproveTab(); },50); }
+  if (id==='onlinerealtime') { setTimeout(()=>{ if (window.initOnlineRealtimeTab) window.initOnlineRealtimeTab(); },50); }
+  if (id==='temppoint') { setTimeout(()=>{ if (window.initTempPointTab) window.initTempPointTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -6201,6 +6318,76 @@ function renderPivot(ft) {
     if (targetEl) targetEl.innerHTML = renderTotalP0CompareInner(data);
   };
 
+  const REMAINING_HOURS_BUCKET_COLS = [
+    ['over', '🔴 เกินแล้ว', '#E24B4A'], ['le_2h', '🟠 ≤2 ชม.', '#EF9F27'], ['le_6h', '🟡 ≤6 ชม.', '#F5C518'],
+    ['le_12h', '🔵 ≤12 ชม.', '#1f6feb'], ['gt_12h', '⚪ >12 ชม.', 'var(--text3)'],
+  ];
+
+  function renderOnlineRemainingHoursHtml(rows, bookmark, activeFilter) {
+    if (!rows.length) return '';
+    const esc1 = s => String(s).replace(/'/g, "\\'");
+    const bucketHead = REMAINING_HOURS_BUCKET_COLS.map(([, label, color]) => `<th style="padding:6px 8px; text-align:center; font-size:10.5px; text-transform:uppercase; color:${color};">${label}</th>`).join('');
+    const body = rows.map(r => {
+      const rowProvinceActive = activeFilter.province === r.province;
+      // Each bucket number is its own click target (province + that
+      // specific time-window) - only cells with a nonzero count are
+      // clickable, since filtering to an empty bucket has no purpose.
+      const bucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => {
+        const v = r[key];
+        const isActive = rowProvinceActive && activeFilter.remainingBucket === key;
+        const onclickAttr = v > 0 ? ` onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','${key}')"` : '';
+        const cursorStyle = v > 0 ? 'cursor:pointer;' : '';
+        return `<td${onclickAttr} style="padding:6px 8px; text-align:center; min-width:60px; ${cursorStyle} ${v > 0 ? 'font-weight:700;' : 'color:var(--text3);'} ${isActive ? 'background:#1f6feb33; color:#1f6feb;' : ''}" title="${v > 0 ? 'คลิกเพื่อกรองเฉพาะกลุ่มเวลานี้' : ''}">${v || '–'}</td>`;
+      }).join('');
+      // Province name + Total cells: click filters to that province with
+      // NO bucket restriction (every Online ticket in that province).
+      const isProvinceOnlyActive = rowProvinceActive && !activeFilter.remainingBucket;
+      const urgentColor = r.most_urgent_remaining_hours < 0 ? '#E24B4A' : r.most_urgent_remaining_hours <= 2 ? '#EF9F27' : 'var(--text2)';
+      return `<tr style="border-top:1px solid var(--border);">
+        <td onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','')" style="padding:6px 10px; font-weight:600; white-space:nowrap; cursor:pointer; ${isProvinceOnlyActive ? 'color:#1f6feb; background:#1f6feb22;' : ''}" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ทั้งหมด">${escapeHtml(provinceEnLabel(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+        <td onclick="filterP0OnlineBucket('${esc1(bookmark)}','${esc1(r.province)}','')" style="padding:6px 8px; text-align:center; min-width:50px; cursor:pointer; ${isProvinceOnlyActive ? 'background:#1f6feb22;' : ''}" title="คลิกเพื่อกรอง Ticket จังหวัดนี้ทั้งหมด">${r.total}</td>
+        ${bucketCells}
+        <td style="padding:6px 8px; text-align:left; font-size:11px; white-space:nowrap;" title="${escapeHtml(r.most_urgent_subject)}">
+          <span style="color:${urgentColor}; font-weight:700;">${r.most_urgent_remaining_hours.toFixed(1)} ชม.</span>
+          <span style="color:var(--text3);"> — ${escapeHtml(r.most_urgent_ticket)}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    // Grand Total row - sums every bucket + overall Total across every
+    // province shown, matching the same no-heat/no-onclick convention
+    // used by every other summary row in this tab.
+    const totals = { total: 0, over: 0, le_2h: 0, le_6h: 0, le_12h: 0, gt_12h: 0 };
+    rows.forEach(r => {
+      totals.total += r.total;
+      REMAINING_HOURS_BUCKET_COLS.forEach(([key]) => { totals[key] += r[key]; });
+    });
+    const totalBucketCells = REMAINING_HOURS_BUCKET_COLS.map(([key]) => `<td style="padding:6px 8px; text-align:center;">${totals[key] || '–'}</td>`).join('');
+    const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
+      <td style="padding:6px 10px;">รวมทั้งหมด</td>
+      <td style="padding:6px 8px; text-align:center;">${totals.total}</td>
+      ${totalBucketCells}
+      <td style="padding:6px 8px;"></td>
+    </tr>`;
+
+    return `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:12px;">
+        <div style="font-size:14px; font-weight:700; margin-bottom:2px;">⏱️ Online SA1-4 (4.FBB) — เวลาคงเหลือถึง TARGETFINISH ตามจังหวัด</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เรียงจากจังหวัดที่ Ticket เร่งด่วนที่สุดก่อน (เวลาคงเหลือน้อยสุด) — คลิกแถวเพื่อกรอง Ticket จังหวัดนั้นทั้งหมดในการ์ดนี้ (Sync กับ Matrix/Detail ด้านล่าง)</div>
+        <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r);">
+          <table style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+              <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+              <th style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+              ${bucketHead}
+              <th style="padding:7px 8px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Ticket เร่งด่วนที่สุด</th>
+            </tr></thead>
+            <tbody>${body}${totalRow}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
   function renderExecutiveSummary(data) {
     const totalP0 = data.total_over_sla || 0;
 
@@ -6231,7 +6418,7 @@ function renderPivot(ft) {
   let sectionCategoryAgingMode = {}; // bookmark -> 'aging' | 'province' (which dimension is the Category matrix's columns), per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
-    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '' });
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '', remainingBucket: '' });
   }
 
   function render(data) {
@@ -6263,10 +6450,19 @@ function renderPivot(ft) {
           const planDate = t.plan_closed_date || '';
           if (isNoPlan ? !!planDate : planDate !== f.planDate) return false;
         }
+        if (f.remainingBucket) {
+          // Matches the exact same boundaries the backend uses to build
+          // online_remaining_hours_by_province's bucket counts, so a
+          // click on "12 tickets ≤2h" always shows exactly those 12.
+          const h = t.remaining_hours;
+          if (h == null) return false;
+          const bucket = h < 0 ? 'over' : h <= 2 ? 'le_2h' : h <= 6 ? 'le_6h' : h <= 12 ? 'le_12h' : 'gt_12h';
+          if (bucket !== f.remainingBucket) return false;
+        }
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || f.remainingBucket || searchQuery);
 
       const matrixBlock = f.province
         ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
@@ -6342,6 +6538,7 @@ function renderPivot(ft) {
             </div>
           </div>
           <div id="${sectionId}" style="padding:10px 14px;">
+            ${block.bookmark === '4.FBB with SA1-4' ? renderOnlineRemainingHoursHtml(data.online_remaining_hours_by_province || [], block.bookmark, f) : ''}
             ${renderSummaryTable(matrixBlock, data.aging_order, data.over_aging_keys, data.aging_colors, 'province', 'Province', block.bookmark, 'filterP0MatrixCell')}
             ${sideBySide}
             ${detailHtml}
@@ -6362,6 +6559,13 @@ function renderPivot(ft) {
     const same = f.province === province && f.aging === aging;
     f.province = same ? '' : province;
     f.aging = same ? '' : aging;
+    if (lastData) render(lastData);
+  };
+  window.filterP0OnlineBucket = function (bookmark, province, bucketKey) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && (f.remainingBucket || '') === bucketKey;
+    f.province = same ? '' : province;
+    f.remainingBucket = same ? '' : bucketKey;
     if (lastData) render(lastData);
   };
   window.filterP0PlanDateCell = function (bookmark, groupProblem, planDate) {
@@ -6951,22 +7155,56 @@ function renderPivot(ft) {
     // Count mode has no natural ceiling like %(0-100) does, so scale
     // against this table's own max Over SLA count - one shared ceiling
     // for the whole table, so cells stay comparable to each other exactly
-    // like % mode's fixed 0-50 scale does.
+    // like % mode's fixed 0-50 scale does. Subtotal/Grand Total rows are
+    // deliberately excluded from this max (and never get heat-shaded
+    // themselves) - same convention as every other summary-row table in
+    // this tab (Province Ranking, Management table, etc).
     const maxOver = heatmapMetric === 'count' ? Math.max(1, ...hm.rows.flatMap(r => r.cells.map(c => c.over || 0))) : null;
-    const body = hm.rows.map(r => {
-      const cells = r.cells.map(c => {
+
+    function renderDataRow(label, cellsData, isSummaryRow) {
+      const cells = hm.periods.map((period, i) => {
+        const c = cellsData[i];
         const cellValue = heatmapMetric === 'count' ? (c.total ? c.over : null) : c.pct_over;
-        const heat = heatmapCellColor(cellValue, heatmapMetric === 'count' ? maxOver : null);
-        const title = c.total ? `${c.period}: ${c.over}/${c.total} (${c.pct_over}%) — คลิกเพื่อดูรายละเอียด` : `${c.period}: ไม่มีข้อมูล`;
-        const onclick = c.total ? ` onclick="window.__slaOpenHeatmapDrilldown('${r.province}','${c.period}','${heatmapGran}')"` : '';
+        const heat = isSummaryRow ? { bg: '', color: 'var(--text)' } : heatmapCellColor(cellValue, heatmapMetric === 'count' ? maxOver : null);
+        const title = c.total ? `${period}: ${c.over}/${c.total} (${c.pct_over}%)${isSummaryRow ? '' : ' — คลิกเพื่อดูรายละเอียด'}` : `${period}: ไม่มีข้อมูล`;
+        const onclick = (c.total && !isSummaryRow) ? ` onclick="window.__slaOpenHeatmapDrilldown('${c.province}','${period}','${heatmapGran}')"` : '';
         const displayValue = c.total ? (heatmapMetric === 'count' ? c.over : Math.round(c.pct_over) + '%') : '–';
-        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; background:${heat.bg}; color:${heat.color}; ${c.total ? 'cursor:pointer;' : ''}">${displayValue}</td>`;
+        return `<td${onclick} title="${escapeHtml(title)}" style="padding:6px 6px; text-align:center; font-size:10px; font-weight:700; ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${(c.total && !isSummaryRow) ? 'cursor:pointer;' : ''}">${displayValue}</td>`;
       }).join('');
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region)})</span></td>
+      return `<tr style="border-top:1px solid var(--border); ${isSummaryRow ? 'background:var(--bg3); font-weight:700;' : ''}">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${label}</td>
         ${cells}
       </tr>`;
-    }).join('');
+    }
+
+    // Sums SEPARATELY per period column across a group of province rows -
+    // pct_over is recomputed from summed over/total (never averaged
+    // percentages directly, which would misrepresent provinces with very
+    // different ticket volumes).
+    function sumCells(rowsInGroup) {
+      return hm.periods.map((period, i) => {
+        let total = 0, over = 0;
+        rowsInGroup.forEach(r => { total += r.cells[i].total; over += r.cells[i].over; });
+        return { period, province: null, total, over, pct_over: total ? Math.round(over / total * 10000) / 100 : null };
+      });
+    }
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    hm.rows.forEach(r => { (byRegion[r.region] = byRegion[r.region] || []).push(r); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${hm.periods.length + 1}" style="padding:6px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      byRegion[reg].forEach(r => {
+        const cellsWithProvince = r.cells.map(c => ({ ...c, province: r.province }));
+        body += renderDataRow(`${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px; font-weight:400;">(${escapeHtml(r.region)})</span>`, cellsWithProvince, false);
+      });
+      body += renderDataRow(`${escapeHtml(reg)} รวม`, sumCells(byRegion[reg]), true);
+    });
+    body += renderDataRow('รวมทั้งหมด', sumCells(hm.rows), true);
+
     el('sla-heatmap-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
@@ -7528,6 +7766,709 @@ function renderPivot(ft) {
   });
 
   window.initSlaImproveTab = function () { if (!loaded) reload(); loadMappingStatus(); };
+})();
+
+// ── ONLINE SA1-4 REAL TIME MONITORING ───────────────────────────────────
+(function () {
+  let loaded = false;
+  let lastData = null;
+  let entriesWithParsedTarget = []; // {..entry, _targetDate: Date|null} - parsed once per fetch, reused by every tick
+  let tickTimer = null;
+  const TICK_INTERVAL_MS = 15000; // recompute + re-render every 15s - purely local, no network call
+  let filterState = { priority: '', timeFilter: '' }; // priority: '' | 'P0' | 'P1' | 'P2'; timeFilter: '' | 'over' | 'near'
+  let map = null;
+  let markerClusterGroup = null;
+  const markerByTicketId = {};
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
+
+  // Short English province codes for the group-header badge - the
+  // underlying grouping/filtering everywhere else stays keyed by the raw
+  // Thai PROVINCE value the ticket data actually has; this is purely a
+  // rendering-layer badge, matching the same short-code convention
+  // already used elsewhere in this app.
+  const PROVINCE_SHORT_MAP = {
+    'เชียงใหม่': 'CMI', 'เชียงราย': 'CRI', 'ลำปาง': 'LPG', 'ลำพูน': 'LPN',
+    'แม่ฮ่องสอน': 'MHS', 'น่าน': 'NAN', 'แพร่': 'PHE', 'พะเยา': 'PYO',
+    'กำแพงเพชร': 'KPP', 'เพชรบูรณ์': 'PCB', 'พิจิตร': 'PCT', 'พิษณุโลก': 'PSN',
+    'สุโขทัย': 'SKT', 'ตาก': 'TAK', 'อุตรดิตถ์': 'UTR',
+  };
+
+  // TARGETFINISH is Bangkok local time as "YYYY-MM-DD HH:MM:SS" - needs an
+  // explicit +07:00 so the browser doesn't guess UTC or its own local zone
+  // (same pattern already validated elsewhere in this app for insert_time
+  // staleness checks). Must trim + collapse whitespace exactly like the
+  // Python backend's _parse_dt already does (datetime.strptime(s.strip(),
+  // fmt)) - a raw sheet cell with a stray leading/trailing space or a
+  // double space between date and time parses fine on the backend (hence
+  // priority/remaining_hours exist in the response) but silently failed
+  // here before this fix, since .replace(' ', 'T') only swaps the FIRST
+  // single space and does nothing for surrounding whitespace - this was
+  // overwriting the backend's valid remaining_hours with null on the
+  // very first tick, which is why Remaining Time went blank for tickets
+  // that clearly had a valid value in the API response.
+  function parseBangkokDt(s) {
+    if (!s) return null;
+    const cleaned = String(s).trim().replace(/\s+/, 'T');
+    const d = new Date(cleaned + '+07:00');
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatRemainingTime(hours) {
+    if (hours == null) return '–';
+    const totalMinutes = Math.round(hours * 60);
+    const sign = totalMinutes < 0 ? '-' : '';
+    const abs = Math.abs(totalMinutes);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    return `${sign}${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+  }
+
+  // Temperature scale: red (critical, close to/at deadline) -> orange ->
+  // amber -> pale yellow (plenty of time left) for the 0-24h+ window;
+  // Over SLA gets a separate, darkening-with-more-overdue critical scale.
+  // Deliberately no green or gray anywhere, per explicit request.
+  function remainingTimeColor(hours) {
+    if (hours == null) return { bg: 'var(--bg1)', color: 'var(--text3)' };
+    if (hours < 0) {
+      const overT = Math.min(1, Math.abs(hours) / 24);
+      const r = Math.round(180 - 58 * overT), g = Math.round(50 - 19 * overT), b = Math.round(50 - 19 * overT);
+      return { bg: `rgb(${r},${g},${b})`, color: '#fff' };
+    }
+    const stops = [[226, 75, 74], [239, 159, 39], [245, 197, 24], [250, 240, 200]];
+    const t = Math.min(1, hours / 24);
+    const scaled = t * (stops.length - 1);
+    const i = Math.min(stops.length - 2, Math.floor(scaled));
+    const localT = scaled - i;
+    const r = Math.round(stops[i][0] + (stops[i + 1][0] - stops[i][0]) * localT);
+    const g = Math.round(stops[i][1] + (stops[i + 1][1] - stops[i][1]) * localT);
+    const b = Math.round(stops[i][2] + (stops[i + 1][2] - stops[i][2]) * localT);
+    return { bg: `rgb(${r},${g},${b})`, color: t > 0.55 ? '#1a1300' : '#fff' };
+  }
+
+  function priorityBadge(p) {
+    const map = { P0: '#E24B4A', P1: '#EF9F27', P2: 'var(--text3)' };
+    return `<span style="color:${map[p] || 'var(--text3)'}; font-weight:800;">${escapeHtml(p)}</span>`;
+  }
+
+  function matchesFilter(en) {
+    if (filterState.priority && en.priority !== filterState.priority) return false;
+    if (filterState.timeFilter === 'over' && !(en._remaining != null && en._remaining < 0)) return false;
+    if (filterState.timeFilter === 'near' && !(en._remaining != null && en._remaining >= 0 && en._remaining <= 2)) return false;
+    return true;
+  }
+  function getFilteredEntries() { return entriesWithParsedTarget.filter(matchesFilter); }
+
+  function setFilter(priority, timeFilter) {
+    const same = filterState.priority === priority && filterState.timeFilter === timeFilter;
+    filterState = same ? { priority: '', timeFilter: '' } : { priority, timeFilter };
+    renderKpiGrid(lastData.kpi);
+    renderActiveFilterIndicator();
+    renderTable();
+    renderMap();
+  }
+  window.__ortClearFilter = function () {
+    filterState = { priority: '', timeFilter: '' };
+    renderKpiGrid(lastData.kpi);
+    renderActiveFilterIndicator();
+    renderTable();
+    renderMap();
+  };
+
+  function renderActiveFilterIndicator() {
+    const parts = [];
+    if (filterState.priority) parts.push(filterState.priority);
+    if (filterState.timeFilter === 'over') parts.push('Over SLA');
+    if (filterState.timeFilter === 'near') parts.push('Near (≤2h)');
+    const container = el('ort-active-filter');
+    if (!parts.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `
+      <div style="display:inline-flex; align-items:center; gap:8px; background:#1f6feb18; border:1px solid #1f6feb55; border-radius:20px; padding:5px 12px;">
+        <span style="font-size:11.5px; color:#1f6feb; font-weight:700;">🔍 Filter: ${escapeHtml(parts.join(' + '))}</span>
+        <span onclick="window.__ortClearFilter()" style="font-size:11px; color:var(--text2); cursor:pointer; font-weight:700;" title="ล้าง Filter">✕ Clear</span>
+      </div>`;
+  }
+
+  function renderKpiGrid(kpi) {
+    const cards = [
+      { label: 'Total Online', value: kpi.total, color: 'var(--text)', bg: 'var(--bg2)', priority: '', timeFilter: '' },
+      { label: '🔴 Over SLA', value: kpi.over, color: '#E24B4A', bg: '#E24B4A14', priority: '', timeFilter: 'over' },
+      { label: '🟠 Near (≤2h)', value: kpi.near, color: '#EF9F27', bg: '#EF9F2714', priority: '', timeFilter: 'near' },
+      { label: 'P0', value: kpi.p0, color: '#E24B4A', bg: '#E24B4A14', priority: 'P0', timeFilter: '' },
+      { label: 'P1', value: kpi.p1, color: '#EF9F27', bg: '#EF9F2714', priority: 'P1', timeFilter: '' },
+      { label: 'P2', value: kpi.p2, color: 'var(--text3)', bg: 'var(--bg2)', priority: 'P2', timeFilter: '' },
+    ];
+    el('ort-kpi-grid').innerHTML = cards.map(c => {
+      const isActive = filterState.priority === c.priority && filterState.timeFilter === c.timeFilter && (c.priority || c.timeFilter);
+      return `
+      <div onclick="window.__ortSetFilter('${c.priority}','${c.timeFilter}')" style="border:1px solid ${isActive ? '#1f6feb' : 'var(--border)'}; border-radius:var(--r); padding:12px 14px; background:${c.bg}; cursor:pointer; ${isActive ? 'box-shadow:0 0 0 1px #1f6feb;' : ''}" title="คลิกเพื่อกรอง">
+        <div style="font-size:26px; font-weight:800; color:${c.color}; line-height:1.1;">${c.value}</div>
+        <div style="font-size:11px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
+      </div>`;
+    }).join('');
+  }
+  window.__ortSetFilter = function (priority, timeFilter) { setFilter(priority, timeFilter); };
+
+  const DETAIL_COLS = [
+    ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SUBJECT', 'SUBJECT'], ['DISTRICT', 'DISTRICT'],
+    ['Aging_Flag_Group', 'Aging_Flag_Group'], ['Over SLA', 'over_sla_day'], ['⏱️ Remaining Time', '_remaining'],
+    ['Team', 'team'], ['WO Status (Mateline)', 'mateline_wo_status'], ['Status Mateline', 'status_mateline'],
+    ['Group Problem', 'group_problem'], ['Action Team', 'action_team'], ['รายละเอียด', 'detail'], ['Plan Closed Date', 'plan_closed_date'],
+  ];
+
+  function renderTable() {
+    const container = el('ort-table');
+    const filtered = getFilteredEntries();
+    // Re-rendering (every 15s tick) destroys and recreates this container's
+    // whole DOM, which would otherwise silently reset any scroll position
+    // back to the top mid-read - save it here and restore after, so the
+    // live countdown never interrupts someone scrolling the table.
+    const prevScrollEl = document.getElementById('ort-table-scroll');
+    const prevScrollTop = prevScrollEl ? prevScrollEl.scrollTop : 0;
+    if (!entriesWithParsedTarget.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket Online SA1-4 เปิดอยู่ตอนนี้</div>`; return; }
+    if (!filtered.length) { container.innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่มี Ticket ตรงกับ Filter ที่เลือก</div>`; return; }
+
+    const regionOrder = ['NOR1', 'NOR2'];
+    const byRegion = {};
+    filtered.forEach(e => { (byRegion[e.Region] = byRegion[e.Region] || []).push(e); });
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    const head = DETAIL_COLS.map(([label]) => `<th style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); white-space:nowrap;">${label}</th>`).join('');
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${DETAIL_COLS.length}" style="padding:7px 10px; font-size:12px; font-weight:800; color:var(--text2); text-transform:uppercase; letter-spacing:.04em;">🌐 ${escapeHtml(reg)}</td></tr>`;
+      const byProvince = {};
+      byRegion[reg].forEach(e => { (byProvince[e.PROVINCE] = byProvince[e.PROVINCE] || []).push(e); });
+      const provinces = Object.keys(byProvince).sort((a, b) => (byProvince[a][0]._remaining ?? Infinity) - (byProvince[b][0]._remaining ?? Infinity));
+      provinces.forEach(prov => {
+        const provTickets = byProvince[prov];
+        const provCode = PROVINCE_SHORT_MAP[prov] || '';
+        body += `<tr style="background:#1f6feb14; border-top:2px solid var(--border2);">
+          <td colspan="${DETAIL_COLS.length}" style="padding:6px 10px 6px 18px;">
+            <span style="display:inline-flex; align-items:center; gap:8px;">
+              ${provCode ? `<span style="background:#1f6feb; color:#fff; font-size:10.5px; font-weight:800; letter-spacing:.03em; padding:2px 8px; border-radius:4px;">${escapeHtml(provCode)}</span>` : ''}
+              <span style="font-size:13px; font-weight:800; color:var(--text);">${escapeHtml(PROVINCE_EN(prov))}</span>
+              <span style="font-size:10.5px; font-weight:600; color:var(--text3);">${provTickets.length} Ticket</span>
+            </span>
+          </td>
+        </tr>`;
+        const byDistrict = {};
+        provTickets.forEach(e => { (byDistrict[e.DISTRICT] = byDistrict[e.DISTRICT] || []).push(e); });
+        // Districts ordered by their own most-urgent ticket (each district's list is already remaining-time sorted from the outer sort below)
+        const districts = Object.keys(byDistrict).sort((a, b) => (byDistrict[a][0]._remaining ?? Infinity) - (byDistrict[b][0]._remaining ?? Infinity));
+        districts.forEach(dist => {
+          const distEntries = byDistrict[dist].slice().sort((a, b) => (a._remaining ?? Infinity) - (b._remaining ?? Infinity));
+          body += `<tr style="background:var(--bg1);">
+            <td colspan="${DETAIL_COLS.length}" style="padding:5px 10px 5px 34px; border-left:3px solid #1f6feb55;">
+              <span style="font-size:11.5px; font-weight:700; color:var(--text2);">📍 ${escapeHtml(dist)}</span>
+              <span style="font-size:10px; font-weight:600; color:var(--text3); margin-left:6px;">${distEntries.length} Ticket</span>
+            </td>
+          </tr>`;
+          distEntries.forEach(en => {
+            const heat = remainingTimeColor(en._remaining);
+            const cells = DETAIL_COLS.map(([, key]) => {
+              if (key === 'TICKETID') {
+                const clickable = en.latitude != null && en.longitude != null;
+                const onclick = clickable ? ` onclick="window.__ortFocusTicket('${en.TICKETID}')" style="cursor:pointer; color:#1f6feb; text-decoration:underline;" title="คลิกเพื่อดูตำแหน่งบน Map"` : '';
+                return `<td${onclick} style="padding:5px 8px; white-space:nowrap; font-weight:700;">${escapeHtml(en.TICKETID)}</td>`;
+              }
+              if (key === 'priority') return `<td style="padding:5px 8px; white-space:nowrap;">${priorityBadge(en.priority)}</td>`;
+              if (key === '_remaining') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:800; background:${heat.bg}; color:${heat.color};">${formatRemainingTime(en._remaining)}</td>`;
+              if (key === 'over_sla_day') return `<td style="padding:5px 8px; text-align:center;">${en.over_sla_day || '–'}</td>`;
+              if (key === 'SUBJECT' || key === 'detail') return `<td style="padding:5px 8px; max-width:220px; white-space:normal;" title="${escapeHtml(en[key])}">${escapeHtml(en[key])}</td>`;
+              return `<td style="padding:5px 8px; white-space:nowrap;">${escapeHtml(en[key])}</td>`;
+            }).join('');
+            body += `<tr style="border-top:1px solid var(--border);">${cells}</tr>`;
+          });
+        });
+      });
+    });
+
+    container.innerHTML = `
+      <div id="ort-table-scroll" style="overflow-x:auto; max-height:640px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--r);">
+        <table style="border-collapse:collapse; font-size:11.5px; width:100%; white-space:nowrap;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2); position:sticky; top:0;">${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    const newScrollEl = document.getElementById('ort-table-scroll');
+    if (newScrollEl && prevScrollTop) newScrollEl.scrollTop = prevScrollTop;
+  }
+
+  function tick() {
+    const now = new Date();
+    el('ort-current-time').textContent = now.toLocaleString('th-TH', { hour12: false });
+    entriesWithParsedTarget.forEach(e => {
+      // Falls back to the backend's own fetch-time snapshot (remaining_hours)
+      // if the frontend's own date parse ever fails for any reason - the
+      // ticking value should only ever be MORE precise than the snapshot,
+      // never regress it to blank.
+      e._remaining = e._targetDate ? (e._targetDate.getTime() - now.getTime()) / 3600000 : e.remaining_hours;
+    });
+    renderTable();
+  }
+
+  function startTicking() {
+    if (tickTimer) clearInterval(tickTimer);
+    tick();
+    tickTimer = setInterval(tick, TICK_INTERVAL_MS);
+  }
+
+  function priorityMapColor(p) {
+    // P0=red, P1=orange - same colors as priorityBadge/KPI cards elsewhere on this page, no green/gray anywhere
+    return p === 'P0' ? '#E24B4A' : '#EF9F27';
+  }
+
+  function initMap() {
+    if (map) return;
+    map = L.map('ort-map', { scrollWheelZoom: true }).setView([18.7, 99.0], 7); // rough Northern Thailand center
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    // Falls back to a plain (non-clustering) layer group if the
+    // leaflet.markercluster CDN plugin ever fails to load - markers still
+    // need to show up reliably even without the cluster-bubble grouping.
+    try {
+      markerClusterGroup = L.markerClusterGroup({
+        iconCreateFunction: function (cluster) {
+          // Custom cluster badge - default plugin cluster color is green, which is explicitly disallowed here
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: `<div style="background:#1f6feb; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4);">${count}</div>`,
+            className: '', iconSize: [36, 36],
+          });
+        },
+      });
+    } catch (e) {
+      console.error('leaflet.markercluster unavailable, falling back to plain markers', e);
+      markerClusterGroup = L.layerGroup();
+    }
+    map.addLayer(markerClusterGroup);
+  }
+
+  function renderMap() {
+    if (!map) initMap();
+    markerClusterGroup.clearLayers();
+    Object.keys(markerByTicketId).forEach(k => delete markerByTicketId[k]);
+
+    const filtered = getFilteredEntries();
+    const p0p1 = filtered.filter(en => en.priority === 'P0' || en.priority === 'P1');
+    const plottable = p0p1.filter(en => en.latitude != null && en.longitude != null);
+    el('ort-map-note').textContent = p0p1.length
+      ? `แสดง ${plottable.length} / ${p0p1.length} Ticket P0-P1 บน Map${plottable.length < p0p1.length ? ' (ที่เหลือไม่มีพิกัด LATITUDE/LONGITUDE ในข้อมูล)' : ''}`
+      : 'ไม่มี Ticket P0/P1 ที่ตรงกับ Filter ปัจจุบัน';
+
+    plottable.forEach(en => {
+      const color = priorityMapColor(en.priority);
+      const icon = L.divIcon({
+        html: `<div style="background:${color}; color:#fff; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); white-space:nowrap;">${escapeHtml(en.TICKETID)}</div>`,
+        className: '', iconAnchor: [0, 0],
+      });
+      const marker = L.marker([en.latitude, en.longitude], { icon });
+      marker.bindPopup(`
+        <div style="font-size:12px; line-height:1.7; min-width:220px;">
+          <b>${escapeHtml(en.TICKETID)}</b> ${priorityBadge(en.priority)}<br>
+          ${escapeHtml(en.SUBJECT)}<br>
+          <b>Region/Province/District:</b> ${escapeHtml(en.Region)} / ${escapeHtml(PROVINCE_EN(en.PROVINCE))} / ${escapeHtml(en.DISTRICT)}<br>
+          <b>Remaining:</b> ${formatRemainingTime(en._remaining)} · <b>Over SLA:</b> ${en.over_sla_day || '–'}<br>
+          <b>Team:</b> ${escapeHtml(en.team)}<br>
+          <b>WO Status (Mateline):</b> ${escapeHtml(en.mateline_wo_status)}<br>
+          <b>Status Mateline:</b> ${escapeHtml(en.status_mateline)}<br>
+          <b>Group Problem:</b> ${escapeHtml(en.group_problem)}<br>
+          <b>Action Team:</b> ${escapeHtml(en.action_team)}<br>
+          <b>รายละเอียด:</b> ${escapeHtml(en.detail)}<br>
+          <b>Plan Closed Date:</b> ${escapeHtml(en.plan_closed_date)}
+        </div>`);
+      markerClusterGroup.addLayer(marker);
+      markerByTicketId[en.TICKETID] = marker;
+    });
+  }
+
+  window.__ortFocusTicket = function (ticketId) {
+    const marker = markerByTicketId[ticketId];
+    if (!marker || !map) return;
+    el('ort-map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (markerClusterGroup.zoomToShowLayer) {
+      markerClusterGroup.zoomToShowLayer(marker, () => marker.openPopup());
+    } else {
+      map.setView(marker.getLatLng(), 14, { animate: true });
+      marker.openPopup();
+    }
+  };
+
+  async function reload() {
+    try {
+      const res = await fetch('/api/online-realtime');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      renderKpiGrid(data.kpi);
+      renderActiveFilterIndicator();
+      entriesWithParsedTarget = data.entries.map(e => ({ ...e, _targetDate: parseBangkokDt(e.TARGETFINISH), _remaining: e.remaining_hours }));
+      el('ort-last-updated').textContent = data.insert_time || data.generated_at || '–';
+      try {
+        renderMap();
+      } catch (mapErr) {
+        // The map is a secondary view - a failure in it (e.g. a CDN plugin
+        // not loading) must never take down the table/ticking below, which
+        // is the primary, always-should-work view.
+        console.error('Map render failed, continuing without it', mapErr);
+        el('ort-map-note').textContent = 'Map โหลดไม่สำเร็จ (ตารางด้านล่างยังใช้งานได้ปกติ)';
+      }
+      startTicking();
+      loaded = true;
+    } catch (e) {
+      console.error('Online Real Time load failed', e);
+      el('ort-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  el('ort-reload').addEventListener('click', reload);
+  window.initOnlineRealtimeTab = function () { if (!loaded) reload(); };
+})();
+
+// ── OPERATION TEMP POINT IMPROVEMENT ────────────────────────────────────
+(function () {
+  let loaded = false;
+  let lastData = null;
+  let filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '' };
+  let map = null;
+  let pointLayer = null;
+  let lineLayer = null;
+  let overviewChart = null;
+  let provinceChart = null;
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const PROVINCE_EN = (typeof provinceEnLabel === 'function') ? provinceEnLabel : (p => p);
+  function fmtNum(n) { return n == null ? '–' : Math.round(n).toLocaleString(); }
+
+  function matchesFilter(p) {
+    if (filterState.region && p.region !== filterState.region) return false;
+    if (filterState.province && p.province !== filterState.province) return false;
+    if (filterState.clusterFilter === 'cluster' && !p.is_cluster) return false;
+    if (filterState.clusterFilter === 'individual' && p.is_cluster) return false;
+    if (filterState.severity && p.severity !== filterState.severity) return false;
+    if (filterState.subRootCause && p.sub_root_cause !== filterState.subRootCause) return false;
+    if (filterState.month && p.month !== filterState.month) return false;
+    if (filterState.clusterId && p.cluster_id !== filterState.clusterId) return false;
+    return true;
+  }
+  function getFilteredPoints() { return (lastData ? lastData.points : []).filter(matchesFilter); }
+
+  function populateFilterDropdowns(data) {
+    const uniq = (arr) => [...new Set(arr.filter(v => v))].sort();
+    const setOptions = (id, values, allLabel, labelFn) => {
+      const current = el(id).value;
+      el(id).innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(labelFn ? labelFn(v) : v)}</option>`).join('');
+      el(id).value = current;
+    };
+    setOptions('tpi-filter-region', uniq(data.points.map(p => p.region)), 'Region: ทั้งหมด');
+    setOptions('tpi-filter-province', uniq(data.points.map(p => p.province)), 'Province: ทั้งหมด', PROVINCE_EN);
+    setOptions('tpi-filter-severity', uniq(data.points.map(p => p.severity)), 'Severity: ทั้งหมด');
+    setOptions('tpi-filter-subroot', uniq(data.points.map(p => p.sub_root_cause)), 'Sub Root Cause: ทั้งหมด');
+    setOptions('tpi-filter-month', uniq(data.points.map(p => p.month)), 'Month: ทั้งหมด');
+  }
+
+  function renderClearFilterChip() {
+    const active = filterState.region || filterState.province || filterState.clusterFilter || filterState.severity || filterState.subRootCause || filterState.month || filterState.clusterId;
+    el('tpi-clear-filter').style.display = active ? 'inline' : 'none';
+  }
+  el('tpi-clear-filter').addEventListener('click', () => {
+    filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '' };
+    ['tpi-filter-region', 'tpi-filter-province', 'tpi-filter-cluster', 'tpi-filter-severity', 'tpi-filter-subroot', 'tpi-filter-month'].forEach(id => { el(id).value = ''; });
+    renderAll();
+  });
+  ['tpi-filter-region', 'tpi-filter-province', 'tpi-filter-cluster', 'tpi-filter-severity', 'tpi-filter-subroot', 'tpi-filter-month'].forEach(id => {
+    el(id).addEventListener('change', () => {
+      filterState.region = el('tpi-filter-region').value;
+      filterState.province = el('tpi-filter-province').value;
+      filterState.clusterFilter = el('tpi-filter-cluster').value;
+      filterState.severity = el('tpi-filter-severity').value;
+      filterState.subRootCause = el('tpi-filter-subroot').value;
+      filterState.month = el('tpi-filter-month').value;
+      filterState.clusterId = ''; // a broad filter change clears the specific cluster-click selection
+      renderAll();
+    });
+  });
+
+  function renderWarnings() {
+    const warnings = (lastData && lastData.warnings) || [];
+    if (!warnings.length) { el('tpi-warnings').innerHTML = ''; return; }
+    el('tpi-warnings').innerHTML = `<div style="border:1px solid #EF9F2755; background:#EF9F2714; border-radius:var(--r); padding:8px 12px; font-size:11.5px; color:#c77d1a;">⚠️ ${warnings.map(escapeHtml).join(' · ')}</div>`;
+  }
+
+  function renderSummaryGrid() {
+    const filtered = getFilteredPoints();
+    const clusterIds = new Set(filtered.filter(p => p.is_cluster).map(p => p.cluster_id));
+    const clusterPts = filtered.filter(p => p.is_cluster).length;
+    const individualPts = filtered.filter(p => !p.is_cluster).length;
+    const totalDist = [...clusterIds].reduce((sum, cid) => {
+      const pts = filtered.filter(p => p.cluster_id === cid);
+      return sum + Math.max(...pts.map(p => p.cluster_distance_m || 0), 0);
+    }, 0);
+    const total = filtered.length;
+    const cards = [
+      { label: 'Total Temp Point', value: total, color: 'var(--text)' },
+      { label: '🔵 Cluster Point', value: clusterPts, color: '#1f6feb' },
+      { label: '🟠 Individual Point', value: individualPts, color: '#EF9F27' },
+      { label: 'Total Cluster', value: clusterIds.size, color: '#a371f7' },
+      { label: 'Total Cluster Distance', value: fmtNum(totalDist) + ' m', color: 'var(--text)' },
+      { label: 'Avg Cluster Distance', value: clusterIds.size ? fmtNum(totalDist / clusterIds.size) + ' m' : '–', color: 'var(--text)' },
+      { label: '% Cluster', value: total ? (clusterPts / total * 100).toFixed(1) + '%' : '–', color: '#1f6feb' },
+      { label: '% Individual', value: total ? (individualPts / total * 100).toFixed(1) + '%' : '–', color: '#EF9F27' },
+    ];
+    el('tpi-summary-grid').innerHTML = cards.map(c => `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; background:var(--bg2);">
+        <div style="font-size:22px; font-weight:800; color:${c.color}; line-height:1.1;">${c.value}</div>
+        <div style="font-size:10.5px; color:var(--text2); margin-top:4px;">${escapeHtml(c.label)}</div>
+      </div>`).join('');
+  }
+
+  const CLUSTER_COLOR = '#1f6feb';
+  const INDIVIDUAL_COLOR = '#EF9F27';
+  const INVALID_COLOR = '#a371f7';
+
+  function initMap() {
+    if (map) return;
+    map = L.map('tpi-map', { scrollWheelZoom: true }).setView([18.0, 99.5], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    pointLayer = L.layerGroup().addTo(map);
+    lineLayer = L.layerGroup().addTo(map);
+  }
+
+  function renderMap() {
+    if (!map) initMap();
+    pointLayer.clearLayers();
+    lineLayer.clearLayers();
+    const filtered = getFilteredPoints().filter(p => p.latitude != null && p.longitude != null);
+    const invalidCount = (lastData ? lastData.invalid_points.length : 0);
+    el('tpi-map-note').textContent = filtered.length
+      ? `แสดง ${filtered.length} จุดบน Map${invalidCount ? ` (${invalidCount} จุดไม่มีพิกัดที่ถูกต้อง ไม่แสดงบน Map แต่ยังอยู่ในตาราง Invalid/Unmapped)` : ''}`
+      : 'ไม่มีจุดที่ตรงกับ Filter ปัจจุบัน';
+
+    // Draw a chain line per cluster, connecting points IN THEIR STORED
+    // ORDER (already the nearest-neighbor chain sequence from the
+    // backend) - this is the actual chain the points were clustered by,
+    // never a radius/boundary shape.
+    const byCluster = {};
+    filtered.forEach(p => { if (p.is_cluster) (byCluster[p.cluster_id] = byCluster[p.cluster_id] || []).push(p); });
+    Object.entries(byCluster).forEach(([cid, pts]) => {
+      const latlngs = pts.map(p => [p.latitude, p.longitude]);
+      const line = L.polyline(latlngs, { color: CLUSTER_COLOR, weight: 3, opacity: 0.7 });
+      line.on('click', () => window.__tpiShowClusterDetail(cid));
+      lineLayer.addLayer(line);
+    });
+
+    filtered.forEach(p => {
+      const color = p.is_cluster ? CLUSTER_COLOR : INDIVIDUAL_COLOR;
+      const marker = L.circleMarker([p.latitude, p.longitude], { radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 1.5 });
+      marker.bindPopup(`
+        <div style="font-size:12px; line-height:1.7; min-width:200px;">
+          <b>${escapeHtml(p.source_tt)}</b> — ${p.is_cluster ? `<span style="color:${CLUSTER_COLOR};">🔵 ${escapeHtml(p.cluster_id)}</span>` : `<span style="color:${INDIVIDUAL_COLOR};">🟠 Individual</span>`}<br>
+          ${escapeHtml(p.subject)}<br>
+          <b>Province:</b> ${escapeHtml(PROVINCE_EN(p.province))} · <b>Severity:</b> ${escapeHtml(p.severity)}<br>
+          <b>Distance to Previous:</b> ${fmtNum(p.distance_to_previous_m)} m<br>
+          ${p.is_cluster ? `<b>Cluster Distance:</b> ${fmtNum(p.cluster_distance_m)} m<br>` : ''}
+          <b>Sub Root Cause:</b> ${escapeHtml(p.sub_root_cause)}
+        </div>`);
+      if (p.is_cluster) marker.on('click', () => window.__tpiShowClusterDetail(p.cluster_id));
+      pointLayer.addLayer(marker);
+    });
+
+    if (filtered.length) {
+      const bounds = filtered.map(p => [p.latitude, p.longitude]);
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }
+
+  window.__tpiShowClusterDetail = function (clusterId) {
+    const pts = (lastData ? lastData.points : []).filter(p => p.cluster_id === clusterId);
+    if (!pts.length) return;
+    const totalDist = Math.max(...pts.map(p => p.cluster_distance_m || 0), 0);
+    const province = pts[0].province;
+    const rows = pts.map(p => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 8px;">${escapeHtml(p.source_tt)}</td>
+        <td style="padding:5px 8px;">${escapeHtml(p.ci_name)}</td>
+        <td style="padding:5px 8px;">${escapeHtml(p.severity)}</td>
+        <td style="padding:5px 8px;">${escapeHtml(p.sub_root_cause)}</td>
+        <td style="padding:5px 8px; text-align:center;">${fmtNum(p.distance_to_previous_m)} m</td>
+        <td style="padding:5px 8px; text-align:center;">${fmtNum(p.cluster_distance_m)} m</td>
+      </tr>`).join('');
+    el('tpi-cluster-detail').innerHTML = `
+      <div style="border:2px solid ${CLUSTER_COLOR}55; border-radius:var(--r); padding:14px 16px; background:${CLUSTER_COLOR}0d;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <div style="font-size:13px; font-weight:700;">🔵 Cluster ${escapeHtml(clusterId)} — ${pts.length} จุด · ${escapeHtml(PROVINCE_EN(province))} · ระยะสะสม ${fmtNum(totalDist)} m</div>
+          <span onclick="document.getElementById('tpi-cluster-detail').innerHTML=''" style="cursor:pointer; font-size:12px; color:var(--text3);">✕ ปิด</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="border-collapse:collapse; font-size:11.5px; width:100%;">
+            <thead><tr style="background:var(--bg3);"><th style="padding:5px 8px; text-align:left;">Source TT</th><th style="padding:5px 8px; text-align:left;">CI Name</th><th style="padding:5px 8px; text-align:left;">Severity</th><th style="padding:5px 8px; text-align:left;">Sub Root Cause</th><th style="padding:5px 8px;">Dist. to Prev</th><th style="padding:5px 8px;">Cluster Dist.</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    el('tpi-cluster-detail').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  function renderCharts() {
+    const filtered = getFilteredPoints();
+    const clusterPts = filtered.filter(p => p.is_cluster).length;
+    const individualPts = filtered.filter(p => !p.is_cluster).length;
+
+    const ctx1 = el('tpi-overview-chart').getContext('2d');
+    if (overviewChart) overviewChart.destroy();
+    overviewChart = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: ['Total', 'Cluster Point', 'Individual Point'],
+        datasets: [{ data: [filtered.length, clusterPts, individualPts], backgroundColor: ['var(--text3)', CLUSTER_COLOR, INDIVIDUAL_COLOR] }],
+      },
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+
+    const byProvince = {};
+    filtered.forEach(p => { (byProvince[p.province] = byProvince[p.province] || { cluster: new Set(), points: 0 }); if (p.is_cluster) byProvince[p.province].cluster.add(p.cluster_id); byProvince[p.province].points++; });
+    const provinceRows = Object.entries(byProvince).map(([prov, v]) => ({ province: prov, clusters: v.cluster.size, points: v.points })).sort((a, b) => b.clusters - a.clusters).slice(0, 10);
+
+    const ctx2 = el('tpi-province-chart').getContext('2d');
+    if (provinceChart) provinceChart.destroy();
+    provinceChart = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: provinceRows.map(r => PROVINCE_EN(r.province)),
+        datasets: [{ label: 'Cluster', data: provinceRows.map(r => r.clusters), backgroundColor: CLUSTER_COLOR }],
+      },
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+  }
+
+  const PRIORITY_BADGE = { high: ['🔴', '#E24B4A', 'High'], medium: ['🟠', '#EF9F27', 'Medium'], monitor: ['🔵', '#1f6feb', 'Monitor'] };
+  function priorityBadge(p) {
+    const [icon, color, label] = PRIORITY_BADGE[p] || ['⚪', 'var(--text3)', '–'];
+    return `<span style="color:${color}; font-weight:700;">${icon} ${label}</span>`;
+  }
+
+  function renderProvinceTable() {
+    if (!lastData) return;
+    const rows = lastData.province_summary.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region || '–')})</span></td>
+        <td style="padding:6px 8px; text-align:center;">${r.total_temp_point}</td>
+        <td style="padding:6px 8px; text-align:center; color:${CLUSTER_COLOR}; font-weight:700;">${r.cluster_point}</td>
+        <td style="padding:6px 8px; text-align:center;">${r.cluster_count}</td>
+        <td style="padding:6px 8px; text-align:center; color:${INDIVIDUAL_COLOR}; font-weight:700;">${r.individual_point}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtNum(r.total_distance_m)} m</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtNum(r.avg_distance_per_cluster_m)} m</td>
+        <td style="padding:6px 8px; text-align:center;">${priorityBadge(r.priority)}</td>
+      </tr>`).join('');
+    el('tpi-province-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+          <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Total</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Cluster Point</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Cluster</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Individual</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Total Dist.</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Avg Dist./Cluster</th>
+          <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Priority</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  let detailSort = { col: 'cluster_distance_m', dir: 'desc' };
+  const DETAIL_COLS = [
+    ['cluster_id', 'Cluster ID'], ['source_tt', 'Source TT'], ['inc', 'INC'], ['site_cable', 'Site/Cable'],
+    ['ci_name', 'CI Name'], ['severity', 'Severity'], ['fme', 'FME'], ['subject', 'Subject'],
+    ['activity_owner_group', 'Activity Owner Group'], ['sub_root_cause', 'Sub Root Cause'], ['type_work', 'Type work'],
+    ['distance_to_previous_m', 'Dist. to Prev (m)'], ['cluster_distance_m', 'Cluster Dist. (m)'], ['month', 'Month'],
+  ];
+
+  function renderDetailTable() {
+    const filtered = getFilteredPoints().slice();
+    filtered.sort((a, b) => {
+      const av = a[detailSort.col], bv = b[detailSort.col];
+      const cmp = typeof av === 'string' ? String(av || '').localeCompare(String(bv || '')) : (av || 0) - (bv || 0);
+      return detailSort.dir === 'asc' ? cmp : -cmp;
+    });
+    const head = DETAIL_COLS.map(([key, label]) => {
+      const arrow = detailSort.col === key ? (detailSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+      return `<th onclick="window.__tpiSortDetail('${key}')" style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); cursor:pointer; white-space:nowrap;">${label}${arrow}</th>`;
+    }).join('');
+    const body = filtered.map(p => {
+      const cells = DETAIL_COLS.map(([key]) => {
+        if (key === 'cluster_id') {
+          const color = p.is_cluster ? CLUSTER_COLOR : INDIVIDUAL_COLOR;
+          return `<td onclick="${p.is_cluster ? `window.__tpiShowClusterDetail('${p.cluster_id}')` : ''}" style="padding:5px 8px; font-weight:700; color:${color}; ${p.is_cluster ? 'cursor:pointer;' : ''} white-space:nowrap;">${p.is_cluster ? '🔵' : '🟠'} ${escapeHtml(p.cluster_id)}</td>`;
+        }
+        if (key === 'distance_to_previous_m' || key === 'cluster_distance_m') return `<td style="padding:5px 8px; text-align:center;">${fmtNum(p[key])}</td>`;
+        return `<td style="padding:5px 8px; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(p[key])}">${escapeHtml(p[key])}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">${cells}</tr>`;
+    }).join('');
+    el('tpi-detail-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:11.5px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); position:sticky; top:0;">${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>`;
+  }
+  window.__tpiSortDetail = function (col) {
+    detailSort = detailSort.col === col ? { col, dir: detailSort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'desc' };
+    renderDetailTable();
+  };
+
+  function updateExportUrl() {
+    const params = new URLSearchParams();
+    if (filterState.clusterFilter) params.set('cluster', filterState.clusterFilter);
+    if (filterState.province) params.set('province', filterState.province);
+    if (filterState.severity) params.set('severity', filterState.severity);
+    if (filterState.subRootCause) params.set('sub_root_cause', filterState.subRootCause);
+    if (filterState.month) params.set('month', filterState.month);
+    if (filterState.clusterId) params.set('cluster_id', filterState.clusterId);
+    params.set('format', 'xlsx');
+    el('tpi-export-btn').href = '/api/temp-point-improvement/export?' + params.toString();
+  }
+
+  function renderAll() {
+    renderClearFilterChip();
+    renderSummaryGrid();
+    renderMap();
+    renderCharts();
+    renderProvinceTable();
+    renderDetailTable();
+    updateExportUrl();
+  }
+
+  async function reload() {
+    try {
+      el('tpi-detail-table').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">กำลังโหลด...</div>`;
+      const res = await fetch('/api/temp-point-improvement');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      lastData = data;
+      el('tpi-generated-at').textContent = data.generated_at || '–';
+      renderWarnings();
+      populateFilterDropdowns(data);
+      renderAll();
+      loaded = true;
+    } catch (e) {
+      console.error('Temp Point Improvement load failed', e);
+      el('tpi-detail-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">โหลดข้อมูลไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+
+  el('tpi-reload').addEventListener('click', reload);
+  window.initTempPointTab = function () { if (!loaded) reload(); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
