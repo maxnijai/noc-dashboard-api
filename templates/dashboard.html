@@ -1261,6 +1261,23 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
+  <!-- P0 ONLY: PROVINCE x STATUS MATELINE REPORT MODAL -->
+  <div id="p0-mateline-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('p0-mateline-report-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span id="p0-mateline-report-title" style="font-weight:700;font-size:14px;">📤 สรุป Status Mateline รายจังหวัด</span>
+        <button onclick="document.getElementById('p0-mateline-report-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="p0-mateline-report-text" readonly style="width:100%; height:420px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="p0-mateline-report-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="p0-mateline-report-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ONLINE SA1-4 REAL TIME LINE REPORT MODAL -->
   <div id="ort-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('ort-report-modal').style.display='none'">
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
@@ -6254,62 +6271,64 @@ function renderPivot(ft) {
       </table>`;
   }
 
-  function computeStatusMatelinePlanDateMatrix(tickets) {
-    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
-    const dateSet = new Set();
-    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
-    const dateColumns = [...dateSet].sort();
-    dateColumns.push(NO_PLAN_DATE);
+  // Province (rows) x Status Mateline (columns) - column order follows the
+  // Departed -> Arrived -> Completed -> Closed workflow plus the two
+  // special states, same ordering used for the map color-mode legend on
+  // the Online Real Time tab, so the two views read consistently.
+  const STATUS_MATELINE_COLUMN_ORDER = ['⚠️ Back Date', 'Wait Action', 'Departed', 'Arrived', 'Completed', 'Closed', '(ไม่พบใน MatelineX)'];
+
+  function computeProvinceStatusMatelineMatrix(tickets) {
+    const smSet = new Set();
+    tickets.forEach(t => { smSet.add(t.status_mateline || '(ไม่พบใน MatelineX)'); });
+    const smColumns = STATUS_MATELINE_COLUMN_ORDER.filter(s => smSet.has(s));
+    smSet.forEach(s => { if (!smColumns.includes(s)) smColumns.push(s); }); // any unexpected status not in the known order still shows, appended at the end
+
     const matrix = {};
     tickets.forEach(t => {
-      const col = t.plan_closed_date || NO_PLAN_DATE;
+      const province = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
       const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
-      matrix[sm] = matrix[sm] || {};
-      matrix[sm][col] = (matrix[sm][col] || 0) + 1;
+      matrix[province] = matrix[province] || {};
+      matrix[province][sm] = (matrix[province][sm] || 0) + 1;
     });
-    const rows = Object.entries(matrix).map(([sm, counts]) => ({
-      status_mateline: sm, counts,
+    const rows = Object.entries(matrix).map(([province, counts]) => ({
+      province, counts,
       total: Object.values(counts).reduce((a, b) => a + b, 0),
     })).sort((a, b) => b.total - a.total);
-    return rows.length ? { date_columns: dateColumns, rows } : null;
+    return rows.length ? { sm_columns: smColumns, rows } : null;
   }
 
-  function renderStatusMatelineByPlanDate(block, bookmark, clickFn) {
+  function renderProvinceByStatusMateline(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
-    const today = expTodayStr();
-    const cols = block.date_columns || [];
+    const cols = block.sm_columns || [];
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
-      const isNoPlan = c.startsWith('(');
-      const isBackdated = !isNoPlan && c < today;
-      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
-      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+      const isBackDate = c.includes('Back Date');
+      const color = isBackDate ? '#B23A3A' : 'var(--text2)';
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color};">${escapeHtml(c)}</th>`;
     }).join('');
     const rows = block.rows.map((r, i) => {
-      const isBackDateRow = r.status_mateline.includes('Back Date');
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
-        const isNoPlan = c.startsWith('(');
-        const isBackdated = !isNoPlan && c < today;
-        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
-        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
+        const isBackDate = c.includes('Back Date');
+        const bg = (isBackDate && count > 0) ? '#B23A3A1a' : '';
+        const fg = (isBackDate && count > 0) ? '#B23A3A' : '';
         const clickable = clickFn && count > 0;
-        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','${esc1(c)}')"` : '';
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','${esc1(c)}')"` : '';
         return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
       const rowTotalClickable = clickFn && r.total > 0;
-      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','')"` : '';
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','')"` : '';
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; min-width:180px; font-weight:600; ${isBackDateRow ? 'color:#B23A3A;' : ''}">${escapeHtml(r.status_mateline)}</td>
+        <td style="padding:7px 10px; min-width:140px; font-weight:600;">${escapeHtml(provinceEnLabel(r.province))}</td>
         ${cells}
-        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.status_mateline) : ''}">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(provinceEnLabel(r.province)) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
     const totalCells = cols.map(c => {
       const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
       const clickable = clickFn && sum > 0;
       const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
-      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline ในวันนี้' : ''}">${sum || '–'}</td>`;
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุกจังหวัดที่มี Status นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
     const grandTotalClickable = clickFn && grandTotal > 0;
@@ -6322,7 +6341,7 @@ function renderPivot(ft) {
     return `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Status Mateline</th>${head}
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
           <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
         </tr></thead>
         <tbody>${rows}${totalRow}</tbody>
@@ -6514,13 +6533,25 @@ function renderPivot(ft) {
       const planDateInnerHtml = planMode === 'province'
         ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0ProvincePlanDateCell')
         : planMode === 'statusMateline'
-        ? renderStatusMatelineByPlanDate(computeStatusMatelinePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0StatusMatelineCell')
+        ? (function () {
+            const matrix = computeProvinceStatusMatelineMatrix(filteredTickets);
+            window.__p0MatelineMatrixByBookmark = window.__p0MatelineMatrixByBookmark || {};
+            window.__p0MatelineMatrixByBookmark[block.bookmark] = matrix;
+            return renderProvinceByStatusMateline(matrix, block.bookmark, 'filterP0ProvinceStatusMatelineCell');
+          })()
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      // "statusMateline" mode is Province x Status Mateline (no Plan Closed
+      // Date involved at all), so its header reads differently from the
+      // other two modes, which are both "<dimension> x Plan Closed Date".
+      const planDateHeaderLabel = planMode === 'statusMateline' ? 'Province × Status Mateline' : `${planModeLabels[planMode]} × Plan Closed Date`;
+      const matelineReportBtn = planMode === 'statusMateline'
+        ? `<a href="#" onclick="window.showP0MatelineReport('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue); margin-left:10px;">📤 ส่งรายงาน</a>`
+        : '';
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × Plan Closed Date</span>
-            <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planDateHeaderLabel}</span>
+            <span><a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>${matelineReportBtn}</span>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
         </div>` : '';
@@ -6612,13 +6643,6 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
-  window.filterP0StatusMatelineCell = function (bookmark, statusMateline, planDate) {
-    const f = getSectionFilter(bookmark);
-    const same = f.statusMateline === statusMateline && f.planDate === planDate;
-    f.statusMateline = same ? '' : statusMateline;
-    f.planDate = same ? '' : planDate;
-    if (lastData) render(lastData);
-  };
   window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
     const f = getSectionFilter(bookmark);
     const same = f.province === province && f.planDate === planDate;
@@ -6626,6 +6650,51 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
+  window.filterP0ProvinceStatusMatelineCell = function (bookmark, province, statusMateline) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && f.statusMateline === statusMateline;
+    f.province = same ? '' : province;
+    f.statusMateline = same ? '' : statusMateline;
+    if (lastData) render(lastData);
+  };
+  window.showP0MatelineReport = function (bookmark) {
+    const matrix = (window.__p0MatelineMatrixByBookmark || {})[bookmark];
+    if (!matrix || !matrix.rows || !matrix.rows.length) return;
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeLabel = now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+
+    const lines = [];
+    lines.push(`📤 ${bookmark} — Status Mateline รายจังหวัด`);
+    lines.push(`🕐 ${dateLabel} ${timeLabel} น.`);
+    lines.push('');
+    // Rows already come sorted by total descending from computeProvinceStatusMatelineMatrix
+    matrix.rows.forEach(r => {
+      lines.push(`📍 ${provinceEnLabel(r.province)} (รวม ${r.total})`);
+      const parts = matrix.sm_columns.filter(c => r.counts[c] > 0).map(c => `${c}: ${r.counts[c]}`);
+      lines.push(`   ${parts.join(' · ')}`);
+    });
+    lines.push('━━━━━━━━━━━━━━');
+    const grandTotal = matrix.rows.reduce((s, r) => s + r.total, 0);
+    lines.push(`รวมทั้งหมด: ${grandTotal} ticket`);
+
+    el('p0-mateline-report-title').textContent = `📤 สรุป Status Mateline รายจังหวัด — ${bookmark}`;
+    el('p0-mateline-report-text').value = lines.join('\n');
+    el('p0-mateline-report-copy-status').textContent = '';
+    el('p0-mateline-report-modal').style.display = 'block';
+  };
+  el('p0-mateline-report-copy-btn').addEventListener('click', async () => {
+    const textarea = el('p0-mateline-report-text');
+    const statusEl = el('p0-mateline-report-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
   window.filterP0CategoryCell = function (bookmark, category, dimValue, dimKey) {
     const f = getSectionFilter(bookmark);
     if (dimKey) {
