@@ -967,7 +967,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
-    <div id="p0-trend-health" style="margin-bottom:18px;"></div>
     <div id="p0-body"></div>
   </div>
 
@@ -2086,101 +2085,7 @@ async function loadP0DailyTrendSparklines(accents, groups) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
-  if (document.getElementById('p0-trend-health')) loadProvinceTrendHealth();
 });
-
-let cachedTrendHealthData = null;
-let trendHealthExpanded = false;
-let trendHealthShowAll = false;
-
-async function loadProvinceTrendHealth() {
-  const container = document.getElementById('p0-trend-health');
-  try {
-    const res = await fetch('/api/province-trend-health');
-    if (!res.ok) { container.innerHTML = ''; return; } // quiet fail - a secondary widget, never blocks the main page
-    cachedTrendHealthData = await res.json();
-    renderProvinceTrendHealth();
-  } catch (e) {
-    console.error('Province Trend Health load failed', e);
-    container.innerHTML = '';
-  }
-}
-
-function renderProvinceTrendHealth() {
-  const data = cachedTrendHealthData;
-  const container = document.getElementById('p0-trend-health');
-  if (!data) return;
-  const s = data.summary;
-  const dayCountNote = data.days_with_file.length < 7 ? ` <span style="color:var(--text3); font-weight:400;">(ข้อมูล ${data.days_with_file.length}/7 วัน)</span>` : '';
-  const esc = (x) => String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  if (data.insufficient_days) {
-    container.innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; background:var(--bg2); font-size:12.5px; color:var(--text3);">
-        🌡️ Province Trend Health — ข้อมูล Backup ย้อนหลังมีไม่พอสำหรับเปรียบเทียบ (พบเพียง ${data.days_with_file.length} วัน จากที่ขอ 7 วัน)
-      </div>`;
-    return;
-  }
-
-  const header = `
-    <div onclick="window.__toggleTrendHealth()" style="border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; background:var(--bg2); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
-      <div style="display:flex; align-items:center; gap:12px; font-size:13px;">
-        <span style="font-weight:700;">🌡️ Province Trend Health${dayCountNote}</span>
-        <span style="color:#E24B4A;">● ${s.worsening} แย่ลง</span>
-        <span style="color:#F5C518;">● ${s.flat} ทรงตัว</span>
-        <span style="color:#1f6feb;">● ${s.improving} ดีขึ้น</span>
-      </div>
-      <span style="font-size:12px; color:var(--text3);">${trendHealthExpanded ? 'ซ่อน ▲' : 'ดูรายละเอียด ▼'}</span>
-    </div>`;
-
-  if (!trendHealthExpanded) { container.innerHTML = header; return; }
-
-  const list = trendHealthShowAll ? data.results : data.results.filter(r => r.direction === 'worsening');
-  const dirColor = { worsening: '#E24B4A', improving: '#1f6feb', flat: '#F5C518' };
-  const dirArrow = { worsening: '↑', improving: '↓', flat: '→' };
-  const rows = list.length ? list.map(r => {
-    const color = dirColor[r.direction];
-    return `
-      <div onclick="window.__showTrendHealthDetail('${esc(r.province).replace(/'/g,"\\'")}','${r.bookmark_key}')" style="display:flex; align-items:center; gap:10px; padding:9px 10px; border-left:3px solid ${color}; background:${color}14; border-radius:0 6px 6px 0; margin-bottom:6px; cursor:pointer;">
-        <div style="flex:1;">
-          <div style="font-size:13px; color:var(--text); font-weight:600;">${esc(provinceEnLabel ? provinceEnLabel(r.province) : r.province)} <span style="color:var(--text3); font-weight:400;">— ${esc(r.bookmark_label)}</span></div>
-          <div style="font-size:11.5px; color:${color};">${r.avg_first_half_pct}% → ${r.avg_last_half_pct}% Over SLA ใน 7 วัน (${r.recent_total} ticket)</div>
-        </div>
-        <span style="font-size:16px; color:${color};">${dirArrow[r.direction]}</span>
-      </div>`;
-  }).join('') : `<div style="font-size:12.5px; color:var(--text3); text-align:center; padding:12px;">${trendHealthShowAll ? 'ไม่มีข้อมูล' : '✅ ไม่มีจังหวัดที่แย่ลงในช่วงนี้'}</div>`;
-
-  const footerLink = trendHealthShowAll
-    ? `<div onclick="window.__toggleTrendHealthShowAll()" style="margin-top:8px; font-size:11.5px; color:var(--text3); text-align:center; cursor:pointer;">← ดูเฉพาะที่แย่ลง</div>`
-    : `<div onclick="window.__toggleTrendHealthShowAll()" style="margin-top:8px; font-size:11.5px; color:var(--text3); text-align:center; cursor:pointer;">ดูทั้งหมด (${data.results.length} รายการ) →</div>`;
-
-  container.innerHTML = `
-    <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; background:var(--bg2);">
-      <div onclick="window.__toggleTrendHealth()" style="display:flex; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:10px; cursor:pointer;">
-        <span style="font-weight:700;">🌡️ Province Trend Health${dayCountNote}</span>
-        <span style="font-size:12px; color:var(--text3);">ซ่อน ▲</span>
-      </div>
-      ${rows}
-      ${footerLink}
-    </div>`;
-}
-
-window.__toggleTrendHealth = function () {
-  trendHealthExpanded = !trendHealthExpanded;
-  renderProvinceTrendHealth();
-};
-window.__toggleTrendHealthShowAll = function (e) {
-  if (e) e.stopPropagation();
-  trendHealthShowAll = !trendHealthShowAll;
-  renderProvinceTrendHealth();
-};
-window.__showTrendHealthDetail = function (province, bookmarkKey) {
-  if (!cachedTrendHealthData) return;
-  const r = cachedTrendHealthData.results.find(x => x.province === province && x.bookmark_key === bookmarkKey);
-  if (!r) return;
-  const lines = r.series.map(s => `${s.date}: ${s.pct_over != null ? s.pct_over + '%' : '–'} (${s.over}/${s.total})`).join('\n');
-  alert(`${province} — ${r.bookmark_label}\n\n${lines}`);
-};
 
 // ── Inline editing on Exclusive Pending / P0 Only detail tables ────────────
 // Only rendered at all for the small allow-list (CAN_EDIT_FROM_EXCLUSIVE_VIEWS,
