@@ -6287,12 +6287,20 @@ function renderPivot(ft) {
     tickets.forEach(t => {
       const province = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
       const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
-      matrix[province] = matrix[province] || {};
-      matrix[province][sm] = (matrix[province][sm] || 0) + 1;
+      matrix[province] = matrix[province] || { counts: {}, over_count: 0, near_count: 0 };
+      matrix[province].counts[sm] = (matrix[province].counts[sm] || 0) + 1;
+      // SLA urgency alongside the Mateline workflow status - same ≤2h
+      // "near" threshold already established on the Online Real Time tab,
+      // kept consistent here rather than inventing a new one.
+      const rh = t.remaining_hours;
+      if (rh != null) {
+        if (rh < 0) matrix[province].over_count++;
+        else if (rh <= 2) matrix[province].near_count++;
+      }
     });
-    const rows = Object.entries(matrix).map(([province, counts]) => ({
-      province, counts,
-      total: Object.values(counts).reduce((a, b) => a + b, 0),
+    const rows = Object.entries(matrix).map(([province, data]) => ({
+      province, counts: data.counts, over_count: data.over_count, near_count: data.near_count,
+      total: Object.values(data.counts).reduce((a, b) => a + b, 0),
     })).sort((a, b) => b.total - a.total);
     return rows.length ? { sm_columns: smColumns, rows } : null;
   }
@@ -6657,6 +6665,14 @@ function renderPivot(ft) {
     f.statusMateline = same ? '' : statusMateline;
     if (lastData) render(lastData);
   };
+  // Short icon prefix per status - lets the team scan the workflow stage
+  // at a glance in a plain-text LINE message instead of reading each label.
+  const STATUS_MATELINE_ICONS = {
+    '⚠️ Back Date': '⚠️ Back Date', 'Wait Action': '⏳ Wait Action', 'Departed': '🚚 Departed',
+    'Arrived': '📥 Arrived', 'Completed': '✅ Completed', 'Closed': '🔒 Closed',
+    '(ไม่พบใน MatelineX)': '❓ ไม่พบใน MatelineX',
+  };
+
   window.showP0MatelineReport = function (bookmark) {
     const matrix = (window.__p0MatelineMatrixByBookmark || {})[bookmark];
     if (!matrix || !matrix.rows || !matrix.rows.length) return;
@@ -6664,14 +6680,23 @@ function renderPivot(ft) {
     const dateLabel = now.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
     const timeLabel = now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
 
+    // Report-only view: sorted by urgency (Over SLA, then Near) rather
+    // than by total ticket count - the table itself keeps its own
+    // by-total sort untouched, since that wasn't asked to change.
+    const rowsByUrgency = matrix.rows.slice().sort((a, b) => (b.over_count - a.over_count) || (b.near_count - a.near_count) || (b.total - a.total));
+    const totalOver = matrix.rows.reduce((s, r) => s + r.over_count, 0);
+    const totalNear = matrix.rows.reduce((s, r) => s + r.near_count, 0);
+
     const lines = [];
     lines.push(`📤 ${bookmark} — Status Mateline รายจังหวัด`);
     lines.push(`🕐 ${dateLabel} ${timeLabel} น.`);
     lines.push('');
-    // Rows already come sorted by total descending from computeProvinceStatusMatelineMatrix
-    matrix.rows.forEach(r => {
-      lines.push(`📍 ${provinceEnLabel(r.province)} (รวม ${r.total})`);
-      const parts = matrix.sm_columns.filter(c => r.counts[c] > 0).map(c => `${c}: ${r.counts[c]}`);
+    lines.push(`🔴 Over SLA: ${totalOver} ticket   🟠 ใกล้หมด (≤2 ชม.): ${totalNear} ticket`);
+    lines.push('━━━━━━━━━━━━━━');
+    rowsByUrgency.forEach(r => {
+      const urgencyBadge = (r.over_count || r.near_count) ? ` (🔴${r.over_count} 🟠${r.near_count})` : '';
+      lines.push(`📍 ${provinceEnLabel(r.province)} — รวม ${r.total}${urgencyBadge}`);
+      const parts = matrix.sm_columns.filter(c => r.counts[c] > 0).map(c => `${STATUS_MATELINE_ICONS[c] || c} ${r.counts[c]}`);
       lines.push(`   ${parts.join(' · ')}`);
     });
     lines.push('━━━━━━━━━━━━━━');
