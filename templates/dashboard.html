@@ -2111,12 +2111,21 @@ function renderProvinceTrendHealth() {
   const container = document.getElementById('p0-trend-health');
   if (!data) return;
   const s = data.summary;
+  const dayCountNote = data.days_with_file.length < 7 ? ` <span style="color:var(--text3); font-weight:400;">(ข้อมูล ${data.days_with_file.length}/7 วัน)</span>` : '';
   const esc = (x) => String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  if (data.insufficient_days) {
+    container.innerHTML = `
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; background:var(--bg2); font-size:12.5px; color:var(--text3);">
+        🌡️ Province Trend Health — ข้อมูล Backup ย้อนหลังมีไม่พอสำหรับเปรียบเทียบ (พบเพียง ${data.days_with_file.length} วัน จากที่ขอ 7 วัน)
+      </div>`;
+    return;
+  }
 
   const header = `
     <div onclick="window.__toggleTrendHealth()" style="border:1px solid var(--border); border-radius:var(--r); padding:10px 16px; background:var(--bg2); display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
       <div style="display:flex; align-items:center; gap:12px; font-size:13px;">
-        <span style="font-weight:700;">🌡️ Province Trend Health (7 วัน)</span>
+        <span style="font-weight:700;">🌡️ Province Trend Health${dayCountNote}</span>
         <span style="color:#E24B4A;">● ${s.worsening} แย่ลง</span>
         <span style="color:#F5C518;">● ${s.flat} ทรงตัว</span>
         <span style="color:#1f6feb;">● ${s.improving} ดีขึ้น</span>
@@ -2148,7 +2157,7 @@ function renderProvinceTrendHealth() {
   container.innerHTML = `
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; background:var(--bg2);">
       <div onclick="window.__toggleTrendHealth()" style="display:flex; align-items:center; justify-content:space-between; font-size:13px; margin-bottom:10px; cursor:pointer;">
-        <span style="font-weight:700;">🌡️ Province Trend Health (7 วัน)</span>
+        <span style="font-weight:700;">🌡️ Province Trend Health${dayCountNote}</span>
         <span style="font-size:12px; color:var(--text3);">ซ่อน ▲</span>
       </div>
       ${rows}
