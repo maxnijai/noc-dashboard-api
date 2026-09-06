@@ -19,7 +19,6 @@ from pending_ticket import (
     rename_group_problem_value,
     build_p0_snapshot_comparison,
     build_p0_daily_trend,
-    build_province_trend_health,
     build_pending_ticket_xlsx,
 )
 import oncall
@@ -2690,21 +2689,6 @@ def api_p0_daily_trend():
         return jsonify(data)
     except Exception as e:
         log.exception("p0-daily-trend API failed")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/province-trend-health')
-def api_province_trend_health():
-    """Per-Province-per-Bookmark worsening/flat/improving classification
-    over the last 7 days, for the collapsible 'Province Trend Health'
-    widget. Shares the same cached backup-file fetch as p0-daily-trend
-    (via _get_rows_for_day), so calling both on the same page load never
-    downloads the same day's file twice."""
-    try:
-        drive_service, gs_client = get_drive_and_sheets_clients()
-        data = build_province_trend_health(gs_client, drive_service, days=7)
-        return jsonify(data)
-    except Exception as e:
-        log.exception("province-trend-health API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-backup-diagnostic')
