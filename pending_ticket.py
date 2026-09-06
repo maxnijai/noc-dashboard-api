@@ -1093,12 +1093,19 @@ def build_province_trend_health(gs_client, drive_service, days=7):
 
     # per_day[date_str][(province, bookmark_key)] = {"total": n, "over": n}
     per_day = {}
+    days_with_file = []  # tracks which dates actually had a backup file - a
+                          # limited retention window (e.g. only the last 5
+                          # of 7 days still exist) must not silently zero
+                          # out every result; the halves below are built
+                          # from whichever days actually have data, not
+                          # fixed calendar positions in the 7-day request.
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
         rows, _file_info = _get_rows_for_day(drive_service, day, today)
         per_day[date_str] = {}
         if rows is None:
             continue
+        days_with_file.append(date_str)
         reference_dt = datetime.combine(day, _dtime(1, 15))
         for r in rows:
             if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
@@ -1122,35 +1129,40 @@ def build_province_trend_health(gs_client, drive_service, days=7):
         all_combos.update(per_day[d].keys())
 
     MIN_TICKETS = 5  # minimum total tickets in the recent half to be eligible for classification at all
-    half = days // 2  # days=7 -> 3; the middle day is skipped as a before/after buffer
+    MIN_DAYS_WITH_FILE = 2  # need at least this many actual days per half to say anything meaningful
+    half = max(1, len(days_with_file) // 2)  # split whatever days actually exist, not a fixed 7-day assumption
     results = []
-    for province, bookmark_key in all_combos:
-        series = []
-        for d in dates:
-            cell = per_day[d].get((province, bookmark_key))
-            total = cell["total"] if cell else 0
-            over = cell["over"] if cell else 0
-            pct_over = round(over / total * 100, 2) if total else None
-            series.append({"date": d, "total": total, "over": over, "pct_over": pct_over})
+    insufficient_days = len(days_with_file) < MIN_DAYS_WITH_FILE * 2
+    if not insufficient_days:
+        for province, bookmark_key in all_combos:
+            series = []
+            for d in dates:
+                cell = per_day[d].get((province, bookmark_key))
+                total = cell["total"] if cell else 0
+                over = cell["over"] if cell else 0
+                pct_over = round(over / total * 100, 2) if total else None
+                series.append({"date": d, "total": total, "over": over, "pct_over": pct_over})
 
-        first_half = series[:half]
-        last_half = series[-half:]
-        recent_total = sum(s["total"] for s in last_half)
-        if recent_total < MIN_TICKETS:
-            continue  # not enough recent data to say anything meaningful
+            # Halves are built from days_with_file (already date-ordered
+            # oldest -> newest, same as `dates`), not fixed slice positions
+            # on the full requested window - so a shorter retention window
+            # (fewer days_with_file than `days`) still produces a valid
+            # before/after comparison instead of an always-empty one.
+            first_half_dates = set(days_with_file[:half])
+            last_half_dates = set(days_with_file[-half:])
+            first_vals = [s["pct_over"] for s in series if s["date"] in first_half_dates and s["pct_over"] is not None]
+            last_vals = [s["pct_over"] for s in series if s["date"] in last_half_dates and s["pct_over"] is not None]
+            recent_total = sum(s["total"] for s in series if s["date"] in last_half_dates)
+            if recent_total < MIN_TICKETS or not first_vals or not last_vals:
+                continue
+            avg_first = sum(first_vals) / len(first_vals)
+            avg_last = sum(last_vals) / len(last_vals)
 
-        first_vals = [s["pct_over"] for s in first_half if s["pct_over"] is not None]
-        last_vals = [s["pct_over"] for s in last_half if s["pct_over"] is not None]
-        if not first_vals or not last_vals:
-            continue
-        avg_first = sum(first_vals) / len(first_vals)
-        avg_last = sum(last_vals) / len(last_vals)
-
-        results.append({
-            "province": province, "bookmark_key": bookmark_key, "bookmark_label": BOOKMARK_VIEWS[bookmark_key]["label"],
-            "avg_first_half_pct": round(avg_first, 2), "avg_last_half_pct": round(avg_last, 2),
-            "change_pct": round(avg_last - avg_first, 2), "recent_total": recent_total, "series": series,
-        })
+            results.append({
+                "province": province, "bookmark_key": bookmark_key, "bookmark_label": BOOKMARK_VIEWS[bookmark_key]["label"],
+                "avg_first_half_pct": round(avg_first, 2), "avg_last_half_pct": round(avg_last, 2),
+                "change_pct": round(avg_last - avg_first, 2), "recent_total": recent_total, "series": series,
+            })
 
     abs_changes = sorted(abs(r["change_pct"]) for r in results)
     threshold = abs_changes[len(abs_changes) // 2] if abs_changes else 0
@@ -1169,7 +1181,10 @@ def build_province_trend_health(gs_client, drive_service, days=7):
         "flat": sum(1 for r in results if r["direction"] == "flat"),
         "improving": sum(1 for r in results if r["direction"] == "improving"),
     }
-    return {"dates": dates, "results": results, "summary": summary, "threshold_pct": threshold, "min_tickets": MIN_TICKETS}
+    return {
+        "dates": dates, "days_with_file": days_with_file, "results": results, "summary": summary,
+        "threshold_pct": threshold, "min_tickets": MIN_TICKETS, "insufficient_days": insufficient_days,
+    }
 
 
 
