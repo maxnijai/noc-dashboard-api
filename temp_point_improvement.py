@@ -88,6 +88,7 @@ import threading
 from datetime import datetime
 
 import requests
+import gspread
 
 log = logging.getLogger(__name__)
 
@@ -488,6 +489,225 @@ def build_clusters(rows):
     return out, invalid_out
 
 
+# ── Manual Override (explicit request): drag-select points on the map to
+# force-group them into a new cluster, or force-split a cluster back to
+# individuals - on top of whatever the automatic road-alignment logic
+# above decided. Persisted to a dedicated worksheet in the SAME
+# spreadsheet as the source data, so it survives reloads/restarts and is
+# shared across everyone viewing the dashboard (never client-only
+# localStorage - multiple NOC staff view this same board). ────────────
+
+TEMP_POINT_OVERRIDE_SHEET_NAME = "ManualOverrides"
+_OVERRIDE_HEADER = ["source_tt", "action", "manual_group_id", "updated_at", "updated_by"]
+
+
+def _get_or_create_override_worksheet(gs_client):
+    sh = gs_client.open_by_key(TEMP_POINT_SHEET_ID)
+    try:
+        return sh.worksheet(TEMP_POINT_OVERRIDE_SHEET_NAME)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.add_worksheet(title=TEMP_POINT_OVERRIDE_SHEET_NAME, rows=200, cols=len(_OVERRIDE_HEADER))
+        ws.update([_OVERRIDE_HEADER])
+        return ws
+
+
+def fetch_manual_overrides(gs_client):
+    """{source_tt: {"action": "group"|"individual", "manual_group_id": str|None}}
+    Missing sheet = no overrides yet (never crash the whole tab over this -
+    same fail-open philosophy as the OSRM checks above); a row later in
+    the sheet for the same source_tt wins (most recent edit)."""
+    try:
+        ws = _get_or_create_override_worksheet(gs_client)
+        raw_values = ws.get_all_values()
+    except Exception as e:
+        log.warning("Manual override sheet unreadable, proceeding with none: %s", e)
+        return {}
+
+    if not raw_values or len(raw_values) < 2:
+        return {}
+    header = [str(h).strip() for h in raw_values[0]]
+    idx = {h: i for i, h in enumerate(header)}
+    if "source_tt" not in idx or "action" not in idx:
+        return {}
+    get = lambda raw, col: raw[idx[col]] if col in idx and idx[col] < len(raw) else ""
+
+    overrides = {}
+    for raw in raw_values[1:]:
+        tt = get(raw, "source_tt").strip()
+        action = get(raw, "action").strip()
+        if not tt or action not in ("group", "individual"):
+            continue
+        overrides[tt] = {"action": action, "manual_group_id": get(raw, "manual_group_id").strip() or None}
+    return overrides
+
+
+def save_manual_action(gs_client, source_tts, action, updated_by=None):
+    """Persists a manual group/individual override for the given
+    source_tt list - a full read-modify-rewrite of the override sheet
+    (small dataset, avoids unbounded row growth from blind appends and
+    avoids read-then-append races better than an append-only log would).
+    For action="group", assigns ONE new manual_group_id ("M001", "M002",
+    ...) shared by every source_tt in the list. Returns the manual_group_id
+    used (for "group") or None (for "individual")."""
+    if action not in ("group", "individual"):
+        raise ValueError(f"unknown manual override action: {action!r}")
+    if not source_tts:
+        return None
+
+    ws = _get_or_create_override_worksheet(gs_client)
+    raw_values = ws.get_all_values()
+    existing = {}
+    if raw_values and len(raw_values) >= 1:
+        header = [str(h).strip() for h in raw_values[0]] if raw_values else _OVERRIDE_HEADER
+        idx = {h: i for i, h in enumerate(header)}
+        get = lambda raw, col: raw[idx[col]] if col in idx and idx[col] < len(raw) else ""
+        for raw in raw_values[1:]:
+            tt = get(raw, "source_tt").strip()
+            if tt:
+                existing[tt] = {"action": get(raw, "action").strip(), "manual_group_id": get(raw, "manual_group_id").strip()}
+
+    manual_group_id = None
+    if action == "group":
+        max_n = 0
+        for v in existing.values():
+            m = re.match(r"^M(\d+)$", v.get("manual_group_id") or "")
+            if m:
+                max_n = max(max_n, int(m.group(1)))
+        manual_group_id = f"M{max_n + 1:03d}"
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for tt in source_tts:
+        existing[tt] = {
+            "action": action,
+            "manual_group_id": manual_group_id or "",
+            "updated_at": now,
+            "updated_by": updated_by or "",
+        }
+
+    rows_out = [_OVERRIDE_HEADER]
+    for tt, v in existing.items():
+        rows_out.append([tt, v.get("action", ""), v.get("manual_group_id", ""), v.get("updated_at", now), v.get("updated_by", updated_by or "")])
+    ws.clear()
+    ws.update(rows_out)
+    return manual_group_id
+
+
+def clear_manual_overrides(gs_client, source_tts):
+    """Reverts the given source_tt list back to automatic clustering by
+    removing their override rows entirely."""
+    if not source_tts:
+        return
+    ws = _get_or_create_override_worksheet(gs_client)
+    raw_values = ws.get_all_values()
+    if not raw_values:
+        return
+    header = [str(h).strip() for h in raw_values[0]]
+    idx = {h: i for i, h in enumerate(header)}
+    get = lambda raw, col: raw[idx[col]] if col in idx and idx[col] < len(raw) else ""
+    to_remove = set(source_tts)
+    rows_out = [header]
+    for raw in raw_values[1:]:
+        if get(raw, "source_tt").strip() in to_remove:
+            continue
+        rows_out.append(raw)
+    ws.clear()
+    ws.update(rows_out)
+
+
+def apply_manual_overrides(clustered, overrides):
+    """Re-partitions the auto-clustered output using manual overrides -
+    always evaluated AFTER all the automatic road-alignment logic, i.e.
+    manual decisions always win. Points not mentioned in `overrides` pass
+    through with their automatic cluster_id/is_cluster untouched (aside
+    from a resulting single-member auto cluster getting demoted to
+    Individual, since a "cluster" of 1 point left behind after its
+    partner was manually pulled out is no longer meaningful)."""
+    if not overrides:
+        return clustered
+
+    overridden = [p for p in clustered if p["source_tt"] in overrides]
+    normal = [p for p in clustered if p["source_tt"] not in overrides]
+
+    def _recompute_chain(points):
+        """In-place: order via nearest-neighbor, set distance_to_previous_m
+        / cluster_distance_m fresh. Same recompute used after an automatic
+        alignment split - kept consistent here."""
+        ordered = _nearest_neighbor_order(points) if len(points) > 1 else list(points)
+        cumulative = 0.0
+        for i, p in enumerate(ordered):
+            if i == 0:
+                p["distance_to_previous_m"] = 0.0
+            else:
+                p["distance_to_previous_m"] = round(
+                    _haversine_m(ordered[i - 1]["latitude"], ordered[i - 1]["longitude"], p["latitude"], p["longitude"]), 1
+                )
+            cumulative += p["distance_to_previous_m"]
+            p["cluster_distance_m"] = round(cumulative, 1)
+        return ordered
+
+    # Re-group the untouched points by their existing auto cluster_id -
+    # any auto cluster that's lost members to a manual override may now
+    # be too small (or too short) to still count as a cluster.
+    out = []
+    by_auto_cluster = {}
+    for p in normal:
+        if p["is_cluster"]:
+            by_auto_cluster.setdefault(p["cluster_id"], []).append(p)
+        else:
+            out.append(p)  # already Individual/Invalid - untouched
+    for cid, pts in by_auto_cluster.items():
+        if len(pts) < 2:
+            for p in pts:
+                p["is_cluster"] = False
+                p["cluster_id"] = "Individual"
+                p["distance_to_previous_m"] = 0.0
+                p["cluster_distance_m"] = 0.0
+            out.extend(pts)
+            continue
+        recomputed = _recompute_chain(pts)
+        for p in recomputed:
+            p["is_cluster"] = True
+            p["cluster_id"] = cid
+        out.extend(recomputed)
+
+    # Manual "individual" overrides.
+    for p in overridden:
+        if overrides[p["source_tt"]]["action"] != "individual":
+            continue
+        p["is_cluster"] = False
+        p["cluster_id"] = "Individual"
+        p["distance_to_previous_m"] = 0.0
+        p["cluster_distance_m"] = 0.0
+        out.append(p)
+
+    # Manual "group" overrides - one new cluster per distinct manual_group_id,
+    # regardless of which province/auto-cluster the members came from
+    # originally (the person drew a box on the map - honor exactly that
+    # selection).
+    by_manual_group = {}
+    for p in overridden:
+        ov = overrides[p["source_tt"]]
+        if ov["action"] != "group":
+            continue
+        by_manual_group.setdefault(ov["manual_group_id"] or "M000", []).append(p)
+    for gid, pts in by_manual_group.items():
+        if len(pts) < 2:
+            for p in pts:
+                p["is_cluster"] = False
+                p["cluster_id"] = "Individual"
+                p["distance_to_previous_m"] = 0.0
+                p["cluster_distance_m"] = 0.0
+            out.extend(pts)
+            continue
+        recomputed = _recompute_chain(pts)
+        for p in recomputed:
+            p["is_cluster"] = True
+            p["cluster_id"] = gid
+        out.extend(recomputed)
+
+    return out
+
+
 # ── Summary / Province table / Improvement priority ────────────────────
 
 def build_summary(clustered, invalid):
@@ -621,6 +841,9 @@ def build_temp_point_response(gs_client=None):
 
     rows, warnings = fetch_temp_point_rows(gs_client)
     clustered, invalid = build_clusters(rows)
+    overrides = fetch_manual_overrides(gs_client)
+    if overrides:
+        clustered = apply_manual_overrides(clustered, overrides)
     summary = build_summary(clustered, invalid)
     province_summary = build_province_summary(clustered)
     province_priority = build_improvement_priority(province_summary)
@@ -635,6 +858,7 @@ def build_temp_point_response(gs_client=None):
         "region": p["region"], "province": p["province"],
         "latitude": p["latitude"], "longitude": p["longitude"],
         "distance_to_previous_m": p["distance_to_previous_m"], "cluster_distance_m": p["cluster_distance_m"],
+        "manual_override": p["source_tt"] in overrides,
     } for p in clustered]
     invalid_out = [{
         "source_tt": p["source_tt"], "inc": p["inc"], "site_cable": p["site_cable"],
