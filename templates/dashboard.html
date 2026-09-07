@@ -1030,8 +1030,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div style="display:flex; gap:6px;">
             <button class="sla-heatmap-toggle-btn" data-val="daily" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:var(--bg4); cursor:pointer;">รายวัน (14 วันล่าสุด)</button>
             <button class="sla-heatmap-toggle-btn" data-val="weekly" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">รายสัปดาห์ (ISO)</button>
+            <button class="sla-heatmap-toggle-btn" data-val="sla3d" style="padding:4px 10px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; cursor:pointer;">ราย 3 วัน + SLA</button>
           </div>
-          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+          <div id="sla-heatmap-metric-toggle" style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
             <button class="sla-heatmap-metric-btn" data-val="pct" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">% Over SLA</button>
             <button class="sla-heatmap-metric-btn" data-val="count" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">Over SLA (จำนวน)</button>
           </div>
@@ -1132,6 +1133,18 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">Impact: 🟣 Priority Improvement (จำนวนเยอะ+% สูง) · 🔵 High Impact (จำนวนเยอะ) · 🟠 High Risk (% สูง แต่จำนวนไม่มาก) · ⚪ Normal</div>
         <div id="sla-management-table" style="overflow-x:auto;"></div>
       </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">⏱️ Over SLA ตามช่วงเวลา SLA ที่จัดสรร</div>
+          <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">จาก TARGETFINISH − CREATIONDATE ของ Ticket ที่ Over SLA — ดูว่า SLA ช่วงสั้น/ยาวแบบไหนโดน Breach บ่อยสุด</div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><canvas id="sla-duration-chart" height="180"></canvas></div>
+        </div>
+        <div style="flex:1; min-width:280px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📊 รายละเอียด</div>
+          <div id="sla-duration-table" style="overflow-x:auto; max-height:280px; overflow-y:auto;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1151,16 +1164,29 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           &nbsp;·&nbsp; ข้อมูลอัปเดตล่าสุด: <b id="ort-last-updated" style="color:var(--text2);"></b>
         </div>
       </div>
-      <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+      <div style="display:flex; gap:8px;">
+        <button id="ort-report-btn" class="btn-secondary" style="font-weight:700;">📤 ส่งรายงาน</button>
+        <button id="ort-reload" class="btn-secondary">🔄 Refresh</button>
+      </div>
     </div>
 
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; margin-bottom:10px;" id="ort-kpi-grid"></div>
     <div id="ort-active-filter" style="margin-bottom:16px;"></div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
-      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:700;">🗺️ Map — P0 / P1 Location <span style="font-weight:400; color:var(--text3); font-size:11px;">(เฉพาะ Ticket ที่ Mapping พิกัดได้)</span></div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <button class="ort-map-color-btn" data-mode="priority" style="padding:4px 10px; font-size:11px; border:none; background:var(--bg4); cursor:pointer;">🎯 Priority</button>
+            <button class="ort-map-color-btn" data-mode="mateline" style="padding:4px 10px; font-size:11px; border:none; background:transparent; cursor:pointer;">🔧 Status Mateline</button>
+          </div>
+          <button id="ort-map-expand-btn" class="btn-secondary" style="font-size:11px;" title="ขยาย/ย่อความสูง Map">⤢ ขยาย</button>
+        </div>
+      </div>
       <div id="ort-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
-      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border);"></div>
+      <div id="ort-map-legend" style="font-size:10.5px; margin-bottom:8px;"></div>
+      <div id="ort-map" style="height:420px; border-radius:var(--r); border:1px solid var(--border); transition:height .2s ease;"></div>
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
@@ -1201,23 +1227,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
-        <div style="font-size:13px; font-weight:700;">🗺️ Temp Point Map <span style="font-weight:400; color:var(--text3); font-size:11px;">(เส้นเชื่อม = แนว Chain ของ Cluster — ไม่ใช่ Radius)</span></div>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <button id="tpi-select-mode-btn" class="btn-secondary" style="font-size:11.5px; padding:4px 10px;" title="ลากคลุมจุดบน Map เพื่อจัดกลุ่มเอง">🖊️ เลือกจุดบน Map</button>
-        </div>
-      </div>
+      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗺️ Temp Point Map <span style="font-weight:400; color:var(--text3); font-size:11px;">(เส้นเชื่อม = แนว Chain ของ Cluster — ไม่ใช่ Radius)</span></div>
       <div id="tpi-map-note" style="font-size:10.5px; color:var(--text3); margin-bottom:8px;"></div>
-      <div style="position:relative;">
-        <div id="tpi-map" style="height:680px; border-radius:var(--r); border:1px solid var(--border);"></div>
-        <div id="tpi-select-toolbar" style="display:none; position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:900; background:var(--bg2); border:1px solid var(--border2); border-radius:999px; padding:6px 8px 6px 14px; box-shadow:0 4px 16px rgba(0,0,0,.35); align-items:center; gap:10px;">
-          <span id="tpi-select-count" style="font-size:12px; font-weight:700; color:var(--text2);">เลือกไว้ 0 จุด</span>
-          <button id="tpi-select-group-btn" class="btn-secondary" style="font-size:11.5px; padding:5px 12px; background:#1f6feb; color:#fff; border-color:#1f6feb;" disabled>🔗 จัดเป็น Cluster</button>
-          <button id="tpi-select-individual-btn" class="btn-secondary" style="font-size:11.5px; padding:5px 12px; background:#EF9F27; color:#fff; border-color:#EF9F27;" disabled>🔓 แยกเป็น Individual</button>
-          <button id="tpi-select-clear-btn" class="btn-secondary" style="font-size:11.5px; padding:5px 10px;">✕ ล้างที่เลือก</button>
-        </div>
-      </div>
-      <div id="tpi-select-hint" style="display:none; font-size:10.5px; color:#1f6feb; margin-top:6px;">🖊️ โหมดเลือกจุด: ลากคลุมกลุ่มจุดที่ต้องการบน Map แล้วกด "จัดเป็น Cluster" หรือ "แยกเป็น Individual" · กด "เลือกจุดบน Map" อีกครั้งเพื่อออกจากโหมดนี้</div>
+      <div id="tpi-map" style="height:440px; border-radius:var(--r); border:1px solid var(--border);"></div>
     </div>
 
     <div id="tpi-cluster-detail" style="margin-bottom:16px;"></div>
@@ -1257,6 +1269,40 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
           <span id="p0-line-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
           <button id="p0-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P0 ONLY: PROVINCE x STATUS MATELINE REPORT MODAL -->
+  <div id="p0-mateline-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('p0-mateline-report-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span id="p0-mateline-report-title" style="font-weight:700;font-size:14px;">📤 สรุป Status Mateline รายจังหวัด</span>
+        <button onclick="document.getElementById('p0-mateline-report-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="p0-mateline-report-text" readonly style="width:100%; height:420px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="p0-mateline-report-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="p0-mateline-report-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONLINE SA1-4 REAL TIME LINE REPORT MODAL -->
+  <div id="ort-report-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('ort-report-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">📤 สรุป Online SA1-4 สำหรับส่ง LINE</span>
+        <button onclick="document.getElementById('ort-report-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <textarea id="ort-report-text" readonly style="width:100%; height:420px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
+        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
+          <span id="ort-report-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
+          <button id="ort-report-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
         </div>
       </div>
     </div>
@@ -5236,6 +5282,10 @@ function renderPivot(ft) {
     const datasets = agingOrder.map(k => ({
       label: k, backgroundColor: agingColors[k], stack: 'aging',
       data: breakdown.map(b => b.aging_counts[k] || 0),
+      datalabels: {
+        display: (dctx) => dctx.dataset.data[dctx.dataIndex] > 0 ? 'auto' : false,
+        color: '#fff', font: { size: 9, weight: 'bold' }, anchor: 'center', align: 'center',
+      },
     }));
     charts[canvasId] = new Chart(ctx, {
       type: 'bar',
@@ -5243,7 +5293,10 @@ function renderPivot(ft) {
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: { x: { stacked: true, ticks: { autoSkip: false, maxRotation: 60, minRotation: 0, font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } },
-        plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
+        plugins: {
+          legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } },
+          datalabels: { display: 'auto' },
+        },
       },
     });
   }
@@ -6231,62 +6284,72 @@ function renderPivot(ft) {
       </table>`;
   }
 
-  function computeStatusMatelinePlanDateMatrix(tickets) {
-    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
-    const dateSet = new Set();
-    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
-    const dateColumns = [...dateSet].sort();
-    dateColumns.push(NO_PLAN_DATE);
+  // Province (rows) x Status Mateline (columns) - column order follows the
+  // Departed -> Arrived -> Completed -> Closed workflow plus the two
+  // special states, same ordering used for the map color-mode legend on
+  // the Online Real Time tab, so the two views read consistently.
+  const STATUS_MATELINE_COLUMN_ORDER = ['⚠️ Back Date', 'Wait Action', 'Departed', 'Arrived', 'Completed', 'Closed', '(ไม่พบใน MatelineX)'];
+
+  function computeProvinceStatusMatelineMatrix(tickets) {
+    const smSet = new Set();
+    tickets.forEach(t => { smSet.add(t.status_mateline || '(ไม่พบใน MatelineX)'); });
+    const smColumns = STATUS_MATELINE_COLUMN_ORDER.filter(s => smSet.has(s));
+    smSet.forEach(s => { if (!smColumns.includes(s)) smColumns.push(s); }); // any unexpected status not in the known order still shows, appended at the end
+
     const matrix = {};
     tickets.forEach(t => {
-      const col = t.plan_closed_date || NO_PLAN_DATE;
+      const province = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
       const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
-      matrix[sm] = matrix[sm] || {};
-      matrix[sm][col] = (matrix[sm][col] || 0) + 1;
+      matrix[province] = matrix[province] || { counts: {}, over_count: 0, near_count: 0 };
+      matrix[province].counts[sm] = (matrix[province].counts[sm] || 0) + 1;
+      // SLA urgency alongside the Mateline workflow status - same ≤2h
+      // "near" threshold already established on the Online Real Time tab,
+      // kept consistent here rather than inventing a new one.
+      const rh = t.remaining_hours;
+      if (rh != null) {
+        if (rh < 0) matrix[province].over_count++;
+        else if (rh <= 2) matrix[province].near_count++;
+      }
     });
-    const rows = Object.entries(matrix).map(([sm, counts]) => ({
-      status_mateline: sm, counts,
-      total: Object.values(counts).reduce((a, b) => a + b, 0),
+    const rows = Object.entries(matrix).map(([province, data]) => ({
+      province, counts: data.counts, over_count: data.over_count, near_count: data.near_count,
+      total: Object.values(data.counts).reduce((a, b) => a + b, 0),
     })).sort((a, b) => b.total - a.total);
-    return rows.length ? { date_columns: dateColumns, rows } : null;
+    return rows.length ? { sm_columns: smColumns, rows } : null;
   }
 
-  function renderStatusMatelineByPlanDate(block, bookmark, clickFn) {
+  function renderProvinceByStatusMateline(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
-    const today = expTodayStr();
-    const cols = block.date_columns || [];
+    const cols = block.sm_columns || [];
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
-      const isNoPlan = c.startsWith('(');
-      const isBackdated = !isNoPlan && c < today;
-      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
-      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+      const isBackDate = c.includes('Back Date');
+      const color = isBackDate ? '#B23A3A' : 'var(--text2)';
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color};">${escapeHtml(c)}</th>`;
     }).join('');
     const rows = block.rows.map((r, i) => {
-      const isBackDateRow = r.status_mateline.includes('Back Date');
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
-        const isNoPlan = c.startsWith('(');
-        const isBackdated = !isNoPlan && c < today;
-        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
-        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
+        const isBackDate = c.includes('Back Date');
+        const bg = (isBackDate && count > 0) ? '#B23A3A1a' : '';
+        const fg = (isBackDate && count > 0) ? '#B23A3A' : '';
         const clickable = clickFn && count > 0;
-        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','${esc1(c)}')"` : '';
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','${esc1(c)}')"` : '';
         return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
       const rowTotalClickable = clickFn && r.total > 0;
-      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','')"` : '';
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','')"` : '';
       return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; min-width:180px; font-weight:600; ${isBackDateRow ? 'color:#B23A3A;' : ''}">${escapeHtml(r.status_mateline)}</td>
+        <td style="padding:7px 10px; min-width:140px; font-weight:600;">${escapeHtml(provinceEnLabel(r.province))}</td>
         ${cells}
-        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.status_mateline) : ''}">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(provinceEnLabel(r.province)) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
     const totalCells = cols.map(c => {
       const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
       const clickable = clickFn && sum > 0;
       const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
-      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline ในวันนี้' : ''}">${sum || '–'}</td>`;
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุกจังหวัดที่มี Status นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
     const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
     const grandTotalClickable = clickFn && grandTotal > 0;
@@ -6299,7 +6362,7 @@ function renderPivot(ft) {
     return `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Status Mateline</th>${head}
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
           <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
         </tr></thead>
         <tbody>${rows}${totalRow}</tbody>
@@ -6491,13 +6554,25 @@ function renderPivot(ft) {
       const planDateInnerHtml = planMode === 'province'
         ? renderProvinceByPlanDate(computeProvincePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0ProvincePlanDateCell')
         : planMode === 'statusMateline'
-        ? renderStatusMatelineByPlanDate(computeStatusMatelinePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0StatusMatelineCell')
+        ? (function () {
+            const matrix = computeProvinceStatusMatelineMatrix(filteredTickets);
+            window.__p0MatelineMatrixByBookmark = window.__p0MatelineMatrixByBookmark || {};
+            window.__p0MatelineMatrixByBookmark[block.bookmark] = matrix;
+            return renderProvinceByStatusMateline(matrix, block.bookmark, 'filterP0ProvinceStatusMatelineCell');
+          })()
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      // "statusMateline" mode is Province x Status Mateline (no Plan Closed
+      // Date involved at all), so its header reads differently from the
+      // other two modes, which are both "<dimension> x Plan Closed Date".
+      const planDateHeaderLabel = planMode === 'statusMateline' ? 'Province × Status Mateline' : `${planModeLabels[planMode]} × Plan Closed Date`;
+      const matelineReportBtn = planMode === 'statusMateline'
+        ? `<a href="#" onclick="window.showP0MatelineReport('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue); margin-left:10px;">📤 ส่งรายงาน</a>`
+        : '';
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × Plan Closed Date</span>
-            <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planDateHeaderLabel}</span>
+            <span><a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>${matelineReportBtn}</span>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
         </div>` : '';
@@ -6589,13 +6664,6 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
-  window.filterP0StatusMatelineCell = function (bookmark, statusMateline, planDate) {
-    const f = getSectionFilter(bookmark);
-    const same = f.statusMateline === statusMateline && f.planDate === planDate;
-    f.statusMateline = same ? '' : statusMateline;
-    f.planDate = same ? '' : planDate;
-    if (lastData) render(lastData);
-  };
   window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
     const f = getSectionFilter(bookmark);
     const same = f.province === province && f.planDate === planDate;
@@ -6603,6 +6671,68 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
+  window.filterP0ProvinceStatusMatelineCell = function (bookmark, province, statusMateline) {
+    const f = getSectionFilter(bookmark);
+    const same = f.province === province && f.statusMateline === statusMateline;
+    f.province = same ? '' : province;
+    f.statusMateline = same ? '' : statusMateline;
+    if (lastData) render(lastData);
+  };
+  // Short icon prefix per status - lets the team scan the workflow stage
+  // at a glance in a plain-text LINE message instead of reading each label.
+  const STATUS_MATELINE_ICONS = {
+    '⚠️ Back Date': '⚠️ Back Date', 'Wait Action': '⏳ Wait Action', 'Departed': '🚚 Departed',
+    'Arrived': '📥 Arrived', 'Completed': '✅ Completed', 'Closed': '🔒 Closed',
+    '(ไม่พบใน MatelineX)': '❓ ไม่พบใน MatelineX',
+  };
+
+  window.showP0MatelineReport = function (bookmark) {
+    const matrix = (window.__p0MatelineMatrixByBookmark || {})[bookmark];
+    if (!matrix || !matrix.rows || !matrix.rows.length) return;
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeLabel = now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+
+    // Report-only view: sorted by urgency (Over SLA, then Near) rather
+    // than by total ticket count - the table itself keeps its own
+    // by-total sort untouched, since that wasn't asked to change.
+    const rowsByUrgency = matrix.rows.slice().sort((a, b) => (b.over_count - a.over_count) || (b.near_count - a.near_count) || (b.total - a.total));
+    const totalOver = matrix.rows.reduce((s, r) => s + r.over_count, 0);
+    const totalNear = matrix.rows.reduce((s, r) => s + r.near_count, 0);
+
+    const lines = [];
+    lines.push(`📤 ${bookmark} — Status Mateline รายจังหวัด`);
+    lines.push(`🕐 ${dateLabel} ${timeLabel} น.`);
+    lines.push('');
+    lines.push(`🔴 Over SLA: ${totalOver} ticket   🟠 ใกล้หมด (≤2 ชม.): ${totalNear} ticket`);
+    lines.push('━━━━━━━━━━━━━━');
+    rowsByUrgency.forEach(r => {
+      const urgencyBadge = (r.over_count || r.near_count) ? ` (🔴${r.over_count} 🟠${r.near_count})` : '';
+      lines.push(`📍 ${provinceEnLabel(r.province)} — รวม ${r.total}${urgencyBadge}`);
+      const parts = matrix.sm_columns.filter(c => r.counts[c] > 0).map(c => `${STATUS_MATELINE_ICONS[c] || c} ${r.counts[c]}`);
+      lines.push(`   ${parts.join(' · ')}`);
+    });
+    lines.push('━━━━━━━━━━━━━━');
+    const grandTotal = matrix.rows.reduce((s, r) => s + r.total, 0);
+    lines.push(`รวมทั้งหมด: ${grandTotal} ticket`);
+
+    el('p0-mateline-report-title').textContent = `📤 สรุป Status Mateline รายจังหวัด — ${bookmark}`;
+    el('p0-mateline-report-text').value = lines.join('\n');
+    el('p0-mateline-report-copy-status').textContent = '';
+    el('p0-mateline-report-modal').style.display = 'block';
+  };
+  el('p0-mateline-report-copy-btn').addEventListener('click', async () => {
+    const textarea = el('p0-mateline-report-text');
+    const statusEl = el('p0-mateline-report-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
   window.filterP0CategoryCell = function (bookmark, category, dimValue, dimKey) {
     const f = getSectionFilter(bookmark);
     if (dimKey) {
@@ -6728,6 +6858,7 @@ function renderPivot(ft) {
   let lastData = null;
   let trendChart = null;
   let paretoChart = null;
+  let slaDurationChart = null;
   let trendState = { gran: 'daily', scope: 'overall', province: null };
   let drillState = { problem: null, sub_cause: null, ci_name: null };
   let mgmtSort = { col: 'pct_over', dir: 'desc' };
@@ -7162,6 +7293,10 @@ function renderPivot(ft) {
   }
 
   function renderHeatmapTable() {
+    el('sla-heatmap-metric-toggle').style.display = heatmapGran === 'sla3d' ? 'none' : 'flex';
+    el('sla-heatmap-metric-title').textContent = heatmapGran === 'sla3d' ? 'จำนวน Ticket แยกตามช่วง SLA ' : (heatmapMetric === 'pct' ? '% Over SLA ' : 'จำนวน Over SLA ');
+    if (heatmapGran === 'sla3d') { renderHeatmapSlaDurationTable(); return; }
+
     const hm = lastData.improvement_heatmap[heatmapGran];
     if (!hm || !hm.rows.length) { el('sla-heatmap-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล</div>`; return; }
     const periodLabel = p => heatmapGran === 'weekly' ? p.replace(/^\d{4}-/, '') : p.slice(5); // "2026-W34"->"W34", "2026-08-30"->"08-30"
@@ -7226,6 +7361,47 @@ function renderPivot(ft) {
         </tr></thead>
         <tbody>${body}</tbody>
       </table>`;
+  }
+
+  // ── Heatmap "ราย 3 วัน + SLA" mode - nested Date -> SLA-duration header ──
+  function renderHeatmapSlaDurationTable() {
+    const hm = lastData.heatmap_sla_duration;
+    if (!hm || !hm.rows.length) { el('sla-heatmap-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล Over SLA ในช่วง 3 วันล่าสุด</div>`; return; }
+
+    const nGroups = hm.sla_groups.length;
+    const dateHeadRow = hm.dates.map(d => `<th colspan="${nGroups}" style="padding:6px 6px; text-align:center; font-size:10px; color:var(--text2); white-space:nowrap; border-left:2px solid var(--border2);">${escapeHtml(d.slice(5))}</th>`).join('');
+    const slaHeadRow = hm.dates.map(() => hm.sla_groups.map((h, i) =>
+      `<th style="padding:4px 5px; text-align:center; font-size:9px; color:var(--text3); white-space:nowrap; ${i === 0 ? 'border-left:2px solid var(--border2);' : ''}">${h}h</th>`
+    ).join('')).join('');
+
+    const maxCount = Math.max(1, ...hm.rows.flatMap(r => r.date_blocks.flatMap(db => db.cells.map(c => c.count))));
+
+    const body = hm.rows.map(r => {
+      const cells = r.date_blocks.map(db => db.cells.map((c, i) => {
+        const heat = heatmapCellColor(c.count > 0 ? c.count : null, maxCount);
+        const onclick = c.count > 0 ? ` onclick="window.__slaOpenHeatmapDrilldown('${r.province}','${db.date}','daily')"` : '';
+        return `<td${onclick} title="${escapeHtml(r.province)} ${db.date} — SLA ${c.sla_hours}h: ${c.count} ticket${c.count > 0 ? ' — คลิกเพื่อดูรายละเอียดวันนั้น' : ''}" style="padding:5px 5px; text-align:center; font-size:10px; font-weight:700; ${i === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${c.count > 0 ? 'cursor:pointer;' : ''}">${c.count || '–'}</td>`;
+      }).join('')).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+        ${cells}
+        <td style="padding:6px 8px; text-align:center; font-weight:700; background:var(--bg3); border-left:2px solid var(--border2);">${r.row_total}</td>
+      </tr>`;
+    }).join('');
+
+    el('sla-heatmap-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead>
+          <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:1px solid var(--border);">
+            <th rowspan="2" style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2); vertical-align:bottom;">Province</th>
+            ${dateHeadRow}
+            <th rowspan="2" style="padding:7px 8px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2); vertical-align:bottom; border-left:2px solid var(--border2);">รวม</th>
+          </tr>
+          <tr style="background:var(--bg3); border-bottom:2px solid var(--border2);">${slaHeadRow}</tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+      <div style="font-size:10.5px; color:var(--text3); margin-top:6px; padding:0 4px;">แสดงเฉพาะจังหวัดที่มี Ticket Over SLA ในช่วง 3 วันล่าสุด · ตัวเลขคือจำนวน Ticket Over SLA แยกตามช่วง SLA ที่จัดสรร (TARGETFINISH − CREATIONDATE)</div>`;
   }
 
   let rankingWindow = 'all';
@@ -7645,6 +7821,43 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  // ── Over SLA by allocated SLA duration (TARGETFINISH - CREATIONDATE) ───
+  function renderSlaDurationChart(breakdown) {
+    const labels = breakdown.buckets.map(b => `${b.sla_hours}h`);
+    const counts = breakdown.buckets.map(b => b.count);
+    const ctx = el('sla-duration-chart').getContext('2d');
+    if (slaDurationChart) slaDurationChart.destroy();
+    slaDurationChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Ticket Over SLA', data: counts, backgroundColor: '#E24B4A99' }] },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          datalabels: { display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0 ? 'auto' : false, color: 'var(--text)', font: { size: 10, weight: 'bold' }, anchor: 'end', align: 'top' },
+        },
+        scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'ช่วง SLA ที่จัดสรร (ชั่วโมง)', font: { size: 10 } } } },
+      },
+    });
+  }
+
+  function renderSlaDurationTable(breakdown) {
+    const body = breakdown.buckets.map(b => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${b.sla_hours} ชม.</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${b.count}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(b.pct_of_over)}</td>
+      </tr>`).join('');
+    el('sla-duration-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:var(--bg3); position:sticky; top:0;">
+          <th style="padding:6px 10px; text-align:left;">SLA ที่จัดสรร</th><th style="padding:6px 8px;">Over SLA</th><th style="padding:6px 8px;">%</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      <div style="font-size:10.5px; color:var(--text3); margin-top:6px; padding:0 4px;">รวม Ticket Over SLA ทั้งหมด: ${breakdown.total_over}</div>`;
+  }
+
   // ── Management table (sortable) ─────────────────────────────────────
   function renderManagementTable(rows) {
     const sorted = [...rows].sort((a, b) => {
@@ -7700,6 +7913,10 @@ function renderPivot(ft) {
     loadDrillDown();
     renderParetoChart(data.root_cause.top_problems);
     renderTopCiTable(data.root_cause.top_ci);
+    if (data.sla_duration_breakdown && data.sla_duration_breakdown.buckets.length) {
+      renderSlaDurationChart(data.sla_duration_breakdown);
+      renderSlaDurationTable(data.sla_duration_breakdown);
+    }
     populateReverseSelectors(data.root_cause);
     renderManagementTable(data.management_table);
     if (data.import_warnings && data.import_warnings.length) {
@@ -8034,10 +8251,60 @@ function renderPivot(ft) {
     tickTimer = setInterval(tick, TICK_INTERVAL_MS);
   }
 
+  let mapColorMode = 'priority'; // 'priority' | 'mateline'
+  let mapExpanded = false;
+
   function priorityMapColor(p) {
     // P0=red, P1=orange - same colors as priorityBadge/KPI cards elsewhere on this page, no green/gray anywhere
     return p === 'P0' ? '#E24B4A' : '#EF9F27';
   }
+
+  // Status Mateline color mapping - one distinct color per stage of the
+  // Departed -> Arrived -> Completed -> Closed workflow, plus the two
+  // special states (Wait Action, Back Date) and "not found in MatelineX".
+  // No green or gray, matching this map's existing color rule.
+  const MATELINE_COLOR_MAP = {
+    'Wait Action': '#E24B4A',
+    '⚠️ Back Date': '#a371f7',
+    'Departed': '#EF9F27',
+    'Arrived': '#F5C518',
+    'Completed': '#1f6feb',
+    'Closed': '#0b3d91',
+  };
+  const MATELINE_NOT_FOUND_COLOR = '#334155';
+  function matelineMapColor(status) {
+    return MATELINE_COLOR_MAP[status] || MATELINE_NOT_FOUND_COLOR;
+  }
+  function markerColorFor(en) {
+    return mapColorMode === 'mateline' ? matelineMapColor(en.status_mateline) : priorityMapColor(en.priority);
+  }
+
+  function renderMapLegend() {
+    const items = mapColorMode === 'mateline'
+      ? [...Object.entries(MATELINE_COLOR_MAP), ['(ไม่พบใน MatelineX)', MATELINE_NOT_FOUND_COLOR]]
+      : [['P0', '#E24B4A'], ['P1', '#EF9F27']];
+    el('ort-map-legend').innerHTML = items.map(([label, color]) =>
+      `<span style="display:inline-flex; align-items:center; gap:4px; margin-right:12px;"><span style="width:9px; height:9px; border-radius:50%; background:${color}; display:inline-block;"></span>${escapeHtml(label)}</span>`
+    ).join('');
+  }
+
+  document.querySelectorAll('.ort-map-color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ort-map-color-btn').forEach(b => { b.style.background = 'transparent'; });
+      btn.style.background = 'var(--bg4)';
+      mapColorMode = btn.dataset.mode;
+      renderMap();
+    });
+  });
+
+  el('ort-map-expand-btn').addEventListener('click', () => {
+    mapExpanded = !mapExpanded;
+    el('ort-map').style.height = mapExpanded ? '760px' : '420px';
+    el('ort-map-expand-btn').textContent = mapExpanded ? '⤡ ย่อ' : '⤢ ขยาย';
+    // Leaflet caches its container size - after any CSS-driven resize it
+    // must be told to re-measure, or tiles stay clipped to the old height.
+    setTimeout(() => { if (map) map.invalidateSize(); }, 210);
+  });
 
   function initMap() {
     if (map) return;
@@ -8068,6 +8335,7 @@ function renderPivot(ft) {
     if (!map) initMap();
     markerClusterGroup.clearLayers();
     Object.keys(markerByTicketId).forEach(k => delete markerByTicketId[k]);
+    renderMapLegend();
 
     const filtered = getFilteredEntries();
     const p0p1 = filtered.filter(en => en.priority === 'P0' || en.priority === 'P1');
@@ -8077,7 +8345,7 @@ function renderPivot(ft) {
       : 'ไม่มี Ticket P0/P1 ที่ตรงกับ Filter ปัจจุบัน';
 
     plottable.forEach(en => {
-      const color = priorityMapColor(en.priority);
+      const color = markerColorFor(en);
       const icon = L.divIcon({
         html: `<div style="background:${color}; color:#fff; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.4); white-space:nowrap;">${escapeHtml(en.TICKETID)}</div>`,
         className: '', iconAnchor: [0, 0],
@@ -8141,6 +8409,65 @@ function renderPivot(ft) {
     }
   }
 
+  function buildOrtLineSummaryText() {
+    if (!lastData) return '';
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeLabel = now.toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+    const kpi = lastData.kpi;
+
+    const lines = [];
+    lines.push('📡 Online SA1-4 Real Time — สรุปสถานการณ์');
+    lines.push(`🕐 ${dateLabel} ${timeLabel} น.`);
+    lines.push('');
+    lines.push(`📊 ภาพรวม: Total ${kpi.total} | 🔴 Over SLA ${kpi.over} | 🟠 Near(≤2h) ${kpi.near} | P0:${kpi.p0} P1:${kpi.p1} P2:${kpi.p2}`);
+
+    // Grouped by province so each province can scan just its own section -
+    // sorted worst-first (most Over SLA tickets) so the most urgent
+    // provinces are the first thing anyone reading top-to-bottom sees.
+    const byProvince = {};
+    entriesWithParsedTarget.forEach(en => {
+      const p = en.PROVINCE || '(ไม่ระบุ)';
+      byProvince[p] = byProvince[p] || { total: 0, over: 0, near: 0, entries: [] };
+      byProvince[p].total++;
+      if (en._remaining != null && en._remaining < 0) byProvince[p].over++;
+      if (en._remaining != null && en._remaining >= 0 && en._remaining <= 2) byProvince[p].near++;
+      byProvince[p].entries.push(en);
+    });
+
+    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b].over - byProvince[a].over);
+    provinces.forEach(p => {
+      const g = byProvince[p];
+      const mostUrgent = g.entries.slice().sort((a, b) => (a._remaining ?? Infinity) - (b._remaining ?? Infinity))[0];
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`📍 ${PROVINCE_EN(p)}`);
+      lines.push(`   Total ${g.total} | 🔴 Over ${g.over} | 🟠 Near ${g.near}`);
+      if (mostUrgent) {
+        lines.push(`   ⏱️ เร่งด่วนสุด: ${mostUrgent.TICKETID} เหลือ ${formatRemainingTime(mostUrgent._remaining)}`);
+      }
+    });
+    lines.push('━━━━━━━━━━━━━━');
+    return lines.join('\n');
+  }
+
+  el('ort-report-btn').addEventListener('click', () => {
+    el('ort-report-text').value = buildOrtLineSummaryText();
+    el('ort-report-copy-status').textContent = '';
+    el('ort-report-modal').style.display = 'block';
+  });
+  el('ort-report-copy-btn').addEventListener('click', async () => {
+    const textarea = el('ort-report-text');
+    const statusEl = el('ort-report-copy-status');
+    try {
+      await navigator.clipboard.writeText(textarea.value);
+    } catch (e) {
+      textarea.select();
+      document.execCommand('copy');
+    }
+    statusEl.textContent = 'คัดลอกแล้ว ✅';
+    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
+
   el('ort-reload').addEventListener('click', reload);
   window.initOnlineRealtimeTab = function () { if (!loaded) reload(); };
 })();
@@ -8198,7 +8525,6 @@ function renderPivot(ft) {
   el('tpi-clear-filter').addEventListener('click', () => {
     filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '' };
     ['tpi-filter-region', 'tpi-filter-province', 'tpi-filter-cluster', 'tpi-filter-severity', 'tpi-filter-subroot', 'tpi-filter-month'].forEach(id => { el(id).value = ''; });
-    selectedTTs.clear();
     renderAll();
   });
   ['tpi-filter-region', 'tpi-filter-province', 'tpi-filter-cluster', 'tpi-filter-severity', 'tpi-filter-subroot', 'tpi-filter-month'].forEach(id => {
@@ -8210,7 +8536,6 @@ function renderPivot(ft) {
       filterState.subRootCause = el('tpi-filter-subroot').value;
       filterState.month = el('tpi-filter-month').value;
       filterState.clusterId = ''; // a broad filter change clears the specific cluster-click selection
-      selectedTTs.clear();
       renderAll();
     });
   });
@@ -8251,11 +8576,6 @@ function renderPivot(ft) {
   const CLUSTER_COLOR = '#1f6feb';
   const INDIVIDUAL_COLOR = '#EF9F27';
   const INVALID_COLOR = '#a371f7';
-  const SELECTED_HALO = '#ffffff';
-
-  let selectMode = false;
-  let selectedTTs = new Set();
-  let selectBoxState = null; // { startPoint: L.Point, boxEl: HTMLElement }
 
   function initMap() {
     if (map) return;
@@ -8263,109 +8583,7 @@ function renderPivot(ft) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     pointLayer = L.layerGroup().addTo(map);
     lineLayer = L.layerGroup().addTo(map);
-    setupSelectDrag();
   }
-
-  // ── Drag-select (explicit request): draw a rectangle over the map to
-  // pick a set of points, then group them into a new cluster or split
-  // them out to individuals. Implemented with raw mouse events on the
-  // map container rather than a plugin - no extra CDN dependency needed
-  // for a plain rectangle select. ──────────────────────────────────────
-  function setupSelectDrag() {
-    const container = map.getContainer();
-    let startPoint = null;
-    let boxEl = null;
-
-    function makeBoxEl() {
-      const d = document.createElement('div');
-      d.style.cssText = 'position:absolute; border:2px dashed #1f6feb; background:rgba(31,111,235,.12); pointer-events:none; z-index:800;';
-      container.appendChild(d);
-      return d;
-    }
-    function updateBoxEl(p1, p2) {
-      const x = Math.min(p1.x, p2.x), y = Math.min(p1.y, p2.y);
-      const w = Math.abs(p1.x - p2.x), h = Math.abs(p1.y - p2.y);
-      boxEl.style.left = x + 'px'; boxEl.style.top = y + 'px';
-      boxEl.style.width = w + 'px'; boxEl.style.height = h + 'px';
-    }
-
-    container.addEventListener('mousedown', (e) => {
-      if (!selectMode || e.button !== 0) return;
-      L.DomEvent.stopPropagation(e);
-      map.dragging.disable();
-      startPoint = map.mouseEventToContainerPoint(e);
-      boxEl = makeBoxEl();
-      updateBoxEl(startPoint, startPoint);
-    });
-    container.addEventListener('mousemove', (e) => {
-      if (!selectMode || !startPoint) return;
-      updateBoxEl(startPoint, map.mouseEventToContainerPoint(e));
-    });
-    window.addEventListener('mouseup', (e) => {
-      if (!selectMode || !startPoint) return;
-      const endPoint = map.mouseEventToContainerPoint(e);
-      const sw = map.containerPointToLatLng([Math.min(startPoint.x, endPoint.x), Math.max(startPoint.y, endPoint.y)]);
-      const ne = map.containerPointToLatLng([Math.max(startPoint.x, endPoint.x), Math.min(startPoint.y, endPoint.y)]);
-      const dragged = Math.abs(startPoint.x - endPoint.x) > 4 || Math.abs(startPoint.y - endPoint.y) > 4;
-      if (boxEl) { boxEl.remove(); boxEl = null; }
-      startPoint = null;
-      map.dragging.enable();
-      if (!dragged) return; // treat as a plain click - don't clobber the existing selection
-      const bounds = L.latLngBounds(sw, ne);
-      const inBox = getFilteredPoints().filter(p => p.latitude != null && p.longitude != null && bounds.contains([p.latitude, p.longitude]));
-      inBox.forEach(p => selectedTTs.add(p.source_tt));
-      updateSelectToolbar();
-      renderMap();
-    });
-  }
-
-  function setSelectMode(on) {
-    selectMode = on;
-    el('tpi-select-mode-btn').style.background = on ? '#1f6feb' : '';
-    el('tpi-select-mode-btn').style.color = on ? '#fff' : '';
-    el('tpi-select-hint').style.display = on ? 'block' : 'none';
-    if (map) map.dragging.enable();
-    if (!on) {
-      selectedTTs.clear();
-      updateSelectToolbar();
-      renderMap();
-    }
-  }
-  el('tpi-select-mode-btn').addEventListener('click', () => setSelectMode(!selectMode));
-
-  function updateSelectToolbar() {
-    const n = selectedTTs.size;
-    el('tpi-select-toolbar').style.display = selectMode ? 'flex' : 'none';
-    el('tpi-select-count').textContent = `เลือกไว้ ${n} จุด`;
-    el('tpi-select-group-btn').disabled = n < 2;
-    el('tpi-select-individual-btn').disabled = n < 1;
-  }
-
-  async function postManualAction(action) {
-    const source_tts = [...selectedTTs];
-    if (!source_tts.length) return;
-    const btn = action === 'group' ? el('tpi-select-group-btn') : el('tpi-select-individual-btn');
-    const original = btn.textContent;
-    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-    try {
-      const res = await fetch(`/api/temp-point-improvement/${action === 'group' ? 'group' : 'individual'}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_tts }),
-      });
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
-      selectedTTs.clear();
-      updateSelectToolbar();
-      await reload();
-    } catch (e) {
-      console.error('Manual override save failed', e);
-      alert('บันทึกไม่สำเร็จ: ' + e.message);
-    } finally {
-      btn.disabled = false; btn.textContent = original;
-    }
-  }
-  el('tpi-select-group-btn').addEventListener('click', () => postManualAction('group'));
-  el('tpi-select-individual-btn').addEventListener('click', () => postManualAction('individual'));
-  el('tpi-select-clear-btn').addEventListener('click', () => { selectedTTs.clear(); updateSelectToolbar(); renderMap(); });
 
   function renderMap() {
     if (!map) initMap();
@@ -8388,49 +8606,21 @@ function renderPivot(ft) {
       const line = L.polyline(latlngs, { color: CLUSTER_COLOR, weight: 3, opacity: 0.7 });
       line.on('click', () => window.__tpiShowClusterDetail(cid));
       lineLayer.addLayer(line);
-
-      // Cluster ID + Total Dist. label, right on the map, clickable -
-      // jumps to (and highlights) the same detail table below.
-      const totalDist = Math.max(...pts.map(p => p.cluster_distance_m || 0), 0);
-      const cLat = pts.reduce((s, p) => s + p.latitude, 0) / pts.length;
-      const cLon = pts.reduce((s, p) => s + p.longitude, 0) / pts.length;
-      const isManual = cid.startsWith('M');
-      const labelBg = isManual ? '#a371f7' : CLUSTER_COLOR;
-      const labelIcon = L.divIcon({
-        className: 'tpi-cluster-label',
-        html: `<div style="background:${labelBg}; color:#fff; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.35); border:1.5px solid #fff; cursor:pointer;">${isManual ? '✋ ' : ''}${escapeHtml(cid)} · ${fmtNum(totalDist)} m</div>`,
-        iconSize: null, iconAnchor: [0, 0],
-      });
-      const labelMarker = L.marker([cLat, cLon], { icon: labelIcon, interactive: true, zIndexOffset: 1000 });
-      labelMarker.on('click', () => window.__tpiShowClusterDetail(cid));
-      lineLayer.addLayer(labelMarker);
     });
 
     filtered.forEach(p => {
       const color = p.is_cluster ? CLUSTER_COLOR : INDIVIDUAL_COLOR;
-      const isSelected = selectedTTs.has(p.source_tt);
-      const marker = L.circleMarker([p.latitude, p.longitude], {
-        radius: isSelected ? 8 : 6, color: isSelected ? SELECTED_HALO : color, fillColor: color,
-        fillOpacity: 0.85, weight: isSelected ? 3 : 1.5,
-      });
+      const marker = L.circleMarker([p.latitude, p.longitude], { radius: 6, color, fillColor: color, fillOpacity: 0.85, weight: 1.5 });
       marker.bindPopup(`
         <div style="font-size:12px; line-height:1.7; min-width:200px;">
-          <b>${escapeHtml(p.source_tt)}</b> — ${p.is_cluster ? `<span style="color:${CLUSTER_COLOR};">🔵 ${escapeHtml(p.cluster_id)}</span>` : `<span style="color:${INDIVIDUAL_COLOR};">🟠 Individual</span>`}${p.manual_override ? ' <span style="color:#a371f7;">✋ ปรับเอง</span>' : ''}<br>
+          <b>${escapeHtml(p.source_tt)}</b> — ${p.is_cluster ? `<span style="color:${CLUSTER_COLOR};">🔵 ${escapeHtml(p.cluster_id)}</span>` : `<span style="color:${INDIVIDUAL_COLOR};">🟠 Individual</span>`}<br>
           ${escapeHtml(p.subject)}<br>
           <b>Province:</b> ${escapeHtml(PROVINCE_EN(p.province))} · <b>Severity:</b> ${escapeHtml(p.severity)}<br>
           <b>Distance to Previous:</b> ${fmtNum(p.distance_to_previous_m)} m<br>
           ${p.is_cluster ? `<b>Cluster Distance:</b> ${fmtNum(p.cluster_distance_m)} m<br>` : ''}
           <b>Sub Root Cause:</b> ${escapeHtml(p.sub_root_cause)}
         </div>`);
-      if (selectMode) {
-        marker.on('click', () => {
-          if (selectedTTs.has(p.source_tt)) selectedTTs.delete(p.source_tt); else selectedTTs.add(p.source_tt);
-          updateSelectToolbar();
-          renderMap();
-        });
-      } else if (p.is_cluster) {
-        marker.on('click', () => window.__tpiShowClusterDetail(p.cluster_id));
-      }
+      if (p.is_cluster) marker.on('click', () => window.__tpiShowClusterDetail(p.cluster_id));
       pointLayer.addLayer(marker);
     });
 
@@ -8470,13 +8660,6 @@ function renderPivot(ft) {
     el('tpi-cluster-detail').scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
-  function makeGradient(ctx, chartArea, colorTop, colorBottom) {
-    const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    g.addColorStop(0, colorTop);
-    g.addColorStop(1, colorBottom);
-    return g;
-  }
-
   function renderCharts() {
     const filtered = getFilteredPoints();
     const clusterPts = filtered.filter(p => p.is_cluster).length;
@@ -8488,48 +8671,14 @@ function renderPivot(ft) {
       type: 'bar',
       data: {
         labels: ['Total', 'Cluster Point', 'Individual Point'],
-        datasets: [{
-          data: [filtered.length, clusterPts, individualPts],
-          backgroundColor: (c) => {
-            const { chart, dataIndex } = c;
-            if (!chart.chartArea) return ['#6b7fa8', CLUSTER_COLOR, INDIVIDUAL_COLOR][dataIndex];
-            const tones = [
-              ['#7c8fb8', '#4a5a80'],
-              ['#4c96ff', CLUSTER_COLOR],
-              ['#ffc069', INDIVIDUAL_COLOR],
-            ];
-            return makeGradient(chart.ctx, chart.chartArea, tones[dataIndex][0], tones[dataIndex][1]);
-          },
-          borderRadius: 8, borderSkipped: false, maxBarThickness: 90,
-        }],
+        datasets: [{ data: [filtered.length, clusterPts, individualPts], backgroundColor: ['var(--text3)', CLUSTER_COLOR, INDIVIDUAL_COLOR] }],
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          datalabels: {
-            display: true, anchor: 'end', align: 'top', offset: 4,
-            color: 'var(--text)', font: { size: 13, weight: 800 },
-            formatter: v => v.toLocaleString(),
-          },
-          tooltip: { backgroundColor: 'rgba(20,24,32,.92)', padding: 10, cornerRadius: 8, titleFont: { weight: 700 } },
-        },
-        layout: { padding: { top: 18 } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,.12)' }, ticks: { font: { size: 11 } } },
-          x: { grid: { display: false }, ticks: { font: { size: 12, weight: 600 } } },
-        },
-      },
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
     });
 
     const byProvince = {};
     filtered.forEach(p => { (byProvince[p.province] = byProvince[p.province] || { cluster: new Set(), points: 0 }); if (p.is_cluster) byProvince[p.province].cluster.add(p.cluster_id); byProvince[p.province].points++; });
-    const priorityByProvince = {};
-    ((lastData && lastData.province_summary) || []).forEach(r => { priorityByProvince[r.province] = r.priority; });
-    const PRIORITY_TONES = {
-      high: ['#ff8a7a', '#E24B4A'], medium: ['#ffcf7a', '#EF9F27'], monitor: ['#5fa8ff', CLUSTER_COLOR],
-    };
-    const provinceRows = Object.entries(byProvince).map(([prov, v]) => ({ province: prov, clusters: v.cluster.size, points: v.points, priority: priorityByProvince[prov] || 'monitor' })).sort((a, b) => b.clusters - a.clusters).slice(0, 10);
+    const provinceRows = Object.entries(byProvince).map(([prov, v]) => ({ province: prov, clusters: v.cluster.size, points: v.points })).sort((a, b) => b.clusters - a.clusters).slice(0, 10);
 
     const ctx2 = el('tpi-province-chart').getContext('2d');
     if (provinceChart) provinceChart.destroy();
@@ -8537,45 +8686,9 @@ function renderPivot(ft) {
       type: 'bar',
       data: {
         labels: provinceRows.map(r => PROVINCE_EN(r.province)),
-        datasets: [{
-          label: 'Cluster',
-          data: provinceRows.map(r => r.clusters),
-          backgroundColor: (c) => {
-            const { chart, dataIndex } = c;
-            const row = provinceRows[dataIndex];
-            const tone = PRIORITY_TONES[row ? row.priority : 'monitor'];
-            if (!chart.chartArea) return tone[1];
-            return makeGradient(chart.ctx, chart.chartArea, tone[0], tone[1]);
-          },
-          borderRadius: 6, borderSkipped: false, maxBarThickness: 44,
-        }],
+        datasets: [{ label: 'Cluster', data: provinceRows.map(r => r.clusters), backgroundColor: CLUSTER_COLOR }],
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          datalabels: {
-            display: true, anchor: 'end', align: 'top', offset: 4,
-            color: 'var(--text)', font: { size: 12, weight: 800 },
-            formatter: v => v.toLocaleString(),
-          },
-          tooltip: {
-            backgroundColor: 'rgba(20,24,32,.92)', padding: 10, cornerRadius: 8, titleFont: { weight: 700 },
-            callbacks: {
-              afterLabel: (ctx) => {
-                const row = provinceRows[ctx.dataIndex];
-                const label = { high: '🔴 High Priority', medium: '🟠 Medium Priority', monitor: '🔵 Monitor' }[row ? row.priority : 'monitor'];
-                return label;
-              },
-            },
-          },
-        },
-        layout: { padding: { top: 16 } },
-        scales: {
-          y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,.12)' }, ticks: { font: { size: 11 } } },
-          x: { grid: { display: false }, ticks: { font: { size: 11, weight: 600 } } },
-        },
-      },
+      options: { responsive: true, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } },
     });
   }
 
@@ -8587,8 +8700,7 @@ function renderPivot(ft) {
 
   function renderProvinceTable() {
     if (!lastData) return;
-    const data = lastData.province_summary;
-    const rows = data.map(r => `
+    const rows = lastData.province_summary.map(r => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:6px 10px; font-weight:600;">${escapeHtml(PROVINCE_EN(r.province))} <span style="color:var(--text3); font-size:9.5px;">(${escapeHtml(r.region || '–')})</span></td>
         <td style="padding:6px 8px; text-align:center;">${r.total_temp_point}</td>
@@ -8599,27 +8711,6 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; text-align:center;">${fmtNum(r.avg_distance_per_cluster_m)} m</td>
         <td style="padding:6px 8px; text-align:center;">${priorityBadge(r.priority)}</td>
       </tr>`).join('');
-
-    const totalRow = data.reduce((acc, r) => ({
-      total_temp_point: acc.total_temp_point + r.total_temp_point,
-      cluster_point: acc.cluster_point + r.cluster_point,
-      cluster_count: acc.cluster_count + r.cluster_count,
-      individual_point: acc.individual_point + r.individual_point,
-      total_distance_m: acc.total_distance_m + r.total_distance_m,
-    }), { total_temp_point: 0, cluster_point: 0, cluster_count: 0, individual_point: 0, total_distance_m: 0 });
-    const avgOverall = totalRow.cluster_count ? totalRow.total_distance_m / totalRow.cluster_count : 0;
-    const totalRowHtml = `
-      <tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:800;">
-        <td style="padding:7px 10px;">รวมทั้งหมด (Total)</td>
-        <td style="padding:7px 8px; text-align:center;">${totalRow.total_temp_point}</td>
-        <td style="padding:7px 8px; text-align:center; color:${CLUSTER_COLOR};">${totalRow.cluster_point}</td>
-        <td style="padding:7px 8px; text-align:center;">${totalRow.cluster_count}</td>
-        <td style="padding:7px 8px; text-align:center; color:${INDIVIDUAL_COLOR};">${totalRow.individual_point}</td>
-        <td style="padding:7px 8px; text-align:center;">${fmtNum(totalRow.total_distance_m)} m</td>
-        <td style="padding:7px 8px; text-align:center;">${fmtNum(avgOverall)} m</td>
-        <td style="padding:7px 8px; text-align:center;">–</td>
-      </tr>`;
-
     el('tpi-province-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
@@ -8632,7 +8723,7 @@ function renderPivot(ft) {
           <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Avg Dist./Cluster</th>
           <th style="padding:7px 8px; font-size:11px; text-transform:uppercase; color:var(--text2);">Priority</th>
         </tr></thead>
-        <tbody>${rows}${totalRowHtml}</tbody>
+        <tbody>${rows}</tbody>
       </table>`;
   }
 
