@@ -211,7 +211,13 @@ def _build_war_room(team_map, ins, ows_teams=None) -> list:
         active = [t for t in all_t if t[2] not in DONE_STATUS]
         ttype  = _team_type(team)
 
-        if _had_depart_today(all_t) and active:
+        # OWS บอก depart วันนี้ → working เสมอ ไม่ว่า GGS จะบอกอะไร
+        ows_depart_today = ows_teams and ows_teams.get(team, {}).get("depart_today", False)
+
+        if (ows_depart_today or _had_depart_today(all_t)) and active:
+            working[ttype].append((team, data))
+        elif ows_depart_today and not active:
+            # Depart แล้วแต่ ticket ปิดหมดแล้ว → working (ว่าง)
             working[ttype].append((team, data))
         elif _has_pending(active):
             pending[ttype].append((team, data))
