@@ -726,6 +726,33 @@ def build_impact_risk(rows):
     return entities
 
 
+def build_sla_duration_breakdown(rows):
+    """For OVER-SLA tickets only, groups by the SLA duration that was
+    allocated to them (TARGETFINISH - CREATIONDATE, rounded to the
+    nearest whole hour) - there's no actual-completion-time column in
+    this data, so this measures the SLA COMMITMENT WINDOW LENGTH (e.g.
+    "this was a 4-hour SLA ticket"), not how many hours late it ended up
+    being. Answers "which SLA tiers get breached most" rather than "how
+    late." Groups by the rounded-hour value itself rather than fixed tier
+    boundaries (4/8/12/24...) so it naturally clusters near-identical
+    durations without hardcoding which SLA tiers this organization uses -
+    matching every other classification in this module, which derives
+    its groupings from the data rather than assuming them."""
+    over_rows = [r for r in rows if r["TICKET_SLA"] == "over"]
+    total_over = len(over_rows)
+    buckets = {}
+    for r in over_rows:
+        delta_hours = (r["TARGETFINISH"] - r["CREATIONDATE"]).total_seconds() / 3600
+        rounded = round(delta_hours)
+        buckets[rounded] = buckets.get(rounded, 0) + 1
+    result = [
+        {"sla_hours": h, "count": c, "pct_of_over": _pct(c, total_over)}
+        for h, c in buckets.items()
+    ]
+    result.sort(key=lambda x: x["sla_hours"])
+    return {"total_over": total_over, "buckets": result}
+
+
 # ── Executive KPI + War Room + Management table ─────────────────────────
 
 def build_executive_kpi(rows, province_ranking, root_cause):
@@ -1340,6 +1367,7 @@ def build_sla_improvement_response(top_n=15):
     improvement_heatmap = build_improvement_heatmap(rows)
     root_cause = build_root_cause(rows, top_n=top_n)
     impact_risk = build_impact_risk(rows)
+    sla_duration_breakdown = build_sla_duration_breakdown(rows)
     executive_kpi = build_executive_kpi(rows, province_ranking, root_cause)
     war_room = build_war_room(rows, root_cause, province_ranking)
     management_table = build_management_table(province_ranking, impact_risk)
@@ -1355,5 +1383,6 @@ def build_sla_improvement_response(top_n=15):
         "improvement_heatmap": improvement_heatmap,
         "root_cause": root_cause,
         "impact_risk": impact_risk,
+        "sla_duration_breakdown": sla_duration_breakdown,
         "management_table": management_table,
     }
