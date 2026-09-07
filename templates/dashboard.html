@@ -1132,6 +1132,18 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">Impact: 🟣 Priority Improvement (จำนวนเยอะ+% สูง) · 🔵 High Impact (จำนวนเยอะ) · 🟠 High Risk (% สูง แต่จำนวนไม่มาก) · ⚪ Normal</div>
         <div id="sla-management-table" style="overflow-x:auto;"></div>
       </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div style="flex:1; min-width:320px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">⏱️ Over SLA ตามช่วงเวลา SLA ที่จัดสรร</div>
+          <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">จาก TARGETFINISH − CREATIONDATE ของ Ticket ที่ Over SLA — ดูว่า SLA ช่วงสั้น/ยาวแบบไหนโดน Breach บ่อยสุด</div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><canvas id="sla-duration-chart" height="180"></canvas></div>
+        </div>
+        <div style="flex:1; min-width:280px; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📊 รายละเอียด</div>
+          <div id="sla-duration-table" style="overflow-x:auto; max-height:280px; overflow-y:auto;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -6845,6 +6857,7 @@ function renderPivot(ft) {
   let lastData = null;
   let trendChart = null;
   let paretoChart = null;
+  let slaDurationChart = null;
   let trendState = { gran: 'daily', scope: 'overall', province: null };
   let drillState = { problem: null, sub_cause: null, ci_name: null };
   let mgmtSort = { col: 'pct_over', dir: 'desc' };
@@ -7762,6 +7775,43 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  // ── Over SLA by allocated SLA duration (TARGETFINISH - CREATIONDATE) ───
+  function renderSlaDurationChart(breakdown) {
+    const labels = breakdown.buckets.map(b => `${b.sla_hours}h`);
+    const counts = breakdown.buckets.map(b => b.count);
+    const ctx = el('sla-duration-chart').getContext('2d');
+    if (slaDurationChart) slaDurationChart.destroy();
+    slaDurationChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Ticket Over SLA', data: counts, backgroundColor: '#E24B4A99' }] },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          datalabels: { display: (ctx) => ctx.dataset.data[ctx.dataIndex] > 0 ? 'auto' : false, color: 'var(--text)', font: { size: 10, weight: 'bold' }, anchor: 'end', align: 'top' },
+        },
+        scales: { y: { beginAtZero: true }, x: { title: { display: true, text: 'ช่วง SLA ที่จัดสรร (ชั่วโมง)', font: { size: 10 } } } },
+      },
+    });
+  }
+
+  function renderSlaDurationTable(breakdown) {
+    const body = breakdown.buckets.map(b => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 10px; font-weight:600;">${b.sla_hours} ชม.</td>
+        <td style="padding:6px 8px; text-align:center; color:#E24B4A; font-weight:700;">${b.count}</td>
+        <td style="padding:6px 8px; text-align:center;">${fmtPct(b.pct_of_over)}</td>
+      </tr>`).join('');
+    el('sla-duration-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:var(--bg3); position:sticky; top:0;">
+          <th style="padding:6px 10px; text-align:left;">SLA ที่จัดสรร</th><th style="padding:6px 8px;">Over SLA</th><th style="padding:6px 8px;">%</th>
+        </tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+      <div style="font-size:10.5px; color:var(--text3); margin-top:6px; padding:0 4px;">รวม Ticket Over SLA ทั้งหมด: ${breakdown.total_over}</div>`;
+  }
+
   // ── Management table (sortable) ─────────────────────────────────────
   function renderManagementTable(rows) {
     const sorted = [...rows].sort((a, b) => {
@@ -7817,6 +7867,10 @@ function renderPivot(ft) {
     loadDrillDown();
     renderParetoChart(data.root_cause.top_problems);
     renderTopCiTable(data.root_cause.top_ci);
+    if (data.sla_duration_breakdown && data.sla_duration_breakdown.buckets.length) {
+      renderSlaDurationChart(data.sla_duration_breakdown);
+      renderSlaDurationTable(data.sla_duration_breakdown);
+    }
     populateReverseSelectors(data.root_cause);
     renderManagementTable(data.management_table);
     if (data.import_warnings && data.import_warnings.length) {
