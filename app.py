@@ -1446,6 +1446,192 @@ def build_focus_priority():
     return out
 
 
+# ── FOCUS PRIORITY 0 TICKET: Summary Log drilldown (explicit request) ──
+# Separate spreadsheet from FOCUS_SOURCE_SHEET_ID - a "Daily" worksheet
+# with one column holding the raw work-log text per ticket (Create/
+# Schedule/Dispatch/Reassign/Accept/Depart/Arrive/Pause SLA/Resume SLA/
+# Complete/Leave/Close events, "---"-separated, HTML <br> line breaks).
+# Fetched ON DEMAND per ticket (not bulk-joined into build_focus_priority,
+# which is polled frequently) to avoid hammering Sheets API on every poll
+# with a second, likely-large sheet read.
+TICKET_LOG_SHEET_ID = '1PsJnXf8X7rBbA6G96L0ojE_ioby4mKqYcJQLp7fFiOw'
+TICKET_LOG_SHEET_NAME = 'Daily'
+
+_LOG_STEP_SEP_RE = re.compile(r'-{20,}')
+_LOG_HEADER_RE = re.compile(r'^\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*-\s*([^:]+?)\s*:\s*(.*)$')
+_LOG_A_TAG_RE = re.compile(r'<a\s+href\s*=\s*[\'"]?([^\'" >]+)[\'"]?[^>]*>.*?</a>', re.IGNORECASE | re.DOTALL)
+
+
+def _log_html_to_lines(block):
+    """</br> (any case, with/without slash) -> a new field-line boundary.
+    A LITERAL '\\n' inside the raw text (e.g. a multi-paragraph
+    Description that itself contains no </br> tags between its own
+    sentences) is deliberately NOT treated as a boundary here - it stays
+    embedded inside whichever field's value it belongs to, otherwise a
+    multi-line free-text field gets shredded into bogus extra "fields" at
+    every internal colon/newline it happens to contain. <a> tags keep
+    just their href URL (a Location line is otherwise just an anchor
+    with no visible text worth keeping on its own)."""
+    block = _LOG_A_TAG_RE.sub(lambda m: m.group(1), block)
+    parts = re.split(r'</?br\s*/?>', block, flags=re.IGNORECASE)
+    lines = []
+    for p in parts:
+        p = re.sub(r'<[^>]+>', '', p).strip()
+        if p:
+            lines.append(p)
+    return lines
+
+
+def _parse_summary_log(raw_text):
+    """Returns a list of step dicts: {time, action, user, fields: {...}}
+    in the order they appear in the log. Tolerant of format drift (per
+    explicit warning the form "may vary a bit") - a block that doesn't
+    match the expected 'TIMESTAMP - Action : User' header is still kept,
+    just with action='(unrecognized)' and the raw first line preserved,
+    rather than silently dropping data."""
+    if not raw_text or not str(raw_text).strip():
+        return []
+    blocks = _LOG_STEP_SEP_RE.split(str(raw_text))
+    steps = []
+    for block in blocks:
+        lines = _log_html_to_lines(block)
+        if not lines:
+            continue
+        m = _LOG_HEADER_RE.match(lines[0])
+        if m:
+            time_str, action, user = m.group(1), m.group(2).strip(), m.group(3).strip()
+        else:
+            time_str, action, user = '', '(unrecognized)', lines[0]
+        fields = {}
+        for ln in lines[1:]:
+            if ':' in ln:
+                k, v = ln.split(':', 1)
+                fields[k.strip()] = v.strip()
+            else:
+                fields.setdefault('_extra', []).append(ln)
+        steps.append({
+            'time': time_str, 'dt': parse_dt(time_str),
+            'action': action, 'user': user, 'fields': fields,
+        })
+    return steps
+
+
+def _summarize_ticket_log(steps):
+    """Same pattern-summary shape as manually produced for the person
+    earlier in chat: total elapsed, reassign/queue wait, travel time,
+    total paused time (with reasons), and the resolution note pulled
+    from the Complete step's Description. Every bullet is conditional on
+    the relevant steps actually being present - never assumes a fixed
+    step set, since the log format can vary."""
+    bullets = []
+    by_action = {}
+    for s in steps:
+        by_action.setdefault(s['action'].strip().lower(), []).append(s)
+
+    def first(action_key):
+        return by_action.get(action_key, [None])[0]
+
+    def last(action_key):
+        return by_action.get(action_key, [None])[-1]
+
+    create = first('create')
+    accept = first('accept')
+    depart = first('depart')
+    arrive = first('arrive')
+    complete = first('complete')
+    close = first('close')
+    reassigns = by_action.get('reassign', [])
+
+    def hm(td):
+        total_min = int(td.total_seconds() // 60)
+        h, m = divmod(max(total_min, 0), 60)
+        return (f'{h} ชม. ' if h else '') + f'{m} นาที'
+
+    if create and (complete or close):
+        end = (complete or close)
+        if create['dt'] and end['dt']:
+            bullets.append(f"ระยะเวลารวม Create → {end['action']}: {hm(end['dt'] - create['dt'])}")
+
+    if reassigns and accept and accept['dt']:
+        last_reassign_before_accept = None
+        for r in reassigns:
+            if r['dt'] and r['dt'] <= accept['dt']:
+                last_reassign_before_accept = r
+        if last_reassign_before_accept and last_reassign_before_accept['dt']:
+            bullets.append(f"รอ Reassign ก่อนมีคนรับงาน: {hm(accept['dt'] - last_reassign_before_accept['dt'])}")
+
+    if depart and arrive and depart['dt'] and arrive['dt']:
+        bullets.append(f"เวลาเดินทาง (Depart → Arrive): {hm(arrive['dt'] - depart['dt'])}")
+
+    pause_events = by_action.get('pause sla', [])
+    resume_events = by_action.get('resume sla', [])
+    if pause_events and resume_events:
+        total_pause = None
+        reasons = []
+        for p, r in zip(pause_events, resume_events):
+            if p['dt'] and r['dt']:
+                gap = r['dt'] - p['dt']
+                total_pause = gap if total_pause is None else total_pause + gap
+            reason = p['fields'].get('Reason') or p['fields'].get('Description')
+            if reason:
+                reasons.append(reason)
+        if total_pause is not None:
+            bullets.append(f"เวลาที่ Pause SLA รวม: {hm(total_pause)}" + (f" (เหตุผล: {'; '.join(reasons)})" if reasons else ''))
+
+    if arrive and (complete or close) and arrive['dt']:
+        end = complete or close
+        if end['dt']:
+            net = end['dt'] - arrive['dt']
+            bullets.append(f"เวลาทำงานหน้างาน (Arrive → {end['action']}, ยังไม่หัก Pause): {hm(net)}")
+
+    resolution = None
+    if complete:
+        resolution = complete['fields'].get('Description')
+    if resolution:
+        bullets.append(f"สรุปการแก้ไข (จาก Complete): {resolution}")
+
+    return bullets
+
+
+def fetch_ticket_summary_log(gc, ticket_id):
+    """Returns (steps, bullets, found) for one ticket's raw log text in
+    the "Daily" worksheet - column names for Ticket ID / Summary Log are
+    matched flexibly (same _fp_fc-style approach as the rest of Focus
+    Priority) since the exact header text isn't confirmed. Returns
+    found=False (not an exception) if the ticket has no matching row -
+    a ticket simply not having a log entry is an expected case, not an
+    error."""
+    sh = gc.open_by_key(TICKET_LOG_SHEET_ID)
+    try:
+        ws = sh.worksheet(TICKET_LOG_SHEET_NAME)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.get_worksheet(0)
+
+    raw_values = ws.get_all_values()
+    if not raw_values:
+        return [], [], False
+
+    headers = [_fp_norm_header(h) for h in raw_values[0]]
+    col = {h: i for i, h in enumerate(headers) if h}
+    ticket_col = _fp_fc(col, 'TICKETID', 'Ticket ID', 'TICKET', 'Ticket No', 'Ticket')
+    log_col = _fp_fc(col, 'Summary Log', 'SUMMARY LOG', 'Log Summary', 'Work Log', 'Summary_Log')
+    if ticket_col is None or log_col is None:
+        return [], [], False
+
+    target = str(ticket_id or '').strip().lower()
+    matched_raw_log = None
+    for row in raw_values[1:]:
+        row_ticket = _fp_get(row, ticket_col).strip().lower()
+        if row_ticket == target:
+            matched_raw_log = _fp_get(row, log_col)  # keep scanning - last match wins (most recent row for this ticket)
+    if matched_raw_log is None:
+        return [], [], False
+
+    steps = _parse_summary_log(matched_raw_log)
+    bullets = _summarize_ticket_log(steps)
+    return steps, bullets, True
+
+
 
 def _rt_open_worksheet(gc, sheet_id):
     sh = gc.open_by_key(sheet_id)
@@ -2073,6 +2259,21 @@ def api_focus_priority():
         return jsonify(build_focus_priority())
     except Exception as e:
         log.exception('api_focus_priority error')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/focus-priority/summary-log/<ticket_id>')
+def api_focus_priority_summary_log(ticket_id):
+    try:
+        gc = get_client()
+        steps, bullets, found = fetch_ticket_summary_log(gc, ticket_id)
+        steps_out = [{
+            'time': s['time'], 'action': s['action'], 'user': s['user'],
+            'fields': {k: v for k, v in s['fields'].items() if k != '_extra'},
+            'extra': s['fields'].get('_extra', []),
+        } for s in steps]
+        return jsonify({'ticket_id': ticket_id, 'found': found, 'steps': steps_out, 'bullets': bullets})
+    except Exception as e:
+        log.exception('api_focus_priority_summary_log error')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/realtime')
