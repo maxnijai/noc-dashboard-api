@@ -1051,6 +1051,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🗂️ Over SLA by Category ตามจังหวัด <span id="over-categories-breakdown-days" style="font-weight:400; color:var(--text3); font-size:11px;"></span></div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">จำนวน Over SLA Ticket ตาม CATEGORIES — คลิกตัวเลขในช่องเพื่อดูรายละเอียด Ticket (ใช้ตัวกรอง SLA Type ด้านบนร่วมกันกับตารางอื่นๆ)</div>
+        <div id="over-categories-breakdown-table" style="overflow-x:auto;"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
           <div style="font-size:13px; font-weight:700;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
           <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
@@ -7083,6 +7089,7 @@ function renderPivot(ft) {
           <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Created:</b> ${escapeHtml(t.CREATIONDATE) || '-'}</td>
           <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Closed:</b> ${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
           <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>SLA:</b> ${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Category:</b> ${escapeHtml(t.CATEGORIES) || '-'}</td>
         </tr>`).join('');
       return `
         <tbody>
@@ -7361,21 +7368,30 @@ function renderPivot(ft) {
       </table>`;
   }
 
-  function renderSlaHrsBreakdownTable() {
-    const dd = lastData.sla_hrs_breakdown;
-    if (!dd || !dd.days.length || !dd.provinces.length) { el('sla-hrs-breakdown-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล Over SLA ที่มีค่า SLA_Hrs ในช่วงนี้</div>`; el('sla-hrs-breakdown-days').textContent = ''; return; }
-    el('sla-hrs-breakdown-days').textContent = `(เฉพาะ Over SLA · ${dd.days.length} วันล่าสุด)`;
+  function jsAttr(s) {
+    // Safe to embed inside a single-quoted JS string literal within an
+    // onclick="..." HTML attribute - matters here because, unlike the
+    // SLA_Hrs table (numeric/short alphanumeric values only), CATEGORIES
+    // is freeform text that could contain an apostrophe and break the
+    // onclick string if left unescaped.
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  function renderBreakdownTable(dataKey, tableElId, daysElId, opts) {
+    const dd = lastData[dataKey];
+    if (!dd || !dd.days.length || !dd.provinces.length) { el(tableElId).innerHTML = `<div style="font-size:12px; color:var(--text3);">${escapeHtml(opts.emptyMsg)}</div>`; el(daysElId).textContent = ''; return; }
+    el(daysElId).textContent = `(เฉพาะ Over SLA · ${dd.days.length} วันล่าสุด)`;
 
     const maxCount = Math.max(1, ...dd.days.flatMap(d => dd.provinces.map(p => {
       const provCells = d.cells[p] || {};
       return Math.max(0, ...d.values.map(v => (provCells[v] && provCells[v].count) || 0));
     })));
 
-    // Row 1: date labels, each spanning its own day's hour-value columns.
+    // Row 1: date labels, each spanning its own day's sub-columns.
     const dateHeadRow = dd.days.map(d => `<th colspan="${d.values.length || 1}" style="padding:5px 8px; text-align:center; font-size:10.5px; font-weight:700; color:var(--text2); border-left:2px solid var(--border2);">Date ${escapeHtml(d.date)}</th>`).join('');
-    // Row 2: the actual hour values for each date (data-driven - a date with only 4h/6h/14h shows exactly those 3 sub-columns).
-    const hourHeadRow = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) =>
-      `<th style="padding:4px 6px; text-align:center; font-size:9.5px; color:var(--text3); white-space:nowrap; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">${v === '-' ? '–' : v + 'H'}</th>`
+    // Row 2: the actual distinct values for each date (data-driven - a date with only 3 distinct values shows exactly 3 sub-columns).
+    const subHeadRow = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) =>
+      `<th style="padding:4px 6px; text-align:center; font-size:9.5px; color:var(--text3); white-space:nowrap;" title="${v === '-' ? '' : escapeHtml(opts.formatHeader(v))}"><span style="${vi === 0 ? 'border-left:2px solid var(--border2); padding-left:4px;' : ''}">${v === '-' ? '–' : escapeHtml(opts.formatHeader(v))}</span></th>`
     ).join('')).join('');
     const totalCols = dd.days.reduce((s, d) => s + (d.values.length || 1), 0);
 
@@ -7390,8 +7406,8 @@ function renderPivot(ft) {
         const count = getCount(d, prov, v);
         const heat = heatmapCellColor(count || null, maxCount);
         const clickable = count > 0;
-        const onclick = clickable ? ` onclick="window.__slaHrsOpenCell(${di},'${escapeHtml(prov)}',${v})"` : '';
-        return `<td${onclick} title="${escapeHtml(d.date)} · ${escapeHtml(prov)} · ${v}H: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
+        const onclick = clickable ? ` onclick="window.__breakdownOpenCell('${jsAttr(dataKey)}',${di},'${jsAttr(prov)}','${jsAttr(v)}')"` : '';
+        return `<td${onclick} title="${escapeHtml(d.date)} · ${escapeHtml(prov)} · ${escapeHtml(opts.formatHeader(v))}: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
       }).join('')).join('');
       return `<tr style="border-top:1px solid var(--border);">
         <td style="padding:5px 10px 5px 20px; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
@@ -7411,8 +7427,8 @@ function renderPivot(ft) {
       </tr>`;
     }
 
-    // Group provinces by Region (subtotal per region, explicit request) -
-    // same NOR1/NOR2-first ordering convention as the % Over SLA Heatmap.
+    // Group provinces by Region (subtotal per region) - same NOR1/NOR2-first
+    // ordering convention as the % Over SLA Heatmap.
     const byRegion = {};
     dd.provinces.forEach(p => { const reg = dd.province_region[p] || 'อื่นๆ'; (byRegion[reg] = byRegion[reg] || []).push(p); });
     const regionOrder = ['NOR1', 'NOR2'];
@@ -7426,7 +7442,7 @@ function renderPivot(ft) {
     });
     body += summaryRowHtml('รวมทั้งหมด', dd.provinces);
 
-    el('sla-hrs-breakdown-table').innerHTML = `
+    el(tableElId).innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead>
           <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));">
@@ -7434,23 +7450,41 @@ function renderPivot(ft) {
             ${dateHeadRow}
           </tr>
           <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            ${hourHeadRow}
+            ${subHeadRow}
           </tr>
         </thead>
         <tbody>${body}</tbody>
       </table>`;
   }
 
-  window.__slaHrsOpenCell = function (dayIndex, province, value) {
-    const dd = lastData.sla_hrs_breakdown;
+  function renderSlaHrsBreakdownTable() {
+    renderBreakdownTable('sla_hrs_breakdown', 'sla-hrs-breakdown-table', 'sla-hrs-breakdown-days', {
+      emptyMsg: 'ไม่มีข้อมูล Over SLA ที่มีค่า SLA_Hrs ในช่วงนี้',
+      formatHeader: v => v + 'H',
+    });
+  }
+
+  function renderOverCategoriesBreakdownTable() {
+    renderBreakdownTable('over_categories_breakdown', 'over-categories-breakdown-table', 'over-categories-breakdown-days', {
+      emptyMsg: 'ไม่มีข้อมูล Over SLA ที่มีค่า CATEGORIES ในช่วงนี้',
+      formatHeader: v => v,
+    });
+  }
+
+  window.__breakdownOpenCell = function (dataKey, dayIndex, province, value) {
+    const dd = lastData[dataKey];
     const day = dd.days[dayIndex];
     const cell = day && day.cells[province] && day.cells[province][value];
     const tickets = (cell && cell.tickets) || [];
-    el('sla-hrs-cell-modal-title').textContent = `⏱️ ${day.date} · ${PROVINCE_EN(province)} · ${value}H (${tickets.length} Ticket)`;
+    const isHrs = dataKey === 'sla_hrs_breakdown';
+    const label = isHrs ? `${value}H` : value;
+    const icon = isHrs ? '⏱️' : '🗂️';
+    el('sla-hrs-cell-modal-title').textContent = `${icon} ${day.date} · ${PROVINCE_EN(province)} · ${label} (${tickets.length} Ticket)`;
     const rows = tickets.map(t => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:5px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
         <td style="padding:5px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+        <td style="padding:5px 8px; text-align:center; font-size:11px;">${escapeHtml(t.CATEGORIES) || '-'}</td>
         <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CREATIONDATE) || '-'}</td>
         <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
       </tr>`).join('');
@@ -7459,6 +7493,7 @@ function renderPivot(ft) {
         <thead><tr style="background:var(--bg3);">
           <th style="padding:6px 8px; text-align:left;">Ticket</th>
           <th style="padding:6px 8px;">SLA_Hrs</th>
+          <th style="padding:6px 8px;">Category</th>
           <th style="padding:6px 8px; text-align:left;">Created</th>
           <th style="padding:6px 8px; text-align:left;">Closed</th>
         </tr></thead>
@@ -7937,25 +7972,32 @@ function renderPivot(ft) {
         else if (severityFilter.has(val)) severityFilter.delete(val);
         else severityFilter.add(val);
         renderSeverityFilter(lastData.severities);
-        reloadTrendAndHeatmap();
+        reloadFilteredSections();
       });
     });
   }
 
-  async function reloadTrendAndHeatmap() {
+  async function reloadFilteredSections() {
     const q = severityFilter.size ? `?severity=${[...severityFilter].map(encodeURIComponent).join(',')}` : '';
     try {
-      const [trendRes, heatmapRes] = await Promise.all([
+      const [trendRes, heatmapRes, slaHrsRes, categoriesRes] = await Promise.all([
         fetch(`/api/sla-improvement/trend${q}`),
         fetch(`/api/sla-improvement/heatmap${q}`),
+        fetch(`/api/sla-improvement/sla-hrs-breakdown${q}`),
+        fetch(`/api/sla-improvement/over-categories-breakdown${q}`),
       ]);
-      if (!trendRes.ok || !heatmapRes.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
-      const trendData = await trendRes.json();
-      const heatmapData = await heatmapRes.json();
+      if (!trendRes.ok || !heatmapRes.ok || !slaHrsRes.ok || !categoriesRes.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+      const [trendData, heatmapData, slaHrsData, categoriesData] = await Promise.all([
+        trendRes.json(), heatmapRes.json(), slaHrsRes.json(), categoriesRes.json(),
+      ]);
       lastData.trend = trendData.trend;
       lastData.improvement_heatmap = heatmapData.improvement_heatmap;
+      lastData.sla_hrs_breakdown = slaHrsData.sla_hrs_breakdown;
+      lastData.over_categories_breakdown = categoriesData.over_categories_breakdown;
       renderTrendChart();
       renderHeatmapTable();
+      renderSlaHrsBreakdownTable();
+      renderOverCategoriesBreakdownTable();
     } catch (e) {
       console.error('SLA severity filter reload failed', e);
     }
@@ -7976,6 +8018,7 @@ function renderPivot(ft) {
     renderTrendChart();
     renderHeatmapTable();
     renderSlaHrsBreakdownTable();
+    renderOverCategoriesBreakdownTable();
     rankingWindow = 'all';
     document.querySelectorAll('.sla-ranking-window-btn').forEach(b => { b.style.background = b.dataset.val === 'all' ? 'var(--bg4)' : 'transparent'; });
     renderProvinceTable(data.province_ranking_windows.all);
