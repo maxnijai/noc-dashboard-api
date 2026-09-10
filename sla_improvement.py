@@ -181,6 +181,7 @@ def parse_excel_file(file_path):
             "DISTRICT_EN": str(get("DISTRICT_EN") or "").strip(),  # optional column - blank/missing handled at analysis time (see _normalize_district), never required for import to succeed
             "SLA_HRS": _parse_float(get("SLA_Hrs")),  # optional column (explicit request) - actual hours taken; None if missing/unparseable, never blocks import
             "TRUESEVERITY_DESC": str(get("TRUESEVERITY_DESC") or "").strip(),  # optional column (explicit request) - SA1-4 severity filter for Trend/Heatmap; blank if missing, never blocks import
+            "CATEGORIES": str(get("CATEGORIES") or "").strip(),  # optional column (explicit request) - ticket category, shown in the Heatmap drilldown popup and its own Over-analysis breakdown table; blank if missing, never blocks import
             "iso_week": _iso_week_label(creation_dt),
             "iso_date": creation_dt.date().isoformat(),
         })
@@ -705,6 +706,7 @@ def _ranked_group_with_tickets(scoped_rows, key, top_n):
                 "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
                 "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
                 "SLA_HRS": r.get("SLA_HRS"),
+                "CATEGORIES": r.get("CATEGORIES"),
             })
     ranked = [
         {"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
@@ -844,38 +846,37 @@ def build_sla_duration_breakdown(rows):
 # fixed tier list, so a day with only 4h/6h/14h/24h breaches shows
 # exactly those 4 columns), split by Province, as ONE single table
 # spanning several days (explicit request - not one table per day).
-def build_sla_hrs_over_breakdown(rows, lookback_days=3):
-    """Over-SLA-only SLA_Hrs breakdown, one single table: rows = Province,
-    columns = grouped by Date then by the distinct rounded SLA_Hrs values
-    that actually occurred THAT DAY (data-driven, not a fixed bucket
-    list). Scoped to the most recent `lookback_days` distinct days
-    PRESENT IN THE DATA - same "latest day in the data, not wall-clock
-    today" convention as build_war_room's "Today" (see its docstring;
-    this dataset is a manual periodic import). Tickets with no SLA_Hrs
-    value are silently excluded (there's no "which bucket" for them to
-    go in here, unlike the old fixed-bucket version - Over/Within
-    breakdown elsewhere in this module still covers them). Each cell
-    carries its own ticket list for click-to-expand, no extra API call."""
+def _build_over_breakdown(rows, lookback_days, get_column_value):
+    """Shared engine for build_sla_hrs_over_breakdown and
+    build_over_categories_breakdown - both are "OVER-SLA tickets only,
+    most recent `lookback_days` distinct days PRESENT IN THE DATA (same
+    "latest day in the data, not wall-clock today" convention as
+    build_war_room's "Today"), one single table: rows = Province, columns
+    = grouped by Date then by whatever distinct values get_column_value()
+    returns for that day's tickets (data-driven, never a fixed list - a
+    day with only 3 distinct values shows exactly 3 sub-columns)."
+    get_column_value(row) returns None to exclude a ticket from every
+    column (no value to group it by) rather than guessing. Each cell
+    carries its own ticket list (id/created/closed/sla_hrs/categories)
+    for click-to-expand with no extra API round-trip - the few-days scope
+    keeps this small enough to include inline."""
     if not rows:
         return {"days": [], "provinces": [], "province_region": {}}
 
     all_dates = sorted({r["iso_date"] for r in rows}, reverse=True)
     scope_dates = sorted(all_dates[:lookback_days])  # oldest -> newest, so columns read left-to-right chronologically
 
-    over_scoped = [
-        r for r in rows
-        if r["iso_date"] in scope_dates and r["TICKET_SLA"] == "over" and r.get("SLA_HRS") is not None
-    ]
+    over_scoped = [r for r in rows if r["iso_date"] in scope_dates and r["TICKET_SLA"] == "over"]
 
     days_out = []
     province_totals = {}
     province_region = {}
     for date in scope_dates:
         day_rows = [r for r in over_scoped if r["iso_date"] == date]
-        values = sorted({round(r["SLA_HRS"]) for r in day_rows})
-        cells = {}  # province -> {rounded_hour_value: {"count": n, "tickets": [...]}}
-        for r in day_rows:
-            v = round(r["SLA_HRS"])
+        keyed = [(r, v) for r in day_rows for v in [get_column_value(r)] if v is not None]
+        values = sorted({v for _, v in keyed})
+        cells = {}  # province -> {value: {"count": n, "tickets": [...]}}
+        for r, v in keyed:
             prov_cells = cells.setdefault(r["province"], {})
             slot = prov_cells.setdefault(v, {"count": 0, "tickets": []})
             slot["count"] += 1
@@ -884,6 +885,7 @@ def build_sla_hrs_over_breakdown(rows, lookback_days=3):
                 "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
                 "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
                 "SLA_HRS": r.get("SLA_HRS"),
+                "CATEGORIES": r.get("CATEGORIES"),
             })
             province_totals[r["province"]] = province_totals.get(r["province"], 0) + 1
             province_region[r["province"]] = r["region"]
@@ -891,6 +893,23 @@ def build_sla_hrs_over_breakdown(rows, lookback_days=3):
 
     provinces = sorted(province_totals.keys(), key=lambda p: -province_totals[p])
     return {"days": days_out, "provinces": provinces, "province_region": province_region}
+
+
+def build_sla_hrs_over_breakdown(rows, lookback_days=3):
+    """SLA_Hrs (actual hours taken) version - columns are the distinct
+    rounded SLA_Hrs values that occurred among Over-SLA tickets that day.
+    Tickets with no SLA_Hrs value are excluded (there's no "which
+    bucket" for them to go in - Over/Within breakdown elsewhere in this
+    module still covers them)."""
+    return _build_over_breakdown(rows, lookback_days, lambda r: round(r["SLA_HRS"]) if r.get("SLA_HRS") is not None else None)
+
+
+def build_over_categories_breakdown(rows, lookback_days=3):
+    """CATEGORIES version (explicit request - same shape as the SLA_Hrs
+    breakdown above, grouped by ticket CATEGORIES instead of SLA_Hrs).
+    Tickets with a blank CATEGORIES value are excluded from every
+    column."""
+    return _build_over_breakdown(rows, lookback_days, lambda r: r["CATEGORIES"] if r.get("CATEGORIES") else None)
 
 
 # ── Executive KPI + War Room + Management table ─────────────────────────
@@ -1510,6 +1529,7 @@ def build_sla_improvement_response(top_n=15):
     impact_risk = build_impact_risk(rows)
     sla_duration_breakdown = build_sla_duration_breakdown(rows)
     sla_hrs_breakdown = build_sla_hrs_over_breakdown(rows, lookback_days=3)
+    over_categories_breakdown = build_over_categories_breakdown(rows, lookback_days=3)
     executive_kpi = build_executive_kpi(rows, province_ranking, root_cause)
     war_room = build_war_room(rows, root_cause, province_ranking)
     management_table = build_management_table(province_ranking, impact_risk)
@@ -1528,5 +1548,6 @@ def build_sla_improvement_response(top_n=15):
         "impact_risk": impact_risk,
         "sla_duration_breakdown": sla_duration_breakdown,
         "sla_hrs_breakdown": sla_hrs_breakdown,
+        "over_categories_breakdown": over_categories_breakdown,
         "management_table": management_table,
     }
