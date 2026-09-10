@@ -180,6 +180,7 @@ def parse_excel_file(file_path):
             "CI_Name": str(get("CI_Name") or "").strip() or "(ไม่ระบุ)",
             "DISTRICT_EN": str(get("DISTRICT_EN") or "").strip(),  # optional column - blank/missing handled at analysis time (see _normalize_district), never required for import to succeed
             "SLA_HRS": _parse_float(get("SLA_Hrs")),  # optional column (explicit request) - actual hours taken; None if missing/unparseable, never blocks import
+            "TRUESEVERITY_DESC": str(get("TRUESEVERITY_DESC") or "").strip(),  # optional column (explicit request) - SA1-4 severity filter for Trend/Heatmap; blank if missing, never blocks import
             "iso_week": _iso_week_label(creation_dt),
             "iso_date": creation_dt.date().isoformat(),
         })
@@ -562,6 +563,24 @@ def _with_rolling_avg(series, window=7):
     return out
 
 
+def distinct_severities(rows):
+    """Every distinct non-blank TRUESEVERITY_DESC value present - derived
+    from the data rather than a hardcoded SA1-4 list (same philosophy as
+    every other classification in this module), so this naturally covers
+    whatever severity labels the source file actually uses."""
+    return sorted({r["TRUESEVERITY_DESC"] for r in rows if r["TRUESEVERITY_DESC"]})
+
+
+def filter_by_severity(rows, severities):
+    """severities: list of TRUESEVERITY_DESC values to keep, or falsy
+    (None/empty) for "all" (explicit request: default = every SLA type,
+    filter only narrows from there)."""
+    if not severities:
+        return rows
+    wanted = set(severities)
+    return [r for r in rows if r["TRUESEVERITY_DESC"] in wanted]
+
+
 def build_trend(rows):
     """Returns daily and weekly series, each with overall + by-region +
     by-province breakdowns. Precomputed for every province/region since
@@ -838,7 +857,7 @@ def build_sla_hrs_over_breakdown(rows, lookback_days=3):
     breakdown elsewhere in this module still covers them). Each cell
     carries its own ticket list for click-to-expand, no extra API call."""
     if not rows:
-        return {"days": [], "provinces": []}
+        return {"days": [], "provinces": [], "province_region": {}}
 
     all_dates = sorted({r["iso_date"] for r in rows}, reverse=True)
     scope_dates = sorted(all_dates[:lookback_days])  # oldest -> newest, so columns read left-to-right chronologically
@@ -850,6 +869,7 @@ def build_sla_hrs_over_breakdown(rows, lookback_days=3):
 
     days_out = []
     province_totals = {}
+    province_region = {}
     for date in scope_dates:
         day_rows = [r for r in over_scoped if r["iso_date"] == date]
         values = sorted({round(r["SLA_HRS"]) for r in day_rows})
@@ -866,10 +886,11 @@ def build_sla_hrs_over_breakdown(rows, lookback_days=3):
                 "SLA_HRS": r.get("SLA_HRS"),
             })
             province_totals[r["province"]] = province_totals.get(r["province"], 0) + 1
+            province_region[r["province"]] = r["region"]
         days_out.append({"date": date, "values": values, "cells": cells})
 
     provinces = sorted(province_totals.keys(), key=lambda p: -province_totals[p])
-    return {"days": days_out, "provinces": provinces}
+    return {"days": days_out, "provinces": provinces, "province_region": province_region}
 
 
 # ── Executive KPI + War Room + Management table ─────────────────────────
@@ -1496,6 +1517,7 @@ def build_sla_improvement_response(top_n=15):
     return {
         "imported_at": imported_at, "filename": filename, "import_warnings": import_warnings,
         "row_count": len(rows),
+        "severities": distinct_severities(rows),
         "executive_kpi": executive_kpi,
         "war_room": war_room,
         "province_ranking": province_ranking,

@@ -2495,6 +2495,32 @@ def api_sla_improvement():
         log.exception("sla-improvement API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sla-improvement/trend')
+def api_sla_improvement_trend():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        severities = [s for s in request.args.get('severity', '').split(',') if s]
+        filtered = sla_improvement.filter_by_severity(rows, severities)
+        return jsonify({'trend': sla_improvement.build_trend(filtered), 'severities_applied': severities})
+    except Exception as e:
+        log.exception("sla-improvement trend API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sla-improvement/heatmap')
+def api_sla_improvement_heatmap():
+    try:
+        rows = sla_improvement.get_rows()
+        if rows is None:
+            return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
+        severities = [s for s in request.args.get('severity', '').split(',') if s]
+        filtered = sla_improvement.filter_by_severity(rows, severities)
+        return jsonify({'improvement_heatmap': sla_improvement.build_improvement_heatmap(filtered), 'severities_applied': severities})
+    except Exception as e:
+        log.exception("sla-improvement heatmap API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/sla-improvement/drill-down')
 def api_sla_improvement_drill_down():
     try:
