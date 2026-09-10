@@ -31,6 +31,7 @@ import auth
 import sla_improvement
 import online_realtime
 import temp_point_improvement
+import cm_summary_log
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2836,6 +2837,61 @@ def api_temp_point_improvement_export():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         log.exception("temp-point-improvement export failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cm-summary-log/import', methods=['POST'])
+def api_cm_summary_log_import():
+    """Manual one-time import of the CM Summary Log Excel export (Sheet
+    "All") - replaces the in-memory dataset ONLY if the whole file parses
+    successfully, so a bad upload never breaks whatever was already
+    loaded."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        if not f.filename.lower().endswith(('.xlsx', '.xlsm')):
+            return jsonify({'error': 'รองรับเฉพาะไฟล์ .xlsx เท่านั้น'}), 400
+        result = cm_summary_log.import_excel(f.read(), f.filename)
+        return jsonify(result)
+    except cm_summary_log.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("cm-summary-log import failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cm-summary-log')
+def api_cm_summary_log():
+    try:
+        sub_root_causes = [s for s in request.args.get('sub_root_cause', '').split('\x1f') if s]
+        data = cm_summary_log.build_cm_summary_response(sub_root_causes)
+        if data is None:
+            return jsonify({'has_data': False})
+        data['has_data'] = True
+        return jsonify(data)
+    except Exception as e:
+        log.exception("cm-summary-log API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cm-summary-log/export')
+def api_cm_summary_log_export():
+    try:
+        sub_root_causes = [s for s in request.args.get('sub_root_cause', '').split('\x1f') if s]
+        fmt = request.args.get('format', 'xlsx')
+        export_rows = cm_summary_log.build_export_rows(sub_root_causes)
+        headers = temp_point_improvement.DETAIL_TABLE_COLUMNS
+        ts = datetime.now().strftime('%Y-%m-%d_%H%M')
+        if fmt == 'csv':
+            file_bytes = sla_improvement._dict_rows_to_csv_bytes(export_rows, headers)
+            return Response(file_bytes, mimetype='text/csv',
+                             headers={'Content-Disposition': f'attachment; filename="cm-summary-log-{ts}.csv"'})
+        else:
+            file_bytes = sla_improvement._dict_rows_to_xlsx_bytes(export_rows, headers, "CM Summary Log")
+            return Response(file_bytes, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             headers={'Content-Disposition': f'attachment; filename="cm-summary-log-{ts}.xlsx"'})
+    except Exception as e:
+        log.exception("cm-summary-log export failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
