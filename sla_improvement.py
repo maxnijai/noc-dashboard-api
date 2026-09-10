@@ -621,6 +621,43 @@ def build_trend(rows):
     return result
 
 
+def build_trend_avg_lines(rows):
+    """3 x 7-day-rolling-average %Over SLA lines (explicit request), for
+    direct visual comparison on the same chart: Total (everything),
+    excluding CATEGORIES containing "True Vision", and excluding that
+    AND "Access Broadband degrade" too. Matched case-insensitively as a
+    substring of CATEGORIES (confirmed column; exact value casing not
+    confirmed, so substring match is the safer choice over an exact
+    string). Same daily-bucket + 7-day trailing rolling average as the
+    existing "Avg 7D% over" line elsewhere in this module (_with_rolling_avg).
+    All 3 series are re-indexed onto the UNION of dates across the input
+    rows so they align on one shared x-axis - a day where an excluded
+    variant has zero remaining tickets gets a null point that day rather
+    than that date silently vanishing from the chart."""
+    def _has_category_substr(r, needle):
+        return needle in r["CATEGORIES"].lower()
+
+    excl_tv = [r for r in rows if not _has_category_substr(r, "true vision")]
+    excl_tv_abd = [r for r in excl_tv if not _has_category_substr(r, "access broadband degrade")]
+
+    all_dates = sorted({r["iso_date"] for r in rows})
+
+    def _rolling_by_date(subset):
+        series = _with_rolling_avg(_trend_series(subset, "iso_date"))
+        return {p["period"]: p["rolling_avg_pct_over"] for p in series}
+
+    total_map = _rolling_by_date(rows)
+    excl_tv_map = _rolling_by_date(excl_tv)
+    excl_tv_abd_map = _rolling_by_date(excl_tv_abd)
+
+    return {
+        "dates": all_dates,
+        "total": [total_map.get(d) for d in all_dates],
+        "exclude_true_vision": [excl_tv_map.get(d) for d in all_dates],
+        "exclude_true_vision_and_access_broadband_degrade": [excl_tv_abd_map.get(d) for d in all_dates],
+    }
+
+
 def build_improvement_heatmap(rows, daily_periods=14):
     """Two heatmaps (daily + weekly) of %Over SLA by Province, meant to
     visualize improvement/regression over time at a glance - daily is
@@ -1541,6 +1578,7 @@ def build_sla_improvement_response(top_n=15):
         "7d": build_province_ranking(_filter_last_n_days(rows, 7)),
     }
     trend = build_trend(rows)
+    trend_avg_lines = build_trend_avg_lines(rows)
     improvement_heatmap = build_improvement_heatmap(rows)
     root_cause = build_root_cause(rows, top_n=top_n)
     impact_risk = build_impact_risk(rows)
@@ -1561,6 +1599,7 @@ def build_sla_improvement_response(top_n=15):
         "province_ranking": province_ranking,
         "province_ranking_windows": province_ranking_windows,
         "trend": trend,
+        "trend_avg_lines": trend_avg_lines,
         "improvement_heatmap": improvement_heatmap,
         "root_cause": root_cause,
         "impact_risk": impact_risk,

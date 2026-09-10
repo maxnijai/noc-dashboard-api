@@ -2505,7 +2505,11 @@ def api_sla_improvement_trend():
         severities = [s for s in request.args.get('severity', '').split(',') if s]
         categories = [c for c in request.args.get('category', '').split('\x1f') if c]
         filtered = sla_improvement.filter_by_category(sla_improvement.filter_by_severity(rows, severities), categories)
-        return jsonify({'trend': sla_improvement.build_trend(filtered), 'severities_applied': severities, 'categories_applied': categories})
+        return jsonify({
+            'trend': sla_improvement.build_trend(filtered),
+            'trend_avg_lines': sla_improvement.build_trend_avg_lines(filtered),
+            'severities_applied': severities, 'categories_applied': categories,
+        })
     except Exception as e:
         log.exception("sla-improvement trend API failed")
         return jsonify({'error': str(e)}), 500
