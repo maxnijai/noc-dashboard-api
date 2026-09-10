@@ -1011,6 +1011,19 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div id="sla-severity-filter" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
 
+      <div id="sla-category-filter-box" style="border:1px solid var(--border); border-radius:var(--r); padding:10px 14px; margin-bottom:16px; background:var(--bg2); display:none;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+          <div style="font-size:11px; font-weight:700; color:var(--text2);">🗂️ Category <span style="font-weight:400; color:var(--text3);">(เลือกได้หลายอัน หรือเลือกแค่ 1 เพื่อโฟกัส KPI — ใช้กรอง 4 ตารางเดียวกับ SLA Type ด้านบน ค่าเริ่มต้น = ทุก Category)</span></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="sla-category-count" style="font-size:11px; color:var(--text2); font-weight:700;">เลือกไว้ 0 รายการ</span>
+            <button id="sla-category-apply" class="btn-secondary" style="font-size:11.5px; padding:4px 12px; background:#1f6feb; color:#fff; border-color:#1f6feb;">✓ Apply</button>
+            <button id="sla-category-clear-btn" class="btn-secondary" style="font-size:11.5px; padding:4px 10px;">✕ ล้าง</button>
+          </div>
+        </div>
+        <input id="sla-category-search" type="text" placeholder="พิมพ์เพื่อค้นหา Category..." style="width:100%; padding:6px 10px; font-size:12px; border:1px solid var(--border); border-radius:6px; background:var(--bg1); color:var(--text); margin-bottom:8px;">
+        <div id="sla-category-list" style="max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:6px;"></div>
+      </div>
+
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
           <div style="font-size:13px; font-weight:700;">📈 % Over SLA Trend</div>
@@ -8061,6 +8074,9 @@ function renderPivot(ft) {
 
   // ── Main render / reload ────────────────────────────────────────────
   let severityFilter = new Set(); // empty = "all" (default, per explicit request)
+  let categoryFilter = new Set(); // empty = "all" (default, same convention as severityFilter)
+  let categorySearch = '';
+  const CATEGORY_SEP = '\x1f'; // Category values can contain commas, so a comma-joined query param would collide
 
   function renderSeverityFilter(severities) {
     if (!severities || !severities.length) { el('sla-severity-filter-box').style.display = 'none'; return; }
@@ -8082,8 +8098,46 @@ function renderPivot(ft) {
     });
   }
 
+  // Category can have many distinct values (unlike the handful of SLA
+  // types), so this uses a searchable checklist + explicit Apply -
+  // same pattern as CM Summary Log's Sub Root Cause selector - rather
+  // than auto-applying on every click like the small severity chip set.
+  function renderCategoryFilter(categories) {
+    if (!categories || !categories.length) { el('sla-category-filter-box').style.display = 'none'; return; }
+    el('sla-category-filter-box').style.display = 'block';
+    const term = categorySearch.trim().toLowerCase();
+    const shown = term ? categories.filter(c => c.toLowerCase().includes(term)) : categories;
+    el('sla-category-count').textContent = `เลือกไว้ ${categoryFilter.size} รายการ`;
+    if (!shown.length) { el('sla-category-list').innerHTML = `<div style="font-size:11.5px; color:var(--text3); padding:6px;">ไม่พบ Category ที่ตรงกับคำค้นหา</div>`; return; }
+    el('sla-category-list').innerHTML = shown.map((c, i) => {
+      const id = `sla-category-${i}`;
+      const checked = categoryFilter.has(c);
+      return `<label for="${id}" style="display:flex; align-items:center; gap:8px; padding:4px 6px; font-size:11.5px; cursor:pointer; border-radius:4px;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <input type="checkbox" id="${id}" data-val="${escapeHtml(c)}" ${checked ? 'checked' : ''} style="flex-shrink:0;">
+        <span style="flex:1;">${escapeHtml(c)}</span>
+      </label>`;
+    }).join('');
+    el('sla-category-list').querySelectorAll('input[type=checkbox]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const val = cb.dataset.val;
+        if (cb.checked) categoryFilter.add(val); else categoryFilter.delete(val);
+        el('sla-category-count').textContent = `เลือกไว้ ${categoryFilter.size} รายการ`;
+      });
+    });
+  }
+  el('sla-category-search').addEventListener('input', (e) => { categorySearch = e.target.value; renderCategoryFilter(lastData.categories); });
+  el('sla-category-apply').addEventListener('click', () => reloadFilteredSections());
+  el('sla-category-clear-btn').addEventListener('click', () => {
+    categoryFilter.clear(); categorySearch = ''; el('sla-category-search').value = '';
+    renderCategoryFilter(lastData.categories);
+    reloadFilteredSections();
+  });
+
   async function reloadFilteredSections() {
-    const q = severityFilter.size ? `?severity=${[...severityFilter].map(encodeURIComponent).join(',')}` : '';
+    const params = new URLSearchParams();
+    if (severityFilter.size) params.set('severity', [...severityFilter].join(','));
+    if (categoryFilter.size) params.set('category', [...categoryFilter].join(CATEGORY_SEP));
+    const q = params.toString() ? `?${params.toString()}` : '';
     try {
       const [trendRes, heatmapRes, slaHrsRes, categoriesRes] = await Promise.all([
         fetch(`/api/sla-improvement/trend${q}`),
@@ -8104,18 +8158,20 @@ function renderPivot(ft) {
       renderSlaHrsBreakdownTable();
       renderOverCategoriesBreakdownTable();
     } catch (e) {
-      console.error('SLA severity filter reload failed', e);
+      console.error('SLA filter reload failed', e);
     }
   }
 
   function render(data) {
     lastData = data;
     severityFilter.clear(); // fresh load/reimport - back to "all SLA types" default
+    categoryFilter.clear(); categorySearch = ''; el('sla-category-search').value = ''; // same for Category
     el('sla-no-data').style.display = 'none';
     el('sla-content').style.display = 'block';
     renderKpiGrid(data.executive_kpi);
     renderWarRoom(data.war_room);
     renderSeverityFilter(data.severities);
+    renderCategoryFilter(data.categories);
     const provinces = Object.keys(data.trend.daily.by_province).sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
     el('sla-trend-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
     el('sla-deepdive-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
