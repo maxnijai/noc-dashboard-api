@@ -819,92 +819,57 @@ def build_sla_duration_breakdown(rows):
 # NOT the same thing as build_sla_duration_breakdown above - that one
 # measures the SLA COMMITMENT WINDOW (TARGETFINISH - CREATIONDATE, "this
 # was a 4-hour SLA ticket"). This one measures ACTUAL time taken from the
-# separate SLA_Hrs column (explicit request), grouped into fixed
-# hour-range buckets rather than per-hour, and split by Province rather
-# than pooled - a different question ("which province's tickets are
-# actually taking longest") answered from a different column.
-SLA_HRS_BUCKETS = [
-    ("≤4 ชม.", None, 4),
-    ("4-8 ชม.", 4, 8),
-    ("8-24 ชม.", 8, 24),
-    ("24-48 ชม.", 24, 48),
-    (">48 ชม.", 48, None),
-]
-
-
-def _sla_hrs_bucket(hrs):
-    """None (no SLA_Hrs value) is a distinct case from any bucket - the
-    caller must count these separately (missing_sla_hrs), never drop
-    them silently or fold them into a bucket they don't belong in."""
-    if hrs is None:
-        return None
-    for label, lo, hi in SLA_HRS_BUCKETS:
-        if (lo is None or hrs > lo) and (hi is None or hrs <= hi):
-            return label
-    return None
-
-
-def _sla_hrs_breakdown_for_rows(scoped):
-    """Province x Bucket breakdown for an already date-scoped row set -
-    factored out so build_sla_hrs_breakdown can call this once per day
-    instead of once for the whole window (explicit request: days must
-    NOT be pooled together)."""
-    by_province = {}
-    missing = 0
-    for r in scoped:
-        bucket = _sla_hrs_bucket(r.get("SLA_HRS"))
-        if bucket is None:
-            missing += 1
-            continue
-        g = by_province.setdefault(r["province"], {label: [] for label, _, _ in SLA_HRS_BUCKETS})
-        g[bucket].append({
-            "TICKETID": r["TICKETID"],
-            "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
-            "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
-            "SLA_HRS": r.get("SLA_HRS"),
-            "TICKET_SLA": r["TICKET_SLA"],
-        })
-
-    province_rows = []
-    for prov, buckets in by_province.items():
-        bucket_counts = {label: len(tix) for label, tix in buckets.items()}
-        province_rows.append({
-            "province": prov, "total": sum(bucket_counts.values()),
-            "bucket_counts": bucket_counts, "bucket_tickets": buckets,
-        })
-    province_rows.sort(key=lambda r: -r["total"])
-    return {"rows": province_rows, "missing_sla_hrs": missing, "total_scoped": len(scoped)}
-
-
-def build_sla_hrs_breakdown(rows, lookback_days=3):
-    """SLA_Hrs (actual hours taken) distribution by Province, for EACH of
-    the most recent `lookback_days` distinct days PRESENT IN THE DATA
-    kept SEPARATE (explicit request - do not pool the days together; a
-    previous version summed all 3 days into one set of numbers per
-    province, which hid which specific day a spike happened on). "days
-    present in the data" uses the same "latest day in the data, not
-    wall-clock today" convention as build_war_room's "Today" - see its
-    docstring; this dataset is a manual periodic import, so "today" on
-    the clock is meaningless here. Each province+bucket cell (within each
-    day) carries its own ticket list (id/created/closed/sla_hrs/within-
-    or-over) so the frontend can expand a cell to the underlying tickets
-    with no extra API round-trip - one day's worth of rows keeps this
-    small enough to include inline. Tickets with no SLA_Hrs value are
-    counted in that day's missing_sla_hrs and excluded from every bucket
-    (never guessed into one)."""
+# separate SLA_Hrs column (explicit request) for OVER-SLA tickets only,
+# grouped by the exact rounded hour value that occurred (same
+# data-driven-columns approach as build_sla_duration_breakdown - never a
+# fixed tier list, so a day with only 4h/6h/14h/24h breaches shows
+# exactly those 4 columns), split by Province, as ONE single table
+# spanning several days (explicit request - not one table per day).
+def build_sla_hrs_over_breakdown(rows, lookback_days=3):
+    """Over-SLA-only SLA_Hrs breakdown, one single table: rows = Province,
+    columns = grouped by Date then by the distinct rounded SLA_Hrs values
+    that actually occurred THAT DAY (data-driven, not a fixed bucket
+    list). Scoped to the most recent `lookback_days` distinct days
+    PRESENT IN THE DATA - same "latest day in the data, not wall-clock
+    today" convention as build_war_room's "Today" (see its docstring;
+    this dataset is a manual periodic import). Tickets with no SLA_Hrs
+    value are silently excluded (there's no "which bucket" for them to
+    go in here, unlike the old fixed-bucket version - Over/Within
+    breakdown elsewhere in this module still covers them). Each cell
+    carries its own ticket list for click-to-expand, no extra API call."""
     if not rows:
-        return {"buckets": [b[0] for b in SLA_HRS_BUCKETS], "days": []}
+        return {"days": [], "provinces": []}
 
     all_dates = sorted({r["iso_date"] for r in rows}, reverse=True)
-    scope_dates = all_dates[:lookback_days]  # newest first
+    scope_dates = sorted(all_dates[:lookback_days])  # oldest -> newest, so columns read left-to-right chronologically
+
+    over_scoped = [
+        r for r in rows
+        if r["iso_date"] in scope_dates and r["TICKET_SLA"] == "over" and r.get("SLA_HRS") is not None
+    ]
 
     days_out = []
+    province_totals = {}
     for date in scope_dates:
-        day_rows = [r for r in rows if r["iso_date"] == date]
-        breakdown = _sla_hrs_breakdown_for_rows(day_rows)
-        days_out.append({"date": date, **breakdown})
+        day_rows = [r for r in over_scoped if r["iso_date"] == date]
+        values = sorted({round(r["SLA_HRS"]) for r in day_rows})
+        cells = {}  # province -> {rounded_hour_value: {"count": n, "tickets": [...]}}
+        for r in day_rows:
+            v = round(r["SLA_HRS"])
+            prov_cells = cells.setdefault(r["province"], {})
+            slot = prov_cells.setdefault(v, {"count": 0, "tickets": []})
+            slot["count"] += 1
+            slot["tickets"].append({
+                "TICKETID": r["TICKETID"],
+                "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
+                "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
+                "SLA_HRS": r.get("SLA_HRS"),
+            })
+            province_totals[r["province"]] = province_totals.get(r["province"], 0) + 1
+        days_out.append({"date": date, "values": values, "cells": cells})
 
-    return {"buckets": [b[0] for b in SLA_HRS_BUCKETS], "days": days_out}
+    provinces = sorted(province_totals.keys(), key=lambda p: -province_totals[p])
+    return {"days": days_out, "provinces": provinces}
 
 
 # ── Executive KPI + War Room + Management table ─────────────────────────
@@ -1523,7 +1488,7 @@ def build_sla_improvement_response(top_n=15):
     root_cause = build_root_cause(rows, top_n=top_n)
     impact_risk = build_impact_risk(rows)
     sla_duration_breakdown = build_sla_duration_breakdown(rows)
-    sla_hrs_breakdown = build_sla_hrs_breakdown(rows, lookback_days=3)
+    sla_hrs_breakdown = build_sla_hrs_over_breakdown(rows, lookback_days=3)
     executive_kpi = build_executive_kpi(rows, province_ranking, root_cause)
     war_room = build_war_room(rows, root_cause, province_ranking)
     management_table = build_management_table(province_ranking, impact_risk)
