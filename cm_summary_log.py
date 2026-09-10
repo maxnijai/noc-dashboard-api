@@ -196,6 +196,7 @@ def build_cm_summary_response(sub_root_causes=None):
         "type_work": p["type_work"], "month": p["month"],
         "region": p["region"], "province": p["province"],
         "latitude": p["latitude"], "longitude": p["longitude"],
+        "complete_lat_lon_raw": p["complete_lat_lon_raw"],
         "distance_to_previous_m": p["distance_to_previous_m"], "cluster_distance_m": p["cluster_distance_m"],
     } for p in clustered]
     invalid_out = [{
@@ -216,11 +217,22 @@ def build_cm_summary_response(sub_root_causes=None):
     return base
 
 
-def build_export_rows(sub_root_causes):
+def build_clustered_points(sub_root_causes):
+    """Returns the raw clustered point list (same shape build_clusters
+    always returns) for the given Sub Root Cause selection - NOT yet
+    mapped to export-row format, so the caller (the /export route) can
+    apply the same additional on-screen filters (province/severity/month/
+    cluster-vs-individual/over500) that Operation Temp Point's export
+    supports, before formatting rows (explicit request: make this
+    table's export match Operation Temp Point's exactly)."""
     rows = _store["rows"]
     if rows is None or not sub_root_causes:
         return []
     wanted = set(sub_root_causes)
     filtered = [r for r in rows if r["sub_root_cause"] in wanted]
     clustered, _ = tpi.build_clusters(filtered)
-    return tpi.build_export_rows(clustered)
+    return clustered
+
+
+def build_export_rows(sub_root_causes):
+    return tpi.build_export_rows(build_clustered_points(sub_root_causes))

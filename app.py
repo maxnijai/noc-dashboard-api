@@ -2887,8 +2887,45 @@ def api_cm_summary_log():
 def api_cm_summary_log_export():
     try:
         sub_root_causes = [s for s in request.args.get('sub_root_cause', '').split('\x1f') if s]
+        clustered = cm_summary_log.build_clustered_points(sub_root_causes)
+        # Same additional filters Operation Temp Point's export supports,
+        # passed through as query params (explicit request: match it).
+        cluster_filter = request.args.get('cluster')  # 'cluster' | 'individual' | None (all)
+        region_filter = request.args.get('region') or None
+        province_filter = request.args.get('province') or None
+        severity_filter = request.args.get('severity') or None
+        month_filter = request.args.get('month') or None
+        cluster_id_filter = request.args.get('cluster_id') or None
+        over500_filter = request.args.get('over500') == '1'
         fmt = request.args.get('format', 'xlsx')
-        export_rows = cm_summary_log.build_export_rows(sub_root_causes)
+
+        cluster_totals = {}
+        if over500_filter:
+            for p in clustered:
+                if p['is_cluster']:
+                    cluster_totals[p['cluster_id']] = max(cluster_totals.get(p['cluster_id'], 0), p['cluster_distance_m'] or 0)
+
+        def keep(p):
+            if cluster_filter == 'cluster' and not p['is_cluster']:
+                return False
+            if cluster_filter == 'individual' and p['is_cluster']:
+                return False
+            if region_filter and p['region'] != region_filter:
+                return False
+            if province_filter and p['province'] != province_filter:
+                return False
+            if severity_filter and p['severity'] != severity_filter:
+                return False
+            if month_filter and p['month'] != month_filter:
+                return False
+            if cluster_id_filter and p['cluster_id'] != cluster_id_filter:
+                return False
+            if over500_filter and not (p['is_cluster'] and cluster_totals.get(p['cluster_id'], 0) > 500):
+                return False
+            return True
+
+        filtered = [p for p in clustered if keep(p)]
+        export_rows = temp_point_improvement.build_export_rows(filtered)
         headers = temp_point_improvement.DETAIL_TABLE_COLUMNS
         ts = datetime.now().strftime('%Y-%m-%d_%H%M')
         if fmt == 'csv':
