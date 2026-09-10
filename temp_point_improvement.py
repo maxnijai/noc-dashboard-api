@@ -857,6 +857,7 @@ def build_temp_point_response(gs_client=None):
         "type_work": p["type_work"], "month": p["month"],
         "region": p["region"], "province": p["province"],
         "latitude": p["latitude"], "longitude": p["longitude"],
+        "complete_lat_lon_raw": p["complete_lat_lon_raw"],
         "distance_to_previous_m": p["distance_to_previous_m"], "cluster_distance_m": p["cluster_distance_m"],
         "manual_override": p["source_tt"] in overrides,
     } for p in clustered]
