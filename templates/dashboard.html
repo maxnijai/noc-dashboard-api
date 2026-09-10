@@ -1218,6 +1218,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <select id="tpi-filter-severity" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Severity: ทั้งหมด</option></select>
       <select id="tpi-filter-subroot" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Sub Root Cause: ทั้งหมด</option></select>
       <select id="tpi-filter-month" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Month: ทั้งหมด</option></select>
+      <label id="tpi-filter-over500" class="btn-secondary" style="padding:5px 10px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:5px;" title="แสดงเฉพาะ Cluster ที่ระยะรวม (Total Dist.) เกิน 500 เมตร">
+        <input id="tpi-filter-over500-input" type="checkbox" style="margin:0;"> 🔴 Cluster &gt; 500m
+      </label>
       <span id="tpi-clear-filter" style="display:none; font-size:11.5px; color:#1f6feb; cursor:pointer; font-weight:700;" title="ล้าง Filter ทั้งหมด">✕ Clear Filters</span>
     </div>
 
@@ -1261,7 +1264,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-      <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 Detail Table</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+        <div style="font-size:13px; font-weight:700;">📋 Detail Table</div>
+        <a id="tpi-detail-export-btn" href="#" class="btn-secondary" style="font-size:11.5px; padding:4px 12px; font-weight:700; text-decoration:none;">📥 Export ตารางนี้ (xlsx)</a>
+      </div>
       <div id="tpi-detail-table" style="overflow-x:auto; max-height:520px; overflow-y:auto;"></div>
     </div>
   </div>
@@ -8568,7 +8574,7 @@ function renderPivot(ft) {
 (function () {
   let loaded = false;
   let lastData = null;
-  let filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '' };
+  let filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '', over500: false };
   let map = null;
   let pointLayer = null;
   let lineLayer = null;
@@ -8592,6 +8598,7 @@ function renderPivot(ft) {
     if (filterState.subRootCause && p.sub_root_cause !== filterState.subRootCause) return false;
     if (filterState.month && p.month !== filterState.month) return false;
     if (filterState.clusterId && p.cluster_id !== filterState.clusterId) return false;
+    if (filterState.over500 && !(p.is_cluster && (clusterTotalsMap.get(p.cluster_id) || 0) > CLUSTER_OVER_500_THRESHOLD_M)) return false;
     return true;
   }
   function getFilteredPoints() { return (lastData ? lastData.points : []).filter(matchesFilter); }
@@ -8611,12 +8618,13 @@ function renderPivot(ft) {
   }
 
   function renderClearFilterChip() {
-    const active = filterState.region || filterState.province || filterState.clusterFilter || filterState.severity || filterState.subRootCause || filterState.month || filterState.clusterId;
+    const active = filterState.region || filterState.province || filterState.clusterFilter || filterState.severity || filterState.subRootCause || filterState.month || filterState.clusterId || filterState.over500;
     el('tpi-clear-filter').style.display = active ? 'inline' : 'none';
   }
   el('tpi-clear-filter').addEventListener('click', () => {
-    filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '' };
+    filterState = { region: '', province: '', clusterFilter: '', severity: '', subRootCause: '', month: '', clusterId: '', over500: false };
     ['tpi-filter-region', 'tpi-filter-province', 'tpi-filter-cluster', 'tpi-filter-severity', 'tpi-filter-subroot', 'tpi-filter-month'].forEach(id => { el(id).value = ''; });
+    el('tpi-filter-over500-input').checked = false;
     selectedTTs.clear();
     renderAll();
   });
@@ -8632,6 +8640,11 @@ function renderPivot(ft) {
       selectedTTs.clear();
       renderAll();
     });
+  });
+  el('tpi-filter-over500-input').addEventListener('change', () => {
+    filterState.over500 = el('tpi-filter-over500-input').checked;
+    selectedTTs.clear();
+    renderAll();
   });
 
   function renderWarnings() {
@@ -9060,13 +9073,33 @@ function renderPivot(ft) {
     ['cluster_id', 'Cluster ID'], ['source_tt', 'Source TT'], ['inc', 'INC'], ['site_cable', 'Site/Cable'],
     ['ci_name', 'CI Name'], ['severity', 'Severity'], ['fme', 'FME'], ['subject', 'Subject'],
     ['activity_owner_group', 'Activity Owner Group'], ['sub_root_cause', 'Sub Root Cause'], ['type_work', 'Type work'],
-    ['distance_to_previous_m', 'Dist. to Prev (m)'], ['cluster_distance_m', 'Cluster Dist. (m)'], ['month', 'Month'],
+    ['complete_lat_lon_raw', 'Complete Lat Lon'],
+    ['distance_to_previous_m', 'Dist. to Prev (m)'], ['cluster_distance_m', 'Cluster Dist. (m)'],
+    ['cluster_total_m', 'Cluster Total (m)'], ['month', 'Month'],
   ];
+
+  // Cluster's OWN total distance (first point to last point along its
+  // chain - same figure the map label shows) looked up per point, NOT
+  // recomputed from a possibly-already-filtered subset - always derived
+  // from the full unfiltered point list so a cluster's total stays
+  // correct even when other filters narrow which of its points are
+  // currently shown.
+  let clusterTotalsMap = new Map();
+  function computeClusterTotals() {
+    clusterTotalsMap = new Map();
+    (lastData ? lastData.points : []).forEach(p => {
+      if (!p.is_cluster) return;
+      const cur = clusterTotalsMap.get(p.cluster_id) || 0;
+      if ((p.cluster_distance_m || 0) > cur) clusterTotalsMap.set(p.cluster_id, p.cluster_distance_m);
+    });
+  }
+  const CLUSTER_OVER_500_THRESHOLD_M = 500;
 
   function renderDetailTable() {
     const filtered = getFilteredPoints().slice();
     filtered.sort((a, b) => {
-      const av = a[detailSort.col], bv = b[detailSort.col];
+      const getVal = (p, col) => col === 'cluster_total_m' ? (p.is_cluster ? (clusterTotalsMap.get(p.cluster_id) || 0) : -1) : p[col];
+      const av = getVal(a, detailSort.col), bv = getVal(b, detailSort.col);
       const cmp = typeof av === 'string' ? String(av || '').localeCompare(String(bv || '')) : (av || 0) - (bv || 0);
       return detailSort.dir === 'asc' ? cmp : -cmp;
     });
@@ -9079,6 +9112,12 @@ function renderPivot(ft) {
         if (key === 'cluster_id') {
           const color = p.is_cluster ? CLUSTER_COLOR : INDIVIDUAL_COLOR;
           return `<td onclick="${p.is_cluster ? `window.__tpiShowClusterDetail('${p.cluster_id}')` : ''}" style="padding:5px 8px; font-weight:700; color:${color}; ${p.is_cluster ? 'cursor:pointer;' : ''} white-space:nowrap;">${p.is_cluster ? '🔵' : '🟠'} ${escapeHtml(p.cluster_id)}</td>`;
+        }
+        if (key === 'cluster_total_m') {
+          if (!p.is_cluster) return `<td style="padding:5px 8px; text-align:center; color:var(--text3);">–</td>`;
+          const total = clusterTotalsMap.get(p.cluster_id) || 0;
+          const over = total > CLUSTER_OVER_500_THRESHOLD_M;
+          return `<td style="padding:5px 8px; text-align:center; font-weight:${over ? '800' : '400'}; color:${over ? '#E24B4A' : 'var(--text)'};">${over ? '🔴 ' : ''}${fmtNum(total)}</td>`;
         }
         if (key === 'distance_to_previous_m' || key === 'cluster_distance_m') return `<td style="padding:5px 8px; text-align:center;">${fmtNum(p[key])}</td>`;
         return `<td style="padding:5px 8px; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(p[key])}">${escapeHtml(p[key])}</td>`;
@@ -9104,11 +9143,15 @@ function renderPivot(ft) {
     if (filterState.subRootCause) params.set('sub_root_cause', filterState.subRootCause);
     if (filterState.month) params.set('month', filterState.month);
     if (filterState.clusterId) params.set('cluster_id', filterState.clusterId);
+    if (filterState.over500) params.set('over500', '1');
     params.set('format', 'xlsx');
-    el('tpi-export-btn').href = '/api/temp-point-improvement/export?' + params.toString();
+    const url = '/api/temp-point-improvement/export?' + params.toString();
+    el('tpi-export-btn').href = url;
+    el('tpi-detail-export-btn').href = url;
   }
 
   function renderAll() {
+    computeClusterTotals();
     renderClearFilterChip();
     renderSummaryGrid();
     renderMap();
