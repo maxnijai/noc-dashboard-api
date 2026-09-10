@@ -7017,6 +7017,57 @@ function renderPivot(ft) {
     </div>`;
   }
 
+  function slaHrsSummaryHtml(s) {
+    if (!s || !s.all) return ''; // no SLA_Hrs data in scope at all - omit the section rather than show empty/fake stats
+    const card = (label, stat, color) => stat
+      ? `<div style="border:1px solid var(--border); border-radius:var(--r); padding:8px 10px; background:var(--bg1);">
+           <div style="font-size:15px; font-weight:800; color:${color};">${stat.avg} ชม.</div>
+           <div style="font-size:10px; color:var(--text3);">${label} · min ${stat.min} / max ${stat.max} (n=${stat.count})</div>
+         </div>`
+      : `<div style="border:1px solid var(--border); border-radius:var(--r); padding:8px 10px; background:var(--bg1);">
+           <div style="font-size:11px; color:var(--text3);">${label}: ไม่มีข้อมูล</div>
+         </div>`;
+    return `
+      <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:5px;">⏱️ สรุป SLA (SLA_Hrs)</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:14px;">
+        ${card('เฉลี่ยทั้งหมด', s.all, 'var(--text)')}
+        ${card('เฉลี่ย Over SLA', s.over, '#E24B4A')}
+        ${card('เฉลี่ย Within SLA', s.within, '#639922')}
+      </div>`;
+  }
+
+  function ciRankTableWithTickets(rows) {
+    if (!rows.length) return `<div style="flex:1; min-width:260px;"><div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🔴 Top CI</div><div style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</div></div>`;
+    const body = rows.map((r, i) => {
+      const rowId = `ci-drill-detail-${i}`;
+      const ticketChips = (r.tickets || []).map(t => escapeHtml(t.TICKETID)).join(', ');
+      const detailRows = (r.tickets || []).map(t => `
+        <tr style="border-top:1px dashed var(--border);">
+          <td style="padding:3px 8px 3px 22px; font-size:10.5px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
+          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Created:</b> ${escapeHtml(t.CREATIONDATE) || '-'}</td>
+          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Closed:</b> ${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
+          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>SLA:</b> ${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+        </tr>`).join('');
+      return `
+        <tbody>
+          <tr onclick="const d=document.getElementById('${rowId}'); const open=d.style.display!=='none'; d.style.display=open?'none':'table-row-group'; this.querySelector('.ci-toggle-icon').textContent=open?'▸':'▾';" style="border-top:1px solid var(--border); cursor:pointer;" title="คลิกเพื่อดู CREATIONDATE / CLOSEDTIME / SLA_Hrs ของแต่ละ Ticket">
+            <td style="padding:4px 8px; font-weight:600;"><span class="ci-toggle-icon" style="display:inline-block; width:12px; color:var(--text3);">▸</span>${escapeHtml(r.label)}</td>
+            <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
+            <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
+            <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${ticketChips}</td>
+          </tr>
+        </tbody>
+        <tbody id="${rowId}" style="display:none;">${detailRows}</tbody>`;
+    }).join('');
+    return `<div style="flex:1; min-width:280px;">
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🔴 Top CI <span style="font-weight:400; color:var(--text3);">(คลิกแถวเพื่อดู Created/Closed/SLA)</span></div>
+      <table style="border-collapse:collapse; font-size:11px; width:100%; border:1px solid var(--border);">
+        <thead><tr style="background:var(--bg3);"><th style="padding:4px 8px; text-align:left;">CI_Name</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th><th style="padding:4px 8px; text-align:left;">Ticket</th></tr></thead>
+        ${body}
+      </table>
+    </div>`;
+  }
+
   function renderHeatmapDrilldownModal(dd) {
     const focusLines = dd.improvement_focus.map(l => `<div>• ${escapeHtml(l)}</div>`).join('');
     el('sla-heatmap-modal-body').innerHTML = `
@@ -7025,12 +7076,13 @@ function renderPivot(ft) {
         <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800; color:#E24B4A;">${dd.over}</div><div style="font-size:10.5px; color:var(--text2);">Over SLA</div></div>
         <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);"><div style="font-size:20px; font-weight:800; color:#E24B4A;">${fmtPct(dd.pct_over)}</div><div style="font-size:10.5px; color:var(--text2);">% Over SLA</div></div>
       </div>
+      ${slaHrsSummaryHtml(dd.sla_hrs_summary)}
       <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
         ${miniRankTable('🔴 Top Problem', dd.top_problems.slice(0, 5), 'Problem', 'problem')}
         ${miniRankTable('🔴 Top Sub-Cause', dd.top_sub_causes.slice(0, 5), 'Sub-Cause', 'sub_cause')}
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px;">
-        ${miniRankTable('🔴 Top CI', dd.top_ci.slice(0, 5), 'CI_Name')}
+        ${ciRankTableWithTickets(dd.top_ci.slice(0, 5))}
         ${miniRankTable('📍 Top District', dd.top_districts.slice(0, 5), 'District')}
       </div>
       <div style="border:1px solid #a371f755; border-radius:var(--r); padding:10px 12px; background:#a371f714; font-size:12px; line-height:1.8;">
