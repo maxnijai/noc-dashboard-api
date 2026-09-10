@@ -2503,8 +2503,9 @@ def api_sla_improvement_trend():
         if rows is None:
             return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
         severities = [s for s in request.args.get('severity', '').split(',') if s]
-        filtered = sla_improvement.filter_by_severity(rows, severities)
-        return jsonify({'trend': sla_improvement.build_trend(filtered), 'severities_applied': severities})
+        categories = [c for c in request.args.get('category', '').split('\x1f') if c]
+        filtered = sla_improvement.filter_by_category(sla_improvement.filter_by_severity(rows, severities), categories)
+        return jsonify({'trend': sla_improvement.build_trend(filtered), 'severities_applied': severities, 'categories_applied': categories})
     except Exception as e:
         log.exception("sla-improvement trend API failed")
         return jsonify({'error': str(e)}), 500
@@ -2516,8 +2517,9 @@ def api_sla_improvement_heatmap():
         if rows is None:
             return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
         severities = [s for s in request.args.get('severity', '').split(',') if s]
-        filtered = sla_improvement.filter_by_severity(rows, severities)
-        return jsonify({'improvement_heatmap': sla_improvement.build_improvement_heatmap(filtered), 'severities_applied': severities})
+        categories = [c for c in request.args.get('category', '').split('\x1f') if c]
+        filtered = sla_improvement.filter_by_category(sla_improvement.filter_by_severity(rows, severities), categories)
+        return jsonify({'improvement_heatmap': sla_improvement.build_improvement_heatmap(filtered), 'severities_applied': severities, 'categories_applied': categories})
     except Exception as e:
         log.exception("sla-improvement heatmap API failed")
         return jsonify({'error': str(e)}), 500
@@ -2529,8 +2531,9 @@ def api_sla_improvement_sla_hrs_breakdown():
         if rows is None:
             return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
         severities = [s for s in request.args.get('severity', '').split(',') if s]
-        filtered = sla_improvement.filter_by_severity(rows, severities)
-        return jsonify({'sla_hrs_breakdown': sla_improvement.build_sla_hrs_over_breakdown(filtered, lookback_days=3), 'severities_applied': severities})
+        categories = [c for c in request.args.get('category', '').split('\x1f') if c]
+        filtered = sla_improvement.filter_by_category(sla_improvement.filter_by_severity(rows, severities), categories)
+        return jsonify({'sla_hrs_breakdown': sla_improvement.build_sla_hrs_over_breakdown(filtered, lookback_days=3), 'severities_applied': severities, 'categories_applied': categories})
     except Exception as e:
         log.exception("sla-improvement sla-hrs-breakdown API failed")
         return jsonify({'error': str(e)}), 500
@@ -2542,8 +2545,9 @@ def api_sla_improvement_over_categories_breakdown():
         if rows is None:
             return jsonify({'error': 'ยังไม่มีข้อมูล กรุณา Import ไฟล์ก่อน'}), 400
         severities = [s for s in request.args.get('severity', '').split(',') if s]
-        filtered = sla_improvement.filter_by_severity(rows, severities)
-        return jsonify({'over_categories_breakdown': sla_improvement.build_over_categories_breakdown(filtered, lookback_days=3), 'severities_applied': severities})
+        categories = [c for c in request.args.get('category', '').split('\x1f') if c]
+        filtered = sla_improvement.filter_by_category(sla_improvement.filter_by_severity(rows, severities), categories)
+        return jsonify({'over_categories_breakdown': sla_improvement.build_over_categories_breakdown(filtered, lookback_days=3), 'severities_applied': severities, 'categories_applied': categories})
     except Exception as e:
         log.exception("sla-improvement over-categories-breakdown API failed")
         return jsonify({'error': str(e)}), 500

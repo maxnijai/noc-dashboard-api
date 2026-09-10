@@ -582,6 +582,23 @@ def filter_by_severity(rows, severities):
     return [r for r in rows if r["TRUESEVERITY_DESC"] in wanted]
 
 
+def distinct_categories(rows):
+    """Every distinct non-blank CATEGORIES value present - same
+    data-driven approach as distinct_severities above (explicit request:
+    same logic, just the CATEGORIES column instead of TRUESEVERITY_DESC)."""
+    return sorted({r["CATEGORIES"] for r in rows if r["CATEGORIES"]})
+
+
+def filter_by_category(rows, categories):
+    """categories: list of CATEGORIES values to keep, or falsy for "all"
+    - same shape as filter_by_severity, applied independently (both
+    filters can narrow the same rows at once)."""
+    if not categories:
+        return rows
+    wanted = set(categories)
+    return [r for r in rows if r["CATEGORIES"] in wanted]
+
+
 def build_trend(rows):
     """Returns daily and weekly series, each with overall + by-region +
     by-province breakdowns. Precomputed for every province/region since
@@ -1538,6 +1555,7 @@ def build_sla_improvement_response(top_n=15):
         "imported_at": imported_at, "filename": filename, "import_warnings": import_warnings,
         "row_count": len(rows),
         "severities": distinct_severities(rows),
+        "categories": distinct_categories(rows),
         "executive_kpi": executive_kpi,
         "war_room": war_room,
         "province_ranking": province_ranking,
