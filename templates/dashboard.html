@@ -7094,21 +7094,43 @@ function renderPivot(ft) {
     const ctx = el('sla-trend-avglines-chart').getContext('2d');
     if (trendAvgLinesChart) trendAvgLinesChart.destroy();
     if (!al || !al.dates.length) return;
+
+    // Labeling every point on 3 overlapping lines gets unreadable fast,
+    // so only the LAST (most-recent, most report-relevant) point of each
+    // line gets a value label - and each line's label is pinned to a
+    // different vertical side (top / center-right / bottom) so the 3
+    // pill labels can never stack on top of each other even when the
+    // three lines end up very close in value.
+    const endLabel = (align, color) => ({
+      display: (c) => c.dataIndex === c.dataset.data.length - 1 && c.dataset.data[c.dataIndex] != null,
+      align, anchor: 'center', offset: align === 'right' ? 10 : 6,
+      backgroundColor: color, borderRadius: 4, color: '#fff', padding: { top: 3, bottom: 3, left: 6, right: 6 },
+      font: { size: 11, weight: 'bold' },
+      formatter: v => v != null ? v.toFixed(1) + '%' : '',
+    });
+
+    const series = [
+      { label: 'Total', data: al.total, color: '#E24B4A', labelAlign: 'top' },
+      { label: 'ตัด True Vision', data: al.exclude_true_vision, color: '#1f6feb', labelAlign: 'right' },
+      { label: 'ตัด True Vision & Access Broadband degrade', data: al.exclude_true_vision_and_access_broadband_degrade, color: '#639922', labelAlign: 'bottom' },
+    ];
+
     trendAvgLinesChart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: al.dates,
-        datasets: [
-          { label: 'Total', data: al.total, borderColor: '#E24B4A', backgroundColor: '#E24B4A33', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
-          { label: 'ตัด True Vision', data: al.exclude_true_vision, borderColor: '#1f6feb', backgroundColor: '#1f6feb33', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
-          { label: 'ตัด True Vision & Access Broadband degrade', data: al.exclude_true_vision_and_access_broadband_degrade, borderColor: '#639922', backgroundColor: '#63992233', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
-        ],
+        datasets: series.map(s => ({
+          label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color + '33',
+          tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0,
+          datalabels: endLabel(s.labelAlign, s.color),
+        })),
       },
       options: {
         responsive: true,
+        layout: { padding: { right: 46, top: 20, bottom: 20 } }, // room for the endpoint pill labels beyond the last point, top/bottom stagger
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
-          datalabels: { display: false },
+          datalabels: { display: 'auto' },
           tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) + '%' : 'ไม่มีข้อมูล'}` } },
         },
         scales: {
