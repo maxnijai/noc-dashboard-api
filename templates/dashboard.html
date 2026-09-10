@@ -7344,59 +7344,61 @@ function renderPivot(ft) {
 
   function renderSlaHrsBreakdownTable() {
     const dd = lastData.sla_hrs_breakdown;
-    if (!dd || !dd.days.length) { el('sla-hrs-breakdown-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล SLA_Hrs</div>`; el('sla-hrs-breakdown-days').textContent = ''; return; }
-    el('sla-hrs-breakdown-days').textContent = `(แยกรายวัน ${dd.days.length} วันล่าสุด — ไม่รวมกัน)`;
+    if (!dd || !dd.days.length || !dd.provinces.length) { el('sla-hrs-breakdown-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล Over SLA ที่มีค่า SLA_Hrs ในช่วงนี้</div>`; el('sla-hrs-breakdown-days').textContent = ''; return; }
+    el('sla-hrs-breakdown-days').textContent = `(เฉพาะ Over SLA · ${dd.days.length} วันล่าสุด)`;
 
-    const head = dd.buckets.map(b => `<th style="padding:6px 8px; text-align:center; font-size:10px; color:var(--text2); white-space:nowrap;">${escapeHtml(b)}</th>`).join('');
+    const maxCount = Math.max(1, ...dd.days.flatMap(d => dd.provinces.map(p => {
+      const provCells = d.cells[p] || {};
+      return Math.max(0, ...d.values.map(v => (provCells[v] && provCells[v].count) || 0));
+    })));
 
-    const dayTables = dd.days.map(day => {
-      if (!day.rows.length) {
-        return `<div style="margin-bottom:14px;">
-          <div style="font-size:11.5px; font-weight:700; margin-bottom:5px;">📅 ${escapeHtml(day.date)}</div>
-          <div style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล SLA_Hrs${day.missing_sla_hrs ? ` (${day.missing_sla_hrs} Ticket ไม่มีค่า SLA_Hrs)` : ''}</div>
-        </div>`;
-      }
-      const maxCount = Math.max(1, ...day.rows.flatMap(r => dd.buckets.map(b => r.bucket_counts[b] || 0)));
-      const body = day.rows.map(r => {
-        const cells = dd.buckets.map(b => {
-          const count = r.bucket_counts[b] || 0;
-          const heat = heatmapCellColor(count || null, maxCount);
-          const clickable = count > 0;
-          const onclick = clickable ? ` onclick="window.__slaHrsOpenCell('${escapeHtml(day.date)}','${escapeHtml(r.province)}','${escapeHtml(b)}')"` : '';
-          return `<td${onclick} title="${escapeHtml(day.date)} · ${escapeHtml(r.province)} · ${escapeHtml(b)}: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:6px 8px; text-align:center; font-size:11px; font-weight:700; ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
-        }).join('');
-        return `<tr style="border-top:1px solid var(--border);">
-          <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))}</td>
-          ${cells}
-          <td style="padding:6px 10px; text-align:center; font-weight:700; color:var(--text2);">${r.total}</td>
-        </tr>`;
-      }).join('');
+    // Row 1: date labels, each spanning its own day's hour-value columns.
+    const dateHeadRow = dd.days.map(d => `<th colspan="${d.values.length || 1}" style="padding:5px 8px; text-align:center; font-size:10.5px; font-weight:700; color:var(--text2); border-left:2px solid var(--border2);">Date ${escapeHtml(d.date)}</th>`).join('');
+    // Row 2: the actual hour values for each date (data-driven - a date with only 4h/6h/14h shows exactly those 3 sub-columns).
+    const hourHeadRow = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) =>
+      `<th style="padding:4px 6px; text-align:center; font-size:9.5px; color:var(--text3); white-space:nowrap; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">${v === '-' ? '–' : v + 'H'}</th>`
+    ).join('')).join('');
 
-      return `<div style="margin-bottom:16px;">
-        <div style="font-size:11.5px; font-weight:700; margin-bottom:5px;">📅 ${escapeHtml(day.date)} <span style="font-weight:400; color:var(--text3);">(${day.total_scoped} Ticket${day.missing_sla_hrs ? ` · ${day.missing_sla_hrs} ไม่มีค่า SLA_Hrs` : ''})</span></div>
-        <table style="border-collapse:collapse; font-size:12px; width:100%;">
-          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>${head}
-            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
-          </tr></thead>
-          <tbody>${body}</tbody>
-        </table>
-      </div>`;
+    const body = dd.provinces.map(prov => {
+      const cells = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) => {
+        if (v === '-') return `<td style="padding:5px 6px; text-align:center; color:var(--text3); ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">–</td>`;
+        const cell = (d.cells[prov] && d.cells[prov][v]) || null;
+        const count = cell ? cell.count : 0;
+        const heat = heatmapCellColor(count || null, maxCount);
+        const clickable = count > 0;
+        const onclick = clickable ? ` onclick="window.__slaHrsOpenCell(${di},'${escapeHtml(prov)}',${v})"` : '';
+        return `<td${onclick} title="${escapeHtml(d.date)} · ${escapeHtml(prov)} · ${v}H: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
+      }).join('')).join('');
+      return `<tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
+        ${cells}
+      </tr>`;
     }).join('');
 
-    el('sla-hrs-breakdown-table').innerHTML = dayTables;
+    el('sla-hrs-breakdown-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead>
+          <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));">
+            <th rowspan="2" style="padding:6px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2); vertical-align:bottom;">จังหวัด</th>
+            ${dateHeadRow}
+          </tr>
+          <tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            ${hourHeadRow}
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>`;
   }
 
-  window.__slaHrsOpenCell = function (date, province, bucket) {
+  window.__slaHrsOpenCell = function (dayIndex, province, value) {
     const dd = lastData.sla_hrs_breakdown;
-    const day = dd.days.find(d => d.date === date);
-    const row = day && day.rows.find(r => r.province === province);
-    const tickets = (row && row.bucket_tickets[bucket]) || [];
-    el('sla-hrs-cell-modal-title').textContent = `⏱️ ${date} · ${PROVINCE_EN(province)} · ${bucket} (${tickets.length} Ticket)`;
+    const day = dd.days[dayIndex];
+    const cell = day && day.cells[province] && day.cells[province][value];
+    const tickets = (cell && cell.tickets) || [];
+    el('sla-hrs-cell-modal-title').textContent = `⏱️ ${day.date} · ${PROVINCE_EN(province)} · ${value}H (${tickets.length} Ticket)`;
     const rows = tickets.map(t => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:5px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
-        <td style="padding:5px 8px; text-align:center;">${t.TICKET_SLA === 'over' ? '<span style="color:#E24B4A; font-weight:700;">Over</span>' : '<span style="color:#639922;">Within</span>'}</td>
         <td style="padding:5px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
         <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CREATIONDATE) || '-'}</td>
         <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
@@ -7405,7 +7407,6 @@ function renderPivot(ft) {
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:var(--bg3);">
           <th style="padding:6px 8px; text-align:left;">Ticket</th>
-          <th style="padding:6px 8px;">SLA</th>
           <th style="padding:6px 8px;">SLA_Hrs</th>
           <th style="padding:6px 8px; text-align:left;">Created</th>
           <th style="padding:6px 8px; text-align:left;">Closed</th>
