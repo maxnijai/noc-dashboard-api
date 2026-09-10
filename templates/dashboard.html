@@ -1040,6 +1040,12 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">⏱️ SLA_Hrs Breakdown ตามจังหวัด <span id="sla-hrs-breakdown-days" style="font-weight:400; color:var(--text3); font-size:11px;"></span></div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">จำนวน Ticket ตาม SLA_Hrs (เวลาที่ใช้จริง) แบ่งเป็นช่วง — คลิกตัวเลขในช่องเพื่อดูรายละเอียด Ticket</div>
+        <div id="sla-hrs-breakdown-table" style="overflow-x:auto;"></div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:2px;">
           <div style="font-size:13px; font-weight:700;">🗺️ Province Ranking — จังหวัดไหนกำลังฉุด Performance?</div>
           <div style="display:flex; gap:0; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
@@ -1256,6 +1262,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button onclick="document.getElementById('sla-heatmap-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
       </div>
       <div id="sla-heatmap-modal-body" style="padding:16px 18px; max-height:70vh; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- SLA IMPROVEMENT: SLA_HRS BREAKDOWN CELL TICKET LIST MODAL -->
+  <div id="sla-hrs-cell-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('sla-hrs-cell-modal').style.display='none'">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:680px;margin:40px auto;padding:0;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
+        <span id="sla-hrs-cell-modal-title" style="font-weight:700;font-size:14px;">⏱️ SLA_Hrs Ticket List</span>
+        <button onclick="document.getElementById('sla-hrs-cell-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+      </div>
+      <div id="sla-hrs-cell-modal-body" style="padding:16px 18px; max-height:70vh; overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -7325,6 +7342,79 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  function renderSlaHrsBreakdownTable() {
+    const dd = lastData.sla_hrs_breakdown;
+    if (!dd || !dd.days.length) { el('sla-hrs-breakdown-table').innerHTML = `<div style="font-size:12px; color:var(--text3);">ไม่มีข้อมูล SLA_Hrs</div>`; el('sla-hrs-breakdown-days').textContent = ''; return; }
+    el('sla-hrs-breakdown-days').textContent = `(แยกรายวัน ${dd.days.length} วันล่าสุด — ไม่รวมกัน)`;
+
+    const head = dd.buckets.map(b => `<th style="padding:6px 8px; text-align:center; font-size:10px; color:var(--text2); white-space:nowrap;">${escapeHtml(b)}</th>`).join('');
+
+    const dayTables = dd.days.map(day => {
+      if (!day.rows.length) {
+        return `<div style="margin-bottom:14px;">
+          <div style="font-size:11.5px; font-weight:700; margin-bottom:5px;">📅 ${escapeHtml(day.date)}</div>
+          <div style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล SLA_Hrs${day.missing_sla_hrs ? ` (${day.missing_sla_hrs} Ticket ไม่มีค่า SLA_Hrs)` : ''}</div>
+        </div>`;
+      }
+      const maxCount = Math.max(1, ...day.rows.flatMap(r => dd.buckets.map(b => r.bucket_counts[b] || 0)));
+      const body = day.rows.map(r => {
+        const cells = dd.buckets.map(b => {
+          const count = r.bucket_counts[b] || 0;
+          const heat = heatmapCellColor(count || null, maxCount);
+          const clickable = count > 0;
+          const onclick = clickable ? ` onclick="window.__slaHrsOpenCell('${escapeHtml(day.date)}','${escapeHtml(r.province)}','${escapeHtml(b)}')"` : '';
+          return `<td${onclick} title="${escapeHtml(day.date)} · ${escapeHtml(r.province)} · ${escapeHtml(b)}: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:6px 8px; text-align:center; font-size:11px; font-weight:700; ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
+        }).join('');
+        return `<tr style="border-top:1px solid var(--border);">
+          <td style="padding:6px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(r.province))}</td>
+          ${cells}
+          <td style="padding:6px 10px; text-align:center; font-weight:700; color:var(--text2);">${r.total}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div style="margin-bottom:16px;">
+        <div style="font-size:11.5px; font-weight:700; margin-bottom:5px;">📅 ${escapeHtml(day.date)} <span style="font-weight:400; color:var(--text3);">(${day.total_scoped} Ticket${day.missing_sla_hrs ? ` · ${day.missing_sla_hrs} ไม่มีค่า SLA_Hrs` : ''})</span></div>
+        <table style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
+            <th style="padding:7px 10px; text-align:left; font-size:11px; text-transform:uppercase; color:var(--text2);">Province</th>${head}
+            <th style="padding:7px 10px; text-align:center; font-size:11px; text-transform:uppercase; color:var(--text2);">รวม</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    }).join('');
+
+    el('sla-hrs-breakdown-table').innerHTML = dayTables;
+  }
+
+  window.__slaHrsOpenCell = function (date, province, bucket) {
+    const dd = lastData.sla_hrs_breakdown;
+    const day = dd.days.find(d => d.date === date);
+    const row = day && day.rows.find(r => r.province === province);
+    const tickets = (row && row.bucket_tickets[bucket]) || [];
+    el('sla-hrs-cell-modal-title').textContent = `⏱️ ${date} · ${PROVINCE_EN(province)} · ${bucket} (${tickets.length} Ticket)`;
+    const rows = tickets.map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:5px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:5px 8px; text-align:center;">${t.TICKET_SLA === 'over' ? '<span style="color:#E24B4A; font-weight:700;">Over</span>' : '<span style="color:#639922;">Within</span>'}</td>
+        <td style="padding:5px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+        <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CREATIONDATE) || '-'}</td>
+        <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
+      </tr>`).join('');
+    el('sla-hrs-cell-modal-body').innerHTML = `
+      <table style="border-collapse:collapse; font-size:12px; width:100%;">
+        <thead><tr style="background:var(--bg3);">
+          <th style="padding:6px 8px; text-align:left;">Ticket</th>
+          <th style="padding:6px 8px;">SLA</th>
+          <th style="padding:6px 8px;">SLA_Hrs</th>
+          <th style="padding:6px 8px; text-align:left;">Created</th>
+          <th style="padding:6px 8px; text-align:left;">Closed</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    document.getElementById('sla-hrs-cell-modal').style.display = 'block';
+  };
+
   let rankingWindow = 'all';
   document.querySelectorAll('.sla-ranking-window-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -7790,6 +7880,7 @@ function renderPivot(ft) {
     el('sla-province-deep-dive').style.display = 'none'; // collapsed by default on a fresh load/reimport, opened via row click or the dropdown
     renderTrendChart();
     renderHeatmapTable();
+    renderSlaHrsBreakdownTable();
     rankingWindow = 'all';
     document.querySelectorAll('.sla-ranking-window-btn').forEach(b => { b.style.background = b.dataset.val === 'all' ? 'var(--bg4)' : 'transparent'; });
     renderProvinceTable(data.province_ranking_windows.all);
