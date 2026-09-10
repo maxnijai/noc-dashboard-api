@@ -66,6 +66,20 @@ def _parse_excel_dt(v):
     return None
 
 
+def _parse_float(v):
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v).strip().replace(",", "")
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 def _iso_week_label(dt):
     iso_year, iso_week, _ = dt.isocalendar()
     return f"{iso_year}-W{iso_week:02d}"
@@ -165,6 +179,7 @@ def parse_excel_file(file_path):
             "SUB_CAUSE": _normalize_text(get("SUB_CAUSE")) or "(ไม่ระบุ)",
             "CI_Name": str(get("CI_Name") or "").strip() or "(ไม่ระบุ)",
             "DISTRICT_EN": str(get("DISTRICT_EN") or "").strip(),  # optional column - blank/missing handled at analysis time (see _normalize_district), never required for import to succeed
+            "SLA_HRS": _parse_float(get("SLA_Hrs")),  # optional column (explicit request) - actual hours taken; None if missing/unparseable, never blocks import
             "iso_week": _iso_week_label(creation_dt),
             "iso_date": creation_dt.date().isoformat(),
         })
@@ -609,6 +624,22 @@ def build_improvement_heatmap(rows, daily_periods=14):
 
 # ── Root cause drill-down (Problem -> Sub-Cause -> CI -> Province) ─────
 
+def _sla_hrs_summary(scoped_rows):
+    """Avg/Min/Max SLA_Hrs (explicit request) - split into All / Over /
+    Within so the Over-SLA subset (the one actually under investigation
+    here) can be compared against the overall and Within baselines. None
+    for a bucket with no SLA_Hrs data at all (column missing/blank on
+    every row in scope), never a fake 0."""
+    def stats(vals):
+        if not vals:
+            return None
+        return {"count": len(vals), "avg": round(sum(vals) / len(vals), 2), "min": round(min(vals), 2), "max": round(max(vals), 2)}
+    all_vals = [r["SLA_HRS"] for r in scoped_rows if r.get("SLA_HRS") is not None]
+    over_vals = [r["SLA_HRS"] for r in scoped_rows if r.get("SLA_HRS") is not None and r["TICKET_SLA"] == "over"]
+    within_vals = [r["SLA_HRS"] for r in scoped_rows if r.get("SLA_HRS") is not None and r["TICKET_SLA"] == "within"]
+    return {"all": stats(all_vals), "over": stats(over_vals), "within": stats(within_vals)}
+
+
 def _ranked_group(scoped_rows, key, top_n):
     """scoped_rows: rows already filtered to the current drill-down scope
     (by Problem/Sub-Cause/etc as needed), but NOT pre-filtered to
@@ -629,6 +660,38 @@ def _ranked_group(scoped_rows, key, top_n):
         {"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
          "share_of_total_over": _pct(v["over"], total_over_in_scope)}
         for k, v in counts.items() if v["over"] > 0
+    ]
+    ranked.sort(key=lambda r: -r["over"])
+    return ranked[:top_n]
+
+
+def _ranked_group_with_tickets(scoped_rows, key, top_n):
+    """Same ranking as _ranked_group, plus a "tickets" list per group -
+    TICKETID/CREATIONDATE/CLOSEDTIME for each of that group's OVER-SLA
+    tickets (not the within-SLA ones - this list is specifically "which
+    tickets are behind this Over SLA count", not every ticket at that
+    CI). Only used where the result set is already scoped small (one
+    heatmap cell = one province + one day/week), never on an unscoped
+    rows list - the ticket-level detail would otherwise bloat the
+    payload for no reason on the larger root-cause/province views."""
+    total_over_in_scope = sum(1 for r in scoped_rows if r["TICKET_SLA"] == "over")
+    groups = {}
+    for r in scoped_rows:
+        g = groups.setdefault(r[key], {"total": 0, "over": 0, "tickets": []})
+        g["total"] += 1
+        if r["TICKET_SLA"] == "over":
+            g["over"] += 1
+            g["tickets"].append({
+                "TICKETID": r["TICKETID"],
+                "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
+                "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
+                "SLA_HRS": r.get("SLA_HRS"),
+            })
+    ranked = [
+        {"label": k, "total": v["total"], "over": v["over"], "pct_over": _pct(v["over"], v["total"]),
+         "share_of_total_over": _pct(v["over"], total_over_in_scope),
+         "tickets": sorted(v["tickets"], key=lambda t: t["CREATIONDATE"] or "")}
+        for k, v in groups.items() if v["over"] > 0
     ]
     ranked.sort(key=lambda r: -r["over"])
     return ranked[:top_n]
@@ -1214,7 +1277,7 @@ def build_heatmap_cell_drilldown(rows, period, province, granularity="daily", to
 
     top_problems = _ranked_group(scoped, "PROBLEM", top_n)
     top_sub_causes = _ranked_group(scoped, "SUB_CAUSE", top_n)
-    top_ci = _ranked_group(scoped, "CI_Name", top_n)
+    top_ci = _ranked_group_with_tickets(scoped, "CI_Name", top_n)
     district_counts = {}
     for r in scoped:
         d = _normalize_district(r["DISTRICT_EN"])
@@ -1250,6 +1313,7 @@ def build_heatmap_cell_drilldown(rows, period, province, granularity="daily", to
         "total": total, "over": over, "pct_over": pct_over,
         "top_problems": top_problems, "top_sub_causes": top_sub_causes,
         "top_ci": top_ci, "top_districts": top_districts,
+        "sla_hrs_summary": _sla_hrs_summary(scoped),
         "improvement_focus": [l for l in focus_lines if l],
     }
 
