@@ -1046,6 +1046,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
 
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📈 % Over SLA — Avg 7D Comparison</div>
+        <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">ค่าเฉลี่ยเคลื่อนที่ 7 วัน (Rolling Avg) เทียบ 3 เส้น — Total / ตัด True Vision / ตัด True Vision &amp; Access Broadband degrade</div>
+        <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+          <canvas id="sla-trend-avglines-chart" height="90"></canvas>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:2px;">🌡️ Improvement Heatmap — <span id="sla-heatmap-metric-title">% Over SLA</span>ตามจังหวัด</div>
         <div style="font-size:10.5px; color:var(--text3); margin-bottom:8px;">เขียว = ต่ำ (ดี) · แดง = สูง (แย่) — ไล่แถวจากซ้ายไปขวาเพื่อดู Improvement รายวัน/สัปดาห์</div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; align-items:center;">
@@ -6932,6 +6940,7 @@ function renderPivot(ft) {
   let loaded = false;
   let lastData = null;
   let trendChart = null;
+  let trendAvgLinesChart = null;
   let paretoChart = null;
   let trendState = { gran: 'daily', scope: 'overall', province: null };
   let drillState = { problem: null, sub_cause: null, ci_name: null };
@@ -7076,6 +7085,36 @@ function renderPivot(ft) {
         responsive: true,
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }, datalabels: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { callback: v => v + '%' } }, x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 16 } } },
+      },
+    });
+  }
+
+  function renderTrendAvgLinesChart() {
+    const al = lastData && lastData.trend_avg_lines;
+    const ctx = el('sla-trend-avglines-chart').getContext('2d');
+    if (trendAvgLinesChart) trendAvgLinesChart.destroy();
+    if (!al || !al.dates.length) return;
+    trendAvgLinesChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: al.dates,
+        datasets: [
+          { label: 'Total', data: al.total, borderColor: '#E24B4A', backgroundColor: '#E24B4A33', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
+          { label: 'ตัด True Vision', data: al.exclude_true_vision, borderColor: '#1f6feb', backgroundColor: '#1f6feb33', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
+          { label: 'ตัด True Vision & Access Broadband degrade', data: al.exclude_true_vision_and_access_broadband_degrade, borderColor: '#639922', backgroundColor: '#63992233', tension: 0.25, spanGaps: true, pointRadius: al.dates.length <= 40 ? 2 : 0 },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+          datalabels: { display: false },
+          tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y != null ? c.parsed.y.toFixed(1) + '%' : 'ไม่มีข้อมูล'}` } },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: v => v + '%' } },
+          x: { ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 20, font: { size: 9 } } },
+        },
       },
     });
   }
@@ -8150,10 +8189,12 @@ function renderPivot(ft) {
         trendRes.json(), heatmapRes.json(), slaHrsRes.json(), categoriesRes.json(),
       ]);
       lastData.trend = trendData.trend;
+      lastData.trend_avg_lines = trendData.trend_avg_lines;
       lastData.improvement_heatmap = heatmapData.improvement_heatmap;
       lastData.sla_hrs_breakdown = slaHrsData.sla_hrs_breakdown;
       lastData.over_categories_breakdown = categoriesData.over_categories_breakdown;
       renderTrendChart();
+      renderTrendAvgLinesChart();
       renderHeatmapTable();
       renderSlaHrsBreakdownTable();
       renderOverCategoriesBreakdownTable();
@@ -8177,6 +8218,7 @@ function renderPivot(ft) {
     el('sla-deepdive-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
     el('sla-province-deep-dive').style.display = 'none'; // collapsed by default on a fresh load/reimport, opened via row click or the dropdown
     renderTrendChart();
+    renderTrendAvgLinesChart();
     renderHeatmapTable();
     renderSlaHrsBreakdownTable();
     renderOverCategoriesBreakdownTable();
