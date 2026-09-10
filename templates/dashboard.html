@@ -1002,6 +1002,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div id="sla-warroom-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;"></div>
       </div>
 
+      <div id="sla-severity-filter-box" style="border:1px solid var(--border); border-radius:var(--r); padding:10px 14px; margin-bottom:16px; background:var(--bg2); display:none;">
+        <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px;">🎯 SLA Type <span style="font-weight:400; color:var(--text3);">(ใช้กรองทั้ง % Over SLA Trend และ Improvement Heatmap ด้านล่าง — ค่าเริ่มต้น = ทุก SLA)</span></div>
+        <div id="sla-severity-filter" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; margin-bottom:16px; background:var(--bg2);">
         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
           <div style="font-size:13px; font-weight:700;">📈 % Over SLA Trend</div>
@@ -7358,22 +7363,54 @@ function renderPivot(ft) {
     const hourHeadRow = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) =>
       `<th style="padding:4px 6px; text-align:center; font-size:9.5px; color:var(--text3); white-space:nowrap; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">${v === '-' ? '–' : v + 'H'}</th>`
     ).join('')).join('');
+    const totalCols = dd.days.reduce((s, d) => s + (d.values.length || 1), 0);
 
-    const body = dd.provinces.map(prov => {
+    function getCount(d, prov, v) {
+      const cell = (d.cells[prov] && d.cells[prov][v]) || null;
+      return cell ? cell.count : 0;
+    }
+
+    function provinceRowHtml(prov) {
       const cells = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) => {
         if (v === '-') return `<td style="padding:5px 6px; text-align:center; color:var(--text3); ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">–</td>`;
-        const cell = (d.cells[prov] && d.cells[prov][v]) || null;
-        const count = cell ? cell.count : 0;
+        const count = getCount(d, prov, v);
         const heat = heatmapCellColor(count || null, maxCount);
         const clickable = count > 0;
         const onclick = clickable ? ` onclick="window.__slaHrsOpenCell(${di},'${escapeHtml(prov)}',${v})"` : '';
         return `<td${onclick} title="${escapeHtml(d.date)} · ${escapeHtml(prov)} · ${v}H: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
       }).join('')).join('');
       return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:5px 10px; font-weight:600; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
+        <td style="padding:5px 10px 5px 20px; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
         ${cells}
       </tr>`;
-    }).join('');
+    }
+
+    function summaryRowHtml(label, provList) {
+      const cells = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) => {
+        if (v === '-') return `<td style="padding:5px 6px; text-align:center; color:var(--text3); ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">–</td>`;
+        const count = provList.reduce((s, p) => s + getCount(d, p, v), 0);
+        return `<td style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} color:var(--text);">${count || '–'}</td>`;
+      }).join('')).join('');
+      return `<tr style="border-top:1px solid var(--border2); background:var(--bg3); font-weight:700;">
+        <td style="padding:5px 10px;">${escapeHtml(label)}</td>
+        ${cells}
+      </tr>`;
+    }
+
+    // Group provinces by Region (subtotal per region, explicit request) -
+    // same NOR1/NOR2-first ordering convention as the % Over SLA Heatmap.
+    const byRegion = {};
+    dd.provinces.forEach(p => { const reg = dd.province_region[p] || 'อื่นๆ'; (byRegion[reg] = byRegion[reg] || []).push(p); });
+    const regionOrder = ['NOR1', 'NOR2'];
+    const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
+
+    let body = '';
+    regions.forEach(reg => {
+      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${totalCols + 1}" style="padding:5px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
+      byRegion[reg].forEach(p => { body += provinceRowHtml(p); });
+      body += summaryRowHtml(`${reg} รวม`, byRegion[reg]);
+    });
+    body += summaryRowHtml('รวมทั้งหมด', dd.provinces);
 
     el('sla-hrs-breakdown-table').innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -7869,12 +7906,55 @@ function renderPivot(ft) {
   };
 
   // ── Main render / reload ────────────────────────────────────────────
+  let severityFilter = new Set(); // empty = "all" (default, per explicit request)
+
+  function renderSeverityFilter(severities) {
+    if (!severities || !severities.length) { el('sla-severity-filter-box').style.display = 'none'; return; }
+    el('sla-severity-filter-box').style.display = 'block';
+    const chip = (val, label) => {
+      const active = val === '__all__' ? severityFilter.size === 0 : severityFilter.has(val);
+      return `<button class="sla-severity-chip" data-val="${escapeHtml(val)}" style="padding:4px 12px; font-size:11px; border:1px solid var(--border); border-radius:20px; cursor:pointer; background:${active ? 'var(--bg4)' : 'transparent'}; font-weight:${active ? '700' : '400'};">${escapeHtml(label)}</button>`;
+    };
+    el('sla-severity-filter').innerHTML = chip('__all__', 'ทั้งหมด') + severities.map(s => chip(s, s)).join('');
+    el('sla-severity-filter').querySelectorAll('.sla-severity-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.val;
+        if (val === '__all__') severityFilter.clear();
+        else if (severityFilter.has(val)) severityFilter.delete(val);
+        else severityFilter.add(val);
+        renderSeverityFilter(lastData.severities);
+        reloadTrendAndHeatmap();
+      });
+    });
+  }
+
+  async function reloadTrendAndHeatmap() {
+    const q = severityFilter.size ? `?severity=${[...severityFilter].map(encodeURIComponent).join(',')}` : '';
+    try {
+      const [trendRes, heatmapRes] = await Promise.all([
+        fetch(`/api/sla-improvement/trend${q}`),
+        fetch(`/api/sla-improvement/heatmap${q}`),
+      ]);
+      if (!trendRes.ok || !heatmapRes.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+      const trendData = await trendRes.json();
+      const heatmapData = await heatmapRes.json();
+      lastData.trend = trendData.trend;
+      lastData.improvement_heatmap = heatmapData.improvement_heatmap;
+      renderTrendChart();
+      renderHeatmapTable();
+    } catch (e) {
+      console.error('SLA severity filter reload failed', e);
+    }
+  }
+
   function render(data) {
     lastData = data;
+    severityFilter.clear(); // fresh load/reimport - back to "all SLA types" default
     el('sla-no-data').style.display = 'none';
     el('sla-content').style.display = 'block';
     renderKpiGrid(data.executive_kpi);
     renderWarRoom(data.war_room);
+    renderSeverityFilter(data.severities);
     const provinces = Object.keys(data.trend.daily.by_province).sort((a, b) => PROVINCE_EN(a).localeCompare(PROVINCE_EN(b)));
     el('sla-trend-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
     el('sla-deepdive-province-select').innerHTML = provinces.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(PROVINCE_EN(p))}</option>`).join('');
