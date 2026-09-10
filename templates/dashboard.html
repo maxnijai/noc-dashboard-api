@@ -1324,6 +1324,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </select>
           <select id="cml-filter-severity" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Severity: ทั้งหมด</option></select>
           <select id="cml-filter-month" class="btn-secondary" style="padding:5px 10px; font-size:12px;"><option value="">Month: ทั้งหมด</option></select>
+          <label id="cml-filter-over500" class="btn-secondary" style="padding:5px 10px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:5px;" title="แสดงเฉพาะ Cluster ที่ระยะรวม (Total Dist.) เกิน 500 เมตร">
+            <input id="cml-filter-over500-input" type="checkbox" style="margin:0;"> 🔴 Cluster &gt; 500m
+          </label>
           <span id="cml-clear-filter" style="display:none; font-size:11.5px; color:#1f6feb; cursor:pointer; font-weight:700;" title="ล้าง Filter ทั้งหมด">✕ Clear Filters</span>
         </div>
 
@@ -1353,7 +1356,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
-          <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 Detail Table</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+            <div style="font-size:13px; font-weight:700;">📋 Detail Table</div>
+            <a id="cml-detail-export-btn" href="#" class="btn-secondary" style="font-size:11.5px; padding:4px 12px; font-weight:700; text-decoration:none;">📥 Export ตารางนี้ (xlsx)</a>
+          </div>
           <div id="cml-detail-table" style="overflow-x:auto; max-height:520px; overflow-y:auto;"></div>
         </div>
       </div>
@@ -9187,7 +9193,7 @@ function renderPivot(ft) {
 (function () {
   let hasData = false;
   let lastData = null;
-  let filterState = { region: '', province: '', clusterFilter: '', severity: '', month: '', clusterId: '' };
+  let filterState = { region: '', province: '', clusterFilter: '', severity: '', month: '', clusterId: '', over500: false };
   let map = null;
   let pointLayer = null;
   let lineLayer = null;
@@ -9213,6 +9219,7 @@ function renderPivot(ft) {
     if (filterState.severity && p.severity !== filterState.severity) return false;
     if (filterState.month && p.month !== filterState.month) return false;
     if (filterState.clusterId && p.cluster_id !== filterState.clusterId) return false;
+    if (filterState.over500 && !(p.is_cluster && (clusterTotalsMap.get(p.cluster_id) || 0) > CLUSTER_OVER_500_THRESHOLD_M)) return false;
     return true;
   }
   function getFilteredPoints() { return (lastData && lastData.points ? lastData.points : []).filter(matchesFilter); }
@@ -9231,12 +9238,17 @@ function renderPivot(ft) {
   }
 
   function renderClearFilterChip() {
-    const active = filterState.region || filterState.province || filterState.clusterFilter || filterState.severity || filterState.month || filterState.clusterId;
+    const active = filterState.region || filterState.province || filterState.clusterFilter || filterState.severity || filterState.month || filterState.clusterId || filterState.over500;
     el('cml-clear-filter').style.display = active ? 'inline' : 'none';
   }
   el('cml-clear-filter').addEventListener('click', () => {
-    filterState = { region: '', province: '', clusterFilter: '', severity: '', month: '', clusterId: '' };
+    filterState = { region: '', province: '', clusterFilter: '', severity: '', month: '', clusterId: '', over500: false };
     ['cml-filter-region', 'cml-filter-province', 'cml-filter-cluster', 'cml-filter-severity', 'cml-filter-month'].forEach(id => { el(id).value = ''; });
+    el('cml-filter-over500-input').checked = false;
+    renderAll();
+  });
+  el('cml-filter-over500-input').addEventListener('change', () => {
+    filterState.over500 = el('cml-filter-over500-input').checked;
     renderAll();
   });
   ['cml-filter-region', 'cml-filter-province', 'cml-filter-cluster', 'cml-filter-severity', 'cml-filter-month'].forEach(id => {
@@ -9569,13 +9581,31 @@ function renderPivot(ft) {
     ['cluster_id', 'Cluster ID'], ['source_tt', 'Source TT'], ['inc', 'INC'], ['site_cable', 'Site/Cable'],
     ['ci_name', 'CI Name'], ['severity', 'Severity'], ['fme', 'FME'], ['subject', 'Subject'],
     ['activity_owner_group', 'Activity Owner Group'], ['sub_root_cause', 'Sub Root Cause'], ['type_work', 'Type work'],
-    ['distance_to_previous_m', 'Dist. to Prev (m)'], ['cluster_distance_m', 'Cluster Dist. (m)'], ['month', 'Month'],
+    ['complete_lat_lon_raw', 'Complete Lat Lon'],
+    ['distance_to_previous_m', 'Dist. to Prev (m)'], ['cluster_distance_m', 'Cluster Dist. (m)'],
+    ['cluster_total_m', 'Cluster Total (m)'], ['month', 'Month'],
   ];
+
+  // Cluster's OWN total distance (first point to last point along its
+  // chain - same figure the map label shows), looked up per point from
+  // the FULL unfiltered point list, same as Operation Temp Point
+  // (explicit request: match that tab exactly).
+  let clusterTotalsMap = new Map();
+  function computeClusterTotals() {
+    clusterTotalsMap = new Map();
+    (lastData && lastData.points ? lastData.points : []).forEach(p => {
+      if (!p.is_cluster) return;
+      const cur = clusterTotalsMap.get(p.cluster_id) || 0;
+      if ((p.cluster_distance_m || 0) > cur) clusterTotalsMap.set(p.cluster_id, p.cluster_distance_m);
+    });
+  }
+  const CLUSTER_OVER_500_THRESHOLD_M = 500;
 
   function renderDetailTable() {
     const filtered = getFilteredPoints().slice();
     filtered.sort((a, b) => {
-      const av = a[detailSort.col], bv = b[detailSort.col];
+      const getVal = (p, col) => col === 'cluster_total_m' ? (p.is_cluster ? (clusterTotalsMap.get(p.cluster_id) || 0) : -1) : p[col];
+      const av = getVal(a, detailSort.col), bv = getVal(b, detailSort.col);
       const cmp = typeof av === 'string' ? String(av || '').localeCompare(String(bv || '')) : (av || 0) - (bv || 0);
       return detailSort.dir === 'asc' ? cmp : -cmp;
     });
@@ -9588,6 +9618,12 @@ function renderPivot(ft) {
         if (key === 'cluster_id') {
           const color = p.is_cluster ? CLUSTER_COLOR : INDIVIDUAL_COLOR;
           return `<td onclick="${p.is_cluster ? `window.__cmlShowClusterDetail('${p.cluster_id}')` : ''}" style="padding:5px 8px; font-weight:700; color:${color}; ${p.is_cluster ? 'cursor:pointer;' : ''} white-space:nowrap;">${p.is_cluster ? '🔵' : '🟠'} ${escapeHtml(p.cluster_id)}</td>`;
+        }
+        if (key === 'cluster_total_m') {
+          if (!p.is_cluster) return `<td style="padding:5px 8px; text-align:center; color:var(--text3);">–</td>`;
+          const total = clusterTotalsMap.get(p.cluster_id) || 0;
+          const over = total > CLUSTER_OVER_500_THRESHOLD_M;
+          return `<td style="padding:5px 8px; text-align:center; font-weight:${over ? '800' : '400'}; color:${over ? '#E24B4A' : 'var(--text)'};">${over ? '🔴 ' : ''}${fmtNum(total)}</td>`;
         }
         if (key === 'distance_to_previous_m' || key === 'cluster_distance_m') return `<td style="padding:5px 8px; text-align:center;">${fmtNum(p[key])}</td>`;
         return `<td style="padding:5px 8px; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(p[key])}">${escapeHtml(p[key])}</td>`;
@@ -9612,11 +9648,21 @@ function renderPivot(ft) {
   function updateExportUrl() {
     const params = new URLSearchParams();
     params.set('sub_root_cause', currentCauseQuery());
+    if (filterState.clusterFilter) params.set('cluster', filterState.clusterFilter);
+    if (filterState.region) params.set('region', filterState.region);
+    if (filterState.province) params.set('province', filterState.province);
+    if (filterState.severity) params.set('severity', filterState.severity);
+    if (filterState.month) params.set('month', filterState.month);
+    if (filterState.clusterId) params.set('cluster_id', filterState.clusterId);
+    if (filterState.over500) params.set('over500', '1');
     params.set('format', 'xlsx');
-    el('cml-export-btn').href = '/api/cm-summary-log/export?' + params.toString();
+    const url = '/api/cm-summary-log/export?' + params.toString();
+    el('cml-export-btn').href = url;
+    el('cml-detail-export-btn').href = url;
   }
 
   function renderAll() {
+    computeClusterTotals();
     renderClearFilterChip();
     renderSummaryGrid();
     renderMap();
