@@ -7278,13 +7278,13 @@ function renderPivot(ft) {
         </tr>`).join('');
       const detailTable = `
         <div style="overflow-x:auto; margin:4px 8px 8px 22px; border:1px solid var(--border); border-radius:6px;">
-          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:420px;">
+          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:380px;">
             <thead><tr style="background:var(--bg3);">
-              <th style="padding:4px 8px; text-align:left;">Ticket</th>
-              <th style="padding:4px 8px;">SLA_Hrs</th>
-              <th style="padding:4px 8px;">Category</th>
-              <th style="padding:4px 8px; text-align:left;">Created</th>
-              <th style="padding:4px 8px; text-align:left;">Closed</th>
+              <th style="padding:4px 8px; text-align:left; white-space:nowrap;">Ticket</th>
+              <th style="padding:4px 8px; white-space:nowrap;">SLA_Hrs</th>
+              <th style="padding:4px 8px; white-space:nowrap;">Category</th>
+              <th style="padding:4px 8px; text-align:left; white-space:nowrap;">Created</th>
+              <th style="padding:4px 8px; text-align:left; white-space:nowrap;">Closed</th>
             </tr></thead>
             <tbody>${detailRows}</tbody>
           </table>
@@ -7292,19 +7292,29 @@ function renderPivot(ft) {
       return `
         <tbody>
           <tr onclick="const d=document.getElementById('${rowId}'); const open=d.style.display!=='none'; d.style.display=open?'none':'table-row-group'; this.querySelector('.ci-toggle-icon').textContent=open?'▸':'▾';" style="border-top:1px solid var(--border); cursor:pointer;" title="คลิกเพื่อดู CREATIONDATE / CLOSEDTIME / SLA_Hrs ของแต่ละ Ticket">
-            <td style="padding:4px 8px; font-weight:600;"><span class="ci-toggle-icon" style="display:inline-block; width:12px; color:var(--text3);">▸</span>${escapeHtml(r.label)}</td>
+            <td style="padding:4px 8px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span class="ci-toggle-icon" style="display:inline-block; width:12px; color:var(--text3);">▸</span>${escapeHtml(r.label)}</td>
             <td style="padding:4px 8px; text-align:center; color:#E24B4A; font-weight:700;">${r.over}</td>
             <td style="padding:4px 8px; text-align:center;">${fmtPct(r.pct_over)}</td>
-            <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${ticketChips}</td>
+            <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ticketChips}</td>
           </tr>
         </tbody>
         <tbody id="${rowId}" style="display:none;">
           <tr><td colspan="4" style="padding:0;">${detailTable}</td></tr>
         </tbody>`;
     }).join('');
-    return `<div style="flex:1; min-width:280px;">
+    // table-layout:fixed (critical fix) - without it, the browser's table
+    // auto-layout algorithm sizes THIS table's columns based on the
+    // WIDEST content in ANY row, including the wide nested detail table
+    // inside the colspan="4" expand row - which was silently stretching
+    // this whole card past its flex share and overlapping the "Top
+    // District" card next to it the moment any row was expanded. Fixed
+    // layout locks column widths independent of that nested content;
+    // the inner detailTable's own overflow-x:auto div still scrolls
+    // internally if it doesn't fit.
+    return `<div style="flex:1; min-width:280px; max-width:100%;">
       <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🔴 Top CI <span style="font-weight:400; color:var(--text3);">(คลิกแถวเพื่อดู Created/Closed/SLA/Category)</span></div>
-      <table style="border-collapse:collapse; font-size:11px; width:100%; border:1px solid var(--border);">
+      <table style="border-collapse:collapse; font-size:11px; width:100%; table-layout:fixed; border:1px solid var(--border);">
+        <colgroup><col style="width:34%;"><col style="width:16%;"><col style="width:16%;"><col style="width:34%;"></colgroup>
         <thead><tr style="background:var(--bg3);"><th style="padding:4px 8px; text-align:left;">CI_Name</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th><th style="padding:4px 8px; text-align:left;">Ticket</th></tr></thead>
         ${body}
       </table>
@@ -7600,19 +7610,28 @@ function renderPivot(ft) {
       return cell ? cell.count : 0;
     }
 
-    function provinceRowHtml(prov) {
+    function provinceRowHtml(prov, idx) {
+      const rowId = `bd-detail-${dataKey}-${idx}`;
       const cells = dd.days.map((d, di) => (d.values.length ? d.values : ['-']).map((v, vi) => {
         if (v === '-') return `<td style="padding:5px 6px; text-align:center; color:var(--text3); ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''}">–</td>`;
         const count = getCount(d, prov, v);
         const heat = heatmapCellColor(count || null, maxCount);
         const clickable = count > 0;
-        const onclick = clickable ? ` onclick="window.__breakdownOpenCell('${jsAttr(dataKey)}',${di},'${jsAttr(prov)}','${jsAttr(v)}')"` : '';
+        const onclick = clickable ? ` onclick="window.__breakdownToggleCell('${jsAttr(dataKey)}','${rowId}',${di},'${jsAttr(prov)}','${jsAttr(v)}')"` : '';
         return `<td${onclick} title="${escapeHtml(d.date)} · ${escapeHtml(prov)} · ${escapeHtml(opts.formatHeader(v))}: ${count} Ticket${clickable ? ' — คลิกเพื่อดูรายละเอียด' : ''}" style="padding:5px 6px; text-align:center; font-size:11px; font-weight:700; ${vi === 0 ? 'border-left:2px solid var(--border2);' : ''} ${heat.bg ? `background:${heat.bg};` : ''} color:${heat.color}; ${clickable ? 'cursor:pointer;' : ''}">${count || '–'}</td>`;
       }).join('')).join('');
-      return `<tr style="border-top:1px solid var(--border);">
-        <td style="padding:5px 10px 5px 20px; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
-        ${cells}
-      </tr>`;
+      // Same inline-expand pattern as the Heatmap Drilldown's Top CI table
+      // (explicit request: match that UX instead of a separate modal) -
+      // own <tbody> pair per province so the detail row can toggle
+      // independently without disturbing sibling rows.
+      return `
+        <tbody>
+          <tr style="border-top:1px solid var(--border);">
+            <td style="padding:5px 10px 5px 20px; white-space:nowrap;">${escapeHtml(PROVINCE_EN(prov))}</td>
+            ${cells}
+          </tr>
+        </tbody>
+        <tbody id="${rowId}" style="display:none;"></tbody>`;
     }
 
     function summaryRowHtml(label, provList) {
@@ -7635,12 +7654,13 @@ function renderPivot(ft) {
     const regions = [...new Set([...regionOrder, ...Object.keys(byRegion)])].filter(reg => byRegion[reg]);
 
     let body = '';
+    let provIdx = 0;
     regions.forEach(reg => {
-      body += `<tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${totalCols + 1}" style="padding:5px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr>`;
-      byRegion[reg].forEach(p => { body += provinceRowHtml(p); });
-      body += summaryRowHtml(`${reg} รวม`, byRegion[reg]);
+      body += `<tbody><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3));"><td colspan="${totalCols + 1}" style="padding:5px 10px; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em;">${escapeHtml(reg)}</td></tr></tbody>`;
+      byRegion[reg].forEach(p => { body += provinceRowHtml(p, `${reg}-${provIdx++}`); });
+      body += `<tbody>${summaryRowHtml(`${reg} รวม`, byRegion[reg])}</tbody>`;
     });
-    body += summaryRowHtml('รวมทั้งหมด', dd.provinces);
+    body += `<tbody>${summaryRowHtml('รวมทั้งหมด', dd.provinces)}</tbody>`;
 
     el(tableElId).innerHTML = `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
@@ -7653,7 +7673,7 @@ function renderPivot(ft) {
             ${subHeadRow}
           </tr>
         </thead>
-        <tbody>${body}</tbody>
+        ${body}
       </table>`;
   }
 
@@ -7671,7 +7691,14 @@ function renderPivot(ft) {
     });
   }
 
-  window.__breakdownOpenCell = function (dataKey, dayIndex, province, value) {
+  window.__breakdownToggleCell = function (dataKey, rowId, dayIndex, province, value) {
+    const tbody = document.getElementById(rowId);
+    const newKey = `${dayIndex}|${province}|${value}`;
+    if (tbody.style.display !== 'none' && tbody.dataset.cellKey === newKey) {
+      tbody.style.display = 'none';
+      tbody.dataset.cellKey = '';
+      return;
+    }
     const dd = lastData[dataKey];
     const day = dd.days[dayIndex];
     const cell = day && day.cells[province] && day.cells[province][value];
@@ -7679,27 +7706,37 @@ function renderPivot(ft) {
     const isHrs = dataKey === 'sla_hrs_breakdown';
     const label = isHrs ? `${value}H` : value;
     const icon = isHrs ? '⏱️' : '🗂️';
-    el('sla-hrs-cell-modal-title').textContent = `${icon} ${day.date} · ${PROVINCE_EN(province)} · ${label} (${tickets.length} Ticket)`;
+    const totalCols = dd.days.reduce((s, d) => s + (d.values.length || 1), 0) + 1;
+    // Same column layout (Ticket / SLA_Hrs / Category / Created / Closed)
+    // as the Heatmap Drilldown's Top CI ticket list - kept consistent
+    // everywhere a ticket list is shown, per explicit request.
     const rows = tickets.map(t => `
       <tr style="border-top:1px solid var(--border);">
-        <td style="padding:5px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
-        <td style="padding:5px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
-        <td style="padding:5px 8px; text-align:center; font-size:11px;">${escapeHtml(t.CATEGORIES) || '-'}</td>
-        <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CREATIONDATE) || '-'}</td>
-        <td style="padding:5px 8px; font-size:11px; color:var(--text2);">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
+        <td style="padding:4px 8px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:4px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+        <td style="padding:4px 8px; text-align:center; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.CATEGORIES) || '-'}</td>
+        <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${escapeHtml(t.CREATIONDATE) || '-'}</td>
+        <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
       </tr>`).join('');
-    el('sla-hrs-cell-modal-body').innerHTML = `
-      <table style="border-collapse:collapse; font-size:12px; width:100%;">
-        <thead><tr style="background:var(--bg3);">
-          <th style="padding:6px 8px; text-align:left;">Ticket</th>
-          <th style="padding:6px 8px;">SLA_Hrs</th>
-          <th style="padding:6px 8px;">Category</th>
-          <th style="padding:6px 8px; text-align:left;">Created</th>
-          <th style="padding:6px 8px; text-align:left;">Closed</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-    document.getElementById('sla-hrs-cell-modal').style.display = 'block';
+    tbody.innerHTML = `
+      <tr><td colspan="${totalCols}" style="padding:0;">
+        <div style="overflow-x:auto; margin:4px 8px 8px 20px; border:1px solid var(--border); border-radius:6px;">
+          <div style="padding:5px 8px; font-size:11px; font-weight:700; color:var(--text2); background:var(--bg3); border-bottom:1px solid var(--border); white-space:nowrap;">${icon} ${escapeHtml(day.date)} · ${escapeHtml(PROVINCE_EN(province))} · ${escapeHtml(label)} (${tickets.length} Ticket)</div>
+          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:380px; table-layout:fixed;">
+            <colgroup><col style="width:22%;"><col style="width:14%;"><col style="width:20%;"><col style="width:22%;"><col style="width:22%;"></colgroup>
+            <thead><tr style="background:var(--bg1);">
+              <th style="padding:4px 8px; text-align:left;">Ticket</th>
+              <th style="padding:4px 8px;">SLA_Hrs</th>
+              <th style="padding:4px 8px;">Category</th>
+              <th style="padding:4px 8px; text-align:left;">Created</th>
+              <th style="padding:4px 8px; text-align:left;">Closed</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </td></tr>`;
+    tbody.dataset.cellKey = newKey;
+    tbody.style.display = 'table-row-group';
   };
 
   let rankingWindow = 'all';
