@@ -7707,12 +7707,14 @@ function renderPivot(ft) {
     const label = isHrs ? `${value}H` : value;
     const icon = isHrs ? '⏱️' : '🗂️';
     const totalCols = dd.days.reduce((s, d) => s + (d.values.length || 1), 0) + 1;
-    // Same column layout (Ticket / SLA_Hrs / Category / Created / Closed)
-    // as the Heatmap Drilldown's Top CI ticket list - kept consistent
-    // everywhere a ticket list is shown, per explicit request.
+    // Same column layout (Ticket / CI_Name / SLA_Hrs / Category / Created
+    // / Closed) as the Heatmap Drilldown's Top CI ticket list, plus
+    // CI_Name (explicit request) - kept consistent everywhere a ticket
+    // list is shown.
     const rows = tickets.map(t => `
       <tr style="border-top:1px solid var(--border);">
         <td style="padding:4px 8px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.TICKETID)}</td>
+        <td style="padding:4px 8px; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(t.CI_Name)}">${escapeHtml(t.CI_Name) || '-'}</td>
         <td style="padding:4px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
         <td style="padding:4px 8px; text-align:center; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(t.CATEGORIES) || '-'}</td>
         <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${escapeHtml(t.CREATIONDATE) || '-'}</td>
@@ -7722,10 +7724,11 @@ function renderPivot(ft) {
       <tr><td colspan="${totalCols}" style="padding:0;">
         <div style="overflow-x:auto; margin:4px 8px 8px 20px; border:1px solid var(--border); border-radius:6px;">
           <div style="padding:5px 8px; font-size:11px; font-weight:700; color:var(--text2); background:var(--bg3); border-bottom:1px solid var(--border); white-space:nowrap;">${icon} ${escapeHtml(day.date)} · ${escapeHtml(PROVINCE_EN(province))} · ${escapeHtml(label)} (${tickets.length} Ticket)</div>
-          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:380px; table-layout:fixed;">
-            <colgroup><col style="width:22%;"><col style="width:14%;"><col style="width:20%;"><col style="width:22%;"><col style="width:22%;"></colgroup>
+          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:460px; table-layout:fixed;">
+            <colgroup><col style="width:16%;"><col style="width:20%;"><col style="width:12%;"><col style="width:16%;"><col style="width:18%;"><col style="width:18%;"></colgroup>
             <thead><tr style="background:var(--bg1);">
               <th style="padding:4px 8px; text-align:left;">Ticket</th>
+              <th style="padding:4px 8px; text-align:left;">CI_Name</th>
               <th style="padding:4px 8px;">SLA_Hrs</th>
               <th style="padding:4px 8px;">Category</th>
               <th style="padding:4px 8px; text-align:left;">Created</th>
