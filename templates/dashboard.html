@@ -7262,14 +7262,33 @@ function renderPivot(ft) {
     const body = rows.map((r, i) => {
       const rowId = `ci-drill-detail-${i}`;
       const ticketChips = (r.tickets || []).map(t => escapeHtml(t.TICKETID)).join(', ');
+      // Same column layout as the SLA_Hrs/Category breakdown ticket-list
+      // modal (Ticket / SLA_Hrs / Category / Created / Closed) - kept
+      // consistent everywhere a ticket list is shown, per explicit
+      // request. This is a SEPARATE nested table (own <thead>), not
+      // <td>s appended to the outer 4-column CI table - mixing row
+      // shapes inside one table is what caused the overlap/misalignment.
       const detailRows = (r.tickets || []).map(t => `
-        <tr style="border-top:1px dashed var(--border);">
-          <td style="padding:3px 8px 3px 22px; font-size:10.5px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
-          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Created:</b> ${escapeHtml(t.CREATIONDATE) || '-'}</td>
-          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Closed:</b> ${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
-          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>SLA:</b> ${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
-          <td style="padding:3px 8px; font-size:10.5px; color:var(--text2);"><b>Category:</b> ${escapeHtml(t.CATEGORIES) || '-'}</td>
+        <tr style="border-top:1px solid var(--border);">
+          <td style="padding:4px 8px; font-weight:600;">${escapeHtml(t.TICKETID)}</td>
+          <td style="padding:4px 8px; text-align:center;">${t.SLA_HRS != null ? t.SLA_HRS + ' ชม.' : '-'}</td>
+          <td style="padding:4px 8px; text-align:center; font-size:10.5px;">${escapeHtml(t.CATEGORIES) || '-'}</td>
+          <td style="padding:4px 8px; font-size:10.5px; color:var(--text2);">${escapeHtml(t.CREATIONDATE) || '-'}</td>
+          <td style="padding:4px 8px; font-size:10.5px; color:var(--text2);">${escapeHtml(t.CLOSEDTIME) || 'ยังไม่ปิด'}</td>
         </tr>`).join('');
+      const detailTable = `
+        <div style="overflow-x:auto; margin:4px 8px 8px 22px; border:1px solid var(--border); border-radius:6px;">
+          <table style="border-collapse:collapse; font-size:11px; width:100%; min-width:420px;">
+            <thead><tr style="background:var(--bg3);">
+              <th style="padding:4px 8px; text-align:left;">Ticket</th>
+              <th style="padding:4px 8px;">SLA_Hrs</th>
+              <th style="padding:4px 8px;">Category</th>
+              <th style="padding:4px 8px; text-align:left;">Created</th>
+              <th style="padding:4px 8px; text-align:left;">Closed</th>
+            </tr></thead>
+            <tbody>${detailRows}</tbody>
+          </table>
+        </div>`;
       return `
         <tbody>
           <tr onclick="const d=document.getElementById('${rowId}'); const open=d.style.display!=='none'; d.style.display=open?'none':'table-row-group'; this.querySelector('.ci-toggle-icon').textContent=open?'▸':'▾';" style="border-top:1px solid var(--border); cursor:pointer;" title="คลิกเพื่อดู CREATIONDATE / CLOSEDTIME / SLA_Hrs ของแต่ละ Ticket">
@@ -7279,10 +7298,12 @@ function renderPivot(ft) {
             <td style="padding:4px 8px; font-size:10.5px; color:var(--text2); white-space:nowrap;">${ticketChips}</td>
           </tr>
         </tbody>
-        <tbody id="${rowId}" style="display:none;">${detailRows}</tbody>`;
+        <tbody id="${rowId}" style="display:none;">
+          <tr><td colspan="4" style="padding:0;">${detailTable}</td></tr>
+        </tbody>`;
     }).join('');
     return `<div style="flex:1; min-width:280px;">
-      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🔴 Top CI <span style="font-weight:400; color:var(--text3);">(คลิกแถวเพื่อดู Created/Closed/SLA)</span></div>
+      <div style="font-size:11px; font-weight:700; margin-bottom:5px; color:var(--text2);">🔴 Top CI <span style="font-weight:400; color:var(--text3);">(คลิกแถวเพื่อดู Created/Closed/SLA/Category)</span></div>
       <table style="border-collapse:collapse; font-size:11px; width:100%; border:1px solid var(--border);">
         <thead><tr style="background:var(--bg3);"><th style="padding:4px 8px; text-align:left;">CI_Name</th><th style="padding:4px 8px;">Over</th><th style="padding:4px 8px;">%</th><th style="padding:4px 8px; text-align:left;">Ticket</th></tr></thead>
         ${body}
