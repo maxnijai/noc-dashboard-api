@@ -936,6 +936,7 @@ def _build_over_breakdown(rows, lookback_days, get_column_value):
             slot["count"] += 1
             slot["tickets"].append({
                 "TICKETID": r["TICKETID"],
+                "CI_Name": r["CI_Name"],
                 "CREATIONDATE": r["CREATIONDATE"].strftime("%Y-%m-%d %H:%M:%S") if r["CREATIONDATE"] else None,
                 "CLOSEDTIME": r["CLOSEDTIME"].strftime("%Y-%m-%d %H:%M:%S") if r.get("CLOSEDTIME") else None,
                 "SLA_HRS": r.get("SLA_HRS"),
