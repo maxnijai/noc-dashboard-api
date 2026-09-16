@@ -1539,13 +1539,27 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .sa2-field .sa2-dt-row { display: flex; gap: 6px; }
   .sa2-field .sa2-dt-row input { flex: 1; }
   .sa2-now-btn { border: 1px solid var(--border2); background: var(--bg4); border-radius: 6px; padding: 0 10px; font-size: 11px; cursor: pointer; white-space: nowrap; }
-  .sa2-dt-thai { flex-wrap: wrap; align-items: center; }
-  .sa2-dt-thai select { padding: 6px 4px; font-size: 12px; }
-  .sa2-dt-thai .sa2-dt-day { flex: 0 0 52px; }
-  .sa2-dt-thai .sa2-dt-month { flex: 0 0 66px; }
-  .sa2-dt-thai .sa2-dt-year { flex: 0 0 70px; }
-  .sa2-dt-thai .sa2-dt-hour, .sa2-dt-thai .sa2-dt-minute { flex: 0 0 52px; }
-  .sa2-dt-thai .sa2-dt-colon { font-weight: 700; color: var(--text2); }
+  .sa2-dt-display { cursor: pointer; background: var(--bg); }
+  .sa2-dt-display::placeholder { color: var(--text3); }
+
+  .sa2-cal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,14,20,.55); z-index: 1100; align-items: center; justify-content: center; padding: 16px; }
+  .sa2-cal-overlay.sa2-open { display: flex; }
+  .sa2-cal-popup { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 300px; padding: 14px; }
+  .sa2-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-weight: 700; font-size: 13.5px; }
+  .sa2-cal-nav { border: 1px solid var(--border); background: var(--bg3); border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 15px; color: var(--text); }
+  .sa2-cal-nav:hover { background: var(--bg4); }
+  .sa2-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 10.5px; color: var(--text3); margin-bottom: 4px; }
+  .sa2-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 10px; }
+  .sa2-cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 12.5px; cursor: pointer; border: 1px solid transparent; color: var(--text); }
+  .sa2-cal-day:hover { background: var(--bg4); }
+  .sa2-cal-day.sa2-cal-empty { cursor: default; }
+  .sa2-cal-day.sa2-cal-empty:hover { background: transparent; }
+  .sa2-cal-day.sa2-cal-today { border-color: var(--blue); font-weight: 700; }
+  .sa2-cal-day.sa2-cal-selected { background: var(--blue); color: #fff; font-weight: 700; }
+  .sa2-cal-time-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 12px; }
+  .sa2-cal-time-row input[type="time"] { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; }
+  .sa2-cal-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .sa2-cal-actions .sa2-btn { padding: 6px 12px; font-size: 12px; }
   .sa2-modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--bg3); position: sticky; bottom: 0; }
   .sa2-hint { font-size: 10.5px; color: var(--text3); }
 
@@ -1618,26 +1632,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
       <div class="sa2-field sa2-full">
         <label>Ticket Create Date/Time</label>
-        <div class="sa2-dt-row sa2-dt-thai">
-          <select class="sa2-dt-day" data-field="sa2-f_createDt"></select>
-          <select class="sa2-dt-month" data-field="sa2-f_createDt"></select>
-          <select class="sa2-dt-year" data-field="sa2-f_createDt"></select>
-          <select class="sa2-dt-hour" data-field="sa2-f_createDt"></select>
-          <span class="sa2-dt-colon">:</span>
-          <select class="sa2-dt-minute" data-field="sa2-f_createDt"></select>
+        <div class="sa2-dt-row">
+          <input type="text" class="sa2-dt-display" id="sa2-f_createDt_display" data-field="sa2-f_createDt" readonly placeholder="แตะเพื่อเลือกวันที่และเวลา">
           <input type="hidden" id="sa2-f_createDt">
           <button type="button" class="sa2-now-btn" data-now="sa2-f_createDt">ตอนนี้</button>
         </div>
       </div>
       <div class="sa2-field sa2-full">
         <label>INOC Date/Time Open Ticket</label>
-        <div class="sa2-dt-row sa2-dt-thai">
-          <select class="sa2-dt-day" data-field="sa2-f_inocOpenDt"></select>
-          <select class="sa2-dt-month" data-field="sa2-f_inocOpenDt"></select>
-          <select class="sa2-dt-year" data-field="sa2-f_inocOpenDt"></select>
-          <select class="sa2-dt-hour" data-field="sa2-f_inocOpenDt"></select>
-          <span class="sa2-dt-colon">:</span>
-          <select class="sa2-dt-minute" data-field="sa2-f_inocOpenDt"></select>
+        <div class="sa2-dt-row">
+          <input type="text" class="sa2-dt-display" id="sa2-f_inocOpenDt_display" data-field="sa2-f_inocOpenDt" readonly placeholder="แตะเพื่อเลือกวันที่และเวลา">
           <input type="hidden" id="sa2-f_inocOpenDt">
           <button type="button" class="sa2-now-btn" data-now="sa2-f_inocOpenDt">ตอนนี้</button>
         </div>
@@ -1667,13 +1671,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
       <div class="sa2-field sa2-full">
         <label>เวลา Sup/Nop รับทราบ</label>
-        <div class="sa2-dt-row sa2-dt-thai">
-          <select class="sa2-dt-day" data-field="sa2-f_supAckDt"></select>
-          <select class="sa2-dt-month" data-field="sa2-f_supAckDt"></select>
-          <select class="sa2-dt-year" data-field="sa2-f_supAckDt"></select>
-          <select class="sa2-dt-hour" data-field="sa2-f_supAckDt"></select>
-          <span class="sa2-dt-colon">:</span>
-          <select class="sa2-dt-minute" data-field="sa2-f_supAckDt"></select>
+        <div class="sa2-dt-row">
+          <input type="text" class="sa2-dt-display" id="sa2-f_supAckDt_display" data-field="sa2-f_supAckDt" readonly placeholder="แตะเพื่อเลือกวันที่และเวลา">
           <input type="hidden" id="sa2-f_supAckDt">
           <button type="button" class="sa2-now-btn" data-now="sa2-f_supAckDt">ตอนนี้</button>
         </div>
@@ -1705,6 +1704,30 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="sa2-modal-foot">
       <button class="sa2-btn" id="sa2-cancelAddBtn">ยกเลิก</button>
       <button class="sa2-btn sa2-btn-primary" id="sa2-saveAddBtn">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calendar popup (shared by all 3 date/time fields) -->
+<div class="sa2-cal-overlay" id="sa2-cal-overlay">
+  <div class="sa2-cal-popup">
+    <div class="sa2-cal-head">
+      <button type="button" class="sa2-cal-nav" data-dir="-1">‹</button>
+      <span id="sa2-cal-title"></span>
+      <button type="button" class="sa2-cal-nav" data-dir="1">›</button>
+    </div>
+    <div class="sa2-cal-weekdays">
+      <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
+    </div>
+    <div class="sa2-cal-grid" id="sa2-cal-grid"></div>
+    <div class="sa2-cal-time-row">
+      <label for="sa2-cal-time">เวลา</label>
+      <input type="time" id="sa2-cal-time">
+    </div>
+    <div class="sa2-cal-actions">
+      <button type="button" class="sa2-btn" id="sa2-cal-now-btn">ตอนนี้</button>
+      <button type="button" class="sa2-btn" id="sa2-cal-cancel-btn">ยกเลิก</button>
+      <button type="button" class="sa2-btn sa2-btn-primary" id="sa2-cal-ok-btn">ตกลง</button>
     </div>
   </div>
 </div>
@@ -10591,7 +10614,13 @@ async function loadData() {
       siteName: r.site_name, status: r.status,
     }));
     OPTIONS = data.options || OPTIONS;
-    populateDropdowns();
+    // Only repopulate the dropdowns if the Add modal is closed - this
+    // runs on every periodic background refresh (setInterval below) too,
+    // and rewriting a <select>'s options while the person has one
+    // selected mid-form silently resets it back to the default option.
+    // That was the bug: values weren't actually changing on their own,
+    // the whole dropdown was being rebuilt out from under them.
+    if (!document.getElementById('sa2-modalOverlay').classList.contains('sa2-open')) populateDropdowns();
     renderAll();
   } catch (e) {
     console.error('SA2 Risk load failed', e);
@@ -10633,93 +10662,116 @@ async function deleteRow(id) {
   }
 }
 
-// ── Thai (Buddhist Era) date/time picker (explicit request) - drives a
-// hidden input holding the same Gregorian "YYYY-MM-DDTHH:MM" string the
-// backend and the rest of this module already expect, so nothing else
-// needs to change: only how the person PICKS the value differs. ──────
+// ── Thai (Buddhist Era) calendar popup (explicit request: "easier to
+// pick date and time") - one shared popup for all 3 date/time fields,
+// drives a hidden input holding the same Gregorian "YYYY-MM-DDTHH:MM"
+// string the backend and the rest of this module already expect, so
+// nothing else needs to change: only how the person PICKS the value
+// differs. Displays a readonly text field showing the Thai-formatted
+// result (e.g. "16 ก.ย. 2569 14:30"). ──────────────────────────────────
 const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const BE_OFFSET = 543;
+let calTargetField = null; // which hidden field the popup is currently editing
+let calViewYear = null, calViewMonth = null; // Gregorian, the month currently shown in the grid
+let calSelectedDate = null; // {y,m,d} Gregorian, or null if nothing picked yet
 
 function daysInMonth(gregorianYear, month1to12) {
   return new Date(gregorianYear, month1to12, 0).getDate();
 }
 
-function initThaiDatePickers() {
-  const nowBEYear = new Date().getFullYear() + BE_OFFSET;
-  document.querySelectorAll('.sa2-dt-thai').forEach(row => {
-    const fieldId = row.querySelector('[data-field]').dataset.field;
-    const daySel = row.querySelector('.sa2-dt-day');
-    const monthSel = row.querySelector('.sa2-dt-month');
-    const yearSel = row.querySelector('.sa2-dt-year');
-    const hourSel = row.querySelector('.sa2-dt-hour');
-    const minSel = row.querySelector('.sa2-dt-minute');
+function fmtThaiDisplay(isoStr) {
+  if (!isoStr) return '';
+  const [datePart, timePart] = isoStr.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  return `${d} ${THAI_MONTHS[m - 1]} ${y + BE_OFFSET} ${timePart} น.`;
+}
 
-    monthSel.innerHTML = '<option value="">เดือน</option>' + THAI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
-    yearSel.innerHTML = '<option value="">ปี พ.ศ.</option>' + [nowBEYear - 1, nowBEYear, nowBEYear + 1].map(y => `<option value="${y}">${y}</option>`).join('');
-    hourSel.innerHTML = '<option value="">ชม.</option>' + Array.from({ length: 24 }, (_, h) => `<option value="${h}">${String(h).padStart(2, '0')}</option>`).join('');
-    minSel.innerHTML = '<option value="">นาที</option>' + Array.from({ length: 60 }, (_, m) => `<option value="${m}">${String(m).padStart(2, '0')}</option>`).join('');
-    refreshThaiDayOptions(row);
-
-    [daySel, monthSel, yearSel, hourSel, minSel].forEach(sel => {
-      sel.addEventListener('change', () => {
-        if (sel === monthSel || sel === yearSel) refreshThaiDayOptions(row);
-        updateHiddenFromThaiPicker(row, fieldId);
-      });
+function renderCalGrid() {
+  document.getElementById('sa2-cal-title').textContent = `${THAI_MONTHS[calViewMonth - 1]} ${calViewYear + BE_OFFSET}`;
+  const grid = document.getElementById('sa2-cal-grid');
+  const firstWeekday = new Date(calViewYear, calViewMonth - 1, 1).getDay(); // 0=Sun
+  const total = daysInMonth(calViewYear, calViewMonth);
+  const today = new Date();
+  let html = '';
+  for (let i = 0; i < firstWeekday; i++) html += `<div class="sa2-cal-day sa2-cal-empty"></div>`;
+  for (let d = 1; d <= total; d++) {
+    const isToday = today.getFullYear() === calViewYear && today.getMonth() + 1 === calViewMonth && today.getDate() === d;
+    const isSelected = calSelectedDate && calSelectedDate.y === calViewYear && calSelectedDate.m === calViewMonth && calSelectedDate.d === d;
+    const cls = ['sa2-cal-day', isToday ? 'sa2-cal-today' : '', isSelected ? 'sa2-cal-selected' : ''].filter(Boolean).join(' ');
+    html += `<div class="${cls}" data-day="${d}">${d}</div>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.sa2-cal-day:not(.sa2-cal-empty)').forEach(cell => {
+    cell.addEventListener('click', () => {
+      calSelectedDate = { y: calViewYear, m: calViewMonth, d: Number(cell.dataset.day) };
+      renderCalGrid();
     });
   });
 }
 
-function refreshThaiDayOptions(row) {
-  const daySel = row.querySelector('.sa2-dt-day');
-  const monthSel = row.querySelector('.sa2-dt-month');
-  const yearSel = row.querySelector('.sa2-dt-year');
-  const prevDay = daySel.value;
-  const gregorianYear = yearSel.value ? Number(yearSel.value) - BE_OFFSET : new Date().getFullYear();
-  const month = monthSel.value ? Number(monthSel.value) : 1;
-  const maxDay = daysInMonth(gregorianYear, month);
-  daySel.innerHTML = '<option value="">วัน</option>' + Array.from({ length: maxDay }, (_, i) => i + 1).map(d => `<option value="${d}">${d}</option>`).join('');
-  if (prevDay && Number(prevDay) <= maxDay) daySel.value = prevDay;
+function openCalendar(fieldId) {
+  calTargetField = fieldId;
+  const existing = document.getElementById(fieldId).value;
+  const now = new Date();
+  if (existing) {
+    const [datePart, timePart] = existing.split('T');
+    const [y, m, d] = datePart.split('-').map(Number);
+    calViewYear = y; calViewMonth = m;
+    calSelectedDate = { y, m, d };
+    document.getElementById('sa2-cal-time').value = timePart;
+  } else {
+    calViewYear = now.getFullYear(); calViewMonth = now.getMonth() + 1;
+    calSelectedDate = null;
+    document.getElementById('sa2-cal-time').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+  renderCalGrid();
+  document.getElementById('sa2-cal-overlay').classList.add('sa2-open');
 }
+function closeCalendar() { document.getElementById('sa2-cal-overlay').classList.remove('sa2-open'); calTargetField = null; }
 
-function updateHiddenFromThaiPicker(row, fieldId) {
-  const day = row.querySelector('.sa2-dt-day').value;
-  const month = row.querySelector('.sa2-dt-month').value;
-  const beYear = row.querySelector('.sa2-dt-year').value;
-  const hour = row.querySelector('.sa2-dt-hour').value;
-  const minute = row.querySelector('.sa2-dt-minute').value;
-  const hidden = document.getElementById(fieldId);
-  if (!day || !month || !beYear || hour === '' || minute === '') { hidden.value = ''; return; }
-  const gregorianYear = Number(beYear) - BE_OFFSET;
-  hidden.value = `${gregorianYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+document.querySelectorAll('.sa2-dt-display').forEach(inp => {
+  inp.addEventListener('click', () => openCalendar(inp.dataset.field));
+});
+document.getElementById('sa2-cal-overlay').addEventListener('click', (e) => { if (e.target.id === 'sa2-cal-overlay') closeCalendar(); });
+document.getElementById('sa2-cal-cancel-btn').addEventListener('click', closeCalendar);
+document.querySelectorAll('.sa2-cal-nav').forEach(btn => {
+  btn.addEventListener('click', () => {
+    calViewMonth += Number(btn.dataset.dir);
+    if (calViewMonth > 12) { calViewMonth = 1; calViewYear++; }
+    if (calViewMonth < 1) { calViewMonth = 12; calViewYear--; }
+    renderCalGrid();
+  });
+});
+document.getElementById('sa2-cal-now-btn').addEventListener('click', () => {
+  const now = new Date();
+  calViewYear = now.getFullYear(); calViewMonth = now.getMonth() + 1;
+  calSelectedDate = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  document.getElementById('sa2-cal-time').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  renderCalGrid();
+});
+document.getElementById('sa2-cal-ok-btn').addEventListener('click', () => {
+  if (!calSelectedDate) { alert('กรุณาเลือกวันที่ก่อนครับ'); return; }
+  const time = document.getElementById('sa2-cal-time').value || '00:00';
+  const iso = `${calSelectedDate.y}-${String(calSelectedDate.m).padStart(2, '0')}-${String(calSelectedDate.d).padStart(2, '0')}T${time}`;
+  document.getElementById(calTargetField).value = iso;
+  document.getElementById(calTargetField + '_display').value = fmtThaiDisplay(iso);
+  closeCalendar();
+});
+
+function setDateTimeField(fieldId, isoStr) {
+  document.getElementById(fieldId).value = isoStr;
+  document.getElementById(fieldId + '_display').value = fmtThaiDisplay(isoStr);
 }
-
-function setThaiDatePickerValue(fieldId, isoStr) {
-  const row = document.querySelector(`.sa2-dt-thai [data-field="${fieldId}"]`).closest('.sa2-dt-thai');
-  const [datePart, timePart] = isoStr.split('T');
-  const [y, m, d] = datePart.split('-').map(Number);
-  const [h, mi] = timePart.split(':').map(Number);
-  row.querySelector('.sa2-dt-year').value = y + BE_OFFSET;
-  row.querySelector('.sa2-dt-month').value = m;
-  refreshThaiDayOptions(row);
-  row.querySelector('.sa2-dt-day').value = d;
-  row.querySelector('.sa2-dt-hour').value = h;
-  row.querySelector('.sa2-dt-minute').value = mi;
-  updateHiddenFromThaiPicker(row, fieldId);
-}
-
-function resetThaiDatePicker(fieldId) {
-  const row = document.querySelector(`.sa2-dt-thai [data-field="${fieldId}"]`).closest('.sa2-dt-thai');
-  row.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+function resetDateTimeField(fieldId) {
   document.getElementById(fieldId).value = '';
+  document.getElementById(fieldId + '_display').value = '';
 }
-
-initThaiDatePickers();
 
 // ── Modal ──
 const overlay = document.getElementById('sa2-modalOverlay');
 function openModal() {
   ['sa2-f_ticketId', 'sa2-f_riskSites', 'sa2-f_subject', 'sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
-  ['sa2-f_createDt', 'sa2-f_inocOpenDt', 'sa2-f_supAckDt'].forEach(resetThaiDatePicker);
+  ['sa2-f_createDt', 'sa2-f_inocOpenDt', 'sa2-f_supAckDt'].forEach(resetDateTimeField);
   document.getElementById('sa2-f_topoRing').value = 'Send done';
   document.getElementById('sa2-f_channel').value = 'Tel';
   document.getElementById('sa2-f_status').value = 'Pending';
@@ -10735,7 +10787,7 @@ document.querySelectorAll('.sa2-now-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setThaiDatePickerValue(btn.dataset.now, now.toISOString().slice(0, 16));
+    setDateTimeField(btn.dataset.now, now.toISOString().slice(0, 16));
   });
 });
 
