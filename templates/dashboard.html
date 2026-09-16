@@ -1539,6 +1539,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .sa2-field .sa2-dt-row { display: flex; gap: 6px; }
   .sa2-field .sa2-dt-row input { flex: 1; }
   .sa2-now-btn { border: 1px solid var(--border2); background: var(--bg4); border-radius: 6px; padding: 0 10px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .sa2-dt-thai { flex-wrap: wrap; align-items: center; }
+  .sa2-dt-thai select { padding: 6px 4px; font-size: 12px; }
+  .sa2-dt-thai .sa2-dt-day { flex: 0 0 52px; }
+  .sa2-dt-thai .sa2-dt-month { flex: 0 0 66px; }
+  .sa2-dt-thai .sa2-dt-year { flex: 0 0 70px; }
+  .sa2-dt-thai .sa2-dt-hour, .sa2-dt-thai .sa2-dt-minute { flex: 0 0 52px; }
+  .sa2-dt-thai .sa2-dt-colon { font-weight: 700; color: var(--text2); }
   .sa2-modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--bg3); position: sticky; bottom: 0; }
   .sa2-hint { font-size: 10.5px; color: var(--text3); }
 
@@ -1609,18 +1616,30 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <label>Ticket ID</label>
         <input type="text" id="sa2-f_ticketId" placeholder="INC000103425269">
       </div>
-      <div class="sa2-field">
+      <div class="sa2-field sa2-full">
         <label>Ticket Create Date/Time</label>
-        <div class="sa2-dt-row">
-          <input type="datetime-local" id="sa2-f_createDt">
-          <button class="sa2-now-btn" data-now="sa2-f_createDt">ตอนนี้</button>
+        <div class="sa2-dt-row sa2-dt-thai">
+          <select class="sa2-dt-day" data-field="sa2-f_createDt"></select>
+          <select class="sa2-dt-month" data-field="sa2-f_createDt"></select>
+          <select class="sa2-dt-year" data-field="sa2-f_createDt"></select>
+          <select class="sa2-dt-hour" data-field="sa2-f_createDt"></select>
+          <span class="sa2-dt-colon">:</span>
+          <select class="sa2-dt-minute" data-field="sa2-f_createDt"></select>
+          <input type="hidden" id="sa2-f_createDt">
+          <button type="button" class="sa2-now-btn" data-now="sa2-f_createDt">ตอนนี้</button>
         </div>
       </div>
-      <div class="sa2-field">
+      <div class="sa2-field sa2-full">
         <label>INOC Date/Time Open Ticket</label>
-        <div class="sa2-dt-row">
-          <input type="datetime-local" id="sa2-f_inocOpenDt">
-          <button class="sa2-now-btn" data-now="sa2-f_inocOpenDt">ตอนนี้</button>
+        <div class="sa2-dt-row sa2-dt-thai">
+          <select class="sa2-dt-day" data-field="sa2-f_inocOpenDt"></select>
+          <select class="sa2-dt-month" data-field="sa2-f_inocOpenDt"></select>
+          <select class="sa2-dt-year" data-field="sa2-f_inocOpenDt"></select>
+          <select class="sa2-dt-hour" data-field="sa2-f_inocOpenDt"></select>
+          <span class="sa2-dt-colon">:</span>
+          <select class="sa2-dt-minute" data-field="sa2-f_inocOpenDt"></select>
+          <input type="hidden" id="sa2-f_inocOpenDt">
+          <button type="button" class="sa2-now-btn" data-now="sa2-f_inocOpenDt">ตอนนี้</button>
         </div>
       </div>
       <div class="sa2-field">
@@ -1646,11 +1665,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <label>ชื่อ Sup/Nop ผู้รับทราบ</label>
         <select id="sa2-f_supName"></select>
       </div>
-      <div class="sa2-field">
+      <div class="sa2-field sa2-full">
         <label>เวลา Sup/Nop รับทราบ</label>
-        <div class="sa2-dt-row">
-          <input type="datetime-local" id="sa2-f_supAckDt">
-          <button class="sa2-now-btn" data-now="sa2-f_supAckDt">ตอนนี้</button>
+        <div class="sa2-dt-row sa2-dt-thai">
+          <select class="sa2-dt-day" data-field="sa2-f_supAckDt"></select>
+          <select class="sa2-dt-month" data-field="sa2-f_supAckDt"></select>
+          <select class="sa2-dt-year" data-field="sa2-f_supAckDt"></select>
+          <select class="sa2-dt-hour" data-field="sa2-f_supAckDt"></select>
+          <span class="sa2-dt-colon">:</span>
+          <select class="sa2-dt-minute" data-field="sa2-f_supAckDt"></select>
+          <input type="hidden" id="sa2-f_supAckDt">
+          <button type="button" class="sa2-now-btn" data-now="sa2-f_supAckDt">ตอนนี้</button>
         </div>
       </div>
       <div class="sa2-field">
@@ -10419,7 +10444,18 @@ function renderPivot(ft) {
 // ── SA2 RISK (manual INOC tracking board) ──────────────────────────────
 (function () {
 let ROWS = [];
-let OPTIONS = { inoc_names: [], sup_names: [], provinces: [] };
+// Static fallback lists (explicit request) - populated immediately on
+// load, NOT contingent on /api/sa2-risk succeeding. Previously these
+// only got filled in inside loadData()'s success path, so if the Google
+// Sheet isn't configured yet (or the fetch fails for any reason) the
+// dropdowns stayed permanently empty even though the rest of the form
+// was usable. A later successful fetch still overrides these with
+// data.options if the backend ever needs to manage the lists centrally.
+let OPTIONS = {
+  inoc_names: ["INOC หนึ่ง", "INOC นิว", "INOC ปาย", "INOC เกมส์", "INOC ปอ", "INOC ป๊อบ", "INOC แฮ็ค", "INOC เต้ย", "INOC ภู", "INOC ทิพย์", "INOC หนุ่ม"],
+  sup_names: ["Konlachai Chulaphun", "Anuchit Phimmaha", "Jatuphon Janthong", "Anuchet Panyadee", "Sawat Yawirat", "Kriangkai Kenkhao", "Chetsada Khongkamhaeng", "khajornsak bhuttham", "Jutipon Tarasugarit", "Nakane Wongboonma", "Sutee Thiraworachai", "Ratthakarn Promyoo", "Maroot Sayti", "Wattana Pumpuang", "Pratchaya Runrack", "Nawin Bouryam", "Jirapan Suksuyon", "Chamrat Thonsang-in", "Somchai Panyatha", "Phraison Yaemsuriyothai", "Puchit Intawong", "Piyapol Nalee", "Nuttapon Promwongkhar", "Piyanat Krajangsri", "Teerapol Sueasen", "Sittichai Pluemsammanen", "Kamon Homwan", "Sanor Sukchim"],
+  provinces: ["TRUE-TH-BBT-NOR1-CMI1-NOP", "TRUE-TH-BBT-NOR1-CMI2-NOP", "TRUE-TH-BBT-NOR1-CRI-NOP", "TRUE-TH-BBT-NOR1-LPG-NOP", "TRUE-TH-BBT-NOR1-LPN-NOP", "TRUE-TH-BBT-NOR1-MHS-NOP", "TRUE-TH-BBT-NOR1-NAN-NOP", "TRUE-TH-BBT-NOR1-PHE-NOP", "TRUE-TH-BBT-NOR1-PYO-NOP", "TRUE-TH-BBT-NOR2-KPP-NOP", "TRUE-TH-BBT-NOR2-PCB-NOP", "TRUE-TH-BBT-NOR2-PCT-NOP", "TRUE-TH-BBT-NOR2-PSN-NOP", "TRUE-TH-BBT-NOR2-SKT-NOP", "TRUE-TH-BBT-NOR2-TAK-NOP", "TRUE-TH-BBT-NOR2-UTR-NOP"],
+};
 
 function fmtDt(iso) {
   if (!iso) return '-';
@@ -10597,10 +10633,95 @@ async function deleteRow(id) {
   }
 }
 
+// ── Thai (Buddhist Era) date/time picker (explicit request) - drives a
+// hidden input holding the same Gregorian "YYYY-MM-DDTHH:MM" string the
+// backend and the rest of this module already expect, so nothing else
+// needs to change: only how the person PICKS the value differs. ──────
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const BE_OFFSET = 543;
+
+function daysInMonth(gregorianYear, month1to12) {
+  return new Date(gregorianYear, month1to12, 0).getDate();
+}
+
+function initThaiDatePickers() {
+  const nowBEYear = new Date().getFullYear() + BE_OFFSET;
+  document.querySelectorAll('.sa2-dt-thai').forEach(row => {
+    const fieldId = row.querySelector('[data-field]').dataset.field;
+    const daySel = row.querySelector('.sa2-dt-day');
+    const monthSel = row.querySelector('.sa2-dt-month');
+    const yearSel = row.querySelector('.sa2-dt-year');
+    const hourSel = row.querySelector('.sa2-dt-hour');
+    const minSel = row.querySelector('.sa2-dt-minute');
+
+    monthSel.innerHTML = '<option value="">เดือน</option>' + THAI_MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+    yearSel.innerHTML = '<option value="">ปี พ.ศ.</option>' + [nowBEYear - 1, nowBEYear, nowBEYear + 1].map(y => `<option value="${y}">${y}</option>`).join('');
+    hourSel.innerHTML = '<option value="">ชม.</option>' + Array.from({ length: 24 }, (_, h) => `<option value="${h}">${String(h).padStart(2, '0')}</option>`).join('');
+    minSel.innerHTML = '<option value="">นาที</option>' + Array.from({ length: 60 }, (_, m) => `<option value="${m}">${String(m).padStart(2, '0')}</option>`).join('');
+    refreshThaiDayOptions(row);
+
+    [daySel, monthSel, yearSel, hourSel, minSel].forEach(sel => {
+      sel.addEventListener('change', () => {
+        if (sel === monthSel || sel === yearSel) refreshThaiDayOptions(row);
+        updateHiddenFromThaiPicker(row, fieldId);
+      });
+    });
+  });
+}
+
+function refreshThaiDayOptions(row) {
+  const daySel = row.querySelector('.sa2-dt-day');
+  const monthSel = row.querySelector('.sa2-dt-month');
+  const yearSel = row.querySelector('.sa2-dt-year');
+  const prevDay = daySel.value;
+  const gregorianYear = yearSel.value ? Number(yearSel.value) - BE_OFFSET : new Date().getFullYear();
+  const month = monthSel.value ? Number(monthSel.value) : 1;
+  const maxDay = daysInMonth(gregorianYear, month);
+  daySel.innerHTML = '<option value="">วัน</option>' + Array.from({ length: maxDay }, (_, i) => i + 1).map(d => `<option value="${d}">${d}</option>`).join('');
+  if (prevDay && Number(prevDay) <= maxDay) daySel.value = prevDay;
+}
+
+function updateHiddenFromThaiPicker(row, fieldId) {
+  const day = row.querySelector('.sa2-dt-day').value;
+  const month = row.querySelector('.sa2-dt-month').value;
+  const beYear = row.querySelector('.sa2-dt-year').value;
+  const hour = row.querySelector('.sa2-dt-hour').value;
+  const minute = row.querySelector('.sa2-dt-minute').value;
+  const hidden = document.getElementById(fieldId);
+  if (!day || !month || !beYear || hour === '' || minute === '') { hidden.value = ''; return; }
+  const gregorianYear = Number(beYear) - BE_OFFSET;
+  hidden.value = `${gregorianYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function setThaiDatePickerValue(fieldId, isoStr) {
+  const row = document.querySelector(`.sa2-dt-thai [data-field="${fieldId}"]`).closest('.sa2-dt-thai');
+  const [datePart, timePart] = isoStr.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  row.querySelector('.sa2-dt-year').value = y + BE_OFFSET;
+  row.querySelector('.sa2-dt-month').value = m;
+  refreshThaiDayOptions(row);
+  row.querySelector('.sa2-dt-day').value = d;
+  row.querySelector('.sa2-dt-hour').value = h;
+  row.querySelector('.sa2-dt-minute').value = mi;
+  updateHiddenFromThaiPicker(row, fieldId);
+}
+
+function resetThaiDatePicker(fieldId) {
+  const row = document.querySelector(`.sa2-dt-thai [data-field="${fieldId}"]`).closest('.sa2-dt-thai');
+  row.querySelectorAll('select').forEach(sel => { sel.value = ''; });
+  document.getElementById(fieldId).value = '';
+}
+
+initThaiDatePickers();
+
 // ── Modal ──
 const overlay = document.getElementById('sa2-modalOverlay');
 function openModal() {
-  ['sa2-f_ticketId','sa2-f_createDt','sa2-f_inocOpenDt','sa2-f_topoRing','sa2-f_channel','sa2-f_supAckDt','sa2-f_riskSites','sa2-f_subject','sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
+  ['sa2-f_ticketId', 'sa2-f_riskSites', 'sa2-f_subject', 'sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
+  ['sa2-f_createDt', 'sa2-f_inocOpenDt', 'sa2-f_supAckDt'].forEach(resetThaiDatePicker);
+  document.getElementById('sa2-f_topoRing').value = 'Send done';
+  document.getElementById('sa2-f_channel').value = 'Tel';
   document.getElementById('sa2-f_status').value = 'Pending';
   overlay.classList.add('sa2-open');
 }
@@ -10612,10 +10733,9 @@ overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(
 
 document.querySelectorAll('.sa2-now-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    const el = document.getElementById(btn.dataset.now);
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    el.value = now.toISOString().slice(0, 16);
+    setThaiDatePickerValue(btn.dataset.now, now.toISOString().slice(0, 16));
   });
 });
 
@@ -10667,6 +10787,7 @@ setInterval(renderTable, 30000); // refresh age chips locally without a full ref
 setInterval(loadData, 60000); // pick up changes made by other viewers
 
 window.initSa2RiskTab = function () { loadData(); };
+populateDropdowns(); // immediate, independent of the fetch below - see OPTIONS comment
 loadData();
 })();
 
