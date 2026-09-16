@@ -1423,6 +1423,28 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
       <div id="hct-result-summary" style="margin-bottom:10px;"></div>
 
+      <div id="hct-charts-box" style="display:none; border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:700; margin-bottom:10px;">📊 สรุปสัดส่วนผลการค้นหา</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px;">
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:4px; text-align:center;">STATUS</div>
+            <canvas id="hct-pie-status" height="200"></canvas>
+          </div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:4px; text-align:center;">TRUESEVERITY_DESC</div>
+            <canvas id="hct-pie-severity" height="200"></canvas>
+          </div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:4px; text-align:center;">PROBLEM</div>
+            <canvas id="hct-pie-problem" height="200"></canvas>
+          </div>
+          <div style="border:1px solid var(--border); border-radius:var(--r); padding:10px; background:var(--bg1);">
+            <div style="font-size:11.5px; font-weight:700; margin-bottom:4px; text-align:center;">SUB_CAUSE</div>
+            <canvas id="hct-pie-subcause" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
       <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
         <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 ผลการค้นหา <span style="font-weight:400; color:var(--text3); font-size:11px;">(เรียง CREATIONDATE เก่าสุด → ใหม่สุด)</span></div>
         <div id="hct-results-table" style="overflow-x:auto; max-height:600px; overflow-y:auto;"></div>
@@ -10009,10 +10031,9 @@ function renderPivot(ft) {
   }
 
   const RESULT_COLS = [
-    ['CREATIONDATE', 'CREATIONDATE'], ['CLOSEDTIME', 'CLOSEDTIME'], ['TRUESEVERITY_DESC', 'TRUESEVERITY_DESC'],
+    ['CREATIONDATE', 'CREATIONDATE'], ['RESTORATIONDATE', 'RESTORATIONDATE'], ['STATUS', 'STATUS'], ['TRUESEVERITY_DESC', 'TRUESEVERITY_DESC'],
     ['TICKETID', 'TICKETID'], ['SUBJECT', 'SUBJECT'], ['NODENAME', 'NODENAME'], ['CLASSIFICATION', 'CLASSIFICATION'],
-    ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['PROBLEM', 'PROBLEM'], ['SUB_CAUSE', 'SUB_CAUSE'],
-    ['REMEDY', 'REMEDY'], ['DISTRICT_EN', 'DISTRICT_EN'],
+    ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['PROBLEM', 'PROBLEM'], ['SUB_CAUSE', 'SUB_CAUSE'], ['DISTRICT_EN', 'DISTRICT_EN'],
   ];
 
   function renderResultsTable(results) {
@@ -10020,7 +10041,8 @@ function renderPivot(ft) {
     const head = RESULT_COLS.map(([, label]) => `<th style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); white-space:nowrap;">${label}</th>`).join('');
     const body = results.map(r => {
       const cells = RESULT_COLS.map(([key]) => {
-        if (key === 'CREATIONDATE' || key === 'CLOSEDTIME') return `<td style="padding:5px 8px; white-space:nowrap; font-size:11px;">${escapeHtml(r[key]) || '-'}</td>`;
+        if (key === 'CREATIONDATE' || key === 'RESTORATIONDATE') return `<td style="padding:5px 8px; white-space:nowrap; font-size:11px;">${escapeHtml(r[key]) || '-'}</td>`;
+        if (key === 'STATUS') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:700;">${escapeHtml(r[key]) || '-'}</td>`;
         if (key === 'TRUESEVERITY_DESC') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:700; color:${r[key] && r[key].startsWith('SA') ? '#E24B4A' : 'var(--text)'};">${escapeHtml(r[key]) || '-'}</td>`;
         if (key === 'SUBJECT' || key === 'CLASSIFICATION' || key === 'TRUEOWNERGROUP') return `<td style="padding:5px 8px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r[key])}">${escapeHtml(r[key]) || '-'}</td>`;
         return `<td style="padding:5px 8px; white-space:nowrap;">${escapeHtml(r[key]) || '-'}</td>`;
@@ -10034,9 +10056,45 @@ function renderPivot(ft) {
       </table>`;
   }
 
+  let pieCharts = { status: null, severity: null, problem: null, subcause: null };
+  const PIE_TONES = ['#1f6feb', '#EF9F27', '#639922', '#E24B4A', '#a371f7', '#3bb7c9', '#d97757', '#7c8fb8', '#c9a63b', '#5fa8ff'];
+
+  function renderPieChart(canvasId, chartKey, breakdown) {
+    const ctx = el(canvasId).getContext('2d');
+    if (pieCharts[chartKey]) pieCharts[chartKey].destroy();
+    if (!breakdown || !breakdown.length) { pieCharts[chartKey] = null; return; }
+    pieCharts[chartKey] = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: breakdown.map(b => b.label),
+        datasets: [{ data: breakdown.map(b => b.count), backgroundColor: breakdown.map((_, i) => PIE_TONES[i % PIE_TONES.length]) }],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 9, font: { size: 9.5 }, padding: 6 } },
+          datalabels: {
+            display: true, color: '#fff', font: { size: 10, weight: 'bold' },
+            formatter: (v, ctx) => { const b = breakdown[ctx.dataIndex]; return b.pct >= 5 ? b.pct + '%' : ''; }, // hide labels on tiny slivers to avoid clutter
+          },
+          tooltip: { callbacks: { label: (c) => { const b = breakdown[c.dataIndex]; return `${b.label}: ${b.count} (${b.pct}%)`; } } },
+        },
+      },
+    });
+  }
+
+  function renderAllPieCharts(breakdowns) {
+    if (!breakdowns) { el('hct-charts-box').style.display = 'none'; return; }
+    el('hct-charts-box').style.display = 'block';
+    renderPieChart('hct-pie-status', 'status', breakdowns.STATUS);
+    renderPieChart('hct-pie-severity', 'severity', breakdowns.TRUESEVERITY_DESC);
+    renderPieChart('hct-pie-problem', 'problem', breakdowns.PROBLEM);
+    renderPieChart('hct-pie-subcause', 'subcause', breakdowns.SUB_CAUSE);
+  }
+
   async function runSearch() {
     const query = el('hct-search-input').value.trim();
-    if (!query) { el('hct-result-summary').innerHTML = ''; el('hct-results-table').innerHTML = ''; return; }
+    if (!query) { el('hct-result-summary').innerHTML = ''; el('hct-results-table').innerHTML = ''; el('hct-charts-box').style.display = 'none'; return; }
     el('hct-results-table').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">กำลังค้นหา...</div>`;
     try {
       const params = new URLSearchParams();
@@ -10052,9 +10110,11 @@ function renderPivot(ft) {
           : `<span style="color:var(--text3);">ไม่พบผลลัพธ์</span>`;
       el('hct-result-summary').innerHTML = `<div style="font-size:12.5px;">พบ <b>${data.results.length.toLocaleString()}</b> Ticket สำหรับ "${escapeHtml(query)}" — ${modeLabel}</div>`;
       renderResultsTable(data.results);
+      renderAllPieCharts(data.breakdowns);
     } catch (e) {
       console.error('Historical Closed Ticket search failed', e);
       el('hct-results-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">ค้นหาไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+      el('hct-charts-box').style.display = 'none';
     }
   }
   el('hct-search-btn').addEventListener('click', runSearch);
