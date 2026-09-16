@@ -1418,7 +1418,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <button id="hct-search-btn" class="btn-secondary" style="font-weight:700; padding:8px 18px; background:#1f6feb; color:#fff; border-color:#1f6feb;">🔍 Search</button>
         </div>
         <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px;">🎯 TRUESEVERITY_DESC <span style="font-weight:400; color:var(--text3);">(กรองผลค้นหา — เลือกได้หลายอัน ค่าเริ่มต้น = ทุก Severity)</span></div>
-        <div id="hct-severity-filter" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+        <div id="hct-severity-filter" style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;"></div>
+        <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px;">🏷️ STATUS <span style="font-weight:400; color:var(--text3);">(กรองผลค้นหา — เลือกได้หลายอัน ค่าเริ่มต้น = ทุก Status)</span></div>
+        <div id="hct-status-filter" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
 
       <div id="hct-result-summary" style="margin-bottom:10px;"></div>
@@ -10002,7 +10004,9 @@ function renderPivot(ft) {
 (function () {
   let hasData = false;
   let severityFilter = new Set(); // empty = "all"
+  let statusFilter = new Set(); // empty = "all"
   let allSeverities = [];
+  let allStatuses = [];
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -10011,24 +10015,26 @@ function renderPivot(ft) {
   }
   const SEV_SEP = '\x1f';
 
-  function renderSeverityFilter() {
-    if (!allSeverities.length) { el('hct-severity-filter').innerHTML = `<span style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</span>`; return; }
+  function renderChipFilter(containerId, chipClass, values, filterSet) {
+    if (!values.length) { el(containerId).innerHTML = `<span style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</span>`; return; }
     const chip = (val, label) => {
-      const active = val === '__all__' ? severityFilter.size === 0 : severityFilter.has(val);
-      return `<button class="hct-severity-chip" data-val="${escapeHtml(val)}" style="padding:4px 12px; font-size:11px; border:1px solid var(--border); border-radius:20px; cursor:pointer; background:${active ? 'var(--bg4)' : 'transparent'}; font-weight:${active ? '700' : '400'};">${escapeHtml(label)}</button>`;
+      const active = val === '__all__' ? filterSet.size === 0 : filterSet.has(val);
+      return `<button class="${chipClass}" data-val="${escapeHtml(val)}" style="padding:4px 12px; font-size:11px; border:1px solid var(--border); border-radius:20px; cursor:pointer; background:${active ? 'var(--bg4)' : 'transparent'}; font-weight:${active ? '700' : '400'};">${escapeHtml(label)}</button>`;
     };
-    el('hct-severity-filter').innerHTML = chip('__all__', 'ทั้งหมด') + allSeverities.map(s => chip(s, s)).join('');
-    el('hct-severity-filter').querySelectorAll('.hct-severity-chip').forEach(btn => {
+    el(containerId).innerHTML = chip('__all__', 'ทั้งหมด') + values.map(v => chip(v, v)).join('');
+    el(containerId).querySelectorAll(`.${chipClass}`).forEach(btn => {
       btn.addEventListener('click', () => {
         const val = btn.dataset.val;
-        if (val === '__all__') severityFilter.clear();
-        else if (severityFilter.has(val)) severityFilter.delete(val);
-        else severityFilter.add(val);
-        renderSeverityFilter();
+        if (val === '__all__') filterSet.clear();
+        else if (filterSet.has(val)) filterSet.delete(val);
+        else filterSet.add(val);
+        renderChipFilter(containerId, chipClass, values, filterSet);
         if (el('hct-search-input').value.trim()) runSearch();
       });
     });
   }
+  function renderSeverityFilter() { renderChipFilter('hct-severity-filter', 'hct-severity-chip', allSeverities, severityFilter); }
+  function renderStatusFilter() { renderChipFilter('hct-status-filter', 'hct-status-chip', allStatuses, statusFilter); }
 
   const RESULT_COLS = [
     ['CREATIONDATE', 'CREATIONDATE'], ['RESTORATIONDATE', 'RESTORATIONDATE'], ['STATUS', 'STATUS'], ['TRUESEVERITY_DESC', 'TRUESEVERITY_DESC'],
@@ -10100,6 +10106,7 @@ function renderPivot(ft) {
       const params = new URLSearchParams();
       params.set('ci_name', query);
       if (severityFilter.size) params.set('severity', [...severityFilter].join(SEV_SEP));
+      if (statusFilter.size) params.set('status', [...statusFilter].join(SEV_SEP));
       const res = await fetch(`/api/historical-closed-ticket/search?${params.toString()}`);
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
@@ -10152,8 +10159,11 @@ function renderPivot(ft) {
     const data = await res.json();
     if (!data.has_data) return;
     allSeverities = data.severities || [];
+    allStatuses = data.statuses || [];
     severityFilter.clear();
+    statusFilter.clear();
     renderSeverityFilter();
+    renderStatusFilter();
     el('hct-imported-at').textContent = new Date().toLocaleString('th-TH');
     hasData = true;
   }
@@ -10163,7 +10173,9 @@ function renderPivot(ft) {
     fetch('/api/historical-closed-ticket/status').then(r => r.ok ? r.json() : { has_data: false }).then(data => {
       if (data.has_data) {
         allSeverities = data.severities || [];
+        allStatuses = data.statuses || [];
         renderSeverityFilter();
+        renderStatusFilter();
         el('hct-no-data').style.display = 'none';
         el('hct-content').style.display = 'block';
         hasData = true;
