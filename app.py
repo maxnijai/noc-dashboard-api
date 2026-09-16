@@ -32,6 +32,7 @@ import sla_improvement
 import online_realtime
 import temp_point_improvement
 import cm_summary_log
+import historical_closed_ticket
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2946,6 +2947,55 @@ def api_cm_summary_log_export():
                              headers={'Content-Disposition': f'attachment; filename="cm-summary-log-{ts}.xlsx"'})
     except Exception as e:
         log.exception("cm-summary-log export failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historical-closed-ticket/import', methods=['POST'])
+def api_historical_closed_ticket_import():
+    """Manual one-time import (explicit request) - replaces the in-memory
+    dataset ONLY if the whole file parses successfully, so a bad upload
+    never breaks whatever was already loaded."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        f = request.files['file']
+        if not f.filename:
+            return jsonify({'error': 'ไม่พบไฟล์ที่อัปโหลด'}), 400
+        if not f.filename.lower().endswith(('.xlsx', '.xlsm')):
+            return jsonify({'error': 'รองรับเฉพาะไฟล์ .xlsx เท่านั้น'}), 400
+        result = historical_closed_ticket.import_excel(f.read(), f.filename)
+        return jsonify(result)
+    except historical_closed_ticket.ImportValidationError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("historical-closed-ticket import failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historical-closed-ticket/status')
+def api_historical_closed_ticket_status():
+    try:
+        rows = historical_closed_ticket.get_rows()
+        if rows is None:
+            return jsonify({'has_data': False})
+        return jsonify({
+            'has_data': True,
+            'row_count': len(rows),
+            'severities': historical_closed_ticket.distinct_severities(rows),
+        })
+    except Exception as e:
+        log.exception("historical-closed-ticket status failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/historical-closed-ticket/search')
+def api_historical_closed_ticket_search():
+    try:
+        ci_name = request.args.get('ci_name', '')
+        severities = [s for s in request.args.get('severity', '').split('\x1f') if s]
+        results, match_mode, err = historical_closed_ticket.search(ci_name, severities)
+        if err:
+            return jsonify({'error': err}), 400
+        return jsonify({'results': results, 'match_mode': match_mode, 'query': ci_name})
+    except Exception as e:
+        log.exception("historical-closed-ticket search failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
