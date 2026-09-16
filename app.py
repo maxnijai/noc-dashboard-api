@@ -33,6 +33,7 @@ import online_realtime
 import temp_point_improvement
 import cm_summary_log
 import historical_closed_ticket
+import sa2_risk
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -2998,6 +2999,66 @@ def api_historical_closed_ticket_search():
         return jsonify({'results': results, 'match_mode': match_mode, 'breakdowns': breakdowns, 'query': ci_name})
     except Exception as e:
         log.exception("historical-closed-ticket search failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sa2-risk')
+def api_sa2_risk_list():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        rows = sa2_risk.get_all_rows(gs_client)
+        return jsonify({'rows': rows, 'options': sa2_risk.build_options()})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk list failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sa2-risk/add', methods=['POST'])
+def api_sa2_risk_add():
+    try:
+        data = request.get_json(force=True) or {}
+        _, gs_client = get_drive_and_sheets_clients()
+        updated_by = session.get('user_email')
+        row = sa2_risk.add_row(gs_client, data, updated_by=updated_by)
+        return jsonify({'ok': True, 'row': row})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk add failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sa2-risk/status', methods=['POST'])
+def api_sa2_risk_status():
+    try:
+        data = request.get_json(force=True) or {}
+        row_id = (data.get('id') or '').strip()
+        new_status = (data.get('status') or '').strip()
+        if not row_id:
+            return jsonify({'error': 'ไม่พบ id'}), 400
+        _, gs_client = get_drive_and_sheets_clients()
+        updated_by = session.get('user_email')
+        sa2_risk.update_status(gs_client, row_id, new_status, updated_by=updated_by)
+        return jsonify({'ok': True})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk status update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sa2-risk/delete', methods=['POST'])
+def api_sa2_risk_delete():
+    try:
+        data = request.get_json(force=True) or {}
+        row_id = (data.get('id') or '').strip()
+        if not row_id:
+            return jsonify({'error': 'ไม่พบ id'}), 400
+        _, gs_client = get_drive_and_sheets_clients()
+        sa2_risk.delete_row(gs_client, row_id)
+        return jsonify({'ok': True})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk delete failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
