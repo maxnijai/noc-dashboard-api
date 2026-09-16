@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 #    (https://docs.google.com/spreadsheets/d/<THIS PART>/edit) and paste
 #    it below. The worksheet tab itself is created automatically on
 #    first use - only the spreadsheet needs to exist first.
-SA2_RISK_SHEET_ID = "PUT_YOUR_SHEET_ID_HERE"
+SA2_RISK_SHEET_ID = "1c6uoOrhwHjRaTksw6KHxkA0HkfHgfvjjPX672jncOic"
 SA2_RISK_WORKSHEET_NAME = "SA2_Risk"
 
 INOC_NAMES = ["INOC หนึ่ง", "INOC นิว", "INOC ปาย", "INOC เกมส์", "INOC ปอ", "INOC ป๊อบ",
