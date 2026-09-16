@@ -27,6 +27,7 @@ BACK_DATE_LABEL = "⚠️ Back Date"
 _ggs_cache = {"data": None, "ts": 0}
 _ggs_lock = threading.Lock()
 GGS_CACHE_TTL_SECONDS = 300  # 5 min - external field-ops sheet, doesn't need second-by-second freshness
+GGS_FETCH_TIMEOUT_SECONDS = 15
 
 
 def _parse_ggs_dt(s):
@@ -41,6 +42,40 @@ def _parse_ggs_dt(s):
     return None
 
 
+def _fetch_ggs_daily_rows_raw(gs_client):
+    sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
+    ws = sh.worksheet(GGS_DAILY_TAB)
+    return ws.get_all_values()
+
+
+def _fetch_ggs_daily_rows_bounded(gs_client, timeout_seconds):
+    """Runs _fetch_ggs_daily_rows_raw on a daemon thread and waits up to
+    timeout_seconds for it - a plain daemon Thread rather than
+    concurrent.futures.ThreadPoolExecutor deliberately: that pool's
+    worker threads are NOT daemon threads by default, so a call that
+    genuinely never returns would sit there non-daemon forever, which
+    can itself interfere with clean process shutdown/restart. A daemon
+    thread never blocks that, whether it ever finishes or not - if it
+    times out here, it keeps running quietly in the background and is
+    simply abandoned; the interpreter can still exit normally around it."""
+    result, error, done = {}, {}, threading.Event()
+
+    def _run():
+        try:
+            result["rows"] = _fetch_ggs_daily_rows_raw(gs_client)
+        except Exception as e:
+            error["exc"] = e
+        finally:
+            done.set()
+
+    threading.Thread(target=_run, daemon=True, name="ggs-fetch").start()
+    if not done.wait(timeout=timeout_seconds):
+        raise TimeoutError(f"GGS Daily sheet fetch timed out after {timeout_seconds}s")
+    if "exc" in error:
+        raise error["exc"]
+    return result["rows"]
+
+
 def fetch_ggs_daily_rows(gs_client, use_cache=True):
     now = time.monotonic()
     if use_cache:
@@ -51,15 +86,26 @@ def fetch_ggs_daily_rows(gs_client, use_cache=True):
             # for the full rationale) - a concurrent caller hitting a cold cache
             # at the same moment blocks here and reuses this result instead of
             # making its own separate Sheets read.
-            sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
-            ws = sh.worksheet(GGS_DAILY_TAB)
-            rows = ws.get_all_values()
+            #
+            # Bounded with a hard timeout (added after a real production hang:
+            # this network call had no timeout of its own, so when it stalled -
+            # a slow response from Google, a flaky connection, anything - it
+            # held _ggs_lock forever, and every future call to this one tab
+            # then blocked on that same lock indefinitely too, with no way out
+            # short of restarting the server; every OTHER tab stayed fine
+            # since none of them touch this lock). Timing out here instead
+            # raises a normal, catchable exception and releases the lock
+            # right away, so the next request gets a fresh, bounded attempt
+            # rather than joining a queue that never moves.
+            try:
+                rows = _fetch_ggs_daily_rows_bounded(gs_client, GGS_FETCH_TIMEOUT_SECONDS)
+            except TimeoutError:
+                log.error("GGS Daily sheet fetch timed out after %ss - giving up on this attempt", GGS_FETCH_TIMEOUT_SECONDS)
+                raise
             _ggs_cache["data"] = rows
             _ggs_cache["ts"] = time.monotonic()
             return rows
-    sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
-    ws = sh.worksheet(GGS_DAILY_TAB)
-    return ws.get_all_values()
+    return _fetch_ggs_daily_rows_raw(gs_client)
 
 
 def build_mateline_status_lookup(gs_client, today_str):
@@ -72,8 +118,18 @@ def build_mateline_status_lookup(gs_client, today_str):
     "⚠️ Back Date" if none are today but at least one has a past date;
     "Wait Action" if none of the 4 have any value at all.
     mateline_wo_status: the sheet's own raw Status column (K), unmodified.
+
+    Returns {} (rather than raising) if the GGS Daily sheet can't be read
+    right now - a P0 ticket list is useful even with this one column
+    blank, and this external sheet is the single point in the whole P0
+    page that isn't shared/warmed by any other tab, so it's the one most
+    likely to hit a cold-cache timeout on a bad network moment.
     """
-    rows = fetch_ggs_daily_rows(gs_client)
+    try:
+        rows = fetch_ggs_daily_rows(gs_client)
+    except Exception:
+        log.exception("build_mateline_status_lookup: could not read GGS Daily sheet - returning empty lookup")
+        return {}
     if not rows:
         return {}
     header = rows[0]
