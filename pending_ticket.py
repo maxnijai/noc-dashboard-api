@@ -866,7 +866,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             provinces_seen = set()
             for e in tickets:
                 cat = e["subject_category"]
-                prov = (e.get("PROVINCE") or "").strip() or "(ไม่ระบุจังหวัด)"
+                prov = str(e.get("PROVINCE") or "").strip() or "(ไม่ระบุจังหวัด)"
                 provinces_seen.add(prov)
                 category_province_matrix.setdefault(cat, {}).setdefault(prov, 0)
                 category_province_matrix[cat][prov] += 1
