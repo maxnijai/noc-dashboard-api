@@ -14,12 +14,25 @@ to default to, unlike the read-only Excel-import tabs.
 """
 
 import logging
+import threading
+import time
 import uuid
 from datetime import datetime
 
 import gspread
 
 log = logging.getLogger(__name__)
+
+# Same read-cache pattern pending_ticket.py's fetch_live_rows already uses
+# (see that module's comments) - added here after the fact once real usage
+# showed this tab's own 60-second per-viewer auto-refresh, with no
+# server-side cache, was adding steady extra Google Sheets read traffic
+# on every open tab. Holding the lock across the actual fetch (not just
+# the cache check) prevents a stampede when several requests arrive at
+# once with a cold/expired cache.
+_rows_cache = {"data": None, "ts": 0.0}
+_rows_cache_lock = threading.Lock()
+ROWS_CACHE_TTL_SECONDS = 20
 
 # ── REQUIRED ONE-TIME SETUP ──────────────────────────────────────────
 # 1. Create a blank Google Sheet.
@@ -96,7 +109,24 @@ def _row_to_dict(header, raw):
     return {col: get(col) for col in COLUMNS}
 
 
-def get_all_rows(gc):
+def get_all_rows(gc, use_cache=True):
+    if use_cache:
+        with _rows_cache_lock:
+            now = time.monotonic()
+            if _rows_cache["data"] is not None and (now - _rows_cache["ts"]) < ROWS_CACHE_TTL_SECONDS:
+                return _rows_cache["data"]
+            # Cache cold/stale - fetch WHILE STILL HOLDING the lock so a
+            # second request arriving concurrently blocks here and reuses
+            # this result instead of independently deciding it also needs
+            # a fresh Sheets read.
+            rows = _fetch_all_rows(gc)
+            _rows_cache["data"] = rows
+            _rows_cache["ts"] = time.monotonic()
+            return rows
+    return _fetch_all_rows(gc)
+
+
+def _fetch_all_rows(gc):
     ws = _get_worksheet(gc)
     values = ws.get_all_values()
     if not values or len(values) < 2:
@@ -104,6 +134,16 @@ def get_all_rows(gc):
     header = values[0]
     rows = [_row_to_dict(header, raw) for raw in values[1:] if any(c.strip() for c in raw)]
     return rows
+
+
+def _invalidate_rows_cache():
+    """Called after add/status/delete so the NEXT read reflects the
+    write immediately, rather than waiting out the TTL - the cache is
+    purely to absorb repeated polling between real changes, not to
+    delay a person's own edit from showing up."""
+    with _rows_cache_lock:
+        _rows_cache["data"] = None
+        _rows_cache["ts"] = 0.0
 
 
 def add_row(gc, data, updated_by=None):
@@ -141,6 +181,7 @@ def add_row(gc, data, updated_by=None):
         "updated_at": now,
     }
     ws.append_row([row[c] for c in COLUMNS])
+    _invalidate_rows_cache()
     return row
 
 
@@ -172,6 +213,7 @@ def update_status(gc, row_id, new_status, updated_by=None):
     ws.update_cell(row_num, closed_col, now if new_status == "Closed" else "")
     ws.update_cell(row_num, updated_by_col, updated_by or "")
     ws.update_cell(row_num, updated_at_col, now)
+    _invalidate_rows_cache()
     return True
 
 
@@ -190,6 +232,7 @@ def delete_row(gc, row_id):
         raise SA2RiskError("ลบได้เฉพาะแถวที่ Status เป็น Closed เท่านั้น")
 
     ws.delete_rows(row_num)
+    _invalidate_rows_cache()
     return True
 
 
