@@ -2990,10 +2990,10 @@ def api_historical_closed_ticket_search():
     try:
         ci_name = request.args.get('ci_name', '')
         severities = [s for s in request.args.get('severity', '').split('\x1f') if s]
-        results, match_mode, err = historical_closed_ticket.search(ci_name, severities)
+        results, match_mode, breakdowns, err = historical_closed_ticket.search(ci_name, severities)
         if err:
             return jsonify({'error': err}), 400
-        return jsonify({'results': results, 'match_mode': match_mode, 'query': ci_name})
+        return jsonify({'results': results, 'match_mode': match_mode, 'breakdowns': breakdowns, 'query': ci_name})
     except Exception as e:
         log.exception("historical-closed-ticket search failed")
         return jsonify({'error': str(e)}), 500
