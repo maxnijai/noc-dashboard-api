@@ -161,6 +161,10 @@ def distinct_severities(rows):
     return sorted({r["TRUESEVERITY_DESC"] for r in rows if r["TRUESEVERITY_DESC"]})
 
 
+def distinct_statuses(rows):
+    return sorted({r["STATUS"] for r in rows if r["STATUS"]})
+
+
 def _fmt_dt(dt):
     return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
 
@@ -186,7 +190,7 @@ def _build_breakdowns(matched_rows):
     return out
 
 
-def search(ci_name_query, severities=None):
+def search(ci_name_query, severities=None, statuses=None):
     """Returns (results, match_mode, breakdowns, error). match_mode is
     "exact" (found via the CI-name column), "subject" (fell back to
     SUBJECT substring), or None (no query typed / nothing found / no data
@@ -211,6 +215,9 @@ def search(ci_name_query, severities=None):
     if severities:
         wanted = set(severities)
         matched = [r for r in matched if r["TRUESEVERITY_DESC"] in wanted]
+    if statuses:
+        wanted_status = set(statuses)
+        matched = [r for r in matched if r["STATUS"] in wanted_status]
 
     matched.sort(key=lambda r: r["CREATIONDATE"] or datetime.min)
 

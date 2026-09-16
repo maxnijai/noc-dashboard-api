@@ -2980,6 +2980,7 @@ def api_historical_closed_ticket_status():
             'has_data': True,
             'row_count': len(rows),
             'severities': historical_closed_ticket.distinct_severities(rows),
+            'statuses': historical_closed_ticket.distinct_statuses(rows),
         })
     except Exception as e:
         log.exception("historical-closed-ticket status failed")
@@ -2990,7 +2991,8 @@ def api_historical_closed_ticket_search():
     try:
         ci_name = request.args.get('ci_name', '')
         severities = [s for s in request.args.get('severity', '').split('\x1f') if s]
-        results, match_mode, breakdowns, err = historical_closed_ticket.search(ci_name, severities)
+        statuses = [s for s in request.args.get('status', '').split('\x1f') if s]
+        results, match_mode, breakdowns, err = historical_closed_ticket.search(ci_name, severities, statuses)
         if err:
             return jsonify({'error': err}), 400
         return jsonify({'results': results, 'match_mode': match_mode, 'breakdowns': breakdowns, 'query': ci_name})
