@@ -476,13 +476,33 @@ def _fetch_full_ticket_entries(gs_client):
     return [build_entry(r) for r in scoped]
 
 
+_export_throttle = {"last_started": 0.0, "in_flight": False, "last_insert_time": None}
+_export_throttle_lock = threading.Lock()
+EXPORT_MIN_INTERVAL_SECONDS = 45  # export_to_external_sheet does a full clear+rewrite of ~770 rows - real traffic showed several page loads landing close together each spawning their own concurrent rewrite, which is what was actually slowing pages down (thread/API contention on the shared worker), not the reads
+
+
 def trigger_background_export(gs_client, all_entries=None):
-    """Fire-and-forget mirror export to the external tracking sheet. Called
-    from EVERY page that shows live ticket data (Pending Ticket, P0 Only) -
-    not just Pending Ticket - so the mirror sheet stays fresh no matter
-    which page people are actually working from. Safe to call often: this
-    is exactly what was silently going stale before, because only Pending
-    Ticket's own response builder used to trigger it."""
+    """Fire-and-forget mirror export to the external tracking sheet, THROTTLED
+    (added after real traffic showed export_to_external_sheet's full
+    clear+rewrite of the ~770-row mirror sheet piling up several times
+    concurrently within the same minute - see EXPORT_MIN_INTERVAL_SECONDS
+    above). Skips silently if an export already ran, or is still running,
+    within EXPORT_MIN_INTERVAL_SECONDS - the mirror sheet doesn't need to
+    be rewritten on every single page load, only kept reasonably fresh.
+    When skipped, returns the LAST ACTUAL export's own timestamp (not
+    "now") so the "export_insert_time" shown on the page still accurately
+    reflects when the mirror sheet itself was really last written.
+
+    Called from EVERY page that shows live ticket data (Pending Ticket,
+    P0 Only) - not just Pending Ticket - so the mirror sheet stays fresh
+    no matter which page people are actually working from."""
+    now = time.monotonic()
+    with _export_throttle_lock:
+        if _export_throttle["in_flight"] or (now - _export_throttle["last_started"]) < EXPORT_MIN_INTERVAL_SECONDS:
+            return _export_throttle["last_insert_time"] or bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        _export_throttle["in_flight"] = True
+        _export_throttle["last_started"] = now
+
     if all_entries is None:
         all_entries = _fetch_full_ticket_entries(gs_client)
     export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
@@ -490,8 +510,13 @@ def trigger_background_export(gs_client, all_entries=None):
     def _export_in_background(entries, insert_time_str):
         try:
             export_to_external_sheet(gs_client, entries, insert_time_str)
+            with _export_throttle_lock:
+                _export_throttle["last_insert_time"] = insert_time_str
         except Exception:
             log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+        finally:
+            with _export_throttle_lock:
+                _export_throttle["in_flight"] = False
 
     threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
     return export_insert_time
