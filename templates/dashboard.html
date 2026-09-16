@@ -750,6 +750,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="4" cy="12" r="1.6" stroke="#EF9F27" stroke-width="1.3"/><circle cx="8" cy="7" r="1.6" stroke="#EF9F27" stroke-width="1.3"/><circle cx="12.5" cy="4.5" r="1.6" stroke="#EF9F27" stroke-width="1.3"/><path d="M5.3 10.9L7 8.3M9.2 6L11.2 5.3" stroke="#EF9F27" stroke-width="1.3" stroke-linecap="round"/></svg>
     CM Summary Log
   </div>
+  <div class="nav-item" onclick="showPage('historicalclosedticket')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5" stroke="#a371f7" stroke-width="1.4"/><path d="M7 4v3l2 1.5" stroke="#a371f7" stroke-width="1.4" stroke-linecap="round"/><path d="M11 11l3 3" stroke="#a371f7" stroke-width="1.4" stroke-linecap="round"/></svg>
+    Historical Closed Ticket
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -1383,6 +1387,45 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
           <div id="cml-detail-table" style="overflow-x:auto; max-height:520px; overflow-y:auto;"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORICAL CLOSED TICKET (search by CI Name, exact -> SUBJECT substring fallback) -->
+  <div class="page" id="page-historicalclosedticket">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+      <div>
+        <div style="font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">📜 Historical Closed Ticket</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">ค้นหาประวัติ Ticket จาก CI Name — ตรงเป๊ะกับ CI_Name ก่อน ถ้าไม่เจอค้นต่อใน SUBJECT · นำเข้าล่าสุด: <b id="hct-imported-at" style="color:var(--text2);">–</b></div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label class="btn-secondary" style="font-weight:700; cursor:pointer;">
+          📤 Import Excel
+          <input id="hct-import-input" type="file" accept=".xlsx,.xlsm" style="display:none;">
+        </label>
+        <span id="hct-import-status" style="font-size:11.5px; color:var(--text3);"></span>
+      </div>
+    </div>
+    <div id="hct-warnings" style="margin-bottom:10px;"></div>
+    <div id="hct-no-data" style="border:1px dashed var(--border2); border-radius:var(--r); padding:40px 20px; text-align:center; color:var(--text3); font-size:13px;">
+      ยังไม่มีข้อมูล — กด "📤 Import Excel" แล้วเลือกไฟล์ Historical Closed Ticket
+    </div>
+
+    <div id="hct-content" style="display:none;">
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2); margin-bottom:16px;">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+          <input id="hct-search-input" type="text" placeholder="พิมพ์ CI Name แล้วกด Enter หรือกด Search... (เช่น CMI8506)" style="flex:1; min-width:240px; padding:8px 12px; font-size:13px; border:1px solid var(--border); border-radius:6px; background:var(--bg1); color:var(--text);">
+          <button id="hct-search-btn" class="btn-secondary" style="font-weight:700; padding:8px 18px; background:#1f6feb; color:#fff; border-color:#1f6feb;">🔍 Search</button>
+        </div>
+        <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px;">🎯 TRUESEVERITY_DESC <span style="font-weight:400; color:var(--text3);">(กรองผลค้นหา — เลือกได้หลายอัน ค่าเริ่มต้น = ทุก Severity)</span></div>
+        <div id="hct-severity-filter" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
+      <div id="hct-result-summary" style="margin-bottom:10px;"></div>
+
+      <div style="border:1px solid var(--border); border-radius:var(--r); padding:14px 16px; background:var(--bg2);">
+        <div style="font-size:13px; font-weight:700; margin-bottom:2px;">📋 ผลการค้นหา <span style="font-weight:400; color:var(--text3); font-size:11px;">(เรียง CREATIONDATE เก่าสุด → ใหม่สุด)</span></div>
+        <div id="hct-results-table" style="overflow-x:auto; max-height:600px; overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -4625,6 +4668,7 @@ function showPage(id) {
   if (id==='onlinerealtime') { setTimeout(()=>{ if (window.initOnlineRealtimeTab) window.initOnlineRealtimeTab(); },50); }
   if (id==='temppoint') { setTimeout(()=>{ if (window.initTempPointTab) window.initTempPointTab(); },50); }
   if (id==='cmsummarylog') { setTimeout(()=>{ if (window.initCmSummaryLogTab) window.initCmSummaryLogTab(); },50); }
+  if (id==='historicalclosedticket') { setTimeout(()=>{ if (window.initHistoricalClosedTicketTab) window.initHistoricalClosedTicketTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -9926,6 +9970,142 @@ function renderPivot(ft) {
         el('cml-imported-at').textContent = data.imported_at || '–';
         renderWarnings();
         renderCauseList();
+        hasData = true;
+      }
+    }).catch(() => {});
+  };
+})();
+
+// ── HISTORICAL CLOSED TICKET (search by CI Name -> SUBJECT fallback) ──
+(function () {
+  let hasData = false;
+  let severityFilter = new Set(); // empty = "all"
+  let allSeverities = [];
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const SEV_SEP = '\x1f';
+
+  function renderSeverityFilter() {
+    if (!allSeverities.length) { el('hct-severity-filter').innerHTML = `<span style="font-size:11px; color:var(--text3);">ไม่มีข้อมูล</span>`; return; }
+    const chip = (val, label) => {
+      const active = val === '__all__' ? severityFilter.size === 0 : severityFilter.has(val);
+      return `<button class="hct-severity-chip" data-val="${escapeHtml(val)}" style="padding:4px 12px; font-size:11px; border:1px solid var(--border); border-radius:20px; cursor:pointer; background:${active ? 'var(--bg4)' : 'transparent'}; font-weight:${active ? '700' : '400'};">${escapeHtml(label)}</button>`;
+    };
+    el('hct-severity-filter').innerHTML = chip('__all__', 'ทั้งหมด') + allSeverities.map(s => chip(s, s)).join('');
+    el('hct-severity-filter').querySelectorAll('.hct-severity-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.val;
+        if (val === '__all__') severityFilter.clear();
+        else if (severityFilter.has(val)) severityFilter.delete(val);
+        else severityFilter.add(val);
+        renderSeverityFilter();
+        if (el('hct-search-input').value.trim()) runSearch();
+      });
+    });
+  }
+
+  const RESULT_COLS = [
+    ['CREATIONDATE', 'CREATIONDATE'], ['CLOSEDTIME', 'CLOSEDTIME'], ['TRUESEVERITY_DESC', 'TRUESEVERITY_DESC'],
+    ['TICKETID', 'TICKETID'], ['SUBJECT', 'SUBJECT'], ['NODENAME', 'NODENAME'], ['CLASSIFICATION', 'CLASSIFICATION'],
+    ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['PROBLEM', 'PROBLEM'], ['SUB_CAUSE', 'SUB_CAUSE'],
+    ['REMEDY', 'REMEDY'], ['DISTRICT_EN', 'DISTRICT_EN'],
+  ];
+
+  function renderResultsTable(results) {
+    if (!results.length) { el('hct-results-table').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">ไม่พบ Ticket ที่ตรงกับคำค้นหา</div>`; return; }
+    const head = RESULT_COLS.map(([, label]) => `<th style="padding:6px 8px; text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text2); white-space:nowrap;">${label}</th>`).join('');
+    const body = results.map(r => {
+      const cells = RESULT_COLS.map(([key]) => {
+        if (key === 'CREATIONDATE' || key === 'CLOSEDTIME') return `<td style="padding:5px 8px; white-space:nowrap; font-size:11px;">${escapeHtml(r[key]) || '-'}</td>`;
+        if (key === 'TRUESEVERITY_DESC') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:700; color:${r[key] && r[key].startsWith('SA') ? '#E24B4A' : 'var(--text)'};">${escapeHtml(r[key]) || '-'}</td>`;
+        if (key === 'SUBJECT' || key === 'CLASSIFICATION' || key === 'TRUEOWNERGROUP') return `<td style="padding:5px 8px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(r[key])}">${escapeHtml(r[key]) || '-'}</td>`;
+        return `<td style="padding:5px 8px; white-space:nowrap;">${escapeHtml(r[key]) || '-'}</td>`;
+      }).join('');
+      return `<tr style="border-top:1px solid var(--border);">${cells}</tr>`;
+    }).join('');
+    el('hct-results-table').innerHTML = `
+      <table style="border-collapse:collapse; font-size:11.5px; width:100%;">
+        <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); position:sticky; top:0;">${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>`;
+  }
+
+  async function runSearch() {
+    const query = el('hct-search-input').value.trim();
+    if (!query) { el('hct-result-summary').innerHTML = ''; el('hct-results-table').innerHTML = ''; return; }
+    el('hct-results-table').innerHTML = `<div style="font-size:12px; color:var(--text3); padding:10px;">กำลังค้นหา...</div>`;
+    try {
+      const params = new URLSearchParams();
+      params.set('ci_name', query);
+      if (severityFilter.size) params.set('severity', [...severityFilter].join(SEV_SEP));
+      const res = await fetch(`/api/historical-closed-ticket/search?${params.toString()}`);
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      const modeLabel = data.match_mode === 'exact'
+        ? `<span style="color:#1f6feb; font-weight:700;">🎯 ตรงเป๊ะกับ CI_Name</span>`
+        : data.match_mode === 'subject'
+          ? `<span style="color:#EF9F27; font-weight:700;">🔎 ไม่เจอใน CI_Name — ค้นต่อใน SUBJECT</span>`
+          : `<span style="color:var(--text3);">ไม่พบผลลัพธ์</span>`;
+      el('hct-result-summary').innerHTML = `<div style="font-size:12.5px;">พบ <b>${data.results.length.toLocaleString()}</b> Ticket สำหรับ "${escapeHtml(query)}" — ${modeLabel}</div>`;
+      renderResultsTable(data.results);
+    } catch (e) {
+      console.error('Historical Closed Ticket search failed', e);
+      el('hct-results-table').innerHTML = `<div style="color:#E24B4A; font-size:12px; padding:10px;">ค้นหาไม่สำเร็จ: ${escapeHtml(e.message)}</div>`;
+    }
+  }
+  el('hct-search-btn').addEventListener('click', runSearch);
+  el('hct-search-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
+
+  el('hct-import-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    el('hct-import-status').textContent = '⏳ กำลัง Import... (ไฟล์ใหญ่อาจใช้เวลาสักครู่)';
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/historical-closed-ticket/import', { method: 'POST', body: formData });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const result = await res.json();
+      el('hct-import-status').textContent = `✓ Import สำเร็จ (${result.row_count.toLocaleString()} แถว)`;
+      el('hct-warnings').innerHTML = (result.warnings || []).length
+        ? `<div style="border:1px solid #EF9F2755; background:#EF9F2714; border-radius:var(--r); padding:8px 12px; font-size:11.5px; color:#c77d1a;">⚠️ ${result.warnings.map(escapeHtml).join(' · ')}</div>`
+        : '';
+      await loadStatus();
+      el('hct-no-data').style.display = 'none';
+      el('hct-content').style.display = 'block';
+    } catch (err) {
+      console.error('Historical Closed Ticket import failed', err);
+      el('hct-import-status').textContent = '';
+      alert('Import ไม่สำเร็จ: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  async function loadStatus() {
+    const res = await fetch('/api/historical-closed-ticket/status');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.has_data) return;
+    allSeverities = data.severities || [];
+    severityFilter.clear();
+    renderSeverityFilter();
+    el('hct-imported-at').textContent = new Date().toLocaleString('th-TH');
+    hasData = true;
+  }
+
+  window.initHistoricalClosedTicketTab = function () {
+    if (hasData) return;
+    fetch('/api/historical-closed-ticket/status').then(r => r.ok ? r.json() : { has_data: false }).then(data => {
+      if (data.has_data) {
+        allSeverities = data.severities || [];
+        renderSeverityFilter();
+        el('hct-no-data').style.display = 'none';
+        el('hct-content').style.display = 'block';
         hasData = true;
       }
     }).catch(() => {});
