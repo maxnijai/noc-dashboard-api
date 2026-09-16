@@ -754,6 +754,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5" stroke="#a371f7" stroke-width="1.4"/><path d="M7 4v3l2 1.5" stroke="#a371f7" stroke-width="1.4" stroke-linecap="round"/><path d="M11 11l3 3" stroke="#a371f7" stroke-width="1.4" stroke-linecap="round"/></svg>
     Historical Closed Ticket
   </div>
+  <div class="nav-item" onclick="showPage('sa2risk')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5L14.5 13.5H1.5L8 1.5Z" stroke="#d1453d" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="#d1453d" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.2" r="0.9" fill="#d1453d"/></svg>
+    SA2 Risk
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -1452,6 +1456,233 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div id="hct-results-table" style="overflow-x:auto; max-height:600px; overflow-y:auto;"></div>
       </div>
     </div>
+  </div>
+
+  <!-- SA2 RISK (manual INOC tracking board - War Room style) -->
+  <style>
+
+  * { box-sizing: border-box; }
+
+  #page-sa2risk.sa2-warroom {
+    --bg: #05070b; --bg2: #131a24; --bg3: #0e141d; --bg4: #1a2330;
+    --border: #23303f; --border2: #2e3f52;
+    --text: #e8eef6; --text2: #9fb0c3; --text3: #6c7f94;
+    --green-bg: #10301c; --amber-bg: #3a2c0a; --red-bg: #3a1613; --blue-bg: #10223e;
+    background: #05070b; padding: 18px; border-radius: 10px;
+  }
+  .sa2-wrap { max-width: 1360px; margin: 0 auto; padding: 18px 20px 60px; }
+
+  /* ── Header ── */
+  .sa2-topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .sa2-brand { display: flex; align-items: center; gap: 10px; }
+  .sa2-brand-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .sa2-brand h1 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -.2px; }
+  .sa2-brand .sa2-sub { font-size: 11.5px; color: var(--text3); }
+  .sa2-top-actions { display: flex; gap: 8px; align-items: center; }
+  .sa2-clock { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text2); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 12px; }
+  .sa2-btn { border: 1px solid var(--border); background: var(--bg2); color: var(--text); border-radius: var(--r); padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .sa2-btn:hover { background: var(--bg4); }
+  .sa2-btn-primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .sa2-btn-primary:hover { opacity: .9; background: var(--blue); }
+  .sa2-btn-ghost { background: transparent; }
+
+  /* ── KPI ── */
+  .sa2-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; margin-bottom: 18px; }
+  .sa2-kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
+  .sa2-kpi-card .val { font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .sa2-kpi-card .lbl { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .sa2-kpi-card.sa2-alert { border-color: var(--red); background: var(--red-bg); }
+  .sa2-kpi-card.sa2-alert .val { color: var(--red); }
+
+  /* ── Charts ── */
+  .sa2-chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 14px; margin-bottom: 18px; }
+  .sa2-chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
+  .sa2-chart-card .sa2-t { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; color: var(--text2); }
+  .sa2-chart-card canvas { max-height: 190px; }
+
+  /* ── Table box ── */
+  .sa2-table-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; }
+  .sa2-table-box-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .sa2-table-box-head .sa2-t { font-size: 13.5px; font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  thead th { background: var(--bg3); text-align: left; padding: 7px 9px; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--text3); white-space: nowrap; position: sticky; top: 0; }
+  tbody td { padding: 7px 9px; border-top: 1px solid var(--border); white-space: nowrap; }
+  tbody tr:hover { background: var(--bg3); }
+  .sa2-table-scroll { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+  .sa2-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .sa2-badge-pending { background: var(--red-bg); color: var(--red); }
+  .sa2-badge-closed { background: var(--green-bg); color: var(--green); }
+  .sa2-status-select { border: none; border-radius: 20px; padding: 4px 26px 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; appearance: none; background-repeat: no-repeat; background-position: right 8px center; background-size: 10px; }
+  .sa2-status-select.sa2-badge-pending { background-color: var(--red-bg); color: var(--red); background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" stroke="%23d1453d" stroke-width="1.6" fill="none"/></svg>'); }
+  .sa2-status-select.sa2-badge-closed { background-color: var(--green-bg); color: var(--green); background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" stroke="%232e9e4f" stroke-width="1.6" fill="none"/></svg>'); }
+  .sa2-age-chip { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 2px 7px; border-radius: 5px; }
+  .sa2-age-ok { background: var(--blue-bg); color: var(--blue); }
+  .sa2-age-warn { background: var(--amber-bg); color: var(--amber); }
+  .sa2-age-crit { background: var(--red-bg); color: var(--red); font-weight: 700; }
+  .sa2-row-crit td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+  .sa2-subject-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sa2-del-btn { border: 1px solid var(--red); color: var(--red); background: transparent; border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-weight: 700; }
+  .sa2-del-btn:hover { background: var(--red-bg); }
+
+  /* ── Modal ── */
+  .sa2-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,14,20,.6); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+  .sa2-modal-overlay.sa2-open { display: flex; }
+  .sa2-modal { background: var(--bg2); border-radius: 12px; width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; border: 1px solid var(--border); }
+  .sa2-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg3); position: sticky; top: 0; }
+  .sa2-modal-head h2 { font-size: 15px; margin: 0; }
+  .sa2-modal-body { padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .sa2-field { display: flex; flex-direction: column; gap: 4px; }
+  .sa2-field.sa2-full { grid-column: 1 / -1; }
+  .sa2-field label { font-size: 11.5px; font-weight: 700; color: var(--text2); }
+  .sa2-field input, .sa2-field select, .sa2-field textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; }
+  .sa2-field .sa2-dt-row { display: flex; gap: 6px; }
+  .sa2-field .sa2-dt-row input { flex: 1; }
+  .sa2-now-btn { border: 1px solid var(--border2); background: var(--bg4); border-radius: 6px; padding: 0 10px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .sa2-modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; background: var(--bg3); position: sticky; bottom: 0; }
+  .sa2-hint { font-size: 10.5px; color: var(--text3); }
+
+  /* ── War Room mode ── */
+  #page-sa2risk.sa2-warroom { background: #05070b; }
+  #page-sa2risk.sa2-warroom .sa2-wrap { max-width: 1600px; }
+  #page-sa2risk.sa2-warroom .sa2-kpi-card .val { font-size: 38px; }
+  #page-sa2risk.sa2-warroom .sa2-kpi-card .lbl { font-size: 12.5px; }
+  #page-sa2risk.sa2-warroom thead th, #page-sa2risk.sa2-warroom tbody td { font-size: 14px; padding: 10px 12px; }
+  #page-sa2risk.sa2-warroom .sa2-badge { font-size: 13px; padding: 4px 14px; }
+  #page-sa2risk.sa2-warroom .sa2-brand h1 { font-size: 24px; }
+
+  </style>
+  <div class="page" id="page-sa2risk">
+<div class="sa2-wrap">
+
+  <div class="sa2-topbar">
+    <div class="sa2-brand">
+      <div class="sa2-brand-dot"></div>
+      <div>
+        <h1>🚨 SA2 Risk Monitor</h1>
+        <div class="sa2-sub">INOC Manual Tracking — ค้างไว้จนกว่า Ticket จะ Closed</div>
+      </div>
+    </div>
+    <div class="sa2-top-actions">
+      <div class="sa2-clock" id="sa2-clock">--:--:--</div>
+      <button class="sa2-btn" id="sa2-warroomToggle">🖥️ War Room Mode</button>
+      <button class="sa2-btn sa2-btn-primary" id="sa2-openAddBtn">➕ Add Row</button>
+    </div>
+  </div>
+
+  <div class="sa2-kpi-grid" id="sa2-kpiGrid"></div>
+
+  <div class="sa2-chart-grid">
+    <div class="sa2-chart-card"><div class="sa2-t">📍 Pending ตาม Province</div><canvas id="sa2-chartProvince"></canvas></div>
+    <div class="sa2-chart-card"><div class="sa2-t">👤 ภาระงานตาม INOC</div><canvas id="sa2-chartInoc"></canvas></div>
+    <div class="sa2-chart-card"><div class="sa2-t">📞 ช่องทางแจ้งทีม</div><canvas id="sa2-chartChannel"></canvas></div>
+  </div>
+
+  <div class="sa2-table-box">
+    <div class="sa2-table-box-head">
+      <div class="sa2-t">📋 SA2 Risk Tracking</div>
+      <div class="sa2-hint">คลิกแถวเพื่อดูรายละเอียด · ลบได้เมื่อ Status = Closed</div>
+    </div>
+    <div class="sa2-table-scroll">
+      <table>
+        <thead><tr>
+          <th>Ticket ID</th><th>Age</th><th>Create Date/Time</th><th>INOC Open Time</th><th>INOC Name</th>
+          <th>Topo Ring</th><th>แจ้งทีมผ่าน</th><th>Sup/Nop รับทราบ</th><th>เวลารับทราบ</th>
+          <th>จำนวนไซต์เสี่ยง</th><th>Subject</th><th>Province</th><th>Site Name</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="sa2-tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add Row Modal -->
+<div class="sa2-modal-overlay" id="sa2-modalOverlay">
+  <div class="sa2-modal">
+    <div class="sa2-modal-head">
+      <h2>➕ เพิ่ม SA2 Risk Ticket</h2>
+      <button class="sa2-btn sa2-btn-ghost" id="sa2-closeModalBtn">✕</button>
+    </div>
+    <div class="sa2-modal-body">
+      <div class="sa2-field sa2-full">
+        <label>Ticket ID</label>
+        <input type="text" id="sa2-f_ticketId" placeholder="INC000103425269">
+      </div>
+      <div class="sa2-field">
+        <label>Ticket Create Date/Time</label>
+        <div class="sa2-dt-row">
+          <input type="datetime-local" id="sa2-f_createDt">
+          <button class="sa2-now-btn" data-now="sa2-f_createDt">ตอนนี้</button>
+        </div>
+      </div>
+      <div class="sa2-field">
+        <label>INOC Date/Time Open Ticket</label>
+        <div class="sa2-dt-row">
+          <input type="datetime-local" id="sa2-f_inocOpenDt">
+          <button class="sa2-now-btn" data-now="sa2-f_inocOpenDt">ตอนนี้</button>
+        </div>
+      </div>
+      <div class="sa2-field">
+        <label>INOC Name</label>
+        <select id="sa2-f_inocName"></select>
+      </div>
+      <div class="sa2-field">
+        <label>Capture Topo Ring ส่งไลน์ทีมหรือยัง</label>
+        <select id="sa2-f_topoRing">
+          <option>Send done</option>
+          <option>ยังไม่ส่ง</option>
+        </select>
+      </div>
+      <div class="sa2-field">
+        <label>แจ้งทีมผ่านช่องทางไหน</label>
+        <select id="sa2-f_channel">
+          <option>Tel</option>
+          <option>Tel & Line</option>
+          <option>Line</option>
+        </select>
+      </div>
+      <div class="sa2-field">
+        <label>ชื่อ Sup/Nop ผู้รับทราบ</label>
+        <select id="sa2-f_supName"></select>
+      </div>
+      <div class="sa2-field">
+        <label>เวลา Sup/Nop รับทราบ</label>
+        <div class="sa2-dt-row">
+          <input type="datetime-local" id="sa2-f_supAckDt">
+          <button class="sa2-now-btn" data-now="sa2-f_supAckDt">ตอนนี้</button>
+        </div>
+      </div>
+      <div class="sa2-field">
+        <label>จำนวนไซต์ Risk ที่เสี่ยงหากเกิด SA2</label>
+        <input type="number" id="sa2-f_riskSites" min="0" placeholder="เช่น 12">
+      </div>
+      <div class="sa2-field">
+        <label>Province</label>
+        <select id="sa2-f_province"></select>
+      </div>
+      <div class="sa2-field sa2-full">
+        <label>SUBJECT Ticket</label>
+        <textarea id="sa2-f_subject" rows="2" placeholder="ข้อความ Subject จาก Ticket"></textarea>
+      </div>
+      <div class="sa2-field">
+        <label>SITENAME</label>
+        <input type="text" id="sa2-f_siteName" placeholder="ชื่อ Site">
+      </div>
+      <div class="sa2-field">
+        <label>Status Ticket</label>
+        <select id="sa2-f_status">
+          <option>Pending</option>
+          <option>Closed</option>
+        </select>
+      </div>
+    </div>
+    <div class="sa2-modal-foot">
+      <button class="sa2-btn" id="sa2-cancelAddBtn">ยกเลิก</button>
+      <button class="sa2-btn sa2-btn-primary" id="sa2-saveAddBtn">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
   </div>
 
   <!-- P0 ONLY LINE SUMMARY MODAL -->
@@ -4693,6 +4924,7 @@ function showPage(id) {
   if (id==='temppoint') { setTimeout(()=>{ if (window.initTempPointTab) window.initTempPointTab(); },50); }
   if (id==='cmsummarylog') { setTimeout(()=>{ if (window.initCmSummaryLogTab) window.initCmSummaryLogTab(); },50); }
   if (id==='historicalclosedticket') { setTimeout(()=>{ if (window.initHistoricalClosedTicketTab) window.initHistoricalClosedTicketTab(); },50); }
+  if (id==='sa2risk') { setTimeout(()=>{ if (window.initSa2RiskTab) window.initSa2RiskTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -10182,6 +10414,260 @@ function renderPivot(ft) {
       }
     }).catch(() => {});
   };
+})();
+
+// ── SA2 RISK (manual INOC tracking board) ──────────────────────────────
+(function () {
+let ROWS = [];
+let OPTIONS = { inoc_names: [], sup_names: [], provinces: [] };
+
+function fmtDt(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function ageHours(iso) {
+  if (!iso) return null;
+  return (Date.now() - new Date(iso).getTime()) / 36e5;
+}
+function ageLabel(h) {
+  if (h == null) return '-';
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  return `${hrs}h ${mins}m`;
+}
+function ageClass(h) {
+  if (h == null) return 'sa2-age-ok';
+  if (h >= 4) return 'sa2-age-crit';
+  if (h >= 2) return 'sa2-age-warn';
+  return 'sa2-age-ok';
+}
+
+function renderKpis() {
+  const pending = ROWS.filter(r => r.status === 'Pending');
+  const closedToday = ROWS.filter(r => r.status === 'Closed').length;
+  const totalRiskSites = pending.reduce((s, r) => s + (Number(r.riskSites) || 0), 0);
+  const oldestPending = pending.reduce((max, r) => {
+    const h = ageHours(r.createDt);
+    return h != null && h > max ? h : max;
+  }, 0);
+  const critCount = pending.filter(r => (ageHours(r.createDt) || 0) >= 4).length;
+
+  const cards = [
+    { val: pending.length, lbl: '🔴 Pending ตอนนี้', alert: pending.length > 0 },
+    { val: closedToday, lbl: '🟢 Closed แล้ว' },
+    { val: totalRiskSites, lbl: '📡 ไซต์เสี่ยงรวม (Pending)' },
+    { val: ageLabel(oldestPending), lbl: '⏱️ ค้างนานสุด' },
+    { val: critCount, lbl: '⚠️ เกิน 4 ชม. (Critical)', alert: critCount > 0 },
+  ];
+  document.getElementById('sa2-kpiGrid').innerHTML = cards.map(c =>
+    `<div class="sa2-kpi-card ${c.alert ? 'sa2-alert' : ''}"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`
+  ).join('');
+}
+
+let charts = {};
+function renderCharts() {
+  const pending = ROWS.filter(r => r.status === 'Pending');
+  Object.values(charts).forEach(c => c && c.destroy());
+
+  const byProvince = {};
+  pending.forEach(r => { const p = r.province.split('-')[3] || r.province; byProvince[p] = (byProvince[p] || 0) + 1; });
+  charts.province = new Chart(document.getElementById('sa2-chartProvince'), {
+    type: 'bar',
+    data: { labels: Object.keys(byProvince), datasets: [{ data: Object.values(byProvince), backgroundColor: '#d1453d', borderRadius: 4 }] },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+  });
+
+  const byInoc = {};
+  pending.forEach(r => { byInoc[r.inocName] = (byInoc[r.inocName] || 0) + 1; });
+  charts.inoc = new Chart(document.getElementById('sa2-chartInoc'), {
+    type: 'bar',
+    data: { labels: Object.keys(byInoc), datasets: [{ data: Object.values(byInoc), backgroundColor: '#2f6fd6', borderRadius: 4 }] },
+    options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+  });
+
+  const byChannel = {};
+  pending.forEach(r => { byChannel[r.channel] = (byChannel[r.channel] || 0) + 1; });
+  charts.channel = new Chart(document.getElementById('sa2-chartChannel'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(byChannel), datasets: [{ data: Object.values(byChannel), backgroundColor: ['#2f6fd6', '#7c5cd6', '#2e9e4f'] }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
+  });
+}
+
+function renderTable() {
+  const sorted = [...ROWS].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'Pending' ? -1 : 1;
+    return (ageHours(b.createDt) || 0) - (ageHours(a.createDt) || 0);
+  });
+  document.getElementById('sa2-tableBody').innerHTML = sorted.map(r => {
+    const h = r.status === 'Pending' ? ageHours(r.createDt) : null;
+    const ac = ageClass(h);
+    const rowCls = ac === 'sa2-age-crit' ? 'sa2-row-crit' : '';
+    return `<tr class="${rowCls}">
+      <td><b>${r.ticketId}</b></td>
+      <td>${r.status === 'Pending' ? `<span class="sa2-age-chip ${ac}">${ageLabel(h)}</span>` : '-'}</td>
+      <td>${fmtDt(r.createDt)}</td>
+      <td>${fmtDt(r.inocOpenDt)}</td>
+      <td>${r.inocName}</td>
+      <td>${r.topoRing}</td>
+      <td>${r.channel}</td>
+      <td>${r.supName}</td>
+      <td>${fmtDt(r.supAckDt)}</td>
+      <td style="text-align:center;">${r.riskSites}</td>
+      <td class="sa2-subject-cell" title="${r.subject}">${r.subject}</td>
+      <td>${r.province}</td>
+      <td>${r.siteName}</td>
+      <td>
+        <select class="sa2-status-select ${r.status === 'Pending' ? 'sa2-badge-pending' : 'sa2-badge-closed'}" data-status-row="${r.id}">
+          <option value="Pending" ${r.status === 'Pending' ? 'selected' : ''}>Pending</option>
+          <option value="Closed" ${r.status === 'Closed' ? 'selected' : ''}>Closed</option>
+        </select>
+      </td>
+      <td>${r.status === 'Closed' ? `<button class="sa2-del-btn" data-del="${r.id}">🗑️ ลบ</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => deleteRow(btn.dataset.del)));
+  document.querySelectorAll('[data-status-row]').forEach(sel => sel.addEventListener('change', () => changeStatus(sel.dataset.statusRow, sel.value)));
+}
+
+async function apiCall(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+  return res.json();
+}
+
+function renderAll() {
+  renderKpis();
+  renderCharts();
+  renderTable();
+}
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/sa2-risk');
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+    const data = await res.json();
+    ROWS = (data.rows || []).map(r => ({
+      id: r.id, ticketId: r.ticket_id, createDt: r.create_dt, inocOpenDt: r.inoc_open_dt,
+      inocName: r.inoc_name, topoRing: r.topo_ring, channel: r.channel, supName: r.sup_name,
+      supAckDt: r.sup_ack_dt, riskSites: r.risk_sites, subject: r.subject, province: r.province,
+      siteName: r.site_name, status: r.status,
+    }));
+    OPTIONS = data.options || OPTIONS;
+    populateDropdowns();
+    renderAll();
+  } catch (e) {
+    console.error('SA2 Risk load failed', e);
+    document.getElementById('sa2-tableBody').innerHTML = `<tr><td colspan="15" style="padding:14px; color:#d1453d;">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
+  }
+}
+
+function populateDropdowns() {
+  document.getElementById('sa2-f_inocName').innerHTML = (OPTIONS.inoc_names || []).map(n => `<option>${n}</option>`).join('');
+  document.getElementById('sa2-f_supName').innerHTML = (OPTIONS.sup_names || []).map(n => `<option>${n}</option>`).join('');
+  document.getElementById('sa2-f_province').innerHTML = (OPTIONS.provinces || []).map(n => `<option>${n}</option>`).join('');
+}
+
+async function changeStatus(id, newStatus) {
+  const row = ROWS.find(r => r.id === id);
+  if (!row || row.status === newStatus) return;
+  const prevStatus = row.status;
+  row.status = newStatus; // optimistic update, rolled back below on failure
+  renderAll();
+  try {
+    await apiCall('/api/sa2-risk/status', { id, status: newStatus });
+    await loadData();
+  } catch (e) {
+    console.error('SA2 Risk status update failed', e);
+    row.status = prevStatus;
+    renderAll();
+    alert('เปลี่ยน Status ไม่สำเร็จ: ' + e.message);
+  }
+}
+
+async function deleteRow(id) {
+  if (!confirm('ลบแถวนี้ออกจากการ Monitor?')) return;
+  try {
+    await apiCall('/api/sa2-risk/delete', { id });
+    await loadData();
+  } catch (e) {
+    console.error('SA2 Risk delete failed', e);
+    alert('ลบไม่สำเร็จ: ' + e.message);
+  }
+}
+
+// ── Modal ──
+const overlay = document.getElementById('sa2-modalOverlay');
+function openModal() {
+  ['sa2-f_ticketId','sa2-f_createDt','sa2-f_inocOpenDt','sa2-f_topoRing','sa2-f_channel','sa2-f_supAckDt','sa2-f_riskSites','sa2-f_subject','sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('sa2-f_status').value = 'Pending';
+  overlay.classList.add('sa2-open');
+}
+function closeModal() { overlay.classList.remove('sa2-open'); }
+document.getElementById('sa2-openAddBtn').addEventListener('click', openModal);
+document.getElementById('sa2-closeModalBtn').addEventListener('click', closeModal);
+document.getElementById('sa2-cancelAddBtn').addEventListener('click', closeModal);
+overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+document.querySelectorAll('.sa2-now-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const el = document.getElementById(btn.dataset.now);
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    el.value = now.toISOString().slice(0, 16);
+  });
+});
+
+document.getElementById('sa2-saveAddBtn').addEventListener('click', async () => {
+  const ticketId = document.getElementById('sa2-f_ticketId').value.trim();
+  if (!ticketId) { alert('กรุณากรอก Ticket ID'); return; }
+  const payload = {
+    ticket_id: ticketId,
+    create_dt: document.getElementById('sa2-f_createDt').value,
+    inoc_open_dt: document.getElementById('sa2-f_inocOpenDt').value,
+    inoc_name: document.getElementById('sa2-f_inocName').value,
+    topo_ring: document.getElementById('sa2-f_topoRing').value,
+    channel: document.getElementById('sa2-f_channel').value,
+    sup_name: document.getElementById('sa2-f_supName').value,
+    sup_ack_dt: document.getElementById('sa2-f_supAckDt').value,
+    risk_sites: document.getElementById('sa2-f_riskSites').value || 0,
+    subject: document.getElementById('sa2-f_subject').value.trim(),
+    province: document.getElementById('sa2-f_province').value,
+    site_name: document.getElementById('sa2-f_siteName').value.trim(),
+    status: document.getElementById('sa2-f_status').value,
+  };
+  const btn = document.getElementById('sa2-saveAddBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+  try {
+    await apiCall('/api/sa2-risk/add', payload);
+    await loadData();
+    closeModal();
+  } catch (e) {
+    console.error('SA2 Risk add failed', e);
+    alert('บันทึกไม่สำเร็จ: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+// ── War Room toggle ──
+document.getElementById('sa2-warroomToggle').addEventListener('click', () => {
+  document.getElementById('page-sa2risk').classList.toggle('sa2-warroom');
+});
+
+// ── Clock ──
+function tickClock() {
+  document.getElementById('sa2-clock').textContent = new Date().toLocaleString('th-TH', { hour12: false });
+}
+setInterval(tickClock, 1000);
+tickClock();
+setInterval(renderTable, 30000); // refresh age chips locally without a full refetch
+setInterval(loadData, 60000); // pick up changes made by other viewers
+
+window.initSa2RiskTab = function () { loadData(); };
+loadData();
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
