@@ -758,6 +758,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5L14.5 13.5H1.5L8 1.5Z" stroke="#d1453d" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="#d1453d" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.2" r="0.9" fill="#d1453d"/></svg>
     SA2 Risk
   </div>
+  <div class="nav-item" onclick="showPage('ofcmonitor')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="9" width="3" height="5.5" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/><rect x="6.5" y="5.5" width="3" height="9" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/><rect x="11.5" y="2" width="3" height="13" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/></svg>
+    OFC Monitor
+  </div>
   <div class="nav-item" onclick="showPage('oncallteam')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
@@ -1727,6 +1731,165 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 </div>
+  </div>
+
+  <!-- OFC MONITOR (Executive Operational Dashboard for OFC Work Orders) -->
+  <style>
+    .ofc-wrap { display: flex; flex-direction: column; gap: 16px; }
+    .ofc-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .ofc-header h1 { font-size: 17px; font-weight: 800; margin: 0; }
+    .ofc-header .sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+    .ofc-header-right { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text3); }
+    .ofc-btn { border: 1px solid var(--border); background: var(--bg2); color: var(--text); border-radius: var(--r); padding: 6px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .ofc-btn:hover { background: var(--bg4); }
+
+    .ofc-filterbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; background: var(--bg2); }
+    .ofc-filterbar select { padding: 5px 10px; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg1); color: var(--text); }
+    .ofc-reset { font-size: 11.5px; color: #1f6feb; cursor: pointer; font-weight: 700; }
+    .ofc-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg4); border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+    .ofc-chip .x { cursor: pointer; color: var(--text3); }
+
+    .ofc-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; }
+    .ofc-kpi { border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; background: var(--bg2); cursor: pointer; transition: border-color .15s; }
+    .ofc-kpi:hover { border-color: var(--border2); }
+    .ofc-kpi.active { border-color: #1f6feb; background: #1f6feb14; }
+    .ofc-kpi .val { font-size: 26px; font-weight: 800; line-height: 1.1; }
+    .ofc-kpi .lbl { font-size: 10.5px; color: var(--text3); margin-top: 4px; }
+
+    .ofc-alertbar { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ofc-alert { border-radius: var(--r); padding: 8px 14px; font-size: 12.5px; font-weight: 700; flex: 1; min-width: 220px; }
+    .ofc-alert.crit { background: #E24B4A14; color: #E24B4A; border: 1px solid #E24B4A44; }
+    .ofc-alert.warn { background: #EF9F2714; color: #c77d1a; border: 1px solid #EF9F2744; }
+    .ofc-alert.ok { background: #63992214; color: #4a7d19; border: 1px solid #63992244; }
+
+    .ofc-row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .ofc-row2 { grid-template-columns: 1fr; } }
+    .ofc-card { border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; background: var(--bg2); }
+    .ofc-card .t { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+
+    .ofc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+    .ofc-bar-row:hover .ofc-bar-track { opacity: .85; }
+    .ofc-bar-label { flex: 0 0 92px; font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ofc-bar-track { flex: 1; height: 20px; background: var(--bg3); border-radius: 4px; overflow: hidden; display: flex; }
+    .ofc-bar-seg { height: 100%; }
+    .ofc-bar-total { flex: 0 0 34px; font-size: 11.5px; font-weight: 800; text-align: right; }
+
+    .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+    .ofc-cov-label { flex: 0 0 44px; font-size: 11.5px; font-weight: 700; }
+    .ofc-cov-track { flex: 1; height: 16px; background: #E24B4A33; border-radius: 4px; overflow: hidden; }
+    .ofc-cov-fill { height: 100%; background: #639922; }
+    .ofc-cov-pct { flex: 0 0 60px; font-size: 11px; text-align: right; color: var(--text2); }
+
+    .ofc-heatmap-wrap { overflow-x: auto; }
+    .ofc-heatmap { border-collapse: collapse; font-size: 11px; }
+    .ofc-heatmap th, .ofc-heatmap td { padding: 5px 8px; text-align: center; white-space: nowrap; }
+    .ofc-heatmap th { background: var(--bg3); font-size: 10px; text-transform: uppercase; color: var(--text3); }
+    .ofc-heatmap td.hcell { cursor: pointer; font-weight: 700; }
+    .ofc-heatmap td.rowlabel { text-align: left; font-weight: 700; background: var(--bg3); cursor: pointer; }
+
+    .ofc-cc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .ofc-cc-grid { grid-template-columns: 1fr; } }
+    .ofc-cc-empty { color: #639922; font-weight: 700; font-size: 12.5px; padding: 10px 0; }
+    table.ofc-table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+    table.ofc-table th { background: var(--bg3); text-align: left; padding: 6px 8px; font-size: 10px; text-transform: uppercase; color: var(--text3); white-space: nowrap; }
+    table.ofc-table td { padding: 5px 8px; border-top: 1px solid var(--border); white-space: nowrap; }
+    table.ofc-table tr.p0 td:first-child { box-shadow: inset 3px 0 0 #E24B4A; }
+    table.ofc-table tr.p1 td:first-child { box-shadow: inset 3px 0 0 #EF9F27; }
+    .ofc-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 800; }
+    .ofc-badge.normal { background: #63992222; color: #4a7d19; }
+    .ofc-badge.high { background: #EF9F2722; color: #c77d1a; }
+    .ofc-badge.critical { background: #E24B4A22; color: #E24B4A; }
+
+    .ofc-action-row { cursor: pointer; }
+    .ofc-action-row:hover { background: var(--bg3); }
+
+    .ofc-detail-team { border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 8px; overflow: hidden; }
+    .ofc-detail-team-head { padding: 8px 12px; background: var(--bg3); display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 12.5px; font-weight: 700; }
+    .ofc-detail-team-body { display: none; overflow-x: auto; }
+    .ofc-detail-team-body.open { display: block; }
+  </style>
+
+  <div class="page" id="page-ofcmonitor">
+    <div class="ofc-wrap">
+
+      <div class="ofc-header">
+        <div>
+          <h1>📡 OFC WORK ORDER EXECUTIVE MONITOR</h1>
+          <div class="sub" id="ofc-subtitle">NOR1 + NOR2 | 4.FBB with SA1-4 | Real-Time Operational View</div>
+        </div>
+        <div class="ofc-header-right">
+          <span>Last Updated: <b id="ofc-last-updated" style="color:var(--text);">--:--</b></span>
+          <button class="ofc-btn" id="ofc-refresh-btn">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="ofc-filterbar">
+        <select id="ofc-filter-region"><option value="">Region: ทั้งหมด</option></select>
+        <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
+        <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
+        <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-mapping"><option value="">Mapping Status: ทั้งหมด</option><option value="mapped">Mapped</option><option value="unmapped">Unmapped</option></select>
+        <span class="ofc-reset" id="ofc-reset-filters">✕ Reset All Filters</span>
+        <div id="ofc-active-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+
+      <div id="ofc-no-data" style="border:1px dashed var(--border2); border-radius:var(--r); padding:40px 20px; text-align:center; color:var(--text3); font-size:13px;">
+        กำลังโหลดข้อมูล...
+      </div>
+
+      <div id="ofc-content" style="display:none;">
+        <div class="ofc-kpi-grid" id="ofc-kpi-grid" style="margin-bottom:16px;"></div>
+
+        <div class="ofc-alertbar" id="ofc-alert-bar" style="margin-bottom:16px;"></div>
+
+        <div class="ofc-row2" style="margin-bottom:16px;">
+          <div class="ofc-card">
+            <div class="t">👷 TEAM WORKLOAD <span style="font-weight:400; color:var(--text3); font-size:11px;">(Total | 🔴P0 🟠P1 🔵P2 — คลิกเพื่อ Drill Down)</span></div>
+            <div id="ofc-team-workload"></div>
+          </div>
+          <div class="ofc-card">
+            <div class="t">📶 OWS MAPPING COVERAGE</div>
+            <div id="ofc-mapping-coverage"></div>
+          </div>
+        </div>
+
+        <div class="ofc-row2" style="margin-bottom:16px;">
+          <div class="ofc-card">
+            <div class="t">📍 WORK ORDER BY PROVINCE</div>
+            <div id="ofc-province-workload"></div>
+          </div>
+          <div class="ofc-card">
+            <div class="t">🗺️ TEAM × PROVINCE HEATMAP</div>
+            <div class="ofc-heatmap-wrap"><table class="ofc-heatmap" id="ofc-heatmap"></table></div>
+          </div>
+        </div>
+
+        <div class="ofc-card" style="margin-bottom:16px;">
+          <div class="t">🚨 P0 / P1 COMMAND CENTER</div>
+          <div class="ofc-cc-grid">
+            <div>
+              <div style="font-size:11.5px; font-weight:700; color:#E24B4A; margin-bottom:6px;">🔴 P0</div>
+              <div id="ofc-cc-p0"></div>
+            </div>
+            <div>
+              <div style="font-size:11.5px; font-weight:700; color:#EF9F27; margin-bottom:6px;">🟠 P1</div>
+              <div id="ofc-cc-p1"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ofc-card" style="margin-bottom:16px;">
+          <div class="t">📋 TEAM ACTION LIST <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อ Drill Down ไปที่ Team นั้น)</span></div>
+          <div style="overflow-x:auto;"><table class="ofc-table" id="ofc-action-list"></table></div>
+        </div>
+
+        <div class="ofc-card">
+          <div class="t">🔧 DETAILED WORK ORDER <span style="font-weight:400; color:var(--text3); font-size:11px;">(จัดกลุ่มตาม Team — คลิกหัวข้อ Team เพื่อขยาย)</span></div>
+          <div id="ofc-detail-groups"></div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <!-- P0 ONLY LINE SUMMARY MODAL -->
@@ -4879,6 +5042,7 @@ function showPage(id) {
   if (id==='cmsummarylog') { setTimeout(()=>{ if (window.initCmSummaryLogTab) window.initCmSummaryLogTab(); },50); }
   if (id==='historicalclosedticket') { setTimeout(()=>{ if (window.initHistoricalClosedTicketTab) window.initHistoricalClosedTicketTab(); },50); }
   if (id==='sa2risk') { setTimeout(()=>{ if (window.initSa2RiskTab) window.initSa2RiskTab(); },50); }
+  if (id==='ofcmonitor') { setTimeout(()=>{ if (window.initOfcMonitorTab) window.initOfcMonitorTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -10769,6 +10933,381 @@ setInterval(loadData, 60000); // pick up changes made by other viewers
 window.initSa2RiskTab = function () { loadData(); };
 populateDropdowns(); // immediate, independent of the fetch below - see OPTIONS comment
 loadData();
+})();
+
+// ── OFC MONITOR (Executive Operational Dashboard) ───────────────────────
+(function () {
+  let hasData = false;
+  let allEntries = [];
+  let config = { high_load_threshold: 8, critical_load_threshold: 12 };
+  let filters = { region: '', province: '', team: '', severity: '', mapping: '' };
+
+  function el(id) { return document.getElementById(id); }
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  const NA = 'N/A';
+
+  function getFiltered() {
+    return allEntries.filter(e => {
+      if (filters.region && e.region !== filters.region) return false;
+      if (filters.province && e.district !== filters.province) return false;
+      if (filters.team && e.team !== filters.team) return false;
+      if (filters.severity && e.severity !== filters.severity) return false;
+      if (filters.mapping === 'mapped' && !e.is_mapped) return false;
+      if (filters.mapping === 'unmapped' && e.is_mapped) return false;
+      return true;
+    });
+  }
+
+  function loadStatus(field) {
+    // "Team ไหนมี P0/P1 ค้าง" - a WO with no Closed timestamp yet is still open/pending.
+    return field.closed ? 'Closed' : 'Open';
+  }
+
+  // ── Filter bar ──────────────────────────────────────────────────────
+  function populateFilterOptions() {
+    const uniq = (arr) => [...new Set(arr.filter(v => v))].sort();
+    const setOpts = (id, values, allLabel) => {
+      const cur = el(id).value;
+      el(id).innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+      el(id).value = cur;
+    };
+    setOpts('ofc-filter-region', uniq(allEntries.map(e => e.region)), 'Region: ทั้งหมด');
+    setOpts('ofc-filter-province', uniq(allEntries.map(e => e.district)), 'Province: ทั้งหมด');
+    setOpts('ofc-filter-team', uniq(allEntries.map(e => e.team)), 'Team: ทั้งหมด');
+    setOpts('ofc-filter-severity', uniq(allEntries.map(e => e.severity)), 'Severity: ทั้งหมด');
+  }
+
+  function renderActiveChips() {
+    const labels = {
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', mapping: 'Mapping',
+    };
+    const chips = Object.entries(filters).filter(([, v]) => v).map(([k, v]) =>
+      `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
+    ).join('');
+    el('ofc-active-chips').innerHTML = chips;
+    el('ofc-active-chips').querySelectorAll('[data-clear]').forEach(x => {
+      x.addEventListener('click', () => { setFilter(x.dataset.clear, ''); });
+    });
+    const anyActive = Object.values(filters).some(v => v);
+    el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
+  }
+
+  function setFilter(key, value) {
+    filters[key] = filters[key] === value ? '' : value; // click again to toggle off
+    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-mapping'].forEach(id => {
+      const k = id.replace('ofc-filter-', '');
+      if (el(id).value !== filters[k]) el(id).value = filters[k];
+    });
+    renderAll();
+  }
+
+  ['region', 'province', 'team', 'severity', 'mapping'].forEach(k => {
+    el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
+  });
+  el('ofc-reset-filters').addEventListener('click', () => {
+    filters = { region: '', province: '', team: '', severity: '', mapping: '' };
+    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-mapping'].forEach(id => { el(id).value = ''; });
+    renderAll();
+  });
+
+  // ── KPI cards ───────────────────────────────────────────────────────
+  function renderKpis(filtered) {
+    const teams = new Set(filtered.map(e => e.team));
+    const p0 = filtered.filter(e => e.severity === 'P0').length;
+    const p1 = filtered.filter(e => e.severity === 'P1').length;
+    const teamTotals = {};
+    filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
+    const highLoadTeams = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
+    const unmapped = filtered.filter(e => !e.is_mapped).length;
+
+    const cards = [
+      { key: '', label: 'TOTAL WO', value: filtered.length },
+      { key: 'severity:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
+      { key: 'severity:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
+      { key: '', label: 'ACTIVE OFC TEAMS', value: teams.size },
+      { key: '', label: 'HIGH LOAD TEAM', value: highLoadTeams, color: highLoadTeams ? '#EF9F27' : null, disabled: true },
+      { key: 'mapping:unmapped', label: 'UNMAPPED OWS', value: unmapped, color: unmapped ? '#E24B4A' : null },
+    ];
+    el('ofc-kpi-grid').innerHTML = cards.map(c => {
+      const [fk, fv] = c.key ? c.key.split(':') : ['', ''];
+      const isActive = c.key && filters[fk] === fv;
+      return `<div class="ofc-kpi ${isActive ? 'active' : ''}" ${c.key ? `data-kpi-filter="${c.key}"` : ''}>
+        <div class="val" style="${c.color ? `color:${c.color};` : ''}">${c.value.toLocaleString()}</div>
+        <div class="lbl">${c.label}</div>
+      </div>`;
+    }).join('');
+    el('ofc-kpi-grid').querySelectorAll('[data-kpi-filter]').forEach(card => {
+      card.addEventListener('click', () => {
+        const [fk, fv] = card.dataset.kpiFilter.split(':');
+        setFilter(fk, fv);
+      });
+    });
+  }
+
+  // ── Alert bar ───────────────────────────────────────────────────────
+  function renderAlertBar(filtered) {
+    const p0Count = filtered.filter(e => e.severity === 'P0').length;
+    const teamTotals = {};
+    filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
+    const highLoadCount = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
+    const unmappedCount = filtered.filter(e => !e.is_mapped).length;
+
+    const alerts = [];
+    if (p0Count > 0) alerts.push({ cls: 'crit', text: `🔴 P0 ACTION REQUIRED — ${p0Count} WO` });
+    if (highLoadCount > 0) alerts.push({ cls: 'warn', text: `🟠 HIGH TEAM LOAD — ${highLoadCount} Teams` });
+    if (unmappedCount > 0) alerts.push({ cls: 'warn', text: `⚠ OWS MAPPING GAP — ${unmappedCount} WO` });
+    if (!alerts.length) alerts.push({ cls: 'ok', text: '✓ No Critical P0 / P1 Alert' });
+
+    el('ofc-alert-bar').innerHTML = alerts.map(a => `<div class="ofc-alert ${a.cls}">${a.text}</div>`).join('');
+  }
+
+  // ── Team workload ───────────────────────────────────────────────────
+  function teamLoadStatus(total, hasP0) {
+    if (total >= config.critical_load_threshold || hasP0) return 'critical';
+    if (total >= config.high_load_threshold) return 'high';
+    return 'normal';
+  }
+
+  function renderTeamWorkload(filtered) {
+    const byTeam = {};
+    filtered.forEach(e => {
+      byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, P2: 0, other: 0 };
+      byTeam[e.team].total++;
+      if (e.severity === 'P0') byTeam[e.team].P0++;
+      else if (e.severity === 'P1') byTeam[e.team].P1++;
+      else if (e.severity === 'P2') byTeam[e.team].P2++;
+      else byTeam[e.team].other++;
+    });
+    const rows = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
+    const maxTotal = Math.max(...rows.map(r => r[1].total), 1);
+    el('ofc-team-workload').innerHTML = rows.map(([team, d]) => {
+      const pct = (n) => (n / maxTotal * 100);
+      return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}">
+        <div class="ofc-bar-label">${escapeHtml(team)}</div>
+        <div class="ofc-bar-track">
+          <div class="ofc-bar-seg" style="width:${pct(d.P0)}%; background:#E24B4A;"></div>
+          <div class="ofc-bar-seg" style="width:${pct(d.P1)}%; background:#EF9F27;"></div>
+          <div class="ofc-bar-seg" style="width:${pct(d.P2)}%; background:#1f6feb;"></div>
+          <div class="ofc-bar-seg" style="width:${pct(d.other)}%; background:var(--border2);"></div>
+        </div>
+        <div class="ofc-bar-total">${d.total}</div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-team-workload').querySelectorAll('[data-team]').forEach(row => {
+      row.addEventListener('click', () => setFilter('team', row.dataset.team));
+    });
+  }
+
+  // ── OWS Mapping Coverage ────────────────────────────────────────────
+  function renderMappingCoverage(filtered) {
+    const byProv = {};
+    filtered.forEach(e => {
+      byProv[e.district] = byProv[e.district] || { total: 0, mapped: 0 };
+      byProv[e.district].total++;
+      if (e.is_mapped) byProv[e.district].mapped++;
+    });
+    const rows = Object.entries(byProv).sort((a, b) => b[1].total - a[1].total);
+    el('ofc-mapping-coverage').innerHTML = rows.map(([prov, d]) => {
+      const pct = d.total ? Math.round(d.mapped / d.total * 100) : 0;
+      return `<div class="ofc-cov-row" data-province="${escapeHtml(prov)}" title="${escapeHtml(prov)}: ${d.total} WO | ${d.mapped} Mapped | ${d.total - d.mapped} Unmapped">
+        <div class="ofc-cov-label">${escapeHtml(prov)}</div>
+        <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${pct}%;"></div></div>
+        <div class="ofc-cov-pct">${d.total} WO · ${pct}%</div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-mapping-coverage').querySelectorAll('[data-province]').forEach(row => {
+      row.addEventListener('click', () => setFilter('province', row.dataset.province));
+    });
+  }
+
+  // ── Province workload ───────────────────────────────────────────────
+  function renderProvinceWorkload(filtered) {
+    const byProv = {};
+    filtered.forEach(e => {
+      byProv[e.district] = byProv[e.district] || { total: 0, P0: 0, P1: 0, teams: new Set() };
+      byProv[e.district].total++;
+      if (e.severity === 'P0') byProv[e.district].P0++;
+      if (e.severity === 'P1') byProv[e.district].P1++;
+      byProv[e.district].teams.add(e.team);
+    });
+    const rows = Object.entries(byProv).sort((a, b) => b[1].total - a[1].total);
+    const maxTotal = Math.max(...rows.map(r => r[1].total), 1);
+    el('ofc-province-workload').innerHTML = rows.map(([prov, d]) => `
+      <div class="ofc-bar-row" data-province="${escapeHtml(prov)}" title="${escapeHtml(prov)}: Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | ${d.teams.size} Teams">
+        <div class="ofc-bar-label">${escapeHtml(prov)}</div>
+        <div class="ofc-bar-track"><div class="ofc-bar-seg" style="width:${d.total / maxTotal * 100}%; background:#3bb7c9;"></div></div>
+        <div class="ofc-bar-total">${d.total}</div>
+      </div>`).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-province-workload').querySelectorAll('[data-province]').forEach(row => {
+      row.addEventListener('click', () => setFilter('province', row.dataset.province));
+    });
+  }
+
+  // ── Team × Province heatmap ─────────────────────────────────────────
+  function renderHeatmap(filtered) {
+    const teams = [...new Set(filtered.map(e => e.team))];
+    const provinces = [...new Set(filtered.map(e => e.district))].sort();
+    const grid = {};
+    filtered.forEach(e => {
+      grid[e.team] = grid[e.team] || {};
+      grid[e.team][e.district] = (grid[e.team][e.district] || 0) + 1;
+    });
+    const teamOrder = teams.map(t => [t, Object.values(grid[t] || {}).reduce((s, n) => s + n, 0)]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+    const maxCell = Math.max(1, ...teamOrder.flatMap(t => provinces.map(p => (grid[t] && grid[t][p]) || 0)));
+
+    const head = `<tr><th>Team</th>${provinces.map(p => `<th>${escapeHtml(p)}</th>`).join('')}</tr>`;
+    const body = teamOrder.map(t => {
+      const cells = provinces.map(p => {
+        const n = (grid[t] && grid[t][p]) || 0;
+        const intensity = n / maxCell;
+        const bg = n ? `rgba(59,183,201,${0.12 + intensity * 0.6})` : 'transparent';
+        return `<td class="hcell" style="background:${bg};" data-team="${escapeHtml(t)}" data-province="${escapeHtml(p)}">${n || '–'}</td>`;
+      }).join('');
+      return `<tr><td class="rowlabel" data-team="${escapeHtml(t)}">${escapeHtml(t)}</td>${cells}</tr>`;
+    }).join('');
+    el('ofc-heatmap').innerHTML = head + body;
+    el('ofc-heatmap').querySelectorAll('.hcell').forEach(td => {
+      td.addEventListener('click', () => { filters.team = td.dataset.team; filters.province = td.dataset.province; renderAll(); });
+    });
+    el('ofc-heatmap').querySelectorAll('.rowlabel').forEach(td => {
+      td.addEventListener('click', () => setFilter('team', td.dataset.team));
+    });
+  }
+
+  // ── P0/P1 Command Center ────────────────────────────────────────────
+  function commandCenterRows(list) {
+    return `<table class="ofc-table"><thead><tr><th>Team</th><th>Province</th><th>Ticket</th><th>Site</th><th>Subject</th><th>Status</th></tr></thead><tbody>
+      ${list.map(e => `<tr>
+        <td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.district)}</td><td>${escapeHtml(e.ticket_id)}</td>
+        <td>${escapeHtml(e.site_id)}</td><td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+        <td>${loadStatus(e)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  }
+  function renderCommandCenter(filtered) {
+    const p0 = filtered.filter(e => e.severity === 'P0');
+    const p1 = filtered.filter(e => e.severity === 'P1');
+    el('ofc-cc-p0').innerHTML = p0.length ? commandCenterRows(p0) : `<div class="ofc-cc-empty">✓ No P0</div>`;
+    el('ofc-cc-p1').innerHTML = p1.length ? commandCenterRows(p1) : `<div class="ofc-cc-empty">✓ No P1</div>`;
+  }
+
+  // ── Team Action List ────────────────────────────────────────────────
+  function renderActionList(filtered) {
+    const byTeam = {};
+    filtered.forEach(e => {
+      byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, mapped: 0, provinces: new Set() };
+      byTeam[e.team].total++;
+      if (e.severity === 'P0') byTeam[e.team].P0++;
+      if (e.severity === 'P1') byTeam[e.team].P1++;
+      if (e.is_mapped) byTeam[e.team].mapped++;
+      byTeam[e.team].provinces.add(e.district);
+    });
+    const rows = Object.entries(byTeam).sort((a, b) => {
+      const statusRank = { critical: 0, high: 1, normal: 2 };
+      const sa = teamLoadStatus(a[1].total, a[1].P0 > 0);
+      const sb = teamLoadStatus(b[1].total, b[1].P0 > 0);
+      if (statusRank[sa] !== statusRank[sb]) return statusRank[sa] - statusRank[sb];
+      return b[1].total - a[1].total;
+    });
+    const head = `<thead><tr><th>Team</th><th>Province</th><th>Total WO</th><th>P0</th><th>P1</th><th>Load Status</th><th>Mapping</th></tr></thead>`;
+    const body = rows.map(([team, d]) => {
+      const status = teamLoadStatus(d.total, d.P0 > 0);
+      const mappingPct = d.total ? Math.round(d.mapped / d.total * 100) : 0;
+      return `<tr class="ofc-action-row" data-team="${escapeHtml(team)}">
+        <td style="font-weight:700;">${escapeHtml(team)}</td>
+        <td>${[...d.provinces].map(escapeHtml).join(', ')}</td>
+        <td>${d.total}</td>
+        <td style="color:${d.P0 ? '#E24B4A' : 'var(--text3)'}; font-weight:700;">${d.P0}</td>
+        <td style="color:${d.P1 ? '#EF9F27' : 'var(--text3)'}; font-weight:700;">${d.P1}</td>
+        <td><span class="ofc-badge ${status}">${status.toUpperCase()}</span></td>
+        <td>${mappingPct}%</td>
+      </tr>`;
+    }).join('');
+    el('ofc-action-list').innerHTML = head + `<tbody>${body}</tbody>`;
+    el('ofc-action-list').querySelectorAll('.ofc-action-row').forEach(row => {
+      row.addEventListener('click', () => setFilter('team', row.dataset.team));
+    });
+  }
+
+  // ── Detailed Work Order (grouped by team, collapsed by default) ─────
+  const openTeamGroups = new Set();
+  function renderDetailGroups(filtered) {
+    const byTeam = {};
+    filtered.forEach(e => { (byTeam[e.team] = byTeam[e.team] || []).push(e); });
+    const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
+    el('ofc-detail-groups').innerHTML = teams.map(team => {
+      const rows = byTeam[team];
+      const isOpen = openTeamGroups.has(team);
+      const rowsHtml = rows.map(e => `<tr>
+        <td>${escapeHtml(e.owner)}</td><td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.ticket_id)}</td>
+        <td>${escapeHtml(e.severity)}</td><td>${escapeHtml(e.site_id)}</td>
+        <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+        <td>${escapeHtml(e.bookmark)}</td><td>${escapeHtml(e.district)}</td>
+        <td>${escapeHtml(e.departed)}</td><td>${escapeHtml(e.arrived)}</td><td>${escapeHtml(e.completed)}</td><td>${escapeHtml(e.closed)}</td>
+      </tr>`).join('');
+      return `<div class="ofc-detail-team">
+        <div class="ofc-detail-team-head" data-toggle-team="${escapeHtml(team)}">
+          <span>${escapeHtml(team)} <span style="font-weight:400; color:var(--text3);">(${rows.length} WO)</span></span>
+          <span>${isOpen ? '▾' : '▸'}</span>
+        </div>
+        <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
+          <table class="ofc-table">
+            <thead><tr><th>Owner</th><th>Team</th><th>Source Ticket ID</th><th>Severity</th><th>Site ID</th><th>Subject</th><th>Bookmark</th><th>DISTRICT</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-detail-groups').querySelectorAll('[data-toggle-team]').forEach(head => {
+      head.addEventListener('click', () => {
+        const team = head.dataset.toggleTeam;
+        if (openTeamGroups.has(team)) openTeamGroups.delete(team); else openTeamGroups.add(team);
+        renderDetailGroups(getFiltered());
+      });
+    });
+  }
+
+  function renderAll() {
+    const filtered = getFiltered();
+    renderKpis(filtered);
+    renderAlertBar(filtered);
+    renderTeamWorkload(filtered);
+    renderMappingCoverage(filtered);
+    renderProvinceWorkload(filtered);
+    renderHeatmap(filtered);
+    renderCommandCenter(filtered);
+    renderActionList(filtered);
+    renderDetailGroups(filtered);
+    renderActiveChips();
+  }
+
+  async function loadData() {
+    try {
+      const res = await fetch('/api/ofc-monitor');
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      const data = await res.json();
+      allEntries = data.entries || [];
+      config = data.config || config;
+      el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
+      populateFilterOptions();
+      el('ofc-no-data').style.display = 'none';
+      el('ofc-content').style.display = 'block';
+      renderAll();
+      hasData = true;
+    } catch (e) {
+      console.error('OFC Monitor load failed', e);
+      el('ofc-no-data').style.display = 'block';
+      el('ofc-no-data').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message;
+    }
+  }
+  el('ofc-refresh-btn').addEventListener('click', loadData);
+
+  window.initOfcMonitorTab = function () {
+    if (!hasData) loadData();
+  };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
