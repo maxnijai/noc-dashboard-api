@@ -112,15 +112,19 @@ def _safe_str(v):
 
 
 def build_ticket_mapping(gs_client):
-    """Returns {ticket_id_upper: {"bookmark", "district"}} from the
-    "data" sheet, keyed by TICKETID (spec section 2's Daily[Source
-    Ticket ID] -> data[TICKETID] match). DISTRICT is read by header name
-    first; if no column is literally named "DISTRICT", falls back to
-    the explicit column AM position given in the spec - covers either a
-    differently-worded header or a column that was never labeled."""
+    """Returns (mapping, header) where mapping is
+    {ticket_id_upper: {"bookmark", "district"}} from the "data" sheet,
+    keyed by TICKETID (spec section 2's Daily[Source Ticket ID] ->
+    data[TICKETID] match), and header is the sheet's actual header row
+    (returned for diagnostics - if "TICKETID" or "Bookmark" isn't found
+    verbatim in it, every row is silently skipped and mapping comes back
+    empty, which otherwise looks identical to "the sheet has no data").
+    DISTRICT is read by header name first; if no column is literally
+    named "DISTRICT", falls back to the explicit column AM position
+    given in the spec."""
     rows = fetch_mapping_rows(gs_client)
     if not rows:
-        return {}
+        return {}, []
     header = rows[0]
     col = {name.strip(): i for i, name in enumerate(header) if name.strip()}
     district_idx = col.get("DISTRICT", MAPPING_DISTRICT_COL_INDEX)
@@ -143,12 +147,12 @@ def build_ticket_mapping(gs_client):
             "bookmark": _safe_str(get(row, bookmark_idx)),
             "district": _safe_str(get(row, district_idx)),
         }
-    return mapping
+    return mapping, header
 
 
 def build_ofc_monitor_response(gs_client):
     daily_rows = mateline_status.fetch_ggs_daily_rows(gs_client)
-    mapping = build_ticket_mapping(gs_client)
+    mapping, mapping_header = build_ticket_mapping(gs_client)
 
     if not daily_rows:
         return {"entries": [], "integrity": {}, "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -167,14 +171,27 @@ def build_ofc_monitor_response(gs_client):
     missing_ticket_id_count = 0
     entries = []
 
+    # Diagnostic counters (explicit request: pinpoint where the funnel
+    # narrows to zero without needing live sheet access) - cheap to keep
+    # always on, not gated behind a debug flag.
+    diag_skill_values = {}
+    diag_region_values = {}
+    diag_bookmark_values = {}
+    diag_total_daily_data_rows = 0
+    diag_after_skill_region = 0
+
     for row in daily_rows[1:]:
         if not row or not any(row):
             continue
+        diag_total_daily_data_rows += 1
         skill = _safe_str(get(row, "Skill"))
         region = _safe_str(get(row, "Region"))
+        diag_skill_values[skill] = diag_skill_values.get(skill, 0) + 1
+        diag_region_values[region] = diag_region_values.get(region, 0) + 1
         # Default scope (spec section 3) applied here, server-side, once.
         if skill != DEFAULT_SKILL or region not in DEFAULT_REGIONS:
             continue
+        diag_after_skill_region += 1
 
         source_tid = _safe_str(get(row, "Source Ticket ID"))
         if not source_tid:
@@ -193,6 +210,7 @@ def build_ofc_monitor_response(gs_client):
             bookmark = NA_LABEL
         if not district:
             district = NA_LABEL
+        diag_bookmark_values[bookmark] = diag_bookmark_values.get(bookmark, 0) + 1
 
         # Default scope also filters on Bookmark - unmapped rows (no
         # Bookmark at all) are EXCLUDED from the default-scoped entries
@@ -230,10 +248,26 @@ def build_ofc_monitor_response(gs_client):
         "unmapped_count": unmapped_count,
     }
 
+    diagnostics = {
+        "daily_sheet_headers_found": header,
+        "daily_data_row_count": diag_total_daily_data_rows,
+        "skill_value_counts": diag_skill_values,
+        "region_value_counts": diag_region_values,
+        "rows_after_skill_region_filter": diag_after_skill_region,
+        "bookmark_value_counts_after_mapping": diag_bookmark_values,
+        "mapping_sheet_headers_found": mapping_header,
+        "mapping_sheet_entry_count": len(mapping),
+        "mapping_sheet_sample": dict(list(mapping.items())[:3]),
+        "looking_for_bookmark": DEFAULT_BOOKMARK,
+        "looking_for_skill": DEFAULT_SKILL,
+        "looking_for_regions": sorted(DEFAULT_REGIONS),
+    }
+
     return {
         "entries": default_scope_entries,
         "all_skill_region_entries_count": len(entries),
         "integrity": integrity,
+        "diagnostics": diagnostics,
         "config": {
             "high_load_threshold": HIGH_LOAD_THRESHOLD,
             "critical_load_threshold": CRITICAL_LOAD_THRESHOLD,
