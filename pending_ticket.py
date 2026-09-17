@@ -48,6 +48,24 @@ LIVE_COLUMNS = [
     "Tech_Team", "Tech_Status", "CLASSIFICATION", "Subimpact",
 ]
 
+
+def _safe_str(v):
+    """Converts a raw sheet value into a JSON-safe string. Real bug this
+    fixes: a blank cell read through pandas comes back as a NaN float,
+    not an empty string or None - and a bare `r.get("SOME_COL", "")`
+    silently passes that NaN straight through into a response dict.
+    Python's json module happily writes that as the bare token NaN,
+    which is NOT valid JSON (browsers reject it outright, failing
+    res.json() with a SyntaxError on an otherwise-successful 200
+    response - very confusing from the client side, since nothing
+    looks wrong until you inspect the raw response body). None and NaN
+    both become "" here; everything else is stringified as-is."""
+    if v is None:
+        return ""
+    if isinstance(v, float) and v != v:  # the standard v != v NaN check - no math import needed
+        return ""
+    return str(v)
+
 GROUP_PROBLEM_OPTIONS = [
     "Spare part - Spare part not available",
     "Spare part - Wait on site to replace",
@@ -761,13 +779,13 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2) if target_dt else None
         entries.append({
             "TICKETID": ticket_id,
-            "SUBJECT": r.get("SUBJECT", ""),
+            "SUBJECT": _safe_str(r.get("SUBJECT")),
             "subject_category": _auto_categorize_subject(r.get("SUBJECT", "")),
-            "CINAME": r.get("CINAME", ""),
-            "DISTRICT": r.get("DISTRICT", ""),
-            "PROVINCE": r.get("PROVINCE", ""),
-            "Region": r.get("Region", ""),
-            "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
+            "CINAME": _safe_str(r.get("CINAME")),
+            "DISTRICT": _safe_str(r.get("DISTRICT")),
+            "PROVINCE": _safe_str(r.get("PROVINCE")),
+            "Region": _safe_str(r.get("Region")),
+            "TRUEOWNERGROUP": _safe_str(r.get("TRUEOWNERGROUP")),
             "priority": priority,
             "Bookmark": bookmark_label,
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
@@ -779,7 +797,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "over_sla_day": over_sla_day,
             "status_mateline": mateline["status_mateline"],
             "mateline_wo_status": mateline["mateline_wo_status"],
-            "TARGETFINISH": r.get("TARGETFINISH", ""),
+            "TARGETFINISH": _safe_str(r.get("TARGETFINISH")),
             "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
         })
 
