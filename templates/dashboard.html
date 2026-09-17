@@ -1769,13 +1769,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
     .ofc-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
     .ofc-bar-row:hover .ofc-bar-track { opacity: .85; }
-    .ofc-bar-label { flex: 0 0 92px; font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ofc-bar-label { flex: 0 0 150px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ofc-bar-track { flex: 1; height: 20px; background: var(--bg3); border-radius: 4px; overflow: hidden; display: flex; }
     .ofc-bar-seg { height: 100%; }
     .ofc-bar-total { flex: 0 0 34px; font-size: 11.5px; font-weight: 800; text-align: right; }
 
     .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
-    .ofc-cov-label { flex: 0 0 44px; font-size: 11.5px; font-weight: 700; }
+    .ofc-cov-label { flex: 0 0 130px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ofc-cov-track { flex: 1; height: 16px; background: #E24B4A33; border-radius: 4px; overflow: hidden; }
     .ofc-cov-fill { height: 100%; background: #639922; }
     .ofc-cov-pct { flex: 0 0 60px; font-size: 11px; text-align: right; color: var(--text2); }
@@ -1828,7 +1828,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
-        <select id="ofc-filter-mapping"><option value="">Mapping Status: ทั้งหมด</option><option value="mapped">Mapped</option><option value="unmapped">Unmapped</option></select>
         <span class="ofc-reset" id="ofc-reset-filters">✕ Reset All Filters</span>
         <div id="ofc-active-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
@@ -1887,6 +1886,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div class="t">🔧 DETAILED WORK ORDER <span style="font-weight:400; color:var(--text3); font-size:11px;">(จัดกลุ่มตาม Team — คลิกหัวข้อ Team เพื่อขยาย)</span></div>
           <div id="ofc-detail-groups"></div>
         </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <div id="ofc-diag-toggle" style="font-size:11px; color:var(--text3); cursor:pointer; text-align:right;">🔍 แสดงข้อมูลตรวจสอบ (Diagnostics)</div>
+        <div id="ofc-diag-panel" style="display:none;"></div>
       </div>
 
     </div>
@@ -10940,7 +10944,13 @@ loadData();
   let hasData = false;
   let allEntries = [];
   let config = { high_load_threshold: 8, critical_load_threshold: 12 };
-  let filters = { region: '', province: '', team: '', severity: '', mapping: '' };
+  let filters = { region: '', province: '', team: '', severity: '' };
+  // Server-computed, NOT re-derived from the (already bookmark-filtered)
+  // allEntries - see loadData(): a ticket only keeps its real Bookmark
+  // once it's already mapped, so computing "unmapped"/"coverage" from
+  // allEntries alone would trivially always show 100% mapped and hide
+  // real gaps. These come from the full Skill+Region scope instead.
+  let serverStats = { unmapped_total: 0, mapping_coverage: [] };
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -10955,8 +10965,6 @@ loadData();
       if (filters.province && e.district !== filters.province) return false;
       if (filters.team && e.team !== filters.team) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
-      if (filters.mapping === 'mapped' && !e.is_mapped) return false;
-      if (filters.mapping === 'unmapped' && e.is_mapped) return false;
       return true;
     });
   }
@@ -10982,7 +10990,7 @@ loadData();
 
   function renderActiveChips() {
     const labels = {
-      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', mapping: 'Mapping',
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity',
     };
     const chips = Object.entries(filters).filter(([, v]) => v).map(([k, v]) =>
       `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
@@ -10997,19 +11005,19 @@ loadData();
 
   function setFilter(key, value) {
     filters[key] = filters[key] === value ? '' : value; // click again to toggle off
-    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-mapping'].forEach(id => {
+    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity'].forEach(id => {
       const k = id.replace('ofc-filter-', '');
       if (el(id).value !== filters[k]) el(id).value = filters[k];
     });
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity', 'mapping'].forEach(k => {
+  ['region', 'province', 'team', 'severity'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
   el('ofc-reset-filters').addEventListener('click', () => {
-    filters = { region: '', province: '', team: '', severity: '', mapping: '' };
-    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-mapping'].forEach(id => { el(id).value = ''; });
+    filters = { region: '', province: '', team: '', severity: '' };
+    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity'].forEach(id => { el(id).value = ''; });
     renderAll();
   });
 
@@ -11021,7 +11029,11 @@ loadData();
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadTeams = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
-    const unmapped = filtered.filter(e => !e.is_mapped).length;
+    // Unmapped count comes from the server (full Skill+Region scope) -
+    // never from `filtered`, since every ticket that made it into
+    // allEntries at all already has a matching Bookmark, i.e. is
+    // already mapped by construction. See serverStats comment above.
+    const unmapped = serverStats.unmapped_total;
 
     const cards = [
       { key: '', label: 'TOTAL WO', value: filtered.length },
@@ -11029,7 +11041,7 @@ loadData();
       { key: 'severity:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
       { key: '', label: 'ACTIVE OFC TEAMS', value: teams.size },
       { key: '', label: 'HIGH LOAD TEAM', value: highLoadTeams, color: highLoadTeams ? '#EF9F27' : null, disabled: true },
-      { key: 'mapping:unmapped', label: 'UNMAPPED OWS', value: unmapped, color: unmapped ? '#E24B4A' : null },
+      { key: '', label: 'UNMAPPED OWS', value: unmapped, color: unmapped ? '#E24B4A' : null, disabled: true },
     ];
     el('ofc-kpi-grid').innerHTML = cards.map(c => {
       const [fk, fv] = c.key ? c.key.split(':') : ['', ''];
@@ -11053,7 +11065,7 @@ loadData();
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadCount = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
-    const unmappedCount = filtered.filter(e => !e.is_mapped).length;
+    const unmappedCount = serverStats.unmapped_total; // server-computed - see serverStats comment above
 
     const alerts = [];
     if (p0Count > 0) alerts.push({ cls: 'crit', text: `🔴 P0 ACTION REQUIRED — ${p0Count} WO` });
@@ -11071,6 +11083,7 @@ loadData();
     return 'normal';
   }
 
+  let teamWorkloadExpanded = false;
   function renderTeamWorkload(filtered) {
     const byTeam = {};
     filtered.forEach(e => {
@@ -11081,12 +11094,15 @@ loadData();
       else if (e.severity === 'P2') byTeam[e.team].P2++;
       else byTeam[e.team].other++;
     });
-    const rows = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
-    const maxTotal = Math.max(...rows.map(r => r[1].total), 1);
+    const allRows = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
+    const SHOWN = 12;
+    const rows = teamWorkloadExpanded ? allRows : allRows.slice(0, SHOWN);
+    const hiddenCount = allRows.length - rows.length;
+    const maxTotal = Math.max(...allRows.map(r => r[1].total), 1);
     el('ofc-team-workload').innerHTML = rows.map(([team, d]) => {
       const pct = (n) => (n / maxTotal * 100);
       return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}">
-        <div class="ofc-bar-label">${escapeHtml(team)}</div>
+        <div class="ofc-bar-label" title="${escapeHtml(team)}">${escapeHtml(team)}</div>
         <div class="ofc-bar-track">
           <div class="ofc-bar-seg" style="width:${pct(d.P0)}%; background:#E24B4A;"></div>
           <div class="ofc-bar-seg" style="width:${pct(d.P1)}%; background:#EF9F27;"></div>
@@ -11096,28 +11112,36 @@ loadData();
         <div class="ofc-bar-total">${d.total}</div>
       </div>`;
     }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    if (hiddenCount > 0 || teamWorkloadExpanded) {
+      el('ofc-team-workload').innerHTML += `<div id="ofc-team-toggle" style="font-size:11px; color:#1f6feb; cursor:pointer; font-weight:700; margin-top:4px;">${teamWorkloadExpanded ? '▴ แสดงน้อยลง' : `▾ แสดงเพิ่มอีก ${hiddenCount} Team`}</div>`;
+    }
     el('ofc-team-workload').querySelectorAll('[data-team]').forEach(row => {
       row.addEventListener('click', () => setFilter('team', row.dataset.team));
     });
+    const toggleEl = el('ofc-team-toggle');
+    if (toggleEl) toggleEl.addEventListener('click', () => { teamWorkloadExpanded = !teamWorkloadExpanded; renderTeamWorkload(filtered); });
   }
 
   // ── OWS Mapping Coverage ────────────────────────────────────────────
-  function renderMappingCoverage(filtered) {
-    const byProv = {};
-    filtered.forEach(e => {
-      byProv[e.district] = byProv[e.district] || { total: 0, mapped: 0 };
-      byProv[e.district].total++;
-      if (e.is_mapped) byProv[e.district].mapped++;
-    });
-    const rows = Object.entries(byProv).sort((a, b) => b[1].total - a[1].total);
-    el('ofc-mapping-coverage').innerHTML = rows.map(([prov, d]) => {
-      const pct = d.total ? Math.round(d.mapped / d.total * 100) : 0;
-      return `<div class="ofc-cov-row" data-province="${escapeHtml(prov)}" title="${escapeHtml(prov)}: ${d.total} WO | ${d.mapped} Mapped | ${d.total - d.mapped} Unmapped">
-        <div class="ofc-cov-label">${escapeHtml(prov)}</div>
-        <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${pct}%;"></div></div>
-        <div class="ofc-cov-pct">${d.total} WO · ${pct}%</div>
+  const MAPPING_COVERAGE_SHOWN = 12;
+  function renderMappingCoverage() {
+    // Always the true picture across the whole Skill+Region scope
+    // (server-computed) - not affected by the current Team/Province/
+    // Severity filters, so a province's coverage number never changes
+    // just because someone is looking at a different team.
+    const rows = serverStats.mapping_coverage.slice(0, MAPPING_COVERAGE_SHOWN);
+    const hiddenCount = serverStats.mapping_coverage.length - rows.length;
+    el('ofc-mapping-coverage').innerHTML = rows.map(d => {
+      const isFull = d.pct >= 100;
+      return `<div class="ofc-cov-row" data-province="${escapeHtml(d.province)}" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
+        <div class="ofc-cov-label" title="${escapeHtml(d.province)}">${escapeHtml(d.province)}</div>
+        <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${d.pct}%; ${isFull ? '' : 'background:#EF9F27;'}"></div></div>
+        <div class="ofc-cov-pct">${d.total} WO · ${d.pct}%</div>
       </div>`;
     }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    if (hiddenCount > 0) {
+      el('ofc-mapping-coverage').innerHTML += `<div style="font-size:11px; color:var(--text3); margin-top:4px;">...และอีก ${hiddenCount} Province</div>`;
+    }
     el('ofc-mapping-coverage').querySelectorAll('[data-province]').forEach(row => {
       row.addEventListener('click', () => setFilter('province', row.dataset.province));
     });
@@ -11275,7 +11299,7 @@ loadData();
     renderKpis(filtered);
     renderAlertBar(filtered);
     renderTeamWorkload(filtered);
-    renderMappingCoverage(filtered);
+    renderMappingCoverage();
     renderProvinceWorkload(filtered);
     renderHeatmap(filtered);
     renderCommandCenter(filtered);
@@ -11285,22 +11309,29 @@ loadData();
   }
 
   function formatDiagnostics(diag) {
-    if (!diag) return '';
+    if (!diag) return '<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล Diagnostics</div>';
     const fmtCounts = (obj) => Object.entries(obj || {}).map(([k, v]) => `${k || '(ว่าง)'}: ${v}`).join(', ') || '(ไม่มีข้อมูล)';
     return `
-      <div style="text-align:left; max-width:720px; margin:14px auto 0; font-size:11.5px; background:var(--bg1); border:1px solid var(--border); border-radius:6px; padding:12px 14px; line-height:1.8;">
-        <b>🔍 ตัวช่วยตรวจสอบ (Diagnostics)</b><br>
+      <div style="text-align:left; font-size:11.5px; background:var(--bg1); border:1px solid var(--border); border-radius:6px; padding:12px 14px; line-height:1.8;">
         <b>Daily sheet</b> — คอลัมน์ที่เจอจริง: ${diag.daily_sheet_headers_found.map(escapeHtml).join(', ')}<br>
         จำนวนแถวข้อมูลทั้งหมด: ${diag.daily_data_row_count}<br>
         ค่า Skill ที่เจอ: ${fmtCounts(diag.skill_value_counts)} (ระบบมองหา: "${escapeHtml(diag.looking_for_skill)}")<br>
         ค่า Region ที่เจอ: ${fmtCounts(diag.region_value_counts)} (ระบบมองหา: ${diag.looking_for_regions.map(escapeHtml).join(', ')})<br>
         เหลือหลังกรอง Skill+Region: ${diag.rows_after_skill_region_filter} แถว<br>
+        ค่า Severity ที่เจอ (หลังกรอง Skill+Region): ${fmtCounts(diag.severity_value_counts)}<br>
         <br>
         <b>Mapping (data) sheet</b> — คอลัมน์ที่เจอจริง: ${diag.mapping_sheet_headers_found.map(escapeHtml).join(', ')}<br>
         จำนวนที่จับคู่ TICKETID ได้: ${diag.mapping_sheet_entry_count}<br>
         ค่า Bookmark หลังจับคู่: ${fmtCounts(diag.bookmark_value_counts_after_mapping)} (ระบบมองหา: "${escapeHtml(diag.looking_for_bookmark)}")
       </div>`;
   }
+
+  el('ofc-diag-toggle').addEventListener('click', () => {
+    const panel = el('ofc-diag-panel');
+    const open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : 'block';
+    el('ofc-diag-toggle').textContent = open ? '🔍 แสดงข้อมูลตรวจสอบ (Diagnostics)' : '🔍 ซ่อนข้อมูลตรวจสอบ';
+  });
 
   async function loadData() {
     try {
@@ -11309,11 +11340,13 @@ loadData();
       const data = await res.json();
       allEntries = data.entries || [];
       config = data.config || config;
+      serverStats = { unmapped_total: data.unmapped_total || 0, mapping_coverage: data.mapping_coverage || [] };
       el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
+      el('ofc-diag-panel').innerHTML = formatDiagnostics(data.diagnostics);
       populateFilterOptions();
       if (!allEntries.length) {
         el('ofc-no-data').style.display = 'block';
-        el('ofc-no-data').innerHTML = 'ไม่พบ Work Order ที่ตรงเงื่อนไข Default Scope' + formatDiagnostics(data.diagnostics);
+        el('ofc-no-data').innerHTML = 'ไม่พบ Work Order ที่ตรงเงื่อนไข Default Scope<br><span style="font-size:11px; color:var(--text3);">ดูรายละเอียดได้ที่ "🔍 แสดงข้อมูลตรวจสอบ" ด้านล่างสุดของหน้า</span>';
         el('ofc-content').style.display = 'none';
       } else {
         el('ofc-no-data').style.display = 'none';
