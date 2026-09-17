@@ -177,6 +177,7 @@ def build_ofc_monitor_response(gs_client):
     diag_skill_values = {}
     diag_region_values = {}
     diag_bookmark_values = {}
+    diag_severity_values = {}
     diag_total_daily_data_rows = 0
     diag_after_skill_region = 0
 
@@ -211,6 +212,8 @@ def build_ofc_monitor_response(gs_client):
         if not district:
             district = NA_LABEL
         diag_bookmark_values[bookmark] = diag_bookmark_values.get(bookmark, 0) + 1
+        severity = _safe_str(get(row, "Severity")) or NA_LABEL
+        diag_severity_values[severity] = diag_severity_values.get(severity, 0) + 1
 
         # Default scope also filters on Bookmark - unmapped rows (no
         # Bookmark at all) are EXCLUDED from the default-scoped entries
@@ -223,7 +226,7 @@ def build_ofc_monitor_response(gs_client):
             "ticket_id": source_tid,
             "owner": _safe_str(get(row, "Owner")),
             "team": _safe_str(get(row, "Team")) or NA_LABEL,
-            "severity": _safe_str(get(row, "Severity")) or NA_LABEL,
+            "severity": severity,
             "site_id": _safe_str(get(row, "Site ID")),
             "subject": _safe_str(get(row, "Subject")),
             "departed": _safe_str(get(row, "Departed")),
@@ -240,6 +243,26 @@ def build_ofc_monitor_response(gs_client):
     unmapped_count = sum(1 for e in entries if not e["is_mapped"])
     default_scope_entries = [e for e in entries if e["bookmark"] == DEFAULT_BOOKMARK]
 
+    # Mapping coverage per province, computed from the FULL Skill+Region
+    # scope (entries, before the Bookmark filter) - not from
+    # default_scope_entries. A ticket only keeps its real Bookmark value
+    # (and so can only end up IN default_scope_entries) once it's
+    # already successfully mapped, so computing coverage from that
+    # already-filtered set would trivially show ~100% everywhere and
+    # hide the real gaps spec section 10 is asking to surface.
+    coverage_by_province = {}
+    for e in entries:
+        d = coverage_by_province.setdefault(e["district"], {"total": 0, "mapped": 0})
+        d["total"] += 1
+        if e["is_mapped"]:
+            d["mapped"] += 1
+    mapping_coverage = [
+        {"province": prov, "total": d["total"], "mapped": d["mapped"], "unmapped": d["total"] - d["mapped"],
+         "pct": round(d["mapped"] / d["total"] * 100, 1) if d["total"] else 0}
+        for prov, d in coverage_by_province.items()
+    ]
+    mapping_coverage.sort(key=lambda x: -x["total"])
+
     integrity = {
         "duplicate_ticket_ids": sorted(duplicate_ticket_ids),
         "duplicate_count": len(duplicate_ticket_ids),
@@ -255,6 +278,7 @@ def build_ofc_monitor_response(gs_client):
         "region_value_counts": diag_region_values,
         "rows_after_skill_region_filter": diag_after_skill_region,
         "bookmark_value_counts_after_mapping": diag_bookmark_values,
+        "severity_value_counts": diag_severity_values,
         "mapping_sheet_headers_found": mapping_header,
         "mapping_sheet_entry_count": len(mapping),
         "mapping_sheet_sample": dict(list(mapping.items())[:3]),
@@ -266,6 +290,8 @@ def build_ofc_monitor_response(gs_client):
     return {
         "entries": default_scope_entries,
         "all_skill_region_entries_count": len(entries),
+        "unmapped_total": unmapped_count,
+        "mapping_coverage": mapping_coverage,
         "integrity": integrity,
         "diagnostics": diagnostics,
         "config": {
