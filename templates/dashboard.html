@@ -11284,6 +11284,24 @@ loadData();
     renderActiveChips();
   }
 
+  function formatDiagnostics(diag) {
+    if (!diag) return '';
+    const fmtCounts = (obj) => Object.entries(obj || {}).map(([k, v]) => `${k || '(ว่าง)'}: ${v}`).join(', ') || '(ไม่มีข้อมูล)';
+    return `
+      <div style="text-align:left; max-width:720px; margin:14px auto 0; font-size:11.5px; background:var(--bg1); border:1px solid var(--border); border-radius:6px; padding:12px 14px; line-height:1.8;">
+        <b>🔍 ตัวช่วยตรวจสอบ (Diagnostics)</b><br>
+        <b>Daily sheet</b> — คอลัมน์ที่เจอจริง: ${diag.daily_sheet_headers_found.map(escapeHtml).join(', ')}<br>
+        จำนวนแถวข้อมูลทั้งหมด: ${diag.daily_data_row_count}<br>
+        ค่า Skill ที่เจอ: ${fmtCounts(diag.skill_value_counts)} (ระบบมองหา: "${escapeHtml(diag.looking_for_skill)}")<br>
+        ค่า Region ที่เจอ: ${fmtCounts(diag.region_value_counts)} (ระบบมองหา: ${diag.looking_for_regions.map(escapeHtml).join(', ')})<br>
+        เหลือหลังกรอง Skill+Region: ${diag.rows_after_skill_region_filter} แถว<br>
+        <br>
+        <b>Mapping (data) sheet</b> — คอลัมน์ที่เจอจริง: ${diag.mapping_sheet_headers_found.map(escapeHtml).join(', ')}<br>
+        จำนวนที่จับคู่ TICKETID ได้: ${diag.mapping_sheet_entry_count}<br>
+        ค่า Bookmark หลังจับคู่: ${fmtCounts(diag.bookmark_value_counts_after_mapping)} (ระบบมองหา: "${escapeHtml(diag.looking_for_bookmark)}")
+      </div>`;
+  }
+
   async function loadData() {
     try {
       const res = await fetch('/api/ofc-monitor');
@@ -11293,9 +11311,15 @@ loadData();
       config = data.config || config;
       el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
       populateFilterOptions();
-      el('ofc-no-data').style.display = 'none';
-      el('ofc-content').style.display = 'block';
-      renderAll();
+      if (!allEntries.length) {
+        el('ofc-no-data').style.display = 'block';
+        el('ofc-no-data').innerHTML = 'ไม่พบ Work Order ที่ตรงเงื่อนไข Default Scope' + formatDiagnostics(data.diagnostics);
+        el('ofc-content').style.display = 'none';
+      } else {
+        el('ofc-no-data').style.display = 'none';
+        el('ofc-content').style.display = 'block';
+        renderAll();
+      }
       hasData = true;
     } catch (e) {
       console.error('OFC Monitor load failed', e);
