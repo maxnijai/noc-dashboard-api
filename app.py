@@ -34,6 +34,7 @@ import temp_point_improvement
 import cm_summary_log
 import historical_closed_ticket
 import sa2_risk
+import ofc_monitor
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -3059,6 +3060,16 @@ def api_sa2_risk_delete():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         log.exception("sa2-risk delete failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/ofc-monitor')
+def api_ofc_monitor():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = ofc_monitor.build_ofc_monitor_response(gs_client)
+        return jsonify(data)
+    except Exception as e:
+        log.exception("ofc-monitor API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/flood-nan')
