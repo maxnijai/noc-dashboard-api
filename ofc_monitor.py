@@ -28,7 +28,7 @@ import mateline_status
 
 log = logging.getLogger(__name__)
 
-MAPPING_SHEET_ID = "1QEt3iZj3k0U-9onObE8vJ68TVJSLlEdd"
+MAPPING_SHEET_ID = "1AEQSsiLUbr5p6HYh36WNGF9TkUDVeW2xN-vDvDkjy1k"
 MAPPING_TAB = "data"
 MAPPING_DISTRICT_COL_INDEX = 38  # column AM (0-indexed: A=0 ... AM=38) - fallback if the header row doesn't literally say "DISTRICT"
 
