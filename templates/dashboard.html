@@ -6421,7 +6421,7 @@ function renderPivot(ft) {
       <tr style="border-top:1px solid var(--border);" data-ticket-id="${tid}" data-image-link="${escapeHtml(t.image_link || '')}">
         <td style="padding:6px 8px; font-weight:600; white-space:nowrap;">${tid}</td>
         <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
-        <td style="padding:6px 8px; max-width:320px;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
+        <td style="padding:6px 8px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
         ${categoryCell}
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
