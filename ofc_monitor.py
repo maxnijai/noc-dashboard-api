@@ -46,7 +46,7 @@ CRITICAL_LOAD_THRESHOLD = 12
 # entries are handed to the frontend, so the person never has to set
 # these up themselves.
 DEFAULT_SKILL = "OFC"
-DEFAULT_REGIONS = {"NOR1", "NOR2"}
+DEFAULT_REGIONS = {"NOR"}  # confirmed against real data: the sheet stores the combined NOR1+NOR2 scope as the single value "NOR" (no digit suffix) - "NOR1"/"NOR2" never actually appear
 DEFAULT_BOOKMARK = "4.FBB with SA1-4"
 
 NA_LABEL = "N/A"
