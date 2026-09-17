@@ -6241,7 +6241,30 @@ function renderPivot(ft) {
   async function fetchData() {
     const statusEl = el('p0-status');
     statusEl.textContent = 'กำลังโหลด...';
-    const res = await fetch('/api/exclusive-pending?priority=P0&all_aging=1');
+    // Previously: a network-level failure (connection dropped, server-side
+    // timeout killing the connection - anything short of a clean HTTP
+    // response) threw straight out of the bare `await fetch(...)` below,
+    // skipping the `if (!res.ok)` line entirely, so statusEl was NEVER
+    // updated away from "กำลังโหลด..." even though the request had
+    // already failed - the page looked permanently stuck loading when it
+    // had actually already given up. Wrapping the fetch itself, plus a
+    // client-side timeout (AbortController) so a hung server can't leave
+    // this waiting forever either, fixes both.
+    let res;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      try {
+        res = await fetch('/api/exclusive-pending?priority=P0&all_aging=1', { signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (networkErr) {
+      statusEl.textContent = networkErr.name === 'AbortError'
+        ? 'โหลดนานเกินไป (เกิน 30 วินาที) — ลองกด Refresh อีกครั้ง'
+        : 'เชื่อมต่อ Server ไม่สำเร็จ — ลองกด Refresh อีกครั้ง';
+      throw networkErr;
+    }
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
     const data = await res.json();
     statusEl.textContent = `${data.total_over_sla} P0 tickets ทั้งหมด — generated: ${data.generated_at || '-'} — insert_time: ${data.insert_time || '-'}`;
