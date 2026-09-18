@@ -233,6 +233,8 @@ def build_ofc_monitor_response(gs_client):
             "arrived": _safe_str(get(row, "Arrived")),
             "completed": _safe_str(get(row, "Completed")),
             "closed": _safe_str(get(row, "Closed")),
+            "require_finish_time": _safe_str(get(row, "Require Finish Time")),
+            "status": _safe_str(get(row, "Status")) or NA_LABEL,
             "region": region,
             "skill": skill,
             "bookmark": bookmark,
