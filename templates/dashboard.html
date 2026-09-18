@@ -1799,6 +1799,15 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     .ofc-badge.normal { background: #63992222; color: #4a7d19; }
     .ofc-badge.high { background: #EF9F2722; color: #c77d1a; }
     .ofc-badge.critical { background: #E24B4A22; color: #E24B4A; }
+    .ofc-copy-btn { border: 1px solid var(--border2); background: var(--bg3); color: var(--text); border-radius: 6px; padding: 3px 10px; font-size: 10.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .ofc-copy-btn:hover { background: var(--bg4); }
+    .ofc-copy-btn.copied { background: #639922; color: #fff; border-color: #639922; }
+    .ofc-sla-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .ofc-sla-badge.over { background: #E24B4A; color: #fff; }
+    .ofc-sla-badge.s30 { background: #E24B4A22; color: #E24B4A; }
+    .ofc-sla-badge.s60 { background: #EF9F2722; color: #c77d1a; }
+    .ofc-sla-badge.s120 { background: #EF9F2712; color: #c77d1a; }
+    .ofc-sla-badge.safe { background: #63992222; color: #4a7d19; }
 
     .ofc-action-row { cursor: pointer; }
     .ofc-action-row:hover { background: var(--bg3); }
@@ -1828,6 +1837,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-status"><option value="">Status: ทั้งหมด</option></select>
+        <select id="ofc-filter-sla"><option value="">SLA Status: ทั้งหมด</option><option>OVER SLA</option><option>≤30 min</option><option>31–60 min</option><option>61–120 min</option><option>&gt;120 min</option></select>
+        <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;"><input type="checkbox" id="ofc-filter-p0p1-only"> Show P0/P1 Only</label>
         <span class="ofc-reset" id="ofc-reset-filters">✕ Reset All Filters</span>
         <div id="ofc-active-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
       </div>
@@ -1864,6 +1876,18 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div class="ofc-card" style="margin-bottom:16px;">
+          <div class="t">⏱️ P0 / P1 AT RISK <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤60 นาที — เรียง P0→P1→เวลาที่เหลือน้อยสุด)</span></div>
+          <div id="ofc-p0p1-risk"></div>
+        </div>
+
+        <div class="ofc-card" style="margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div class="t" style="margin-bottom:0;">🚨 SLA ESCALATION <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤120 นาที)</span></div>
+          </div>
+          <div id="ofc-sla-escalation" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="ofc-card" style="margin-bottom:16px;">
           <div class="t">🚨 P0 / P1 COMMAND CENTER</div>
           <div class="ofc-cc-grid">
             <div>
@@ -1878,7 +1902,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">📋 TEAM ACTION LIST <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อ Drill Down ไปที่ Team นั้น)</span></div>
+          <div class="t">📋 TEAM ACTION LIST <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อ Drill Down ไปที่ Team นั้น — 🔴 = มี Copy Team Escalation)</span></div>
           <div style="overflow-x:auto;"><table class="ofc-table" id="ofc-action-list"></table></div>
         </div>
 
@@ -10944,7 +10968,7 @@ loadData();
   let hasData = false;
   let allEntries = [];
   let config = { high_load_threshold: 8, critical_load_threshold: 12 };
-  let filters = { region: '', province: '', team: '', severity: '' };
+  let filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
   // Server-computed, NOT re-derived from the (already bookmark-filtered)
   // allEntries - see loadData(): a ticket only keeps its real Bookmark
   // once it's already mapped, so computing "unmapped"/"coverage" from
@@ -10959,12 +10983,71 @@ loadData();
   }
   const NA = 'N/A';
 
+  // ── SLA Risk engine (explicit request) ───────────────────────────────
+  // Require Finish Time - Current Time = SLA Remaining, Asia/Bangkok.
+  // Recomputed client-side every tick (see setInterval below) - NEVER
+  // refetches Google Sheets just to update the clock. A ticket that's
+  // already Completed or Closed is never "active" SLA risk regardless
+  // of its Require Finish Time.
+  function parseSheetDateTime(str) {
+    if (!str) return null;
+    const m = String(str).trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s] = m;
+    // Treat the sheet's naive timestamp as Asia/Bangkok wall-clock time
+    // explicitly (+07:00) - comparing the resulting real UTC instants
+    // via getTime() is timezone-safe no matter what timezone the
+    // viewer's own browser/OS is set to.
+    const dt = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s || '00'}+07:00`);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+  function slaMinutesRemaining(e) {
+    if (e.completed || e.closed) return null; // not active SLA risk
+    const finish = parseSheetDateTime(e.require_finish_time);
+    if (!finish) return null;
+    return (finish.getTime() - Date.now()) / 60000;
+  }
+  function slaStatusLabel(minutes) {
+    if (minutes == null) return null;
+    if (minutes < 0) return 'OVER SLA';
+    if (minutes <= 30) return '≤30 min';
+    if (minutes <= 60) return '31–60 min';
+    if (minutes <= 120) return '61–120 min';
+    return '>120 min';
+  }
+  function slaBadgeClass(minutes) {
+    if (minutes == null) return '';
+    if (minutes < 0) return 'over';
+    if (minutes <= 30) return 's30';
+    if (minutes <= 60) return 's60';
+    if (minutes <= 120) return 's120';
+    return 'safe';
+  }
+  function fmtSlaMinutes(minutes) {
+    if (minutes == null) return '-';
+    const abs = Math.abs(Math.round(minutes));
+    const h = Math.floor(abs / 60), m = abs % 60;
+    const txt = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    return minutes < 0 ? `${txt} OVER` : `${txt} LEFT`;
+  }
+  function slaBadgeHtml(minutes) {
+    const label = slaStatusLabel(minutes);
+    if (label == null) return '<span style="color:var(--text3); font-size:11px;">-</span>';
+    return `<span class="ofc-sla-badge ${slaBadgeClass(minutes)}">${label === 'OVER SLA' ? 'OVER SLA' : fmtSlaMinutes(minutes)}</span>`;
+  }
+
   function getFiltered() {
     return allEntries.filter(e => {
       if (filters.region && e.region !== filters.region) return false;
       if (filters.province && e.district !== filters.province) return false;
       if (filters.team && e.team !== filters.team) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
+      if (filters.status && e.status !== filters.status) return false;
+      if (filters.p0p1Only && e.severity !== 'P0' && e.severity !== 'P1') return false;
+      if (filters.sla) {
+        const mins = slaMinutesRemaining(e);
+        if (slaStatusLabel(mins) !== filters.sla) return false;
+      }
       return true;
     });
   }
@@ -10986,38 +11069,43 @@ loadData();
     setOpts('ofc-filter-province', uniq(allEntries.map(e => e.district)), 'Province: ทั้งหมด');
     setOpts('ofc-filter-team', uniq(allEntries.map(e => e.team)), 'Team: ทั้งหมด');
     setOpts('ofc-filter-severity', uniq(allEntries.map(e => e.severity)), 'Severity: ทั้งหมด');
+    setOpts('ofc-filter-status', uniq(allEntries.map(e => e.status)), 'Status: ทั้งหมด');
   }
 
   function renderActiveChips() {
     const labels = {
-      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity',
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', status: 'Status', sla: 'SLA Status',
     };
-    const chips = Object.entries(filters).filter(([, v]) => v).map(([k, v]) =>
+    const chips = Object.entries(filters).filter(([k, v]) => v && k !== 'p0p1Only').map(([k, v]) =>
       `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
-    ).join('');
+    ).join('') + (filters.p0p1Only ? `<span class="ofc-chip">P0/P1 Only <span class="x" data-clear="p0p1Only">✕</span></span>` : '');
     el('ofc-active-chips').innerHTML = chips;
     el('ofc-active-chips').querySelectorAll('[data-clear]').forEach(x => {
-      x.addEventListener('click', () => { setFilter(x.dataset.clear, ''); });
+      x.addEventListener('click', () => { setFilter(x.dataset.clear, x.dataset.clear === 'p0p1Only' ? false : ''); });
     });
-    const anyActive = Object.values(filters).some(v => v);
+    const anyActive = Object.entries(filters).some(([, v]) => v);
     el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
   }
 
+  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-status', 'ofc-filter-sla'];
   function setFilter(key, value) {
-    filters[key] = filters[key] === value ? '' : value; // click again to toggle off
-    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity'].forEach(id => {
+    filters[key] = filters[key] === value ? (typeof value === 'boolean' ? false : '') : value; // click again to toggle off
+    FILTER_SELECT_IDS.forEach(id => {
       const k = id.replace('ofc-filter-', '');
       if (el(id).value !== filters[k]) el(id).value = filters[k];
     });
+    el('ofc-filter-p0p1-only').checked = !!filters.p0p1Only;
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity'].forEach(k => {
+  ['region', 'province', 'team', 'severity', 'status', 'sla'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
+  el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
   el('ofc-reset-filters').addEventListener('click', () => {
-    filters = { region: '', province: '', team: '', severity: '' };
-    ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity'].forEach(id => { el(id).value = ''; });
+    filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
+    FILTER_SELECT_IDS.forEach(id => { el(id).value = ''; });
+    el('ofc-filter-p0p1-only').checked = false;
     renderAll();
   });
 
@@ -11034,12 +11122,17 @@ loadData();
     // allEntries at all already has a matching Bookmark, i.e. is
     // already mapped by construction. See serverStats comment above.
     const unmapped = serverStats.unmapped_total;
+    const slaMinsList = filtered.map(e => slaMinutesRemaining(e)).filter(m => m != null);
+    const overSla = slaMinsList.filter(m => m < 0).length;
+    const slaAtRisk = slaMinsList.filter(m => m <= 120).length; // includes Over SLA
 
     const cards = [
       { key: '', label: 'TOTAL WO', value: filtered.length },
+      { key: '', label: 'OFC TEAMS', value: teams.size },
       { key: 'severity:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
       { key: 'severity:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
-      { key: '', label: 'ACTIVE OFC TEAMS', value: teams.size },
+      { key: '', label: 'SLA AT RISK', value: slaAtRisk, color: slaAtRisk ? '#EF9F27' : null, disabled: true },
+      { key: '', label: 'OVER SLA', value: overSla, color: overSla ? '#E24B4A' : null, disabled: true },
       { key: '', label: 'HIGH LOAD TEAM', value: highLoadTeams, color: highLoadTeams ? '#EF9F27' : null, disabled: true },
       { key: '', label: 'UNMAPPED OWS', value: unmapped, color: unmapped ? '#E24B4A' : null, disabled: true },
     ];
@@ -11133,10 +11226,11 @@ loadData();
     const hiddenCount = serverStats.mapping_coverage.length - rows.length;
     el('ofc-mapping-coverage').innerHTML = rows.map(d => {
       const isFull = d.pct >= 100;
+      const missingLabel = isFull ? '' : ` <span style="color:#E24B4A;">Missing ${d.unmapped}</span>`;
       return `<div class="ofc-cov-row" data-province="${escapeHtml(d.province)}" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
         <div class="ofc-cov-label" title="${escapeHtml(d.province)}">${escapeHtml(d.province)}</div>
         <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${d.pct}%; ${isFull ? '' : 'background:#EF9F27;'}"></div></div>
-        <div class="ofc-cov-pct">${d.total} WO · ${d.pct}%</div>
+        <div class="ofc-cov-pct">${d.mapped}/${d.total}${missingLabel}</div>
       </div>`;
     }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
     if (hiddenCount > 0) {
@@ -11202,6 +11296,106 @@ loadData();
   }
 
   // ── P0/P1 Command Center ────────────────────────────────────────────
+  // ── Copy to clipboard (explicit request: real Clipboard API, not just a button) ──
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      if (!btn) return;
+      const original = btn.textContent;
+      btn.textContent = '✓ Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+    }).catch(err => { console.error('Copy failed', err); alert('Copy ไม่สำเร็จ: ' + err.message); });
+  }
+  function ticketCopyText(e) {
+    const mins = slaMinutesRemaining(e);
+    return `Ticket: ${e.ticket_id}\nTeam: ${e.team}\nProvince: ${e.district}\nSeverity: ${e.severity}\nSite: ${e.site_id}\nSubject: ${e.subject}\nRequire Finish: ${e.require_finish_time || '-'}\nSLA: ${mins == null ? '-' : (slaStatusLabel(mins) === 'OVER SLA' ? 'OVER SLA' : fmtSlaMinutes(mins))}`;
+  }
+  function escalationCopyText(e) {
+    const mins = slaMinutesRemaining(e);
+    const slaLine = mins == null ? '-' : (mins < 0 ? 'OVER SLA' : fmtSlaMinutes(mins));
+    return `🚨 SLA ESCALATION\n\nProvince: ${e.district}\nTeam: ${e.team}\n\n${e.severity} | ${slaLine}\nTicket: ${e.ticket_id}\nSite: ${e.site_id}\nSubject: ${e.subject}\nRequire Finish: ${e.require_finish_time || '-'}\n\nPlease expedite and update status.`;
+  }
+  function teamEscalationCopyText(team, teamRiskEntries) {
+    const byProvince = {};
+    teamRiskEntries.forEach(e => { (byProvince[e.district] = byProvince[e.district] || []).push(e); });
+    let out = `🚨 ${team} SLA ESCALATION\n`;
+    Object.entries(byProvince).forEach(([prov, list]) => {
+      out += `\n${prov}\n`;
+      list.forEach(e => {
+        const mins = slaMinutesRemaining(e);
+        const slaLine = mins == null ? '-' : (mins < 0 ? 'OVER SLA' : fmtSlaMinutes(mins));
+        out += `\n${e.severity} | ${slaLine}\n${e.ticket_id}\n`;
+      });
+    });
+    out += `\nPlease expedite and update status.`;
+    return out;
+  }
+
+  // ── P0/P1 AT RISK (Over SLA OR <=60min, sorted P0->P1->remaining asc) ──
+  function renderP0P1AtRisk(filtered) {
+    const risk = filtered
+      .filter(e => e.severity === 'P0' || e.severity === 'P1')
+      .map(e => ({ e, mins: slaMinutesRemaining(e) }))
+      .filter(x => x.mins != null && x.mins <= 60)
+      .sort((a, b) => {
+        if (a.e.severity !== b.e.severity) return a.e.severity === 'P0' ? -1 : 1;
+        return a.mins - b.mins;
+      });
+    if (!risk.length) { el('ofc-p0p1-risk').innerHTML = `<div class="ofc-cc-empty">✓ ไม่มี P0/P1 ที่เสี่ยงหลุด SLA</div>`; return; }
+    el('ofc-p0p1-risk').innerHTML = `<table class="ofc-table"><thead><tr>
+        <th>Severity</th><th>SLA</th><th>Province</th><th>Team</th><th>Ticket</th><th>Site</th><th>Subject</th><th></th>
+      </tr></thead><tbody>
+      ${risk.map(({ e, mins }) => `<tr class="${e.severity === 'P0' ? 'p0' : 'p1'}">
+        <td style="font-weight:800; color:${e.severity === 'P0' ? '#E24B4A' : '#EF9F27'};">${escapeHtml(e.severity)}</td>
+        <td>${slaBadgeHtml(mins)}</td>
+        <td>${escapeHtml(e.district)}</td><td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.ticket_id)}</td><td>${escapeHtml(e.site_id)}</td>
+        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+        <td><button class="ofc-copy-btn" data-copy-ticket="${escapeHtml(e.ticket_id)}">📋 Copy Ticket</button></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+    el('ofc-p0p1-risk').querySelectorAll('[data-copy-ticket]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = filtered.find(x => x.ticket_id === btn.dataset.copyTicket);
+        if (e) copyText(ticketCopyText(e), btn);
+      });
+    });
+  }
+
+  // ── SLA ESCALATION (Over SLA + <=120min, sorted Over->remaining asc->P0/P1/P2) ──
+  function renderSlaEscalation(filtered) {
+    const sevRank = { P0: 0, P1: 1, P2: 2 };
+    const risk = filtered
+      .map(e => ({ e, mins: slaMinutesRemaining(e) }))
+      .filter(x => x.mins != null && x.mins <= 120)
+      .sort((a, b) => {
+        const aOver = a.mins < 0, bOver = b.mins < 0;
+        if (aOver !== bOver) return aOver ? -1 : 1;
+        if (Math.round(a.mins) !== Math.round(b.mins)) return a.mins - b.mins;
+        const ar = sevRank[a.e.severity] ?? 9, br = sevRank[b.e.severity] ?? 9;
+        return ar - br;
+      });
+    if (!risk.length) { el('ofc-sla-escalation').innerHTML = `<div class="ofc-cc-empty">✓ ไม่มี Ticket ที่ต้อง Escalate ตอนนี้</div>`; return; }
+    el('ofc-sla-escalation').innerHTML = `<table class="ofc-table"><thead><tr>
+        <th>SLA Status</th><th>Remaining</th><th>Severity</th><th>Province</th><th>Team</th><th>Ticket ID</th><th>Site ID</th><th>Subject</th><th>Require Finish</th><th></th>
+      </tr></thead><tbody>
+      ${risk.map(({ e, mins }) => `<tr class="${e.severity === 'P0' ? 'p0' : e.severity === 'P1' ? 'p1' : ''}">
+        <td>${slaBadgeHtml(mins)}</td>
+        <td>${mins < 0 ? 'OVER' : fmtSlaMinutes(mins)}</td>
+        <td style="font-weight:700; color:${e.severity === 'P0' ? '#E24B4A' : e.severity === 'P1' ? '#EF9F27' : 'var(--text)'};">${escapeHtml(e.severity)}</td>
+        <td>${escapeHtml(e.district)}</td><td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.ticket_id)}</td><td>${escapeHtml(e.site_id)}</td>
+        <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+        <td>${escapeHtml(e.require_finish_time) || '-'}</td>
+        <td><button class="ofc-copy-btn" data-copy-esc="${escapeHtml(e.ticket_id)}">📋 Copy Escalation</button></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+    el('ofc-sla-escalation').querySelectorAll('[data-copy-esc]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const e = filtered.find(x => x.ticket_id === btn.dataset.copyEsc);
+        if (e) copyText(escalationCopyText(e), btn);
+      });
+    });
+  }
+
   function commandCenterRows(list) {
     return `<table class="ofc-table"><thead><tr><th>Team</th><th>Province</th><th>Ticket</th><th>Site</th><th>Subject</th><th>Status</th></tr></thead><tbody>
       ${list.map(e => `<tr>
@@ -11222,12 +11416,15 @@ loadData();
   function renderActionList(filtered) {
     const byTeam = {};
     filtered.forEach(e => {
-      byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, mapped: 0, provinces: new Set() };
+      byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, P2: 0, mapped: 0, provinces: new Set(), riskEntries: [] };
       byTeam[e.team].total++;
       if (e.severity === 'P0') byTeam[e.team].P0++;
-      if (e.severity === 'P1') byTeam[e.team].P1++;
+      else if (e.severity === 'P1') byTeam[e.team].P1++;
+      else if (e.severity === 'P2') byTeam[e.team].P2++;
       if (e.is_mapped) byTeam[e.team].mapped++;
       byTeam[e.team].provinces.add(e.district);
+      const mins = slaMinutesRemaining(e);
+      if (mins != null && mins <= 120) byTeam[e.team].riskEntries.push(e);
     });
     const rows = Object.entries(byTeam).sort((a, b) => {
       const statusRank = { critical: 0, high: 1, normal: 2 };
@@ -11236,23 +11433,35 @@ loadData();
       if (statusRank[sa] !== statusRank[sb]) return statusRank[sa] - statusRank[sb];
       return b[1].total - a[1].total;
     });
-    const head = `<thead><tr><th>Team</th><th>Province</th><th>Total WO</th><th>P0</th><th>P1</th><th>Load Status</th><th>Mapping</th></tr></thead>`;
+    const head = `<thead><tr><th>Team</th><th>Province</th><th>Total WO</th><th>P0</th><th>P1</th><th>P2</th><th>SLA Risk</th><th>Over SLA</th><th>Load Status</th><th>Mapping</th><th></th></tr></thead>`;
     const body = rows.map(([team, d]) => {
       const status = teamLoadStatus(d.total, d.P0 > 0);
       const mappingPct = d.total ? Math.round(d.mapped / d.total * 100) : 0;
+      const overSlaCount = d.riskEntries.filter(e => slaMinutesRemaining(e) < 0).length;
       return `<tr class="ofc-action-row" data-team="${escapeHtml(team)}">
         <td style="font-weight:700;">${escapeHtml(team)}</td>
         <td>${[...d.provinces].map(escapeHtml).join(', ')}</td>
         <td>${d.total}</td>
         <td style="color:${d.P0 ? '#E24B4A' : 'var(--text3)'}; font-weight:700;">${d.P0}</td>
         <td style="color:${d.P1 ? '#EF9F27' : 'var(--text3)'}; font-weight:700;">${d.P1}</td>
+        <td style="color:var(--text2);">${d.P2}</td>
+        <td style="color:${d.riskEntries.length ? '#EF9F27' : 'var(--text3)'}; font-weight:700;">${d.riskEntries.length}</td>
+        <td style="color:${overSlaCount ? '#E24B4A' : 'var(--text3)'}; font-weight:700;">${overSlaCount}</td>
         <td><span class="ofc-badge ${status}">${status.toUpperCase()}</span></td>
         <td>${mappingPct}%</td>
+        <td>${d.riskEntries.length ? `<button class="ofc-copy-btn" data-copy-team="${escapeHtml(team)}">📋 Copy Team Escalation</button>` : ''}</td>
       </tr>`;
     }).join('');
     el('ofc-action-list').innerHTML = head + `<tbody>${body}</tbody>`;
     el('ofc-action-list').querySelectorAll('.ofc-action-row').forEach(row => {
-      row.addEventListener('click', () => setFilter('team', row.dataset.team));
+      row.addEventListener('click', (ev) => { if (ev.target.closest('[data-copy-team]')) return; setFilter('team', row.dataset.team); });
+    });
+    el('ofc-action-list').querySelectorAll('[data-copy-team]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const team = btn.dataset.copyTeam;
+        copyText(teamEscalationCopyText(team, byTeam[team].riskEntries), btn);
+      });
     });
   }
 
@@ -11302,6 +11511,8 @@ loadData();
     renderMappingCoverage();
     renderProvinceWorkload(filtered);
     renderHeatmap(filtered);
+    renderP0P1AtRisk(filtered);
+    renderSlaEscalation(filtered);
     renderCommandCenter(filtered);
     renderActionList(filtered);
     renderDetailGroups(filtered);
@@ -11361,6 +11572,11 @@ loadData();
     }
   }
   el('ofc-refresh-btn').addEventListener('click', loadData);
+
+  // SLA Remaining ticks forward every minute purely client-side (explicit
+  // request: "Update SLA Timer ทุก 1 นาที โดยไม่ Fetch Google Sheet ใหม่")
+  // - re-renders from the already-loaded allEntries, never refetches.
+  setInterval(() => { if (hasData && allEntries.length) renderAll(); }, 60000);
 
   window.initOfcMonitorTab = function () {
     if (!hasData) loadData();
