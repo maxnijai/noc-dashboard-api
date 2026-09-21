@@ -887,8 +887,10 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
     # the same full `entries` set (every aging bucket), independent of
     # restrict_to_over_sla.
     province_matrix = {}
+    province_region = {}
     for e in entries:
         prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
+        province_region.setdefault(prov, e.get("Region") or "")
         (province_matrix.setdefault(e["Bookmark"], {})
                          .setdefault(prov, {})
                          .setdefault(e["Aging_Flag_Group"], 0))
@@ -904,7 +906,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
                 over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
             else:
                 over_total = sum(counts.values())
-            rows.append({"province": prov, "over_total": over_total, "counts": {
+            rows.append({"province": prov, "region": province_region.get(prov, ""), "over_total": over_total, "counts": {
                 ag: counts.get(ag, 0) for ag in AGING_ORDER
             }})
         rows.sort(key=lambda r: -r["over_total"])
