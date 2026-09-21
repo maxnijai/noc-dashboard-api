@@ -348,7 +348,12 @@ def fetch_temp_point_rows(gs_client):
         activity_owner_group = get(raw, "Activity Owner Group")
         region, province = _extract_region_province(activity_owner_group)
         if region is None:
+            # Explicit request: an Activity Owner Group that isn't a
+            # recognized "-NOP" NOR province (a "-CORP" suffix, for
+            # example) is excluded entirely, same rule as every other
+            # tab - not just counted and kept with a blank province.
             unmapped_region_count += 1
+            continue
 
         latlon = _parse_complete_lat_lon(get(raw, "Complete Lat Lon"))
         if latlon is None:
@@ -377,7 +382,7 @@ def fetch_temp_point_rows(gs_client):
     if invalid_coord_count:
         warnings.append(f"{invalid_coord_count} แถวมีพิกัดไม่ถูกต้อง/ไม่มีพิกัด (Invalid/Unmapped)")
     if unmapped_region_count:
-        warnings.append(f"{unmapped_region_count} แถวระบุ Region/Province ไม่ได้จาก Activity Owner Group")
+        warnings.append(f"ตัดออก {unmapped_region_count} แถวที่ระบุ Region/Province ไม่ได้จาก Activity Owner Group (เช่น ลงท้าย CORP)")
     if duplicate_count:
         warnings.append(f"พบ {duplicate_count} แถวซ้ำ (Source TT + INC ซ้ำกัน)")
 

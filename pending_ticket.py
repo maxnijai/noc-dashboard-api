@@ -48,6 +48,29 @@ LIVE_COLUMNS = [
     "Tech_Team", "Tech_Status", "CLASSIFICATION", "Subimpact",
 ]
 
+# TRUEOWNERGROUP -> Province (explicit request: switch away from the
+# native PROVINCE column here, which produces the literal text "None"
+# for rows this doesn't cover - TRUEOWNERGROUP is confirmed clean).
+# Reused verbatim from sla_improvement._extract_region_province: same
+# pattern, same CMI1/CMI2 merge. A TRUEOWNERGROUP that doesn't end in
+# "-NOP" (a "-CORP" suffix, for example) simply doesn't match and
+# returns None - which is exactly the "not related to my work, exclude
+# entirely" behavior asked for, with no separate CORP-specific check
+# needed. Kept as its own copy rather than importing across modules for
+# one small function - if it's ever updated in sla_improvement.py,
+# update here too.
+_TOG_PATTERN = re.compile(r"TRUE-TH-BBT-(NOR[12])-([A-Z0-9]+)-NOP")
+_PROVINCE_CODE_MERGE = {"CMI1": "CMI", "CMI2": "CMI"}
+
+
+def _extract_region_province(true_owner_group):
+    m = _TOG_PATTERN.match(str(true_owner_group or "").strip())
+    if not m:
+        return None, None
+    region, code = m.group(1), m.group(2)
+    province = _PROVINCE_CODE_MERGE.get(code, code)
+    return region, province
+
 
 def _safe_str(v):
     """Converts a raw sheet value into a JSON-safe string. Real bug this
@@ -751,8 +774,18 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
         mateline_lookup = {}
 
     entries = []
+    skipped_no_province = 0
     for r in scoped:
         ticket_id = str(r.get("TICKETID", "")).strip()
+        true_owner_group = r.get("TRUEOWNERGROUP")
+        region_from_owner, province_from_owner = _extract_region_province(true_owner_group)
+        if province_from_owner is None:
+            # Explicit request: TRUEOWNERGROUP not ending in "-NOP" for a
+            # known NOR province (a "-CORP" suffix, for example) is not
+            # relevant work - excluded entirely, not just shown with a
+            # blank/placeholder province.
+            skipped_no_province += 1
+            continue
         wl = work_log.get(ticket_id, {})
         mateline = mateline_lookup.get(ticket_id.upper()) or {
             "status_mateline": "(ไม่พบใน MatelineX)", "mateline_wo_status": "",
@@ -783,9 +816,9 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "subject_category": _auto_categorize_subject(r.get("SUBJECT", "")),
             "CINAME": _safe_str(r.get("CINAME")),
             "DISTRICT": _safe_str(r.get("DISTRICT")),
-            "PROVINCE": _safe_str(r.get("PROVINCE")),
-            "Region": _safe_str(r.get("Region")),
-            "TRUEOWNERGROUP": _safe_str(r.get("TRUEOWNERGROUP")),
+            "PROVINCE": province_from_owner,
+            "Region": region_from_owner,
+            "TRUEOWNERGROUP": _safe_str(true_owner_group),
             "priority": priority,
             "Bookmark": bookmark_label,
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
@@ -800,6 +833,8 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "TARGETFINISH": _safe_str(r.get("TARGETFINISH")),
             "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
         })
+    if skipped_no_province:
+        log.info("build_exclusive_pending_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
     # Summary matrix: bookmark -> group_problem -> aging_key -> count
     summary = {}
@@ -1324,7 +1359,17 @@ def build_online_sla_response(gs_client=None):
         mateline_lookup = {}
 
     entries = []
+    skipped_no_province = 0
     for r in scoped:
+        region_from_owner, province_from_owner = _extract_region_province(r.get("TRUEOWNERGROUP"))
+        if province_from_owner is None:
+            # Same rule as build_exclusive_pending_response above - a
+            # TRUEOWNERGROUP that isn't a recognized "-NOP" NOR province
+            # (e.g. "-CORP") is excluded entirely, not shown with a
+            # placeholder province.
+            skipped_no_province += 1
+            continue
+
         priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
         if priority is None:
             continue  # unparseable TARGETFINISH - can't classify at all, not even as P2
@@ -1363,8 +1408,8 @@ def build_online_sla_response(gs_client=None):
             "SUBJECT": r.get("SUBJECT", ""),
             "CINAME": r.get("CINAME", ""),
             "DISTRICT": r.get("DISTRICT", ""),
-            "PROVINCE": str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุ)",
-            "Region": r.get("Region", ""),
+            "PROVINCE": province_from_owner,
+            "Region": region_from_owner,
             "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
             "priority": priority,
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
@@ -1384,6 +1429,8 @@ def build_online_sla_response(gs_client=None):
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
             "action_team": wl.get("action_team", ""),
         })
+    if skipped_no_province:
+        log.info("build_pending_ticket_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
     # Most urgent (soonest TARGETFINISH / least remaining time) first -
     # entries with no computable remaining_hours sort last, not first.

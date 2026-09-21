@@ -20,6 +20,7 @@ backend is never re-hit just to change a filter.
 """
 
 import logging
+import re
 import threading
 import time
 from datetime import datetime
@@ -27,6 +28,24 @@ from datetime import datetime
 import mateline_status
 
 log = logging.getLogger(__name__)
+
+# Reused verbatim from sla_improvement._extract_region_province (explicit
+# request: same TRUEOWNERGROUP-style parsing, applied here to the Daily
+# sheet's "Owner" column instead - e.g. "TRUE-TH-BBT-NOR1-CMI1-NOP" ->
+# province "CMI". Kept as its own copy rather than importing across
+# modules for one small function, but the pattern/merge table must stay
+# identical to that module's - if it's ever updated there, update here
+# too.
+_TOG_PATTERN = re.compile(r"TRUE-TH-BBT-(NOR[12])-([A-Z0-9]+)-NOP")
+_PROVINCE_CODE_MERGE = {"CMI1": "CMI", "CMI2": "CMI"}
+
+
+def _extract_province_from_owner(owner_value):
+    m = _TOG_PATTERN.match(str(owner_value or "").strip())
+    if not m:
+        return None
+    code = m.group(2)
+    return _PROVINCE_CODE_MERGE.get(code, code)
 
 MAPPING_SHEET_ID = "1AEQSsiLUbr5p6HYh36WNGF9TkUDVeW2xN-vDvDkjy1k"
 MAPPING_TAB = "data"
@@ -169,6 +188,7 @@ def build_ofc_monitor_response(gs_client):
     seen_ticket_ids = set()
     duplicate_ticket_ids = set()
     missing_ticket_id_count = 0
+    skipped_no_province = 0
     entries = []
 
     # Diagnostic counters (explicit request: pinpoint where the funnel
@@ -197,6 +217,14 @@ def build_ofc_monitor_response(gs_client):
         source_tid = _safe_str(get(row, "Source Ticket ID"))
         if not source_tid:
             missing_ticket_id_count += 1
+            continue
+        province = _extract_province_from_owner(get(row, "Owner"))
+        if province is None:
+            # Explicit request: an Owner value that isn't a recognized
+            # "-NOP" NOR province (a "-CORP" suffix, for example) is not
+            # relevant work - excluded entirely, same rule as every
+            # other tab now, not shown with a placeholder province.
+            skipped_no_province += 1
             continue
         tid_upper = source_tid.upper()
         if tid_upper in seen_ticket_ids:
@@ -229,6 +257,7 @@ def build_ofc_monitor_response(gs_client):
             "severity": severity,
             "site_id": _safe_str(get(row, "Site ID")),
             "subject": _safe_str(get(row, "Subject")),
+            "alarm_description": _safe_str(get(row, "Alarm Description")),
             "departed": _safe_str(get(row, "Departed")),
             "arrived": _safe_str(get(row, "Arrived")),
             "completed": _safe_str(get(row, "Completed")),
@@ -236,6 +265,7 @@ def build_ofc_monitor_response(gs_client):
             "require_finish_time": _safe_str(get(row, "Require Finish Time")),
             "status": _safe_str(get(row, "Status")) or NA_LABEL,
             "region": region,
+            "province": province,  # already validated non-None above (TRUEOWNERGROUP-style, extracted from Owner)
             "skill": skill,
             "bookmark": bookmark,
             "district": district,
@@ -243,7 +273,12 @@ def build_ofc_monitor_response(gs_client):
         })
 
     unmapped_count = sum(1 for e in entries if not e["is_mapped"])
-    default_scope_entries = [e for e in entries if e["bookmark"] == DEFAULT_BOOKMARK]
+    # Bookmark is no longer a hard server-side filter (explicit request:
+    # "ขอปลด Filter ไม่กรองเฉพาะ FBB Online อย่างเดียว ขอเอาทุก Bookmark
+    # เลยครับ") - `entries` below is now the FULL Skill+Region scope,
+    # every Bookmark included. Each entry still carries its own
+    # `bookmark` value so the frontend can filter/group by it if wanted.
+    default_scope_entries = entries
 
     # Mapping coverage per province, computed from the FULL Skill+Region
     # scope (entries, before the Bookmark filter) - not from
@@ -269,6 +304,7 @@ def build_ofc_monitor_response(gs_client):
         "duplicate_ticket_ids": sorted(duplicate_ticket_ids),
         "duplicate_count": len(duplicate_ticket_ids),
         "missing_ticket_id_count": missing_ticket_id_count,
+        "skipped_no_province": skipped_no_province,
         "total_ofc_nor_rows": len(entries),
         "unmapped_count": unmapped_count,
     }
