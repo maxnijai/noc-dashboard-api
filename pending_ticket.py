@@ -474,11 +474,26 @@ def _fetch_full_ticket_entries(gs_client):
     now_dt = bangkok_now()
     today = now_dt.date()
 
-    scoped = [
-        r for r in all_rows
-        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
-        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
-    ]
+    scoped = []
+    skipped_no_province = 0
+    for r in all_rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        # Explicit request: a TRUEOWNERGROUP that isn't a recognized
+        # "-NOP" NOR province (a "-CORP" suffix, for example) is not
+        # relevant work - excluded entirely here, at the shared source
+        # this tab's ticket table, filter dropdown, district counts, and
+        # export mirror all come from, so none of them can show a CORP
+        # entry no matter which one is checked.
+        _, province_from_owner = _extract_region_province(r.get("TRUEOWNERGROUP"))
+        if province_from_owner is None:
+            skipped_no_province += 1
+            continue
+        scoped.append(r)
+    if skipped_no_province:
+        log.info("_fetch_full_ticket_entries: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
     work_log = load_work_log(gs_client)
 
