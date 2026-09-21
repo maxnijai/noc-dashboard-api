@@ -6519,7 +6519,7 @@ function renderPivot(ft) {
       const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       const rowTotalOnclick = (rowClickable && r.over_total > 0) ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
-        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(displayLabel(r[rowKey]))}</td>
+        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(displayLabel(r[rowKey]))}${rowKey === 'province' && r.region ? ` <span style="color:var(--text3); font-size:9.5px; font-weight:400;">(${escapeHtml(r.region)})</span>` : ''}</td>
         ${cells}
         <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'} ${rowTotalOnclick ? 'cursor:pointer;' : ''}" title="${rowTotalOnclick ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${r.over_total}</td>
       </tr>`;
@@ -6850,63 +6850,78 @@ function renderPivot(ft) {
   }
 
   function computeStatusMatelinePlanDateMatrix(tickets) {
-    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
-    const dateSet = new Set();
-    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
-    const dateColumns = [...dateSet].sort();
-    dateColumns.push(NO_PLAN_DATE);
-    const matrix = {};
+    // Province (rows, grouped by Region with subtotals) x Status
+    // Mateline (columns) - explicit request. Same structure as
+    // computeProvincePlanDateMatrix above, just Status Mateline instead
+    // of Plan Closed Date as the column dimension.
+    const smSet = new Set();
+    tickets.forEach(t => { smSet.add(t.status_mateline || '(ไม่พบใน MatelineX)'); });
+    const smColumns = [...smSet].sort();
+
+    const byRegionProvince = {}; // region -> provinceEn -> {status_mateline: count}
+    const rawProvinceByEn = {};
     tickets.forEach(t => {
-      const col = t.plan_closed_date || NO_PLAN_DATE;
+      const region = t.Region || '(ไม่ระบุ Region)';
+      const provinceEn = provinceEnLabel(t.PROVINCE);
       const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
-      matrix[sm] = matrix[sm] || {};
-      matrix[sm][col] = (matrix[sm][col] || 0) + 1;
+      byRegionProvince[region] = byRegionProvince[region] || {};
+      byRegionProvince[region][provinceEn] = byRegionProvince[region][provinceEn] || {};
+      byRegionProvince[region][provinceEn][sm] = (byRegionProvince[region][provinceEn][sm] || 0) + 1;
+      if (!(provinceEn in rawProvinceByEn)) rawProvinceByEn[provinceEn] = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
     });
-    const rows = Object.entries(matrix).map(([sm, counts]) => ({
-      status_mateline: sm, counts,
-      total: Object.values(counts).reduce((a, b) => a + b, 0),
-    })).sort((a, b) => b.total - a.total);
-    return rows.length ? { date_columns: dateColumns, rows } : null;
+
+    const regionOrder = Object.keys(byRegionProvince).sort();
+    const rows = [];
+    regionOrder.forEach(region => {
+      const provinces = Object.keys(byRegionProvince[region]).sort();
+      const subtotalCounts = {};
+      provinces.forEach(prov => {
+        const counts = byRegionProvince[region][prov];
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        rows.push({ label: prov, province: rawProvinceByEn[prov], counts, total });
+        smColumns.forEach(c => { subtotalCounts[c] = (subtotalCounts[c] || 0) + (counts[c] || 0); });
+      });
+      const subtotalTotal = Object.values(subtotalCounts).reduce((a, b) => a + b, 0);
+      rows.push({ label: `${region} รวม`, counts: subtotalCounts, total: subtotalTotal, isSubtotal: true });
+    });
+    return rows.length ? { status_mateline_columns: smColumns, rows } : null;
   }
 
   function renderStatusMatelineByPlanDate(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
-    const today = expTodayStr();
-    const cols = block.date_columns || [];
+    const cols = block.status_mateline_columns || [];
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
-      const isNoPlan = c.startsWith('(');
-      const isBackdated = !isNoPlan && c < today;
-      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
-      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+      const isBackDateCol = c.includes('Back Date');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${isBackDateCol ? '#B23A3A' : 'var(--text2)'};">${escapeHtml(c)}</th>`;
     }).join('');
     const rows = block.rows.map((r, i) => {
-      const isBackDateRow = r.status_mateline.includes('Back Date');
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
-        const isNoPlan = c.startsWith('(');
-        const isBackdated = !isNoPlan && c < today;
-        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
-        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
-        const clickable = clickFn && count > 0;
-        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','${esc1(c)}')"` : '';
-        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
+        const isBackDateCol = c.includes('Back Date');
+        const bg = r.isSubtotal ? '' : (isBackDateCol && count > 0) ? '#B23A3A1a' : '';
+        const fg = (!r.isSubtotal && isBackDateCol && count > 0) ? '#B23A3A' : '';
+        const clickable = clickFn && !r.isSubtotal && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
-      const rowTotalClickable = clickFn && r.total > 0;
-      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','')"` : '';
-      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; min-width:180px; font-weight:600; ${isBackDateRow ? 'color:#B23A3A;' : ''}">${escapeHtml(r.status_mateline)}</td>
+      const rowBg = r.isSubtotal ? 'var(--bg3)' : (i % 2 ? 'var(--bg1)' : 'transparent');
+      const rowTotalClickable = clickFn && !r.isSubtotal && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','')"` : '';
+      return `<tr style="border-top:1px solid var(--border); background:${rowBg};">
+        <td style="padding:7px 10px; min-width:160px; font-weight:${r.isSubtotal ? '700' : '600'};">${escapeHtml(r.label)}</td>
         ${cells}
-        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.status_mateline) : ''}">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.label) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
+    const nonSubtotalRows = block.rows.filter(r => !r.isSubtotal);
     const totalCells = cols.map(c => {
-      const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      const sum = nonSubtotalRows.reduce((s, r) => s + (r.counts[c] || 0), 0);
       const clickable = clickFn && sum > 0;
       const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
-      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline ในวันนี้' : ''}">${sum || '–'}</td>`;
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
-    const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotal = nonSubtotalRows.reduce((s, r) => s + (r.total || 0), 0);
     const grandTotalClickable = clickFn && grandTotal > 0;
     const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
@@ -6917,7 +6932,7 @@ function renderPivot(ft) {
     return `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Status Mateline</th>${head}
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
           <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
         </tr></thead>
         <tbody>${rows}${totalRow}</tbody>
@@ -7102,7 +7117,6 @@ function renderPivot(ft) {
       const provinceBlock = isFiltered ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
       const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
-      const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
       const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
       const planModeLabels = { groupProblem: 'Group Problem', province: 'Province', statusMateline: 'Status Mateline' };
       const planModeNext = { groupProblem: 'Province', province: 'Status Mateline', statusMateline: 'Group Problem' };
@@ -7111,16 +7125,17 @@ function renderPivot(ft) {
         : planMode === 'statusMateline'
         ? renderStatusMatelineByPlanDate(computeStatusMatelinePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0StatusMatelineCell')
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      const planDateColLabel = planMode === 'statusMateline' ? 'Status Mateline' : 'Plan Closed Date';
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × Plan Closed Date</span>
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × ${planDateColLabel}</span>
             <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
         </div>` : '';
-      const sideBySide = (provinceHtml || planDateHtml)
-        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
+      const sideBySide = planDateHtml
+        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${planDateHtml}</div>`
         : '';
 
       const chips = [];
@@ -7207,11 +7222,11 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
-  window.filterP0StatusMatelineCell = function (bookmark, statusMateline, planDate) {
+  window.filterP0StatusMatelineCell = function (bookmark, province, statusMateline) {
     const f = getSectionFilter(bookmark);
-    const same = f.statusMateline === statusMateline && f.planDate === planDate;
+    const same = f.province === province && f.statusMateline === statusMateline;
+    f.province = same ? '' : province;
     f.statusMateline = same ? '' : statusMateline;
-    f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
   window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
