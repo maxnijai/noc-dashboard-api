@@ -1859,19 +1859,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <div id="ofc-team-workload"></div>
           </div>
           <div class="ofc-card">
-            <div class="t">📶 OWS MAPPING COVERAGE</div>
+            <div class="t">📶 OWS MAPPING COVERAGE <span style="font-weight:400; color:var(--text3); font-size:11px;">(จังหวัดไหนยังมี Ticket ที่ยังไม่มี Team รับผิดชอบ — ตัวเลข = จับคู่ Team ได้แล้ว/ทั้งหมด)</span></div>
+            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping — คลิกแถวเพื่อ Drill Down</div>
             <div id="ofc-mapping-coverage"></div>
-          </div>
-        </div>
-
-        <div class="ofc-row2" style="margin-bottom:16px;">
-          <div class="ofc-card">
-            <div class="t">📍 WORK ORDER BY PROVINCE</div>
-            <div id="ofc-province-workload"></div>
-          </div>
-          <div class="ofc-card">
-            <div class="t">🗺️ TEAM × PROVINCE HEATMAP</div>
-            <div class="ofc-heatmap-wrap"><table class="ofc-heatmap" id="ofc-heatmap"></table></div>
           </div>
         </div>
 
@@ -1888,22 +1878,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">🚨 P0 / P1 COMMAND CENTER</div>
-          <div class="ofc-cc-grid">
-            <div>
-              <div style="font-size:11.5px; font-weight:700; color:#E24B4A; margin-bottom:6px;">🔴 P0</div>
-              <div id="ofc-cc-p0"></div>
-            </div>
-            <div>
-              <div style="font-size:11.5px; font-weight:700; color:#EF9F27; margin-bottom:6px;">🟠 P1</div>
-              <div id="ofc-cc-p1"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">📋 TEAM ACTION LIST <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อ Drill Down ไปที่ Team นั้น — 🔴 = มี Copy Team Escalation)</span></div>
-          <div style="overflow-x:auto;"><table class="ofc-table" id="ofc-action-list"></table></div>
+          <div class="t">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+          <div id="ofc-province-groups"></div>
         </div>
 
         <div class="ofc-card">
@@ -11465,6 +11441,64 @@ loadData();
     });
   }
 
+  // ── Work Order by Province (explicit request: group by Province FIRST,
+  // Team as a sub-level - matches the reference pivot table exactly.
+  // Uses the Daily sheet's OWN "Province" column, not the mapped
+  // DISTRICT via the "data" sheet - that mapped value is what OWS
+  // Mapping Coverage specifically measures, so it stays untouched;
+  // this is a separate, simpler grouping that doesn't depend on a
+  // successful ticket-to-mapping join at all. ─────────────────────────
+  const openProvinceGroups = new Set();
+  function renderProvinceGroups(filtered) {
+    const byProvince = {};
+    filtered.forEach(e => { (byProvince[e.province] = byProvince[e.province] || []).push(e); });
+    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b].length - byProvince[a].length);
+    el('ofc-province-groups').innerHTML = provinces.map(prov => {
+      const rows = byProvince[prov];
+      const isOpen = openProvinceGroups.has(prov);
+      const byTeam = {};
+      rows.forEach(e => { (byTeam[e.team] = byTeam[e.team] || []).push(e); });
+      const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
+      const bodyHtml = teams.map(team => {
+        const teamRows = byTeam[team];
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="10" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const ticketRows = teamRows.map(e => {
+          const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
+          const mins = slaMinutesRemaining(e);
+          return `<tr${isFbbOnline ? ' style="background:#E24B4A14;"' : ''}>
+          <td>${escapeHtml(e.ticket_id)}</td><td>${escapeHtml(e.site_id)}</td>
+          <td>${escapeHtml(e.severity)}</td>
+          <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject) || '-'}</td>
+          <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
+          <td>${slaBadgeHtml(mins)}</td>
+          <td>${escapeHtml(e.status)}</td>
+          <td>${escapeHtml(e.departed) || '-'}</td><td>${escapeHtml(e.arrived) || '-'}</td><td>${escapeHtml(e.completed) || '-'}</td><td>${escapeHtml(e.closed) || '-'}</td>
+        </tr>`;
+        }).join('');
+        return teamHeader + ticketRows;
+      }).join('');
+      return `<div class="ofc-detail-team">
+        <div class="ofc-detail-team-head" data-toggle-province="${escapeHtml(prov)}">
+          <span>📍 ${escapeHtml(prov)} <span style="font-weight:400; color:var(--text3);">(${rows.length} WO ใน ${teams.length} ทีม)</span></span>
+          <span>${isOpen ? '▾' : '▸'}</span>
+        </div>
+        <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
+          <table class="ofc-table">
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-province-groups').querySelectorAll('[data-toggle-province]').forEach(head => {
+      head.addEventListener('click', () => {
+        const prov = head.dataset.toggleProvince;
+        if (openProvinceGroups.has(prov)) openProvinceGroups.delete(prov); else openProvinceGroups.add(prov);
+        renderProvinceGroups(getFiltered());
+      });
+    });
+  }
+
   // ── Detailed Work Order (grouped by team, collapsed by default) ─────
   const openTeamGroups = new Set();
   function renderDetailGroups(filtered) {
@@ -11474,22 +11508,43 @@ loadData();
     el('ofc-detail-groups').innerHTML = teams.map(team => {
       const rows = byTeam[team];
       const isOpen = openTeamGroups.has(team);
-      const rowsHtml = rows.map(e => `<tr>
-        <td>${escapeHtml(e.owner)}</td><td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.ticket_id)}</td>
-        <td>${escapeHtml(e.severity)}</td><td>${escapeHtml(e.site_id)}</td>
-        <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
-        <td>${escapeHtml(e.bookmark)}</td><td>${escapeHtml(e.district)}</td>
-        <td>${escapeHtml(e.departed)}</td><td>${escapeHtml(e.arrived)}</td><td>${escapeHtml(e.completed)}</td><td>${escapeHtml(e.closed)}</td>
-      </tr>`).join('');
+      // Sub-grouped by Province within the team (explicit request: "เห็น
+      // ทุกงานของทีม OFC แยกจังหวัด") - each province gets its own small
+      // header row inside the team's table so it's scannable at a
+      // glance which provinces a team's workload is spread across.
+      // Every original column (Owner/Team/.../Closed) is kept as-is;
+      // SLA Status and Remaining are ADDED at the end, not a
+      // replacement for anything.
+      const byProvince = {};
+      rows.forEach(e => { (byProvince[e.district] = byProvince[e.district] || []).push(e); });
+      const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b].length - byProvince[a].length);
+      const bodyHtml = provinces.map(prov => {
+        const provRows = byProvince[prov];
+        const provHeader = `<tr style="background:var(--bg3);"><td colspan="14" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">📍 ${escapeHtml(prov)} (${provRows.length} WO)</td></tr>`;
+        const ticketRows = provRows.map(e => {
+          const mins = slaMinutesRemaining(e);
+          return `<tr>
+          <td>${escapeHtml(e.owner)}</td><td>${escapeHtml(e.team)}</td><td>${escapeHtml(e.ticket_id)}</td>
+          <td style="font-weight:700; color:${e.severity === 'P0' ? '#E24B4A' : e.severity === 'P1' ? '#EF9F27' : 'var(--text)'};">${escapeHtml(e.severity)}</td>
+          <td>${escapeHtml(e.site_id)}</td>
+          <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject)}</td>
+          <td>${escapeHtml(e.bookmark)}</td><td>${escapeHtml(e.district)}</td>
+          <td>${escapeHtml(e.departed)}</td><td>${escapeHtml(e.arrived)}</td><td>${escapeHtml(e.completed)}</td><td>${escapeHtml(e.closed)}</td>
+          <td>${slaBadgeHtml(mins)}</td>
+          <td>${mins == null ? '-' : (mins < 0 ? 'OVER' : fmtSlaMinutes(mins))}</td>
+        </tr>`;
+        }).join('');
+        return provHeader + ticketRows;
+      }).join('');
       return `<div class="ofc-detail-team">
         <div class="ofc-detail-team-head" data-toggle-team="${escapeHtml(team)}">
-          <span>${escapeHtml(team)} <span style="font-weight:400; color:var(--text3);">(${rows.length} WO)</span></span>
+          <span>${escapeHtml(team)} <span style="font-weight:400; color:var(--text3);">(${rows.length} WO ใน ${provinces.length} จังหวัด)</span></span>
           <span>${isOpen ? '▾' : '▸'}</span>
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Owner</th><th>Team</th><th>Source Ticket ID</th><th>Severity</th><th>Site ID</th><th>Subject</th><th>Bookmark</th><th>DISTRICT</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
-            <tbody>${rowsHtml}</tbody>
+            <thead><tr><th>Owner</th><th>Team</th><th>Source Ticket ID</th><th>Severity</th><th>Site ID</th><th>Subject</th><th>Bookmark</th><th>DISTRICT</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th><th>SLA Status</th><th>Remaining</th></tr></thead>
+            <tbody>${bodyHtml}</tbody>
           </table>
         </div>
       </div>`;
@@ -11509,12 +11564,9 @@ loadData();
     renderAlertBar(filtered);
     renderTeamWorkload(filtered);
     renderMappingCoverage();
-    renderProvinceWorkload(filtered);
-    renderHeatmap(filtered);
     renderP0P1AtRisk(filtered);
     renderSlaEscalation(filtered);
-    renderCommandCenter(filtered);
-    renderActionList(filtered);
+    renderProvinceGroups(filtered);
     renderDetailGroups(filtered);
     renderActiveChips();
   }
