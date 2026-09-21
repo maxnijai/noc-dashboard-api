@@ -70,6 +70,13 @@ DEFAULT_BOOKMARK = "4.FBB with SA1-4"
 
 NA_LABEL = "N/A"
 
+# Statuses that mean "not actually active work anymore" (explicit
+# request: "ผมต้องการดูงานที่มีในมือจริงๆ") - excluded from the entries
+# list itself, but NOT from all_teams below, so a team whose every
+# ticket happens to be in one of these statuses still shows up as an
+# idle team with 0 active tickets, instead of silently disappearing.
+EXCLUDED_STATUSES = {"Canceled", "Closed (Auto)", "Closed"}
+
 
 def _fetch_mapping_rows_raw(gs_client):
     sh = gs_client.open_by_key(MAPPING_SHEET_ID)
@@ -200,6 +207,11 @@ def build_ofc_monitor_response(gs_client):
     diag_severity_values = {}
     diag_total_daily_data_rows = 0
     diag_after_skill_region = 0
+    # Pinpointing "some active tickets show no SLA remaining" (explicit
+    # report) - counts Require Finish Time presence, split by Status, so
+    # the pattern is visible without live sheet access: is it blank for
+    # a specific Status only, or scattered regardless of Status?
+    diag_finish_time_by_status = {}
 
     for row in daily_rows[1:]:
         if not row or not any(row):
@@ -242,6 +254,10 @@ def build_ofc_monitor_response(gs_client):
         diag_bookmark_values[bookmark] = diag_bookmark_values.get(bookmark, 0) + 1
         severity = _safe_str(get(row, "Severity")) or NA_LABEL
         diag_severity_values[severity] = diag_severity_values.get(severity, 0) + 1
+        status = _safe_str(get(row, "Status")) or NA_LABEL
+        require_finish_time = _safe_str(get(row, "Require Finish Time"))
+        finish_key = f"{status} (has Require Finish Time)" if require_finish_time else f"{status} (BLANK Require Finish Time)"
+        diag_finish_time_by_status[finish_key] = diag_finish_time_by_status.get(finish_key, 0) + 1
 
         # Default scope also filters on Bookmark - unmapped rows (no
         # Bookmark at all) are EXCLUDED from the default-scoped entries
@@ -262,8 +278,8 @@ def build_ofc_monitor_response(gs_client):
             "arrived": _safe_str(get(row, "Arrived")),
             "completed": _safe_str(get(row, "Completed")),
             "closed": _safe_str(get(row, "Closed")),
-            "require_finish_time": _safe_str(get(row, "Require Finish Time")),
-            "status": _safe_str(get(row, "Status")) or NA_LABEL,
+            "require_finish_time": require_finish_time,
+            "status": status,
             "region": region,
             "province": province,  # already validated non-None above (TRUEOWNERGROUP-style, extracted from Owner)
             "skill": skill,
@@ -273,6 +289,19 @@ def build_ofc_monitor_response(gs_client):
         })
 
     unmapped_count = sum(1 for e in entries if not e["is_mapped"])
+    # Every team that appears ANYWHERE in the full Skill+Region scope -
+    # computed BEFORE the status filter below, so a team whose every
+    # ticket happens to be Canceled/Closed (Auto)/Closed still shows up
+    # here (as an idle team with 0 active tickets) instead of vanishing
+    # once those tickets are filtered out of entries itself.
+    all_teams = sorted({e["team"] for e in entries})
+
+    # Explicit request: exclude Canceled/Closed (Auto)/Closed entirely -
+    # "ผมต้องการดูงานที่มีในมือจริงๆ" (only genuinely active work). This
+    # is the actual `entries` list returned below; all_teams above
+    # already captured the full team roster before this filter runs.
+    entries = [e for e in entries if e["status"] not in EXCLUDED_STATUSES]
+
     # Bookmark is no longer a hard server-side filter (explicit request:
     # "ขอปลด Filter ไม่กรองเฉพาะ FBB Online อย่างเดียว ขอเอาทุก Bookmark
     # เลยครับ") - `entries` below is now the FULL Skill+Region scope,
@@ -317,6 +346,7 @@ def build_ofc_monitor_response(gs_client):
         "rows_after_skill_region_filter": diag_after_skill_region,
         "bookmark_value_counts_after_mapping": diag_bookmark_values,
         "severity_value_counts": diag_severity_values,
+        "require_finish_time_presence_by_status": diag_finish_time_by_status,
         "mapping_sheet_headers_found": mapping_header,
         "mapping_sheet_entry_count": len(mapping),
         "mapping_sheet_sample": dict(list(mapping.items())[:3]),
@@ -328,6 +358,7 @@ def build_ofc_monitor_response(gs_client):
     return {
         "entries": default_scope_entries,
         "all_skill_region_entries_count": len(entries),
+        "all_teams": all_teams,
         "unmapped_total": unmapped_count,
         "mapping_coverage": mapping_coverage,
         "integrity": integrity,
