@@ -28,6 +28,29 @@ from pending_ticket import ALLOWED_SEVERITIES, PENDING_TICKET_REGIONS, _exclusiv
 from pending_trend import get_drive_and_sheets_clients, bangkok_now, find_closest_file, download_xlsx_as_rows
 from realtime_monitor import REALTIME_SHEET_ID
 
+# TRUEOWNERGROUP -> Region + Province code (explicit request: switch away
+# from the raw ticket PROVINCE column, which mixes Thai names, English
+# abbreviated codes, English full names, and the literal text "None"
+# across different rows - TRUEOWNERGROUP is confirmed clean and gives one
+# canonical code per province). Reused verbatim from
+# sla_improvement._extract_region_province: same pattern, same CMI1/CMI2
+# merge. A TRUEOWNERGROUP that doesn't end in "-NOP" (a "-CORP" suffix,
+# for example) simply returns None - excluded entirely, not shown with a
+# placeholder province. Kept as its own copy rather than importing across
+# modules for one small function - if it's ever updated in
+# sla_improvement.py, update here too.
+_TOG_PATTERN = re.compile(r"TRUE-TH-BBT-(NOR[12])-([A-Z0-9]+)-NOP")
+_PROVINCE_CODE_MERGE = {"CMI1": "CMI", "CMI2": "CMI"}
+
+
+def _extract_region_province(true_owner_group):
+    m = _TOG_PATTERN.match(str(true_owner_group or "").strip())
+    if not m:
+        return None, None
+    region, code = m.group(1), m.group(2)
+    province = _PROVINCE_CODE_MERGE.get(code, code)
+    return region, province
+
 log = logging.getLogger(__name__)
 
 # Severity -> marker color, per the requested classification.
@@ -76,24 +99,27 @@ SITE_REMARKS_HEADER = ["location_id", "remark", "updated_by", "updated_at"]
 
 # NOD/OFC workload calculator: real team counts per province (from the
 # reference headcount table provided) - ticket counts get DIVIDED by these
-# to give workload-per-team, not raw ticket totals. Keyed by full Thai
-# province name to match PROVINCE straight off the ticket data.
+# to give workload-per-team, not raw ticket totals. Keyed by the SAME
+# abbreviated province code TRUEOWNERGROUP extraction produces (explicit
+# request - was keyed by Thai province name before, which is why this
+# reference table's provinces used to be a totally separate naming scheme
+# from whatever the raw ticket PROVINCE column happened to contain).
 PROVINCE_TEAM_COUNTS = {
-    "เชียงใหม่": {"NOD": 9, "OFC": 34},
-    "เชียงราย": {"NOD": 5, "OFC": 12},
-    "กำแพงเพชร": {"NOD": 2, "OFC": 3},
-    "ลำปาง": {"NOD": 3, "OFC": 7},
-    "ลำพูน": {"NOD": 1, "OFC": 3},
-    "แม่ฮ่องสอน": {"NOD": 3, "OFC": 10},
-    "น่าน": {"NOD": 3, "OFC": 9},
-    "เพชรบูรณ์": {"NOD": 3, "OFC": 6},
-    "พิจิตร": {"NOD": 2, "OFC": 5},
-    "แพร่": {"NOD": 2, "OFC": 3},
-    "พิษณุโลก": {"NOD": 4, "OFC": 5},
-    "พะเยา": {"NOD": 2, "OFC": 3},
-    "สุโขทัย": {"NOD": 2, "OFC": 3},
-    "ตาก": {"NOD": 3, "OFC": 6},
-    "อุตรดิตถ์": {"NOD": 2, "OFC": 3},
+    "CMI": {"NOD": 9, "OFC": 34},
+    "CRI": {"NOD": 5, "OFC": 12},
+    "KPP": {"NOD": 2, "OFC": 3},
+    "LPG": {"NOD": 3, "OFC": 7},
+    "LPN": {"NOD": 1, "OFC": 3},
+    "MHS": {"NOD": 3, "OFC": 10},
+    "NAN": {"NOD": 3, "OFC": 9},
+    "PCB": {"NOD": 3, "OFC": 6},
+    "PCT": {"NOD": 2, "OFC": 5},
+    "PHE": {"NOD": 2, "OFC": 3},
+    "PSN": {"NOD": 4, "OFC": 5},
+    "PYO": {"NOD": 2, "OFC": 3},
+    "SKT": {"NOD": 2, "OFC": 3},
+    "TAK": {"NOD": 3, "OFC": 6},
+    "UTR": {"NOD": 2, "OFC": 3},
 }
 
 # Only these 3 Bookmark groups count toward workload - NSA3-4 is excluded.
@@ -102,38 +128,40 @@ WORKLOAD_BOOKMARKS = {"SA Mobile", "Online", "NSA1-2"}
 # Static province -> region fallback (standard Upper North / Lower North
 # split) - a province with zero current tickets still needs a region to
 # group under, but province_region (derived from live ticket data) has no
-# entry for it in that case.
+# entry for it in that case. Keyed by abbreviated code, same as above.
 PROVINCE_REGION_FALLBACK = {
-    "เชียงใหม่": "NOR1", "เชียงราย": "NOR1", "ลำปาง": "NOR1", "ลำพูน": "NOR1",
-    "แม่ฮ่องสอน": "NOR1", "น่าน": "NOR1", "แพร่": "NOR1", "พะเยา": "NOR1",
-    "กำแพงเพชร": "NOR2", "เพชรบูรณ์": "NOR2", "พิจิตร": "NOR2", "พิษณุโลก": "NOR2",
-    "สุโขทัย": "NOR2", "ตาก": "NOR2", "อุตรดิตถ์": "NOR2",
+    "CMI": "NOR1", "CRI": "NOR1", "LPG": "NOR1", "LPN": "NOR1",
+    "MHS": "NOR1", "NAN": "NOR1", "PHE": "NOR1", "PYO": "NOR1",
+    "KPP": "NOR2", "PCB": "NOR2", "PCT": "NOR2", "PSN": "NOR2",
+    "SKT": "NOR2", "TAK": "NOR2", "UTR": "NOR2",
 }
 
 # "Total Site T+D" per province, from the reference site-inventory file
 # provided (Total_site.xlsx). The source splits Chiang Mai into two zones
 # (CMI1: 927, CMI2: 704) that ticket data has no way to distinguish (no
-# sub-zone field on any ticket) - rather than guess a split, เชียงใหม่ uses
+# sub-zone field on any ticket) - rather than guess a split, CMI uses
 # their SUM (1631), matching the same granularity ticket data already
-# operates at. Every other province maps 1:1. Sums to 7270, matching the
-# file's own grand total exactly.
+# operates at (TRUEOWNERGROUP's own CMI1/CMI2 merge, above). Every other
+# province maps 1:1. Sums to 7270, matching the file's own grand total
+# exactly. Keyed by abbreviated code, same as above.
 PROVINCE_TOTAL_SITE_TD = {
-    "เชียงใหม่": 927 + 704,
-    "เชียงราย": 866,
-    "กำแพงเพชร": 387,
-    "ลำปาง": 464,
-    "ลำพูน": 314,
-    "แม่ฮ่องสอน": 326,
-    "น่าน": 390,
-    "เพชรบูรณ์": 579,
-    "พิจิตร": 263,
-    "แพร่": 245,
-    "พิษณุโลก": 572,
-    "พะเยา": 269,
-    "สุโขทัย": 286,
-    "ตาก": 439,
-    "อุตรดิตถ์": 239,
+    "CMI": 927 + 704,
+    "CRI": 866,
+    "KPP": 387,
+    "LPG": 464,
+    "LPN": 314,
+    "MHS": 326,
+    "NAN": 390,
+    "PCB": 579,
+    "PCT": 263,
+    "PHE": 245,
+    "PSN": 572,
+    "PYO": 269,
+    "SKT": 286,
+    "TAK": 439,
+    "UTR": 239,
 }
+
 
 
 def _smart_trim_labels(categories):
@@ -379,22 +407,13 @@ def _is_dn_ticket(classification, categories):
     return "SMALL EXCHANGE" in c or "EXCHANGE NODE" in cat
 
 
-def _ticket_province(r):
-    return str(r.get("PROVINCE", "")).strip() or "(ไม่ระบุจังหวัด)"
-
-
-# Provinces to exclude entirely from this tab - not part of the NOR1/NOR2
-# scope but occasionally appear on a ticket's PROVINCE field anyway (data
-# entry edge cases); excluded explicitly rather than guessed at.
-EXCLUDED_PROVINCES = {"นครสวรรค์", "สมุทรสาคร"}
-
-
 def _scoped_live_rows(gs_client):
     """Every live ticket row in NOR1/NOR2 with a real severity - the base
     dataset this whole module (map, tables, and trends alike) is built
-    from. No site-master lookup or matching needed anymore: PROVINCE,
-    DISTRICT, SUBDISTRICT, LATITUDE, LONGITUDE all come straight off each
-    ticket row."""
+    from. No site-master lookup or matching needed anymore: DISTRICT,
+    SUBDISTRICT, LATITUDE, LONGITUDE all come straight off each ticket
+    row (PROVINCE and Region instead come from TRUEOWNERGROUP - see
+    build_flood_nan_response)."""
     all_rows = fetch_live_rows(gs_client)
     return [
         r for r in all_rows
@@ -411,8 +430,19 @@ def build_flood_nan_response(gs_client=None):
     site_remarks = get_site_remarks(gs_client)
 
     tickets = []
+    skipped_no_province = 0
     for r in scoped:
-        if _ticket_province(r) in EXCLUDED_PROVINCES:
+        # Province and Region now both come from TRUEOWNERGROUP (explicit
+        # request), not the raw PROVINCE/Region ticket columns - those
+        # columns mixed Thai names, English codes, English full names,
+        # and the literal text "None" across different rows.
+        # EXCLUDED_PROVINCES (นครสวรรค์/สมุทรสาคร, outside NOR1/NOR2)
+        # is no longer needed here either: anything outside the 15
+        # recognized NOR provinces already fails to match and is
+        # skipped below, the same as a "-CORP" suffix.
+        region, province = _extract_region_province(r.get("TRUEOWNERGROUP"))
+        if province is None:
+            skipped_no_province += 1
             continue
         bm = _exclusive_bookmark_label(r.get("Bookmark"))
         classification = r.get("CLASSIFICATION", "")
@@ -426,8 +456,8 @@ def build_flood_nan_response(gs_client=None):
             "TICKETID": r.get("TICKETID", ""), "SEVERITY": str(r.get("SEVERITY", "")).strip(),
             "CREATIONDATE": r.get("CREATIONDATE", ""), "TARGETFINISH": r.get("TARGETFINISH", ""),
             "CINAME": str(r.get("CINAME", "")).strip(),
-            "Region": str(r.get("Region", "")).strip(),
-            "PROVINCE": _ticket_province(r), "DISTRICT": str(r.get("DISTRICT", "")).strip(),
+            "Region": region,
+            "PROVINCE": province, "DISTRICT": str(r.get("DISTRICT", "")).strip(),
             "SUBDISTRICT": str(r.get("SUBDISTRICT", "")).strip(), "SUBJECT": r.get("SUBJECT", ""),
             "Bookmark": bm, "CLASSIFICATION": classification, "CATEGORIES": categories,
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip(), "over_sla_day": over_sla_day,
@@ -435,6 +465,8 @@ def build_flood_nan_response(gs_client=None):
             "is_dn": _is_dn_ticket(classification, categories),
             "lat": _to_float(r.get("LATITUDE")), "lon": _to_float(r.get("LONGITUDE")),
         })
+    if skipped_no_province:
+        log.info("build_flood_nan_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
     # Group into map sites by CINAME, split into groups by map scope - a
     # site can appear on more than one map if it has tickets in more than
@@ -989,8 +1021,9 @@ def _classify_tickets_for_trend(rows):
             counts["SA Mobile"] += 1
             district = str(r.get("DISTRICT", "")).strip() or "(ไม่ระบุ)"
             sa_mobile_by_district[district] = sa_mobile_by_district.get(district, 0) + 1
-            province = _ticket_province(r)
-            sa_mobile_by_province[province] = sa_mobile_by_province.get(province, 0) + 1
+            _, province = _extract_region_province(r.get("TRUEOWNERGROUP"))
+            if province is not None:
+                sa_mobile_by_province[province] = sa_mobile_by_province.get(province, 0) + 1
             cat = _last_classification_segment(r.get("CLASSIFICATION"))
             sa_mobile_by_classification[cat] = sa_mobile_by_classification.get(cat, 0) + 1
         elif bm == "4.FBB with SA1-4":
