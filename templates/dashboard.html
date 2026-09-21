@@ -11018,6 +11018,7 @@ loadData();
   // allEntries alone would trivially always show 100% mapped and hide
   // real gaps. These come from the full Skill+Region scope instead.
   let serverStats = { unmapped_total: 0, mapping_coverage: [] };
+  let allTeams = []; // every team seen in the full scope, even ones with 0 active tickets right now (idle teams) - explicit request
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -11034,14 +11035,22 @@ loadData();
   // of its Require Finish Time.
   function parseSheetDateTime(str) {
     if (!str) return null;
-    const m = String(str).trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    // Hour/minute/second accept 1 or 2 digits (explicit bug found: a
+    // real value like "2026-09-22 8:36" - single-digit hour, no leading
+    // zero - silently failed to match the old \d{2}-only regex, so
+    // slaMinutesRemaining returned null even though Require Finish Time
+    // genuinely had a value). Zero-padded explicitly below before
+    // building the ISO string, rather than trusting the Date
+    // constructor to accept unpadded components on its own.
+    const m = String(str).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
     if (!m) return null;
     const [, y, mo, d, h, mi, s] = m;
+    const pad = v => String(v).padStart(2, '0');
     // Treat the sheet's naive timestamp as Asia/Bangkok wall-clock time
     // explicitly (+07:00) - comparing the resulting real UTC instants
     // via getTime() is timezone-safe no matter what timezone the
     // viewer's own browser/OS is set to.
-    const dt = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s || '00'}+07:00`);
+    const dt = new Date(`${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:${pad(s || '0')}+07:00`);
     return isNaN(dt.getTime()) ? null : dt;
   }
   function slaMinutesRemaining(e) {
@@ -11230,6 +11239,15 @@ loadData();
       else if (e.severity === 'P2') byTeam[e.team].P2++;
       else byTeam[e.team].other++;
     });
+    // Idle teams (explicit request: "หากทีมไหนไม่มีงานก็ยังให้ขึ้นโชว์" -
+    // a team whose every ticket is now Canceled/Closed (Auto)/Closed has
+    // zero entries in `filtered` and would otherwise vanish entirely
+    // instead of showing as available/idle). allTeams is the full
+    // roster from the unfiltered scope, so this adds every team not
+    // already present above, at 0.
+    allTeams.forEach(team => {
+      if (!byTeam[team]) byTeam[team] = { total: 0, P0: 0, P1: 0, P2: 0, other: 0, idle: true };
+    });
     const allRows = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
     const SHOWN = 12;
     const rows = teamWorkloadExpanded ? allRows : allRows.slice(0, SHOWN);
@@ -11237,8 +11255,9 @@ loadData();
     const maxTotal = Math.max(...allRows.map(r => r[1].total), 1);
     el('ofc-team-workload').innerHTML = rows.map(([team, d]) => {
       const pct = (n) => (n / maxTotal * 100);
-      return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}">
-        <div class="ofc-bar-label" title="${escapeHtml(team)}">${escapeHtml(team)}</div>
+      const idleBadge = d.idle ? ` <span style="color:#639922; font-weight:700; font-size:10px;">ว่างงาน</span>` : '';
+      return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: ${d.idle ? 'ไม่มีงาน (ว่างงาน)' : `Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}`}">
+        <div class="ofc-bar-label" title="${escapeHtml(team)}">${escapeHtml(team)}${idleBadge}</div>
         <div class="ofc-bar-track">
           <div class="ofc-bar-seg" style="width:${pct(d.P0)}%; background:#E24B4A;"></div>
           <div class="ofc-bar-seg" style="width:${pct(d.P1)}%; background:#EF9F27;"></div>
@@ -11649,6 +11668,7 @@ loadData();
         ค่า Region ที่เจอ: ${fmtCounts(diag.region_value_counts)} (ระบบมองหา: ${diag.looking_for_regions.map(escapeHtml).join(', ')})<br>
         เหลือหลังกรอง Skill+Region: ${diag.rows_after_skill_region_filter} แถว<br>
         ค่า Severity ที่เจอ (หลังกรอง Skill+Region): ${fmtCounts(diag.severity_value_counts)}<br>
+        มี/ไม่มี Require Finish Time แยกตาม Status: ${fmtCounts(diag.require_finish_time_presence_by_status)}<br>
         <br>
         <b>Mapping (data) sheet</b> — คอลัมน์ที่เจอจริง: ${diag.mapping_sheet_headers_found.map(escapeHtml).join(', ')}<br>
         จำนวนที่จับคู่ TICKETID ได้: ${diag.mapping_sheet_entry_count}<br>
@@ -11671,6 +11691,7 @@ loadData();
       allEntries = data.entries || [];
       config = data.config || config;
       serverStats = { unmapped_total: data.unmapped_total || 0, mapping_coverage: data.mapping_coverage || [] };
+      allTeams = data.all_teams || [];
       el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
       el('ofc-diag-panel').innerHTML = formatDiagnostics(data.diagnostics);
       populateFilterOptions();
