@@ -3028,6 +3028,23 @@ def api_sa2_risk_add():
         log.exception("sa2-risk add failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/sa2-risk/update', methods=['POST'])
+def api_sa2_risk_update():
+    try:
+        data = request.get_json(force=True) or {}
+        row_id = (data.get('id') or '').strip()
+        if not row_id:
+            return jsonify({'error': 'ไม่พบ id'}), 400
+        _, gs_client = get_drive_and_sheets_clients()
+        updated_by = session.get('user_email')
+        row = sa2_risk.update_row(gs_client, row_id, data, updated_by=updated_by)
+        return jsonify({'ok': True, 'row': row})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk update failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/sa2-risk/status', methods=['POST'])
 def api_sa2_risk_status():
     try:
@@ -3060,6 +3077,22 @@ def api_sa2_risk_delete():
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         log.exception("sa2-risk delete failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sa2-risk/export')
+def api_sa2_risk_export():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        rows = sa2_risk.get_all_rows(gs_client)
+        export_rows, headers = sa2_risk.build_export_rows(rows)
+        ts = datetime.now().strftime('%Y-%m-%d_%H%M')
+        file_bytes = sla_improvement._dict_rows_to_xlsx_bytes(export_rows, headers, "SA2 Risk")
+        return Response(file_bytes, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         headers={'Content-Disposition': f'attachment; filename="sa2-risk-{ts}.xlsx"'})
+    except sa2_risk.SA2RiskError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("sa2-risk export failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/ofc-monitor')

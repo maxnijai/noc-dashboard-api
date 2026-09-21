@@ -56,7 +56,8 @@ SUP_NAMES = ["Konlachai Chulaphun", "Anuchit Phimmaha", "Jatuphon Janthong", "An
              "Maroot Sayti", "Wattana Pumpuang", "Pratchaya Runrack", "Nawin Bouryam",
              "Jirapan Suksuyon", "Chamrat Thonsang-in", "Somchai Panyatha", "Phraison Yaemsuriyothai",
              "Puchit Intawong", "Piyapol Nalee", "Nuttapon Promwongkhar", "Piyanat Krajangsri",
-             "Teerapol Sueasen", "Sittichai Pluemsammanen", "Kamon Homwan", "Sanor Sukchim"]
+             "Teerapol Sueasen", "Sittichai Pluemsammanen", "Kamon Homwan", "Sanor Sukchim",
+             "Mana Koetkeawmueangmool"]
 
 PROVINCES = ["TRUE-TH-BBT-NOR1-CMI1-NOP", "TRUE-TH-BBT-NOR1-CMI2-NOP", "TRUE-TH-BBT-NOR1-CRI-NOP",
              "TRUE-TH-BBT-NOR1-LPG-NOP", "TRUE-TH-BBT-NOR1-LPN-NOP", "TRUE-TH-BBT-NOR1-MHS-NOP",
@@ -217,6 +218,67 @@ def update_status(gc, row_id, new_status, updated_by=None):
     return True
 
 
+# Person-entered fields editable via both add_row and update_row - kept
+# as one list so the two can never drift apart on which fields count as
+# "the form's own data" (as opposed to id/status/closed_dt/updated_*,
+# which each has its own dedicated handling).
+_EDITABLE_FIELDS = [
+    "ticket_id", "create_dt", "inoc_open_dt", "inoc_name", "topo_ring",
+    "channel", "sup_name", "sup_ack_dt", "risk_sites", "subject", "province",
+    "site_name",
+]
+
+
+def update_row(gc, row_id, data, updated_by=None):
+    """Edits an EXISTING row's own person-entered fields (explicit
+    request - previously the only way to change a row after creation was
+    the Status dropdown; every other field was permanent once typed).
+    Status itself is intentionally NOT editable here - it keeps going
+    through update_status, which also maintains closed_dt correctly;
+    letting this function silently move a row to/from Closed would
+    bypass that and the delete-only-when-Closed rule that depends on it."""
+    ticket_id = (data.get("ticket_id") or "").strip()
+    if not ticket_id:
+        raise SA2RiskError("กรุณากรอก Ticket ID")
+
+    ws = _get_worksheet(gc)
+    row_num = _find_row_index(ws, row_id)
+    if row_num is None:
+        raise SA2RiskError("ไม่พบแถวนี้ (อาจถูกลบไปแล้ว)")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    updates = {
+        "ticket_id": ticket_id,
+        "create_dt": data.get("create_dt") or "",
+        "inoc_open_dt": data.get("inoc_open_dt") or "",
+        "inoc_name": data.get("inoc_name") or "",
+        "topo_ring": data.get("topo_ring") or "Send done",
+        "channel": data.get("channel") or "",
+        "sup_name": data.get("sup_name") or "",
+        "sup_ack_dt": data.get("sup_ack_dt") or "",
+        "risk_sites": data.get("risk_sites") or 0,
+        "subject": data.get("subject") or "",
+        "province": data.get("province") or "",
+        "site_name": data.get("site_name") or "",
+        "updated_by": updated_by or "",
+        "updated_at": now,
+    }
+    # One batch call (a single row-range update) instead of one API call
+    # per field - much cheaper than update_status's per-cell pattern
+    # would be at 14 fields instead of 4. Preserves id/status/closed_dt
+    # exactly as they already are in the sheet - this function must
+    # never touch them.
+    existing = ws.row_values(row_num)
+    existing_dict = {c: (existing[i] if i < len(existing) else "") for i, c in enumerate(COLUMNS)}
+    final_row = [
+        updates[c] if c in updates else existing_dict.get(c, "")
+        for c in COLUMNS
+    ]
+    ws.update(f"A{row_num}", [final_row])
+    _invalidate_rows_cache()
+    return {**existing_dict, **updates}
+
+
 def delete_row(gc, row_id):
     """Only permits deleting a row whose CURRENT status (re-checked here,
     not trusted from the request) is Closed - a Pending row can never be
@@ -248,3 +310,31 @@ def build_options():
         "channel_options": CHANNEL_OPTIONS,
         "status_options": STATUS_OPTIONS,
     }
+
+
+# Header labels for Excel export - matches the Add Row form's own field
+# labels (not the internal snake_case COLUMNS names), so the exported
+# file reads naturally for someone who never sees the raw sheet.
+EXPORT_HEADERS = [
+    "Ticket ID", "Ticket Create Date/Time", "INOC Date/Time Open Ticket", "INOC Name",
+    "Capture Topo Ring", "แจ้งทีมผ่านช่องทางไหน", "ชื่อ Sup/Nop ผู้รับทราบ", "เวลา Sup/Nop รับทราบ",
+    "จำนวนไซต์ Risk", "SUBJECT Ticket", "Province", "SITENAME", "Status", "Closed Date/Time",
+]
+_EXPORT_HEADER_TO_COLUMN = dict(zip(EXPORT_HEADERS, [
+    "ticket_id", "create_dt", "inoc_open_dt", "inoc_name", "topo_ring", "channel",
+    "sup_name", "sup_ack_dt", "risk_sites", "subject", "province", "site_name",
+    "status", "closed_dt",
+]))
+
+
+def build_export_rows(rows):
+    """Reshapes get_all_rows()'s output (keyed by internal COLUMNS names)
+    into (export_rows, headers) for _dict_rows_to_xlsx_bytes - same
+    shared xlsx builder Temp Point Improvement already uses, reused here
+    rather than reinvented. Excludes bookkeeping columns (id, updated_by,
+    updated_at) - not meaningful to whoever opens this file."""
+    export_rows = [
+        {header: r.get(col, "") for header, col in _EXPORT_HEADER_TO_COLUMN.items()}
+        for r in rows
+    ]
+    return export_rows, EXPORT_HEADERS
