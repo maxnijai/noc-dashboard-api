@@ -2746,17 +2746,24 @@ const CURRENT_USER_EMAIL = {{ (session.user_email or '') | tojson }};
 const EXCLUSIVE_EDIT_ALLOWED_EMAILS = ['saridphong_n@bbtec.co.th', 'natchawan.b@rfplusthailand.com'];
 const CAN_EDIT_FROM_EXCLUSIVE_VIEWS = EXCLUSIVE_EDIT_ALLOWED_EMAILS.includes(CURRENT_USER_EMAIL);
 
-// Thai -> English province names, used by the Province x Plan Closed Date
-// table on Exclusive Pending / P0 Only (NOR1/NOR2 coverage provinces only).
+// Province code -> English display name, used by the Province x Plan
+// Closed Date table on Exclusive Pending / P0 Only (NOR1/NOR2 coverage
+// provinces only). Keyed by the abbreviated code TRUEOWNERGROUP
+// extraction produces (e.g. "CMI") - was keyed by Thai province name
+// before, back when the backend read the raw PROVINCE ticket column
+// directly; that column mixed Thai names, English codes, English full
+// names, and the literal text "None" across different rows, which is
+// why this map (and the whole province summary table) used to show
+// duplicate rows for the same real province under different spellings.
 const PROVINCE_EN_MAP = {
-  'เชียงใหม่': 'Chiang Mai', 'เชียงราย': 'Chiang Rai', 'แม่ฮ่องสอน': 'Mae Hong Son',
-  'ลำปาง': 'Lampang', 'ลำพูน': 'Lamphun', 'น่าน': 'Nan', 'พะเยา': 'Phayao',
-  'แพร่': 'Phrae', 'พิษณุโลก': 'Phitsanulok', 'เพชรบูรณ์': 'Phetchabun',
-  'กำแพงเพชร': 'Kamphaeng Phet', 'ตาก': 'Tak', 'สุโขทัย': 'Sukhothai',
-  'พิจิตร': 'Phichit', 'อุตรดิตถ์': 'Uttaradit',
+  'CMI': 'Chiang Mai', 'CRI': 'Chiang Rai', 'MHS': 'Mae Hong Son',
+  'LPG': 'Lampang', 'LPN': 'Lamphun', 'NAN': 'Nan', 'PYO': 'Phayao',
+  'PHE': 'Phrae', 'PSN': 'Phitsanulok', 'PCB': 'Phetchabun',
+  'KPP': 'Kamphaeng Phet', 'TAK': 'Tak', 'SKT': 'Sukhothai',
+  'PCT': 'Phichit', 'UTR': 'Uttaradit',
 };
-function provinceEnLabel(th) {
-  const key = (th || '').trim();
+function provinceEnLabel(code) {
+  const key = (code || '').trim();
   return PROVINCE_EN_MAP[key] || key || '(Unspecified)';
 }
 
