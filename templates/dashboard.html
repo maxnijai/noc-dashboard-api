@@ -1523,6 +1523,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .sa2-row-crit td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   .sa2-subject-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sa2-del-btn { border: 1px solid var(--red); color: var(--red); background: transparent; border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-weight: 700; }
+  .sa2-edit-btn { border: 1px solid var(--border2); color: var(--text); background: var(--bg4); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; margin-right: 4px; }
+  .sa2-edit-btn:hover { background: var(--bg3); }
   .sa2-del-btn:hover { background: var(--red-bg); }
 
   /* ── Modal ── */
@@ -1602,14 +1604,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="sa2-table-box">
     <div class="sa2-table-box-head">
       <div class="sa2-t">📋 SA2 Risk Tracking</div>
-      <div class="sa2-hint">คลิกแถวเพื่อดูรายละเอียด · ลบได้เมื่อ Status = Closed</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="sa2-hint">คลิก ✏️ เพื่อดู/แก้ไขรายละเอียดทั้งหมด · ลบได้เมื่อ Status = Closed</div>
+        <a class="sa2-btn" href="/api/sa2-risk/export" style="text-decoration:none;">📥 Export Excel</a>
+      </div>
     </div>
     <div class="sa2-table-scroll">
       <table>
         <thead><tr>
-          <th>Ticket ID</th><th>Age</th><th>Create Date/Time</th><th>INOC Open Time</th><th>INOC Name</th>
-          <th>Topo Ring</th><th>แจ้งทีมผ่าน</th><th>Sup/Nop รับทราบ</th><th>เวลารับทราบ</th>
-          <th>จำนวนไซต์เสี่ยง</th><th>Subject</th><th>Province</th><th>Site Name</th><th>Status</th><th></th>
+          <th>Ticket ID</th><th>Age</th><th>INOC Name</th><th>Sup/Nop รับทราบ</th>
+          <th>ไซต์เสี่ยง</th><th>Subject</th><th>Province</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="sa2-tableBody"></tbody>
       </table>
@@ -1622,7 +1626,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <div class="sa2-modal-overlay" id="sa2-modalOverlay">
   <div class="sa2-modal">
     <div class="sa2-modal-head">
-      <h2>➕ เพิ่ม SA2 Risk Ticket</h2>
+      <h2 id="sa2-modalTitle">➕ เพิ่ม SA2 Risk Ticket</h2>
       <button class="sa2-btn sa2-btn-ghost" id="sa2-closeModalBtn">✕</button>
     </div>
     <div class="sa2-modal-body">
@@ -10672,6 +10676,14 @@ function renderCharts() {
   });
 }
 
+function shortProvince(full) {
+  // "TRUE-TH-BBT-NOR1-CMI1-NOP" -> "CMI1 (NOR1)" - full value is still
+  // what's stored/edited, this is purely a compact display so the main
+  // table doesn't need horizontal scrolling for this one long column.
+  const m = /NOR([12])-([A-Z0-9]+)-NOP/.exec(full || '');
+  return m ? `${m[2]} (NOR${m[1]})` : (full || '-');
+}
+
 function renderTable() {
   const sorted = [...ROWS].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'Pending' ? -1 : 1;
@@ -10684,28 +10696,26 @@ function renderTable() {
     return `<tr class="${rowCls}">
       <td><b>${r.ticketId}</b></td>
       <td>${r.status === 'Pending' ? `<span class="sa2-age-chip ${ac}">${ageLabel(h)}</span>` : '-'}</td>
-      <td>${fmtDt(r.createDt)}</td>
-      <td>${fmtDt(r.inocOpenDt)}</td>
       <td>${r.inocName}</td>
-      <td>${r.topoRing}</td>
-      <td>${r.channel}</td>
       <td>${r.supName}</td>
-      <td>${fmtDt(r.supAckDt)}</td>
       <td style="text-align:center;">${r.riskSites}</td>
       <td class="sa2-subject-cell" title="${r.subject}">${r.subject}</td>
-      <td>${r.province}</td>
-      <td>${r.siteName}</td>
+      <td title="${r.province}">${shortProvince(r.province)}</td>
       <td>
         <select class="sa2-status-select ${r.status === 'Pending' ? 'sa2-badge-pending' : 'sa2-badge-closed'}" data-status-row="${r.id}">
           <option value="Pending" ${r.status === 'Pending' ? 'selected' : ''}>Pending</option>
           <option value="Closed" ${r.status === 'Closed' ? 'selected' : ''}>Closed</option>
         </select>
       </td>
-      <td>${r.status === 'Closed' ? `<button class="sa2-del-btn" data-del="${r.id}">🗑️ ลบ</button>` : ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="sa2-edit-btn" data-edit="${r.id}" title="แก้ไข">✏️</button>
+        ${r.status === 'Closed' ? `<button class="sa2-del-btn" data-del="${r.id}">🗑️</button>` : ''}
+      </td>
     </tr>`;
   }).join('');
   document.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => deleteRow(btn.dataset.del)));
   document.querySelectorAll('[data-status-row]').forEach(sel => sel.addEventListener('change', () => changeStatus(sel.dataset.statusRow, sel.value)));
+  document.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.edit)));
 }
 
 async function apiCall(url, body) {
@@ -10742,7 +10752,7 @@ async function loadData() {
     renderAll();
   } catch (e) {
     console.error('SA2 Risk load failed', e);
-    document.getElementById('sa2-tableBody').innerHTML = `<tr><td colspan="15" style="padding:14px; color:#d1453d;">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
+    document.getElementById('sa2-tableBody').innerHTML = `<tr><td colspan="9" style="padding:14px; color:#d1453d;">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
   }
 }
 
@@ -10887,7 +10897,12 @@ function resetDateTimeField(fieldId) {
 
 // ── Modal ──
 const overlay = document.getElementById('sa2-modalOverlay');
+let editingRowId = null; // null = Add mode; a row's id = Edit mode
+
 function openModal() {
+  editingRowId = null;
+  document.getElementById('sa2-modalTitle').textContent = '➕ เพิ่ม SA2 Risk Ticket';
+  document.getElementById('sa2-saveAddBtn').textContent = '💾 บันทึก';
   ['sa2-f_ticketId', 'sa2-f_riskSites', 'sa2-f_subject', 'sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
   ['sa2-f_createDt', 'sa2-f_inocOpenDt', 'sa2-f_supAckDt'].forEach(resetDateTimeField);
   document.getElementById('sa2-f_topoRing').value = 'Send done';
@@ -10895,7 +10910,30 @@ function openModal() {
   document.getElementById('sa2-f_status').value = 'Pending';
   overlay.classList.add('sa2-open');
 }
-function closeModal() { overlay.classList.remove('sa2-open'); }
+
+function openEditModal(id) {
+  const r = ROWS.find(x => x.id === id);
+  if (!r) { alert('ไม่พบข้อมูลแถวนี้ (อาจถูกโหลดใหม่ไปแล้ว - ลองรีเฟรชหน้า)'); return; }
+  editingRowId = id;
+  document.getElementById('sa2-modalTitle').textContent = '✏️ แก้ไข SA2 Risk Ticket';
+  document.getElementById('sa2-saveAddBtn').textContent = '💾 บันทึกการแก้ไข';
+  document.getElementById('sa2-f_ticketId').value = r.ticketId || '';
+  document.getElementById('sa2-f_riskSites').value = r.riskSites || '';
+  document.getElementById('sa2-f_subject').value = r.subject || '';
+  document.getElementById('sa2-f_siteName').value = r.siteName || '';
+  if (r.createDt) setDateTimeField('sa2-f_createDt', r.createDt); else resetDateTimeField('sa2-f_createDt');
+  if (r.inocOpenDt) setDateTimeField('sa2-f_inocOpenDt', r.inocOpenDt); else resetDateTimeField('sa2-f_inocOpenDt');
+  if (r.supAckDt) setDateTimeField('sa2-f_supAckDt', r.supAckDt); else resetDateTimeField('sa2-f_supAckDt');
+  document.getElementById('sa2-f_inocName').value = r.inocName || '';
+  document.getElementById('sa2-f_topoRing').value = r.topoRing || 'Send done';
+  document.getElementById('sa2-f_channel').value = r.channel || 'Tel';
+  document.getElementById('sa2-f_supName').value = r.supName || '';
+  document.getElementById('sa2-f_province').value = r.province || '';
+  document.getElementById('sa2-f_status').value = r.status || 'Pending';
+  overlay.classList.add('sa2-open');
+}
+
+function closeModal() { overlay.classList.remove('sa2-open'); editingRowId = null; }
 document.getElementById('sa2-openAddBtn').addEventListener('click', openModal);
 document.getElementById('sa2-closeModalBtn').addEventListener('click', closeModal);
 document.getElementById('sa2-cancelAddBtn').addEventListener('click', closeModal);
@@ -10927,15 +10965,22 @@ document.getElementById('sa2-saveAddBtn').addEventListener('click', async () => 
     site_name: document.getElementById('sa2-f_siteName').value.trim(),
     status: document.getElementById('sa2-f_status').value,
   };
+  // Editing an existing row goes through /update (keeps id/status/
+  // closed_dt handling exactly as they already are - Status itself is
+  // still only changed via the table's own dropdown, never through this
+  // form, even in edit mode); a blank editingRowId means Add instead.
+  const isEdit = !!editingRowId;
+  const url = isEdit ? '/api/sa2-risk/update' : '/api/sa2-risk/add';
+  if (isEdit) payload.id = editingRowId;
   const btn = document.getElementById('sa2-saveAddBtn');
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
-    await apiCall('/api/sa2-risk/add', payload);
+    await apiCall(url, payload);
     await loadData();
     closeModal();
   } catch (e) {
-    console.error('SA2 Risk add failed', e);
+    console.error('SA2 Risk save failed', e);
     alert('บันทึกไม่สำเร็จ: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = original;
