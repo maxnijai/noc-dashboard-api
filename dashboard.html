@@ -1523,6 +1523,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .sa2-row-crit td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   .sa2-subject-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sa2-del-btn { border: 1px solid var(--red); color: var(--red); background: transparent; border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-weight: 700; }
+  .sa2-edit-btn { border: 1px solid var(--border2); color: var(--text); background: var(--bg4); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; margin-right: 4px; }
+  .sa2-edit-btn:hover { background: var(--bg3); }
   .sa2-del-btn:hover { background: var(--red-bg); }
 
   /* ── Modal ── */
@@ -1602,14 +1604,16 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <div class="sa2-table-box">
     <div class="sa2-table-box-head">
       <div class="sa2-t">📋 SA2 Risk Tracking</div>
-      <div class="sa2-hint">คลิกแถวเพื่อดูรายละเอียด · ลบได้เมื่อ Status = Closed</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="sa2-hint">คลิก ✏️ เพื่อดู/แก้ไขรายละเอียดทั้งหมด · ลบได้เมื่อ Status = Closed</div>
+        <a class="sa2-btn" href="/api/sa2-risk/export" style="text-decoration:none;">📥 Export Excel</a>
+      </div>
     </div>
     <div class="sa2-table-scroll">
       <table>
         <thead><tr>
-          <th>Ticket ID</th><th>Age</th><th>Create Date/Time</th><th>INOC Open Time</th><th>INOC Name</th>
-          <th>Topo Ring</th><th>แจ้งทีมผ่าน</th><th>Sup/Nop รับทราบ</th><th>เวลารับทราบ</th>
-          <th>จำนวนไซต์เสี่ยง</th><th>Subject</th><th>Province</th><th>Site Name</th><th>Status</th><th></th>
+          <th>Ticket ID</th><th>Age</th><th>INOC Name</th><th>Sup/Nop รับทราบ</th>
+          <th>ไซต์เสี่ยง</th><th>Subject</th><th>Province</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="sa2-tableBody"></tbody>
       </table>
@@ -1622,7 +1626,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <div class="sa2-modal-overlay" id="sa2-modalOverlay">
   <div class="sa2-modal">
     <div class="sa2-modal-head">
-      <h2>➕ เพิ่ม SA2 Risk Ticket</h2>
+      <h2 id="sa2-modalTitle">➕ เพิ่ม SA2 Risk Ticket</h2>
       <button class="sa2-btn sa2-btn-ghost" id="sa2-closeModalBtn">✕</button>
     </div>
     <div class="sa2-modal-body">
@@ -1774,7 +1778,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     .ofc-bar-seg { height: 100%; }
     .ofc-bar-total { flex: 0 0 34px; font-size: 11.5px; font-weight: 800; text-align: right; }
 
-    .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+    .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .ofc-cov-label { flex: 0 0 130px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ofc-cov-track { flex: 1; height: 16px; background: #E24B4A33; border-radius: 4px; overflow: hidden; }
     .ofc-cov-fill { height: 100%; background: #639922; }
@@ -1825,6 +1829,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div>
           <h1>📡 OFC WORK ORDER EXECUTIVE MONITOR</h1>
           <div class="sub" id="ofc-subtitle">NOR1 + NOR2 | 4.FBB with SA1-4 | Real-Time Operational View</div>
+          <div style="font-size:12px; font-weight:700; color:#1f6feb; margin-top:4px;">🕐 ข้อมูลรอบ: <span id="ofc-data-round">-</span></div>
         </div>
         <div class="ofc-header-right">
           <span>Last Updated: <b id="ofc-last-updated" style="color:var(--text);">--:--</b></span>
@@ -1837,6 +1842,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-bookmark"><option value="">Bookmark: ทั้งหมด</option></select>
         <select id="ofc-filter-status"><option value="">Status: ทั้งหมด</option></select>
         <select id="ofc-filter-sla"><option value="">SLA Status: ทั้งหมด</option><option>OVER SLA</option><option>≤30 min</option><option>31–60 min</option><option>61–120 min</option><option>&gt;120 min</option></select>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;"><input type="checkbox" id="ofc-filter-p0p1-only"> Show P0/P1 Only</label>
@@ -1860,56 +1866,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
           <div class="ofc-card">
             <div class="t">📶 OWS MAPPING COVERAGE <span style="font-weight:400; color:var(--text3); font-size:11px;">(จังหวัดไหนยังมี Ticket ที่ยังไม่มี Team รับผิดชอบ — ตัวเลข = จับคู่ Team ได้แล้ว/ทั้งหมด)</span></div>
-            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping — คลิกแถวเพื่อ Drill Down</div>
+            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping (ใช้ Filter Province ด้านบนถ้าอยากกรองดูจังหวัดเดียว)</div>
             <div id="ofc-mapping-coverage"></div>
           </div>
         </div>
 
-        <div class="ofc-row2" style="margin-bottom:16px;">
-          <div class="ofc-card">
-            <div class="t">📍 WORK ORDER BY PROVINCE</div>
-            <div id="ofc-province-workload"></div>
-          </div>
-          <div class="ofc-card">
-            <div class="t">🗺️ TEAM × PROVINCE HEATMAP</div>
-            <div class="ofc-heatmap-wrap"><table class="ofc-heatmap" id="ofc-heatmap"></table></div>
-          </div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">⏱️ P0 / P1 AT RISK <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤60 นาที — เรียง P0→P1→เวลาที่เหลือน้อยสุด)</span></div>
-          <div id="ofc-p0p1-risk"></div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <div class="t" style="margin-bottom:0;">🚨 SLA ESCALATION <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤120 นาที)</span></div>
-          </div>
-          <div id="ofc-sla-escalation" style="margin-top:8px;"></div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">🚨 P0 / P1 COMMAND CENTER</div>
-          <div class="ofc-cc-grid">
-            <div>
-              <div style="font-size:11.5px; font-weight:700; color:#E24B4A; margin-bottom:6px;">🔴 P0</div>
-              <div id="ofc-cc-p0"></div>
-            </div>
-            <div>
-              <div style="font-size:11.5px; font-weight:700; color:#EF9F27; margin-bottom:6px;">🟠 P1</div>
-              <div id="ofc-cc-p1"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">📋 TEAM ACTION LIST <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกแถวเพื่อ Drill Down ไปที่ Team นั้น — 🔴 = มี Copy Team Escalation)</span></div>
-          <div style="overflow-x:auto;"><table class="ofc-table" id="ofc-action-list"></table></div>
-        </div>
-
         <div class="ofc-card">
-          <div class="t">🔧 DETAILED WORK ORDER <span style="font-weight:400; color:var(--text3); font-size:11px;">(จัดกลุ่มตาม Team — คลิกหัวข้อ Team เพื่อขยาย)</span></div>
-          <div id="ofc-detail-groups"></div>
+          <div class="t">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+          <div id="ofc-province-groups"></div>
         </div>
       </div>
 
@@ -2771,17 +2735,24 @@ const CURRENT_USER_EMAIL = {{ (session.user_email or '') | tojson }};
 const EXCLUSIVE_EDIT_ALLOWED_EMAILS = ['saridphong_n@bbtec.co.th', 'natchawan.b@rfplusthailand.com'];
 const CAN_EDIT_FROM_EXCLUSIVE_VIEWS = EXCLUSIVE_EDIT_ALLOWED_EMAILS.includes(CURRENT_USER_EMAIL);
 
-// Thai -> English province names, used by the Province x Plan Closed Date
-// table on Exclusive Pending / P0 Only (NOR1/NOR2 coverage provinces only).
+// Province code -> English display name, used by the Province x Plan
+// Closed Date table on Exclusive Pending / P0 Only (NOR1/NOR2 coverage
+// provinces only). Keyed by the abbreviated code TRUEOWNERGROUP
+// extraction produces (e.g. "CMI") - was keyed by Thai province name
+// before, back when the backend read the raw PROVINCE ticket column
+// directly; that column mixed Thai names, English codes, English full
+// names, and the literal text "None" across different rows, which is
+// why this map (and the whole province summary table) used to show
+// duplicate rows for the same real province under different spellings.
 const PROVINCE_EN_MAP = {
-  'เชียงใหม่': 'Chiang Mai', 'เชียงราย': 'Chiang Rai', 'แม่ฮ่องสอน': 'Mae Hong Son',
-  'ลำปาง': 'Lampang', 'ลำพูน': 'Lamphun', 'น่าน': 'Nan', 'พะเยา': 'Phayao',
-  'แพร่': 'Phrae', 'พิษณุโลก': 'Phitsanulok', 'เพชรบูรณ์': 'Phetchabun',
-  'กำแพงเพชร': 'Kamphaeng Phet', 'ตาก': 'Tak', 'สุโขทัย': 'Sukhothai',
-  'พิจิตร': 'Phichit', 'อุตรดิตถ์': 'Uttaradit',
+  'CMI': 'Chiang Mai', 'CRI': 'Chiang Rai', 'MHS': 'Mae Hong Son',
+  'LPG': 'Lampang', 'LPN': 'Lamphun', 'NAN': 'Nan', 'PYO': 'Phayao',
+  'PHE': 'Phrae', 'PSN': 'Phitsanulok', 'PCB': 'Phetchabun',
+  'KPP': 'Kamphaeng Phet', 'TAK': 'Tak', 'SKT': 'Sukhothai',
+  'PCT': 'Phichit', 'UTR': 'Uttaradit',
 };
-function provinceEnLabel(th) {
-  const key = (th || '').trim();
+function provinceEnLabel(code) {
+  const key = (code || '').trim();
   return PROVINCE_EN_MAP[key] || key || '(Unspecified)';
 }
 
@@ -6537,7 +6508,7 @@ function renderPivot(ft) {
       const rowOnclick = rowClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       const rowTotalOnclick = (rowClickable && r.over_total > 0) ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r[rowKey])}','')"` : '';
       return `<tr style="border-top:1px solid var(--border);">
-        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(displayLabel(r[rowKey]))}</td>
+        <td${rowOnclick} style="padding:7px 10px; min-width:220px; font-weight:600; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${rowClickable ? 'cursor:pointer;' : ''}" title="${rowClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${escapeHtml(displayLabel(r[rowKey]))}${rowKey === 'province' && r.region ? ` <span style="color:var(--text3); font-size:9.5px; font-weight:400;">(${escapeHtml(r.region)})</span>` : ''}</td>
         ${cells}
         <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:${i % 2 ? 'var(--bg1)' : 'transparent'}; ${r.over_total > 0 ? 'color:#B23A3A;' : 'color:var(--text3);'} ${rowTotalOnclick ? 'cursor:pointer;' : ''}" title="${rowTotalOnclick ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(String(r[rowKey])) : ''}">${r.over_total}</td>
       </tr>`;
@@ -6868,63 +6839,78 @@ function renderPivot(ft) {
   }
 
   function computeStatusMatelinePlanDateMatrix(tickets) {
-    const NO_PLAN_DATE = '(ยังไม่วางแผน)';
-    const dateSet = new Set();
-    tickets.forEach(t => { if (t.plan_closed_date) dateSet.add(t.plan_closed_date); });
-    const dateColumns = [...dateSet].sort();
-    dateColumns.push(NO_PLAN_DATE);
-    const matrix = {};
+    // Province (rows, grouped by Region with subtotals) x Status
+    // Mateline (columns) - explicit request. Same structure as
+    // computeProvincePlanDateMatrix above, just Status Mateline instead
+    // of Plan Closed Date as the column dimension.
+    const smSet = new Set();
+    tickets.forEach(t => { smSet.add(t.status_mateline || '(ไม่พบใน MatelineX)'); });
+    const smColumns = [...smSet].sort();
+
+    const byRegionProvince = {}; // region -> provinceEn -> {status_mateline: count}
+    const rawProvinceByEn = {};
     tickets.forEach(t => {
-      const col = t.plan_closed_date || NO_PLAN_DATE;
+      const region = t.Region || '(ไม่ระบุ Region)';
+      const provinceEn = provinceEnLabel(t.PROVINCE);
       const sm = t.status_mateline || '(ไม่พบใน MatelineX)';
-      matrix[sm] = matrix[sm] || {};
-      matrix[sm][col] = (matrix[sm][col] || 0) + 1;
+      byRegionProvince[region] = byRegionProvince[region] || {};
+      byRegionProvince[region][provinceEn] = byRegionProvince[region][provinceEn] || {};
+      byRegionProvince[region][provinceEn][sm] = (byRegionProvince[region][provinceEn][sm] || 0) + 1;
+      if (!(provinceEn in rawProvinceByEn)) rawProvinceByEn[provinceEn] = t.PROVINCE ? String(t.PROVINCE).trim() : '(ไม่ระบุจังหวัด)';
     });
-    const rows = Object.entries(matrix).map(([sm, counts]) => ({
-      status_mateline: sm, counts,
-      total: Object.values(counts).reduce((a, b) => a + b, 0),
-    })).sort((a, b) => b.total - a.total);
-    return rows.length ? { date_columns: dateColumns, rows } : null;
+
+    const regionOrder = Object.keys(byRegionProvince).sort();
+    const rows = [];
+    regionOrder.forEach(region => {
+      const provinces = Object.keys(byRegionProvince[region]).sort();
+      const subtotalCounts = {};
+      provinces.forEach(prov => {
+        const counts = byRegionProvince[region][prov];
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        rows.push({ label: prov, province: rawProvinceByEn[prov], counts, total });
+        smColumns.forEach(c => { subtotalCounts[c] = (subtotalCounts[c] || 0) + (counts[c] || 0); });
+      });
+      const subtotalTotal = Object.values(subtotalCounts).reduce((a, b) => a + b, 0);
+      rows.push({ label: `${region} รวม`, counts: subtotalCounts, total: subtotalTotal, isSubtotal: true });
+    });
+    return rows.length ? { status_mateline_columns: smColumns, rows } : null;
   }
 
   function renderStatusMatelineByPlanDate(block, bookmark, clickFn) {
     if (!block || !block.rows || !block.rows.length) return '';
-    const today = expTodayStr();
-    const cols = block.date_columns || [];
+    const cols = block.status_mateline_columns || [];
     const esc1 = s => String(s).replace(/'/g, "\\'");
     const head = cols.map(c => {
-      const isNoPlan = c.startsWith('(');
-      const isBackdated = !isNoPlan && c < today;
-      const color = isNoPlan ? '#B23A3A' : (isBackdated ? '#B23A3A' : 'var(--text2)');
-      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${color}; ${isBackdated ? 'background:#E24B4A22;' : ''}" title="${isBackdated ? 'วันที่นี้ผ่านมาแล้ว - เลยกำหนด' : ''}">${isBackdated ? '⚠️ ' : ''}${escapeHtml(c)}</th>`;
+      const isBackDateCol = c.includes('Back Date');
+      return `<th style="padding:8px 10px; text-align:center; white-space:nowrap; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:${isBackDateCol ? '#B23A3A' : 'var(--text2)'};">${escapeHtml(c)}</th>`;
     }).join('');
     const rows = block.rows.map((r, i) => {
-      const isBackDateRow = r.status_mateline.includes('Back Date');
       const cells = cols.map(c => {
         const count = r.counts[c] || 0;
-        const isNoPlan = c.startsWith('(');
-        const isBackdated = !isNoPlan && c < today;
-        const bg = (isNoPlan && count > 0) ? '#B23A3A1a' : (isBackdated && count > 0) ? '#E24B4A22' : '';
-        const fg = (isNoPlan || isBackdated) && count > 0 ? '#B23A3A' : '';
-        const clickable = clickFn && count > 0;
-        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','${esc1(c)}')"` : '';
-        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg}; font-weight:700;` : ''} ${fg ? `color:${fg};` : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
+        const isBackDateCol = c.includes('Back Date');
+        const bg = r.isSubtotal ? '' : (isBackDateCol && count > 0) ? '#B23A3A1a' : '';
+        const fg = (!r.isSubtotal && isBackDateCol && count > 0) ? '#B23A3A' : '';
+        const clickable = clickFn && !r.isSubtotal && count > 0;
+        const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','${esc1(c)}')"` : '';
+        return `<td${onclick} style="padding:7px 10px; text-align:center; ${bg ? `background:${bg};` : ''} ${fg ? `color:${fg};` : ''} ${r.isSubtotal ? 'font-weight:700;' : ''} ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรอง detail ด้านล่าง' : ''}">${count || '–'}</td>`;
       }).join('');
-      const rowTotalClickable = clickFn && r.total > 0;
-      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.status_mateline)}','')"` : '';
-      return `<tr style="border-top:1px solid var(--border); background:${i % 2 ? 'var(--bg1)' : 'transparent'};">
-        <td style="padding:7px 10px; min-width:180px; font-weight:600; ${isBackDateRow ? 'color:#B23A3A;' : ''}">${escapeHtml(r.status_mateline)}</td>
+      const rowBg = r.isSubtotal ? 'var(--bg3)' : (i % 2 ? 'var(--bg1)' : 'transparent');
+      const rowTotalClickable = clickFn && !r.isSubtotal && r.total > 0;
+      const rowTotalOnclick = rowTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','${esc1(r.province)}','')"` : '';
+      return `<tr style="border-top:1px solid var(--border); background:${rowBg};">
+        <td style="padding:7px 10px; min-width:160px; font-weight:${r.isSubtotal ? '700' : '600'};">${escapeHtml(r.label)}</td>
         ${cells}
-        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.status_mateline) : ''}">${r.total}</td>
+        <td${rowTotalOnclick} style="padding:7px 10px; text-align:center; font-weight:700; background:var(--bg3); ${rowTotalClickable ? 'cursor:pointer;' : ''}" title="${rowTotalClickable ? 'คลิกเพื่อกรองเฉพาะ ' + escapeHtml(r.label) : ''}">${r.total}</td>
       </tr>`;
     }).join('');
+    const nonSubtotalRows = block.rows.filter(r => !r.isSubtotal);
     const totalCells = cols.map(c => {
-      const sum = block.rows.reduce((s, r) => s + (r.counts[c] || 0), 0);
+      const sum = nonSubtotalRows.reduce((s, r) => s + (r.counts[c] || 0), 0);
       const clickable = clickFn && sum > 0;
       const onclick = clickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','${esc1(c)}')"` : '';
-      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline ในวันนี้' : ''}">${sum || '–'}</td>`;
+      return `<td${onclick} style="padding:7px 10px; text-align:center; ${clickable ? 'cursor:pointer;' : ''}" title="${clickable ? 'คลิกเพื่อกรองทุก Status Mateline นี้' : ''}">${sum || '–'}</td>`;
     }).join('');
-    const grandTotal = block.rows.reduce((s, r) => s + (r.total || 0), 0);
+    const grandTotal = nonSubtotalRows.reduce((s, r) => s + (r.total || 0), 0);
     const grandTotalClickable = clickFn && grandTotal > 0;
     const grandTotalOnclick = grandTotalClickable ? ` onclick="${clickFn}('${esc1(bookmark)}','','')"` : '';
     const totalRow = `<tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:700;">
@@ -6935,7 +6921,7 @@ function renderPivot(ft) {
     return `
       <table style="border-collapse:collapse; font-size:12px; width:100%;">
         <thead><tr style="background:linear-gradient(180deg,var(--bg4),var(--bg3)); border-bottom:2px solid var(--border2);">
-          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Status Mateline</th>${head}
+          <th style="padding:8px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">Province</th>${head}
           <th style="padding:8px 10px; text-align:center; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text2);">รวม</th>
         </tr></thead>
         <tbody>${rows}${totalRow}</tbody>
@@ -7120,7 +7106,6 @@ function renderPivot(ft) {
       const provinceBlock = isFiltered ? computeProvinceMissing(filteredTickets) : provinceByBookmark[block.bookmark];
       const planDateBlockComputed = isFiltered ? computePlanDateMatrix(filteredTickets) : planDateByBookmark[block.bookmark];
 
-      const provinceHtml = renderUnspecifiedByProvince(provinceBlock);
       const planMode = sectionPlanDateMode[block.bookmark] || 'groupProblem';
       const planModeLabels = { groupProblem: 'Group Problem', province: 'Province', statusMateline: 'Status Mateline' };
       const planModeNext = { groupProblem: 'Province', province: 'Status Mateline', statusMateline: 'Group Problem' };
@@ -7129,16 +7114,17 @@ function renderPivot(ft) {
         : planMode === 'statusMateline'
         ? renderStatusMatelineByPlanDate(computeStatusMatelinePlanDateMatrix(filteredTickets), block.bookmark, 'filterP0StatusMatelineCell')
         : renderGroupProblemByPlanDate(planDateBlockComputed, block.bookmark, 'filterP0PlanDateCell');
+      const planDateColLabel = planMode === 'statusMateline' ? 'Status Mateline' : 'Plan Closed Date';
       const planDateHtml = planDateInnerHtml ? `
         <div style="flex:2; min-width:360px;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × Plan Closed Date</span>
+            <span style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px;">📅 ${planModeLabels[planMode]} × ${planDateColLabel}</span>
             <a href="#" onclick="toggleP0PlanDateMode('${block.bookmark.replace(/'/g, "\'")}'); return false;" style="font-size:11px; color:var(--blue);">🔄 สลับเป็น ${planModeNext[planMode]}</a>
           </div>
           <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04);">${planDateInnerHtml}</div>
         </div>` : '';
-      const sideBySide = (provinceHtml || planDateHtml)
-        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${provinceHtml}${planDateHtml}</div>`
+      const sideBySide = planDateHtml
+        ? `<div style="display:flex; flex-wrap:wrap; gap:16px; margin:18px 0; padding-top:18px; border-top:1px dashed var(--border2);">${planDateHtml}</div>`
         : '';
 
       const chips = [];
@@ -7225,11 +7211,11 @@ function renderPivot(ft) {
     f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
-  window.filterP0StatusMatelineCell = function (bookmark, statusMateline, planDate) {
+  window.filterP0StatusMatelineCell = function (bookmark, province, statusMateline) {
     const f = getSectionFilter(bookmark);
-    const same = f.statusMateline === statusMateline && f.planDate === planDate;
+    const same = f.province === province && f.statusMateline === statusMateline;
+    f.province = same ? '' : province;
     f.statusMateline = same ? '' : statusMateline;
-    f.planDate = same ? '' : planDate;
     if (lastData) render(lastData);
   };
   window.filterP0ProvincePlanDateCell = function (bookmark, province, planDate) {
@@ -10675,6 +10661,14 @@ function renderCharts() {
   });
 }
 
+function shortProvince(full) {
+  // "TRUE-TH-BBT-NOR1-CMI1-NOP" -> "CMI1 (NOR1)" - full value is still
+  // what's stored/edited, this is purely a compact display so the main
+  // table doesn't need horizontal scrolling for this one long column.
+  const m = /NOR([12])-([A-Z0-9]+)-NOP/.exec(full || '');
+  return m ? `${m[2]} (NOR${m[1]})` : (full || '-');
+}
+
 function renderTable() {
   const sorted = [...ROWS].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'Pending' ? -1 : 1;
@@ -10687,28 +10681,26 @@ function renderTable() {
     return `<tr class="${rowCls}">
       <td><b>${r.ticketId}</b></td>
       <td>${r.status === 'Pending' ? `<span class="sa2-age-chip ${ac}">${ageLabel(h)}</span>` : '-'}</td>
-      <td>${fmtDt(r.createDt)}</td>
-      <td>${fmtDt(r.inocOpenDt)}</td>
       <td>${r.inocName}</td>
-      <td>${r.topoRing}</td>
-      <td>${r.channel}</td>
       <td>${r.supName}</td>
-      <td>${fmtDt(r.supAckDt)}</td>
       <td style="text-align:center;">${r.riskSites}</td>
       <td class="sa2-subject-cell" title="${r.subject}">${r.subject}</td>
-      <td>${r.province}</td>
-      <td>${r.siteName}</td>
+      <td title="${r.province}">${shortProvince(r.province)}</td>
       <td>
         <select class="sa2-status-select ${r.status === 'Pending' ? 'sa2-badge-pending' : 'sa2-badge-closed'}" data-status-row="${r.id}">
           <option value="Pending" ${r.status === 'Pending' ? 'selected' : ''}>Pending</option>
           <option value="Closed" ${r.status === 'Closed' ? 'selected' : ''}>Closed</option>
         </select>
       </td>
-      <td>${r.status === 'Closed' ? `<button class="sa2-del-btn" data-del="${r.id}">🗑️ ลบ</button>` : ''}</td>
+      <td style="white-space:nowrap;">
+        <button class="sa2-edit-btn" data-edit="${r.id}" title="แก้ไข">✏️</button>
+        ${r.status === 'Closed' ? `<button class="sa2-del-btn" data-del="${r.id}">🗑️</button>` : ''}
+      </td>
     </tr>`;
   }).join('');
   document.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => deleteRow(btn.dataset.del)));
   document.querySelectorAll('[data-status-row]').forEach(sel => sel.addEventListener('change', () => changeStatus(sel.dataset.statusRow, sel.value)));
+  document.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.edit)));
 }
 
 async function apiCall(url, body) {
@@ -10745,7 +10737,7 @@ async function loadData() {
     renderAll();
   } catch (e) {
     console.error('SA2 Risk load failed', e);
-    document.getElementById('sa2-tableBody').innerHTML = `<tr><td colspan="15" style="padding:14px; color:#d1453d;">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
+    document.getElementById('sa2-tableBody').innerHTML = `<tr><td colspan="9" style="padding:14px; color:#d1453d;">โหลดข้อมูลไม่สำเร็จ: ${e.message}</td></tr>`;
   }
 }
 
@@ -10890,7 +10882,12 @@ function resetDateTimeField(fieldId) {
 
 // ── Modal ──
 const overlay = document.getElementById('sa2-modalOverlay');
+let editingRowId = null; // null = Add mode; a row's id = Edit mode
+
 function openModal() {
+  editingRowId = null;
+  document.getElementById('sa2-modalTitle').textContent = '➕ เพิ่ม SA2 Risk Ticket';
+  document.getElementById('sa2-saveAddBtn').textContent = '💾 บันทึก';
   ['sa2-f_ticketId', 'sa2-f_riskSites', 'sa2-f_subject', 'sa2-f_siteName'].forEach(id => document.getElementById(id).value = '');
   ['sa2-f_createDt', 'sa2-f_inocOpenDt', 'sa2-f_supAckDt'].forEach(resetDateTimeField);
   document.getElementById('sa2-f_topoRing').value = 'Send done';
@@ -10898,7 +10895,30 @@ function openModal() {
   document.getElementById('sa2-f_status').value = 'Pending';
   overlay.classList.add('sa2-open');
 }
-function closeModal() { overlay.classList.remove('sa2-open'); }
+
+function openEditModal(id) {
+  const r = ROWS.find(x => x.id === id);
+  if (!r) { alert('ไม่พบข้อมูลแถวนี้ (อาจถูกโหลดใหม่ไปแล้ว - ลองรีเฟรชหน้า)'); return; }
+  editingRowId = id;
+  document.getElementById('sa2-modalTitle').textContent = '✏️ แก้ไข SA2 Risk Ticket';
+  document.getElementById('sa2-saveAddBtn').textContent = '💾 บันทึกการแก้ไข';
+  document.getElementById('sa2-f_ticketId').value = r.ticketId || '';
+  document.getElementById('sa2-f_riskSites').value = r.riskSites || '';
+  document.getElementById('sa2-f_subject').value = r.subject || '';
+  document.getElementById('sa2-f_siteName').value = r.siteName || '';
+  if (r.createDt) setDateTimeField('sa2-f_createDt', r.createDt); else resetDateTimeField('sa2-f_createDt');
+  if (r.inocOpenDt) setDateTimeField('sa2-f_inocOpenDt', r.inocOpenDt); else resetDateTimeField('sa2-f_inocOpenDt');
+  if (r.supAckDt) setDateTimeField('sa2-f_supAckDt', r.supAckDt); else resetDateTimeField('sa2-f_supAckDt');
+  document.getElementById('sa2-f_inocName').value = r.inocName || '';
+  document.getElementById('sa2-f_topoRing').value = r.topoRing || 'Send done';
+  document.getElementById('sa2-f_channel').value = r.channel || 'Tel';
+  document.getElementById('sa2-f_supName').value = r.supName || '';
+  document.getElementById('sa2-f_province').value = r.province || '';
+  document.getElementById('sa2-f_status').value = r.status || 'Pending';
+  overlay.classList.add('sa2-open');
+}
+
+function closeModal() { overlay.classList.remove('sa2-open'); editingRowId = null; }
 document.getElementById('sa2-openAddBtn').addEventListener('click', openModal);
 document.getElementById('sa2-closeModalBtn').addEventListener('click', closeModal);
 document.getElementById('sa2-cancelAddBtn').addEventListener('click', closeModal);
@@ -10930,15 +10950,22 @@ document.getElementById('sa2-saveAddBtn').addEventListener('click', async () => 
     site_name: document.getElementById('sa2-f_siteName').value.trim(),
     status: document.getElementById('sa2-f_status').value,
   };
+  // Editing an existing row goes through /update (keeps id/status/
+  // closed_dt handling exactly as they already are - Status itself is
+  // still only changed via the table's own dropdown, never through this
+  // form, even in edit mode); a blank editingRowId means Add instead.
+  const isEdit = !!editingRowId;
+  const url = isEdit ? '/api/sa2-risk/update' : '/api/sa2-risk/add';
+  if (isEdit) payload.id = editingRowId;
   const btn = document.getElementById('sa2-saveAddBtn');
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
   try {
-    await apiCall('/api/sa2-risk/add', payload);
+    await apiCall(url, payload);
     await loadData();
     closeModal();
   } catch (e) {
-    console.error('SA2 Risk add failed', e);
+    console.error('SA2 Risk save failed', e);
     alert('บันทึกไม่สำเร็จ: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = original;
@@ -10969,13 +10996,14 @@ loadData();
   let hasData = false;
   let allEntries = [];
   let config = { high_load_threshold: 8, critical_load_threshold: 12 };
-  let filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
+  let filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', priority: '', p0p1Only: false };
   // Server-computed, NOT re-derived from the (already bookmark-filtered)
   // allEntries - see loadData(): a ticket only keeps its real Bookmark
   // once it's already mapped, so computing "unmapped"/"coverage" from
   // allEntries alone would trivially always show 100% mapped and hide
   // real gaps. These come from the full Skill+Region scope instead.
   let serverStats = { unmapped_total: 0, mapping_coverage: [] };
+  let allTeams = []; // every team seen in the full scope, even ones with 0 active tickets right now (idle teams) - explicit request
 
   function el(id) { return document.getElementById(id); }
   function escapeHtml(s) {
@@ -10992,14 +11020,22 @@ loadData();
   // of its Require Finish Time.
   function parseSheetDateTime(str) {
     if (!str) return null;
-    const m = String(str).trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    // Hour/minute/second accept 1 or 2 digits (explicit bug found: a
+    // real value like "2026-09-22 8:36" - single-digit hour, no leading
+    // zero - silently failed to match the old \d{2}-only regex, so
+    // slaMinutesRemaining returned null even though Require Finish Time
+    // genuinely had a value). Zero-padded explicitly below before
+    // building the ISO string, rather than trusting the Date
+    // constructor to accept unpadded components on its own.
+    const m = String(str).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
     if (!m) return null;
     const [, y, mo, d, h, mi, s] = m;
+    const pad = v => String(v).padStart(2, '0');
     // Treat the sheet's naive timestamp as Asia/Bangkok wall-clock time
     // explicitly (+07:00) - comparing the resulting real UTC instants
     // via getTime() is timezone-safe no matter what timezone the
     // viewer's own browser/OS is set to.
-    const dt = new Date(`${y}-${mo}-${d}T${h}:${mi}:${s || '00'}+07:00`);
+    const dt = new Date(`${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:${pad(s || '0')}+07:00`);
     return isNaN(dt.getTime()) ? null : dt;
   }
   function slaMinutesRemaining(e) {
@@ -11007,6 +11043,45 @@ loadData();
     const finish = parseSheetDateTime(e.require_finish_time);
     if (!finish) return null;
     return (finish.getTime() - Date.now()) / 60000;
+  }
+  // "Tomorrow's 01:15 Bangkok time" as a real UTC instant - the exact
+  // reference point realtime_monitor._classify_priority uses (confirmed
+  // from that file directly, not guessed). Built the same way as every
+  // other Bangkok-time calculation in this module: shift by the fixed
+  // +7h offset and work in UTC-getter/setter space, never relying on
+  // the viewer's own browser/OS timezone.
+  function bangkokTomorrow0115() {
+    const bkkNow = new Date(Date.now() + 7 * 3600 * 1000);
+    const y = bkkNow.getUTCFullYear(), m = bkkNow.getUTCMonth(), d = bkkNow.getUTCDate();
+    const tomorrowAsUtcFields = Date.UTC(y, m, d + 1, 1, 15, 0); // fields are Bangkok wall-clock, read via UTC getters above
+    return new Date(tomorrowAsUtcFields - 7 * 3600 * 1000); // shift back to the TRUE UTC instant
+  }
+  // P0/P1/P2 (explicit request, formula confirmed from realtime_monitor.py
+  // directly - not the literal "now" I'd guessed at first, which wrongly
+  // put a ticket with only 20 minutes left into P2 just because it
+  // technically wasn't overdue YET). diff_hours = tomorrow's 01:15 minus
+  // Require Finish Time:
+  //   > 24h  -> P0 (over SLA by more than a day, as of tomorrow's checkpoint)
+  //   0-24h  -> P1 (over SLA under a day - this is what catches
+  //                 "still has a little time left right now, but will
+  //                 clearly have breached well before tomorrow's 01:15")
+  //   <= 0h  -> P2 (genuinely not due until after tomorrow's checkpoint)
+  // null (can't compute - no Require Finish Time, or already Completed/
+  // Closed) is left unclassified rather than guessed into a bucket.
+  function classifyPriority(e) {
+    if (e.completed || e.closed) return null;
+    const tf = parseSheetDateTime(e.require_finish_time);
+    if (!tf) return null;
+    const diffHours = (bangkokTomorrow0115().getTime() - tf.getTime()) / 3600000;
+    if (diffHours > 24) return 'P0';
+    if (diffHours > 0) return 'P1';
+    return 'P2';
+  }
+  function priorityBadgeHtml(e) {
+    const pr = classifyPriority(e);
+    if (!pr) return '<span style="color:var(--text3); font-size:11px;">-</span>';
+    const styles = { P0: 'background:#E24B4A22; color:#E24B4A;', P1: 'background:#EF9F2722; color:#c77d1a;', P2: 'background:#63992222; color:#4a7d19;' };
+    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; ${styles[pr]}">${pr}</span>`;
   }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
@@ -11040,11 +11115,13 @@ loadData();
   function getFiltered() {
     return allEntries.filter(e => {
       if (filters.region && e.region !== filters.region) return false;
-      if (filters.province && e.district !== filters.province) return false;
+      if (filters.province && e.filter_province !== filters.province) return false;
       if (filters.team && e.team !== filters.team) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
+      if (filters.bookmark && e.bookmark !== filters.bookmark) return false;
       if (filters.status && e.status !== filters.status) return false;
-      if (filters.p0p1Only && e.severity !== 'P0' && e.severity !== 'P1') return false;
+      if (filters.priority && classifyPriority(e) !== filters.priority) return false;
+      if (filters.p0p1Only) { const pr = classifyPriority(e); if (pr !== 'P0' && pr !== 'P1') return false; }
       if (filters.sla) {
         const mins = slaMinutesRemaining(e);
         if (slaStatusLabel(mins) !== filters.sla) return false;
@@ -11067,15 +11144,16 @@ loadData();
       el(id).value = cur;
     };
     setOpts('ofc-filter-region', uniq(allEntries.map(e => e.region)), 'Region: ทั้งหมด');
-    setOpts('ofc-filter-province', uniq(allEntries.map(e => e.district)), 'Province: ทั้งหมด');
+    setOpts('ofc-filter-province', uniq(allEntries.map(e => e.filter_province)), 'Province: ทั้งหมด');
     setOpts('ofc-filter-team', uniq(allEntries.map(e => e.team)), 'Team: ทั้งหมด');
     setOpts('ofc-filter-severity', uniq(allEntries.map(e => e.severity)), 'Severity: ทั้งหมด');
+    setOpts('ofc-filter-bookmark', uniq(allEntries.map(e => e.bookmark)), 'Bookmark: ทั้งหมด');
     setOpts('ofc-filter-status', uniq(allEntries.map(e => e.status)), 'Status: ทั้งหมด');
   }
 
   function renderActiveChips() {
     const labels = {
-      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', status: 'Status', sla: 'SLA Status',
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', bookmark: 'Bookmark', status: 'Status', sla: 'SLA Status', priority: 'Priority',
     };
     const chips = Object.entries(filters).filter(([k, v]) => v && k !== 'p0p1Only').map(([k, v]) =>
       `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
@@ -11088,7 +11166,7 @@ loadData();
     el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
   }
 
-  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-status', 'ofc-filter-sla'];
+  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
   function setFilter(key, value) {
     filters[key] = filters[key] === value ? (typeof value === 'boolean' ? false : '') : value; // click again to toggle off
     FILTER_SELECT_IDS.forEach(id => {
@@ -11099,12 +11177,12 @@ loadData();
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity', 'status', 'sla'].forEach(k => {
+  ['region', 'province', 'team', 'severity', 'bookmark', 'status', 'sla'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
   el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
   el('ofc-reset-filters').addEventListener('click', () => {
-    filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
+    filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', priority: '', p0p1Only: false };
     FILTER_SELECT_IDS.forEach(id => { el(id).value = ''; });
     el('ofc-filter-p0p1-only').checked = false;
     renderAll();
@@ -11113,8 +11191,8 @@ loadData();
   // ── KPI cards ───────────────────────────────────────────────────────
   function renderKpis(filtered) {
     const teams = new Set(filtered.map(e => e.team));
-    const p0 = filtered.filter(e => e.severity === 'P0').length;
-    const p1 = filtered.filter(e => e.severity === 'P1').length;
+    const p0 = filtered.filter(e => classifyPriority(e) === 'P0').length;
+    const p1 = filtered.filter(e => classifyPriority(e) === 'P1').length;
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadTeams = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
@@ -11130,8 +11208,8 @@ loadData();
     const cards = [
       { key: '', label: 'TOTAL WO', value: filtered.length },
       { key: '', label: 'OFC TEAMS', value: teams.size },
-      { key: 'severity:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
-      { key: 'severity:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
+      { key: 'priority:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
+      { key: 'priority:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
       { key: '', label: 'SLA AT RISK', value: slaAtRisk, color: slaAtRisk ? '#EF9F27' : null, disabled: true },
       { key: '', label: 'OVER SLA', value: overSla, color: overSla ? '#E24B4A' : null, disabled: true },
       { key: '', label: 'HIGH LOAD TEAM', value: highLoadTeams, color: highLoadTeams ? '#EF9F27' : null, disabled: true },
@@ -11155,7 +11233,7 @@ loadData();
 
   // ── Alert bar ───────────────────────────────────────────────────────
   function renderAlertBar(filtered) {
-    const p0Count = filtered.filter(e => e.severity === 'P0').length;
+    const p0Count = filtered.filter(e => classifyPriority(e) === 'P0').length;
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadCount = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
@@ -11183,10 +11261,20 @@ loadData();
     filtered.forEach(e => {
       byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, P2: 0, other: 0 };
       byTeam[e.team].total++;
-      if (e.severity === 'P0') byTeam[e.team].P0++;
-      else if (e.severity === 'P1') byTeam[e.team].P1++;
-      else if (e.severity === 'P2') byTeam[e.team].P2++;
+      const pr = classifyPriority(e);
+      if (pr === 'P0') byTeam[e.team].P0++;
+      else if (pr === 'P1') byTeam[e.team].P1++;
+      else if (pr === 'P2') byTeam[e.team].P2++;
       else byTeam[e.team].other++;
+    });
+    // Idle teams (explicit request: "หากทีมไหนไม่มีงานก็ยังให้ขึ้นโชว์" -
+    // a team whose every ticket is now Canceled/Closed (Auto)/Closed has
+    // zero entries in `filtered` and would otherwise vanish entirely
+    // instead of showing as available/idle). allTeams is the full
+    // roster from the unfiltered scope, so this adds every team not
+    // already present above, at 0.
+    allTeams.forEach(team => {
+      if (!byTeam[team]) byTeam[team] = { total: 0, P0: 0, P1: 0, P2: 0, other: 0, idle: true };
     });
     const allRows = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
     const SHOWN = 12;
@@ -11195,8 +11283,9 @@ loadData();
     const maxTotal = Math.max(...allRows.map(r => r[1].total), 1);
     el('ofc-team-workload').innerHTML = rows.map(([team, d]) => {
       const pct = (n) => (n / maxTotal * 100);
-      return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}">
-        <div class="ofc-bar-label" title="${escapeHtml(team)}">${escapeHtml(team)}</div>
+      const idleBadge = d.idle ? ` <span style="color:#639922; font-weight:700; font-size:10px;">ว่างงาน</span>` : '';
+      return `<div class="ofc-bar-row" data-team="${escapeHtml(team)}" title="${escapeHtml(team)}: ${d.idle ? 'ไม่มีงาน (ว่างงาน)' : `Total ${d.total} | P0 ${d.P0} | P1 ${d.P1} | P2 ${d.P2}`}">
+        <div class="ofc-bar-label" title="${escapeHtml(team)}">${escapeHtml(team)}${idleBadge}</div>
         <div class="ofc-bar-track">
           <div class="ofc-bar-seg" style="width:${pct(d.P0)}%; background:#E24B4A;"></div>
           <div class="ofc-bar-seg" style="width:${pct(d.P1)}%; background:#EF9F27;"></div>
@@ -11223,12 +11312,23 @@ loadData();
     // (server-computed) - not affected by the current Team/Province/
     // Severity filters, so a province's coverage number never changes
     // just because someone is looking at a different team.
+    //
+    // Purely informational, not clickable (explicit reconsideration):
+    // this widget groups by DISTRICT (the "data" sheet's mapping target,
+    // spec section 10's OWS coverage concept), which is now a DIFFERENT
+    // field from the Province filter (which uses the mapping sheet's
+    // own Owner/column AX instead, per a later explicit request). The
+    // two often agree in practice but aren't guaranteed to, so wiring
+    // this row's click to "filter Province" risked silently showing
+    // zero results with no explanation when they didn't match. Use the
+    // Province filter dropdown directly instead - this widget's own
+    // hover tooltip already shows the full total/mapped/unmapped detail.
     const rows = serverStats.mapping_coverage.slice(0, MAPPING_COVERAGE_SHOWN);
     const hiddenCount = serverStats.mapping_coverage.length - rows.length;
     el('ofc-mapping-coverage').innerHTML = rows.map(d => {
       const isFull = d.pct >= 100;
       const missingLabel = isFull ? '' : ` <span style="color:#E24B4A;">Missing ${d.unmapped}</span>`;
-      return `<div class="ofc-cov-row" data-province="${escapeHtml(d.province)}" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
+      return `<div class="ofc-cov-row" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
         <div class="ofc-cov-label" title="${escapeHtml(d.province)}">${escapeHtml(d.province)}</div>
         <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${d.pct}%; ${isFull ? '' : 'background:#EF9F27;'}"></div></div>
         <div class="ofc-cov-pct">${d.mapped}/${d.total}${missingLabel}</div>
@@ -11237,9 +11337,6 @@ loadData();
     if (hiddenCount > 0) {
       el('ofc-mapping-coverage').innerHTML += `<div style="font-size:11px; color:var(--text3); margin-top:4px;">...และอีก ${hiddenCount} Province</div>`;
     }
-    el('ofc-mapping-coverage').querySelectorAll('[data-province]').forEach(row => {
-      row.addEventListener('click', () => setFilter('province', row.dataset.province));
-    });
   }
 
   // ── Province workload ───────────────────────────────────────────────
@@ -11466,6 +11563,65 @@ loadData();
     });
   }
 
+  // ── Work Order by Province (explicit request: group by Province FIRST,
+  // Team as a sub-level - matches the reference pivot table exactly.
+  // Uses the Daily sheet's OWN "Province" column, not the mapped
+  // DISTRICT via the "data" sheet - that mapped value is what OWS
+  // Mapping Coverage specifically measures, so it stays untouched;
+  // this is a separate, simpler grouping that doesn't depend on a
+  // successful ticket-to-mapping join at all. ─────────────────────────
+  const openProvinceGroups = new Set();
+  function renderProvinceGroups(filtered) {
+    const byProvince = {};
+    filtered.forEach(e => { (byProvince[e.province] = byProvince[e.province] || []).push(e); });
+    const provinces = Object.keys(byProvince).sort((a, b) => byProvince[b].length - byProvince[a].length);
+    el('ofc-province-groups').innerHTML = provinces.map(prov => {
+      const rows = byProvince[prov];
+      const isOpen = openProvinceGroups.has(prov);
+      const byTeam = {};
+      rows.forEach(e => { (byTeam[e.team] = byTeam[e.team] || []).push(e); });
+      const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
+      const bodyHtml = teams.map(team => {
+        const teamRows = byTeam[team];
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="12" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const ticketRows = teamRows.map(e => {
+          const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
+          const mins = slaMinutesRemaining(e);
+          return `<tr${isFbbOnline ? ' style="background:#E24B4A14;"' : ''}>
+          <td>${escapeHtml(e.ticket_id)}</td><td>${escapeHtml(e.site_id)}</td>
+          <td>${escapeHtml(e.severity)}</td>
+          <td>${priorityBadgeHtml(e)}</td>
+          <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject) || '-'}</td>
+          <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
+          <td>${slaBadgeHtml(mins)}</td>
+          <td>${escapeHtml(e.status)}</td>
+          <td>${escapeHtml(e.departed) || '-'}</td><td>${escapeHtml(e.arrived) || '-'}</td><td>${escapeHtml(e.completed) || '-'}</td><td>${escapeHtml(e.closed) || '-'}</td>
+        </tr>`;
+        }).join('');
+        return teamHeader + ticketRows;
+      }).join('');
+      return `<div class="ofc-detail-team">
+        <div class="ofc-detail-team-head" data-toggle-province="${escapeHtml(prov)}">
+          <span>📍 ${escapeHtml(prov)} <span style="font-weight:400; color:var(--text3);">(${rows.length} WO ใน ${teams.length} ทีม)</span></span>
+          <span>${isOpen ? '▾' : '▸'}</span>
+        </div>
+        <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
+          <table class="ofc-table">
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <tbody>${bodyHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px;">ไม่มีข้อมูล</div>`;
+    el('ofc-province-groups').querySelectorAll('[data-toggle-province]').forEach(head => {
+      head.addEventListener('click', () => {
+        const prov = head.dataset.toggleProvince;
+        if (openProvinceGroups.has(prov)) openProvinceGroups.delete(prov); else openProvinceGroups.add(prov);
+        renderProvinceGroups(getFiltered());
+      });
+    });
+  }
+
   // ── Detailed Work Order (grouped by team, collapsed by default) ─────
   const openTeamGroups = new Set();
   function renderDetailGroups(filtered) {
@@ -11531,13 +11687,7 @@ loadData();
     renderAlertBar(filtered);
     renderTeamWorkload(filtered);
     renderMappingCoverage();
-    renderProvinceWorkload(filtered);
-    renderHeatmap(filtered);
-    renderP0P1AtRisk(filtered);
-    renderSlaEscalation(filtered);
-    renderCommandCenter(filtered);
-    renderActionList(filtered);
-    renderDetailGroups(filtered);
+    renderProvinceGroups(filtered);
     renderActiveChips();
   }
 
@@ -11552,6 +11702,7 @@ loadData();
         ค่า Region ที่เจอ: ${fmtCounts(diag.region_value_counts)} (ระบบมองหา: ${diag.looking_for_regions.map(escapeHtml).join(', ')})<br>
         เหลือหลังกรอง Skill+Region: ${diag.rows_after_skill_region_filter} แถว<br>
         ค่า Severity ที่เจอ (หลังกรอง Skill+Region): ${fmtCounts(diag.severity_value_counts)}<br>
+        มี/ไม่มี Require Finish Time แยกตาม Status: ${fmtCounts(diag.require_finish_time_presence_by_status)}<br>
         <br>
         <b>Mapping (data) sheet</b> — คอลัมน์ที่เจอจริง: ${diag.mapping_sheet_headers_found.map(escapeHtml).join(', ')}<br>
         จำนวนที่จับคู่ TICKETID ได้: ${diag.mapping_sheet_entry_count}<br>
@@ -11566,15 +11717,20 @@ loadData();
     el('ofc-diag-toggle').textContent = open ? '🔍 แสดงข้อมูลตรวจสอบ (Diagnostics)' : '🔍 ซ่อนข้อมูลตรวจสอบ';
   });
 
-  async function loadData() {
+  async function loadData(forceRefresh) {
+    const btn = el('ofc-refresh-btn');
+    if (forceRefresh) { btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...'; }
     try {
-      const res = await fetch('/api/ofc-monitor');
+      const url = forceRefresh ? '/api/ofc-monitor?force_refresh=1' : '/api/ofc-monitor';
+      const res = await fetch(url);
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
       allEntries = data.entries || [];
       config = data.config || config;
       serverStats = { unmapped_total: data.unmapped_total || 0, mapping_coverage: data.mapping_coverage || [] };
+      allTeams = data.all_teams || [];
       el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
+      el('ofc-data-round').textContent = data.data_insert_time || '-';
       el('ofc-diag-panel').innerHTML = formatDiagnostics(data.diagnostics);
       populateFilterOptions();
       if (!allEntries.length) {
@@ -11591,9 +11747,14 @@ loadData();
       console.error('OFC Monitor load failed', e);
       el('ofc-no-data').style.display = 'block';
       el('ofc-no-data').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message;
+    } finally {
+      if (forceRefresh) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
     }
   }
-  el('ofc-refresh-btn').addEventListener('click', loadData);
+  // force_refresh=1 on click (explicit request: make sure Refresh
+  // actually gets fresh data) - bypasses the backend's own 5-minute
+  // Sheets cache, unlike the automatic load when the tab first opens.
+  el('ofc-refresh-btn').addEventListener('click', () => loadData(true));
 
   // SLA Remaining ticks forward every minute purely client-side (explicit
   // request: "Update SLA Timer ทุก 1 นาที โดยไม่ Fetch Google Sheet ใหม่")
