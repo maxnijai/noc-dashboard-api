@@ -1869,26 +1869,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
         </div>
 
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div class="t">⏱️ P0 / P1 AT RISK <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤60 นาที — เรียง P0→P1→เวลาที่เหลือน้อยสุด)</span></div>
-          <div id="ofc-p0p1-risk"></div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-            <div class="t" style="margin-bottom:0;">🚨 SLA ESCALATION <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤120 นาที)</span></div>
-          </div>
-          <div id="ofc-sla-escalation" style="margin-top:8px;"></div>
-        </div>
-
-        <div class="ofc-card" style="margin-bottom:16px;">
+        <div class="ofc-card">
           <div class="t">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
           <div id="ofc-province-groups"></div>
-        </div>
-
-        <div class="ofc-card">
-          <div class="t">🔧 DETAILED WORK ORDER <span style="font-weight:400; color:var(--text3); font-size:11px;">(จัดกลุ่มตาม Team — คลิกหัวข้อ Team เพื่อขยาย)</span></div>
-          <div id="ofc-detail-groups"></div>
         </div>
       </div>
 
@@ -11650,10 +11633,7 @@ loadData();
     renderAlertBar(filtered);
     renderTeamWorkload(filtered);
     renderMappingCoverage();
-    renderP0P1AtRisk(filtered);
-    renderSlaEscalation(filtered);
     renderProvinceGroups(filtered);
-    renderDetailGroups(filtered);
     renderActiveChips();
   }
 
