@@ -11063,6 +11063,12 @@ loadData();
     if (mins < 0) return 'P1';
     return 'P2';
   }
+  function priorityBadgeHtml(e) {
+    const pr = classifyPriority(e);
+    if (!pr) return '<span style="color:var(--text3); font-size:11px;">-</span>';
+    const styles = { P0: 'background:#E24B4A22; color:#E24B4A;', P1: 'background:#EF9F2722; color:#c77d1a;', P2: 'background:#63992222; color:#4a7d19;' };
+    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; ${styles[pr]}">${pr}</span>`;
+  }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
     if (minutes < 0) return 'OVER SLA';
@@ -11563,13 +11569,14 @@ loadData();
       const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
       const bodyHtml = teams.map(team => {
         const teamRows = byTeam[team];
-        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="10" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="12" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
         const ticketRows = teamRows.map(e => {
           const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
           const mins = slaMinutesRemaining(e);
           return `<tr${isFbbOnline ? ' style="background:#E24B4A14;"' : ''}>
           <td>${escapeHtml(e.ticket_id)}</td><td>${escapeHtml(e.site_id)}</td>
           <td>${escapeHtml(e.severity)}</td>
+          <td>${priorityBadgeHtml(e)}</td>
           <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject) || '-'}</td>
           <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
           <td>${slaBadgeHtml(mins)}</td>
@@ -11586,7 +11593,7 @@ loadData();
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
         </div>
