@@ -166,7 +166,13 @@ def build_ticket_mapping(gs_client, use_cache=True):
     district_idx = col.get("DISTRICT", MAPPING_DISTRICT_COL_INDEX)
     ticket_idx = col.get("TICKETID")
     bookmark_idx = col.get("Bookmark")
-    owner_idx = col.get("Owner", MAPPING_OWNER_COL_INDEX)
+    # "Owner" isn't a header this sheet actually has (per its known
+    # column list) - TRUEOWNERGROUP is the field that holds this
+    # TRUEOWNERGROUP-style data here, so that's checked first. Column AX
+    # is only a last-resort position fallback, and on this sheet's real
+    # layout lands on Tech_timestamp, not an Owner-style field - kept
+    # only in case the header row is ever reshuffled without warning.
+    owner_idx = col.get("TRUEOWNERGROUP", col.get("Owner", MAPPING_OWNER_COL_INDEX))
 
     def get(row, idx):
         if idx is None or idx >= len(row):
@@ -379,6 +385,8 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
         "mapping_sheet_headers_found": mapping_header,
         "mapping_sheet_entry_count": len(mapping),
         "mapping_sheet_sample": dict(list(mapping.items())[:3]),
+        "mapping_filter_province_success_count": sum(1 for m in mapping.values() if m.get("filter_province")),
+        "mapping_filter_province_blank_count": sum(1 for m in mapping.values() if not m.get("filter_province")),
         "looking_for_bookmark": DEFAULT_BOOKMARK,
         "looking_for_skill": DEFAULT_SKILL,
         "looking_for_regions": sorted(DEFAULT_REGIONS),
