@@ -1778,7 +1778,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     .ofc-bar-seg { height: 100%; }
     .ofc-bar-total { flex: 0 0 34px; font-size: 11.5px; font-weight: 800; text-align: right; }
 
-    .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; }
+    .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .ofc-cov-label { flex: 0 0 130px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ofc-cov-track { flex: 1; height: 16px; background: #E24B4A33; border-radius: 4px; overflow: hidden; }
     .ofc-cov-fill { height: 100%; background: #639922; }
@@ -1866,7 +1866,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           </div>
           <div class="ofc-card">
             <div class="t">📶 OWS MAPPING COVERAGE <span style="font-weight:400; color:var(--text3); font-size:11px;">(จังหวัดไหนยังมี Ticket ที่ยังไม่มี Team รับผิดชอบ — ตัวเลข = จับคู่ Team ได้แล้ว/ทั้งหมด)</span></div>
-            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping — คลิกแถวเพื่อ Drill Down</div>
+            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping (ใช้ Filter Province ด้านบนถ้าอยากกรองดูจังหวัดเดียว)</div>
             <div id="ofc-mapping-coverage"></div>
           </div>
         </div>
@@ -10996,7 +10996,7 @@ loadData();
   let hasData = false;
   let allEntries = [];
   let config = { high_load_threshold: 8, critical_load_threshold: 12 };
-  let filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', p0p1Only: false };
+  let filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', priority: '', p0p1Only: false };
   // Server-computed, NOT re-derived from the (already bookmark-filtered)
   // allEntries - see loadData(): a ticket only keeps its real Bookmark
   // once it's already mapped, so computing "unmapped"/"coverage" from
@@ -11044,6 +11044,25 @@ loadData();
     if (!finish) return null;
     return (finish.getTime() - Date.now()) / 60000;
   }
+  // P0/P1/P2 (explicit request) - reuses the SAME formula already
+  // established elsewhere in this app (realtime_monitor._classify_
+  // priority, also reused verbatim by pending_ticket._classify_
+  // priority_at): how overdue Require Finish Time is right now, NOT
+  // the raw Severity text (which is values like "SA4-24H", never
+  // literally "P0"/"P1"/"P2" - comparing against those directly was
+  // why every P0/P1 count showed 0 before this). null (can't compute -
+  // no Require Finish Time, or already Completed/Closed) is left
+  // unclassified rather than guessed into a bucket.
+  //   > 24h overdue  -> P0
+  //   0-24h overdue  -> P1
+  //   not yet due    -> P2
+  function classifyPriority(e) {
+    const mins = slaMinutesRemaining(e);
+    if (mins == null) return null;
+    if (mins < -1440) return 'P0';
+    if (mins < 0) return 'P1';
+    return 'P2';
+  }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
     if (minutes < 0) return 'OVER SLA';
@@ -11081,7 +11100,8 @@ loadData();
       if (filters.severity && e.severity !== filters.severity) return false;
       if (filters.bookmark && e.bookmark !== filters.bookmark) return false;
       if (filters.status && e.status !== filters.status) return false;
-      if (filters.p0p1Only && e.severity !== 'P0' && e.severity !== 'P1') return false;
+      if (filters.priority && classifyPriority(e) !== filters.priority) return false;
+      if (filters.p0p1Only) { const pr = classifyPriority(e); if (pr !== 'P0' && pr !== 'P1') return false; }
       if (filters.sla) {
         const mins = slaMinutesRemaining(e);
         if (slaStatusLabel(mins) !== filters.sla) return false;
@@ -11113,7 +11133,7 @@ loadData();
 
   function renderActiveChips() {
     const labels = {
-      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', bookmark: 'Bookmark', status: 'Status', sla: 'SLA Status',
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', bookmark: 'Bookmark', status: 'Status', sla: 'SLA Status', priority: 'Priority',
     };
     const chips = Object.entries(filters).filter(([k, v]) => v && k !== 'p0p1Only').map(([k, v]) =>
       `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
@@ -11142,7 +11162,7 @@ loadData();
   });
   el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
   el('ofc-reset-filters').addEventListener('click', () => {
-    filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', p0p1Only: false };
+    filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', priority: '', p0p1Only: false };
     FILTER_SELECT_IDS.forEach(id => { el(id).value = ''; });
     el('ofc-filter-p0p1-only').checked = false;
     renderAll();
@@ -11151,8 +11171,8 @@ loadData();
   // ── KPI cards ───────────────────────────────────────────────────────
   function renderKpis(filtered) {
     const teams = new Set(filtered.map(e => e.team));
-    const p0 = filtered.filter(e => e.severity === 'P0').length;
-    const p1 = filtered.filter(e => e.severity === 'P1').length;
+    const p0 = filtered.filter(e => classifyPriority(e) === 'P0').length;
+    const p1 = filtered.filter(e => classifyPriority(e) === 'P1').length;
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadTeams = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
@@ -11168,8 +11188,8 @@ loadData();
     const cards = [
       { key: '', label: 'TOTAL WO', value: filtered.length },
       { key: '', label: 'OFC TEAMS', value: teams.size },
-      { key: 'severity:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
-      { key: 'severity:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
+      { key: 'priority:P0', label: 'P0', value: p0, color: p0 ? '#E24B4A' : null },
+      { key: 'priority:P1', label: 'P1', value: p1, color: p1 ? '#EF9F27' : null },
       { key: '', label: 'SLA AT RISK', value: slaAtRisk, color: slaAtRisk ? '#EF9F27' : null, disabled: true },
       { key: '', label: 'OVER SLA', value: overSla, color: overSla ? '#E24B4A' : null, disabled: true },
       { key: '', label: 'HIGH LOAD TEAM', value: highLoadTeams, color: highLoadTeams ? '#EF9F27' : null, disabled: true },
@@ -11193,7 +11213,7 @@ loadData();
 
   // ── Alert bar ───────────────────────────────────────────────────────
   function renderAlertBar(filtered) {
-    const p0Count = filtered.filter(e => e.severity === 'P0').length;
+    const p0Count = filtered.filter(e => classifyPriority(e) === 'P0').length;
     const teamTotals = {};
     filtered.forEach(e => { teamTotals[e.team] = (teamTotals[e.team] || 0) + 1; });
     const highLoadCount = Object.values(teamTotals).filter(n => n >= config.high_load_threshold).length;
@@ -11221,9 +11241,10 @@ loadData();
     filtered.forEach(e => {
       byTeam[e.team] = byTeam[e.team] || { total: 0, P0: 0, P1: 0, P2: 0, other: 0 };
       byTeam[e.team].total++;
-      if (e.severity === 'P0') byTeam[e.team].P0++;
-      else if (e.severity === 'P1') byTeam[e.team].P1++;
-      else if (e.severity === 'P2') byTeam[e.team].P2++;
+      const pr = classifyPriority(e);
+      if (pr === 'P0') byTeam[e.team].P0++;
+      else if (pr === 'P1') byTeam[e.team].P1++;
+      else if (pr === 'P2') byTeam[e.team].P2++;
       else byTeam[e.team].other++;
     });
     // Idle teams (explicit request: "หากทีมไหนไม่มีงานก็ยังให้ขึ้นโชว์" -
@@ -11271,12 +11292,23 @@ loadData();
     // (server-computed) - not affected by the current Team/Province/
     // Severity filters, so a province's coverage number never changes
     // just because someone is looking at a different team.
+    //
+    // Purely informational, not clickable (explicit reconsideration):
+    // this widget groups by DISTRICT (the "data" sheet's mapping target,
+    // spec section 10's OWS coverage concept), which is now a DIFFERENT
+    // field from the Province filter (which uses the mapping sheet's
+    // own Owner/column AX instead, per a later explicit request). The
+    // two often agree in practice but aren't guaranteed to, so wiring
+    // this row's click to "filter Province" risked silently showing
+    // zero results with no explanation when they didn't match. Use the
+    // Province filter dropdown directly instead - this widget's own
+    // hover tooltip already shows the full total/mapped/unmapped detail.
     const rows = serverStats.mapping_coverage.slice(0, MAPPING_COVERAGE_SHOWN);
     const hiddenCount = serverStats.mapping_coverage.length - rows.length;
     el('ofc-mapping-coverage').innerHTML = rows.map(d => {
       const isFull = d.pct >= 100;
       const missingLabel = isFull ? '' : ` <span style="color:#E24B4A;">Missing ${d.unmapped}</span>`;
-      return `<div class="ofc-cov-row" data-province="${escapeHtml(d.province)}" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
+      return `<div class="ofc-cov-row" title="${escapeHtml(d.province)}: ${d.total} WO | ${d.mapped} Mapped | ${d.unmapped} Unmapped">
         <div class="ofc-cov-label" title="${escapeHtml(d.province)}">${escapeHtml(d.province)}</div>
         <div class="ofc-cov-track"><div class="ofc-cov-fill" style="width:${d.pct}%; ${isFull ? '' : 'background:#EF9F27;'}"></div></div>
         <div class="ofc-cov-pct">${d.mapped}/${d.total}${missingLabel}</div>
@@ -11285,9 +11317,6 @@ loadData();
     if (hiddenCount > 0) {
       el('ofc-mapping-coverage').innerHTML += `<div style="font-size:11px; color:var(--text3); margin-top:4px;">...และอีก ${hiddenCount} Province</div>`;
     }
-    el('ofc-mapping-coverage').querySelectorAll('[data-province]').forEach(row => {
-      row.addEventListener('click', () => setFilter('province', row.dataset.province));
-    });
   }
 
   // ── Province workload ───────────────────────────────────────────────
