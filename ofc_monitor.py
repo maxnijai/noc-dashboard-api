@@ -288,34 +288,17 @@ def build_ofc_monitor_response(gs_client):
             "is_mapped": is_mapped,
         })
 
+    # unmapped_count, all_teams, and mapping_coverage below are all
+    # data-completeness concerns ("is this province/team's OWS mapping
+    # done at all"), not "active work in hand" concerns - so all three
+    # are deliberately computed from the FULL Skill+Region scope, BEFORE
+    # the Status filter a few lines down. Explicit bug this fixes: a
+    # province or team whose every ticket happened to already be
+    # Canceled/Closed (Auto)/Closed was vanishing entirely from both
+    # Team Workload and OWS Mapping Coverage, instead of showing up
+    # with 0 active tickets (idle team / fully-resolved province).
     unmapped_count = sum(1 for e in entries if not e["is_mapped"])
-    # Every team that appears ANYWHERE in the full Skill+Region scope -
-    # computed BEFORE the status filter below, so a team whose every
-    # ticket happens to be Canceled/Closed (Auto)/Closed still shows up
-    # here (as an idle team with 0 active tickets) instead of vanishing
-    # once those tickets are filtered out of entries itself.
     all_teams = sorted({e["team"] for e in entries})
-
-    # Explicit request: exclude Canceled/Closed (Auto)/Closed entirely -
-    # "ผมต้องการดูงานที่มีในมือจริงๆ" (only genuinely active work). This
-    # is the actual `entries` list returned below; all_teams above
-    # already captured the full team roster before this filter runs.
-    entries = [e for e in entries if e["status"] not in EXCLUDED_STATUSES]
-
-    # Bookmark is no longer a hard server-side filter (explicit request:
-    # "ขอปลด Filter ไม่กรองเฉพาะ FBB Online อย่างเดียว ขอเอาทุก Bookmark
-    # เลยครับ") - `entries` below is now the FULL Skill+Region scope,
-    # every Bookmark included. Each entry still carries its own
-    # `bookmark` value so the frontend can filter/group by it if wanted.
-    default_scope_entries = entries
-
-    # Mapping coverage per province, computed from the FULL Skill+Region
-    # scope (entries, before the Bookmark filter) - not from
-    # default_scope_entries. A ticket only keeps its real Bookmark value
-    # (and so can only end up IN default_scope_entries) once it's
-    # already successfully mapped, so computing coverage from that
-    # already-filtered set would trivially show ~100% everywhere and
-    # hide the real gaps spec section 10 is asking to surface.
     coverage_by_province = {}
     for e in entries:
         d = coverage_by_province.setdefault(e["district"], {"total": 0, "mapped": 0})
@@ -328,6 +311,20 @@ def build_ofc_monitor_response(gs_client):
         for prov, d in coverage_by_province.items()
     ]
     mapping_coverage.sort(key=lambda x: -x["total"])
+
+    # Explicit request: exclude Canceled/Closed (Auto)/Closed entirely -
+    # "ผมต้องการดูงานที่มีในมือจริงๆ" (only genuinely active work). This
+    # is the actual `entries` list returned below; everything above
+    # (unmapped_count, all_teams, mapping_coverage) already captured the
+    # full picture before this filter runs.
+    entries = [e for e in entries if e["status"] not in EXCLUDED_STATUSES]
+
+    # Bookmark is no longer a hard server-side filter (explicit request:
+    # "ขอปลด Filter ไม่กรองเฉพาะ FBB Online อย่างเดียว ขอเอาทุก Bookmark
+    # เลยครับ") - `entries` below is now the FULL Skill+Region scope,
+    # every Bookmark included. Each entry still carries its own
+    # `bookmark` value so the frontend can filter/group by it if wanted.
+    default_scope_entries = entries
 
     integrity = {
         "duplicate_ticket_ids": sorted(duplicate_ticket_ids),
