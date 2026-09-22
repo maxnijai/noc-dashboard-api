@@ -50,6 +50,7 @@ def _extract_province_from_owner(owner_value):
 MAPPING_SHEET_ID = "1AEQSsiLUbr5p6HYh36WNGF9TkUDVeW2xN-vDvDkjy1k"
 MAPPING_TAB = "data"
 MAPPING_DISTRICT_COL_INDEX = 38  # column AM (0-indexed: A=0 ... AM=38) - fallback if the header row doesn't literally say "DISTRICT"
+MAPPING_OWNER_COL_INDEX = 49  # column AX (0-indexed: A=0 ... AX=49) - fallback if the header row doesn't literally say "Owner"
 
 _mapping_cache = {"data": None, "ts": 0}
 _mapping_lock = threading.Lock()
@@ -137,18 +138,27 @@ def _safe_str(v):
     return str(v).strip()
 
 
-def build_ticket_mapping(gs_client):
+def build_ticket_mapping(gs_client, use_cache=True):
     """Returns (mapping, header) where mapping is
-    {ticket_id_upper: {"bookmark", "district"}} from the "data" sheet,
-    keyed by TICKETID (spec section 2's Daily[Source Ticket ID] ->
-    data[TICKETID] match), and header is the sheet's actual header row
-    (returned for diagnostics - if "TICKETID" or "Bookmark" isn't found
-    verbatim in it, every row is silently skipped and mapping comes back
-    empty, which otherwise looks identical to "the sheet has no data").
+    {ticket_id_upper: {"bookmark", "district", "filter_province"}} from
+    the "data" sheet, keyed by TICKETID (spec section 2's Daily[Source
+    Ticket ID] -> data[TICKETID] match), and header is the sheet's
+    actual header row (returned for diagnostics - if "TICKETID" or
+    "Bookmark" isn't found verbatim in it, every row is silently skipped
+    and mapping comes back empty, which otherwise looks identical to
+    "the sheet has no data").
     DISTRICT is read by header name first; if no column is literally
     named "DISTRICT", falls back to the explicit column AM position
-    given in the spec."""
-    rows = fetch_mapping_rows(gs_client)
+    given in the spec.
+    filter_province (explicit request: "Filter Province ให้เอาคอลัม (AX)
+    Owner มาแทน") is this sheet's OWN "Owner" column (also TRUEOWNERGROUP-
+    style, same as Daily's Owner but a separate value on this separate
+    sheet) - read by header name first, falling back to column AX. Used
+    ONLY to drive the Province filter dropdown; DISTRICT above still
+    drives OWS Mapping Coverage, and Daily's own Owner (elsewhere in
+    this module) still drives the Work Order by Province grouping - all
+    three are deliberately kept independent, not merged into one."""
+    rows = fetch_mapping_rows(gs_client, use_cache=use_cache)
     if not rows:
         return {}, []
     header = rows[0]
@@ -156,6 +166,7 @@ def build_ticket_mapping(gs_client):
     district_idx = col.get("DISTRICT", MAPPING_DISTRICT_COL_INDEX)
     ticket_idx = col.get("TICKETID")
     bookmark_idx = col.get("Bookmark")
+    owner_idx = col.get("Owner", MAPPING_OWNER_COL_INDEX)
 
     def get(row, idx):
         if idx is None or idx >= len(row):
@@ -172,13 +183,19 @@ def build_ticket_mapping(gs_client):
         mapping[tid.upper()] = {
             "bookmark": _safe_str(get(row, bookmark_idx)),
             "district": _safe_str(get(row, district_idx)),
+            "filter_province": _extract_province_from_owner(get(row, owner_idx)) or "",
         }
     return mapping, header
 
 
-def build_ofc_monitor_response(gs_client):
-    daily_rows = mateline_status.fetch_ggs_daily_rows(gs_client)
-    mapping, mapping_header = build_ticket_mapping(gs_client)
+def build_ofc_monitor_response(gs_client, force_refresh=False):
+    # force_refresh (explicit request: "ปุ่ม Refresh ขอให้เช็คเพื่อให้ใช้
+    # งานได้จริงครับ") bypasses both sheets' 5-minute server-side caches -
+    # without this, clicking Refresh within the same 5-minute window
+    # would silently re-serve the same cached data, making the button
+    # look broken even though a real HTTP round-trip did happen.
+    daily_rows = mateline_status.fetch_ggs_daily_rows(gs_client, use_cache=not force_refresh)
+    mapping, mapping_header = build_ticket_mapping(gs_client, use_cache=not force_refresh)
 
     if not daily_rows:
         return {"entries": [], "integrity": {}, "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -191,6 +208,17 @@ def build_ofc_monitor_response(gs_client):
         if i is None or i >= len(row):
             return ""
         return row[i]
+
+    # Data batch/snapshot time (explicit request: show clearly on the
+    # page header what time round this data is from) - "insert_time" is
+    # column A, written fresh on every sync of this sheet, so it's the
+    # same value across every row in one batch; just read it off the
+    # first data row rather than re-deriving it per entry.
+    data_insert_time = ""
+    for row in daily_rows[1:]:
+        if row and any(row):
+            data_insert_time = _safe_str(get(row, "insert_time") if "insert_time" in col else (row[0] if row else ""))
+            break
 
     seen_ticket_ids = set()
     duplicate_ticket_ids = set()
@@ -246,11 +274,14 @@ def build_ofc_monitor_response(gs_client):
         m = mapping.get(tid_upper)
         bookmark = (m or {}).get("bookmark") or ""
         district = (m or {}).get("district") or ""
+        filter_province = (m or {}).get("filter_province") or ""
         is_mapped = bool(m)
         if not bookmark:
             bookmark = NA_LABEL
         if not district:
             district = NA_LABEL
+        if not filter_province:
+            filter_province = NA_LABEL
         diag_bookmark_values[bookmark] = diag_bookmark_values.get(bookmark, 0) + 1
         severity = _safe_str(get(row, "Severity")) or NA_LABEL
         diag_severity_values[severity] = diag_severity_values.get(severity, 0) + 1
@@ -281,7 +312,8 @@ def build_ofc_monitor_response(gs_client):
             "require_finish_time": require_finish_time,
             "status": status,
             "region": region,
-            "province": province,  # already validated non-None above (TRUEOWNERGROUP-style, extracted from Owner)
+            "province": province,  # already validated non-None above (TRUEOWNERGROUP-style, extracted from Daily's Owner)
+            "filter_province": filter_province,  # from the mapping sheet's OWN Owner (column AX) - explicit request: drives the Province filter dropdown specifically
             "skill": skill,
             "bookmark": bookmark,
             "district": district,
@@ -368,4 +400,5 @@ def build_ofc_monitor_response(gs_client):
             "default_bookmark": DEFAULT_BOOKMARK,
         },
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "data_insert_time": data_insert_time,
     }

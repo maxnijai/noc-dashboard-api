@@ -3099,7 +3099,8 @@ def api_sa2_risk_export():
 def api_ofc_monitor():
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        data = ofc_monitor.build_ofc_monitor_response(gs_client)
+        force_refresh = request.args.get('force_refresh') == '1'
+        data = ofc_monitor.build_ofc_monitor_response(gs_client, force_refresh=force_refresh)
         return jsonify(data)
     except Exception as e:
         log.exception("ofc-monitor API failed")
