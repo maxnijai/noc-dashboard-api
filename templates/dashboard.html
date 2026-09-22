@@ -1829,6 +1829,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div>
           <h1>📡 OFC WORK ORDER EXECUTIVE MONITOR</h1>
           <div class="sub" id="ofc-subtitle">NOR1 + NOR2 | 4.FBB with SA1-4 | Real-Time Operational View</div>
+          <div style="font-size:12px; font-weight:700; color:#1f6feb; margin-top:4px;">🕐 ข้อมูลรอบ: <span id="ofc-data-round">-</span></div>
         </div>
         <div class="ofc-header-right">
           <span>Last Updated: <b id="ofc-last-updated" style="color:var(--text);">--:--</b></span>
@@ -1841,6 +1842,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-bookmark"><option value="">Bookmark: ทั้งหมด</option></select>
         <select id="ofc-filter-status"><option value="">Status: ทั้งหมด</option></select>
         <select id="ofc-filter-sla"><option value="">SLA Status: ทั้งหมด</option><option>OVER SLA</option><option>≤30 min</option><option>31–60 min</option><option>61–120 min</option><option>&gt;120 min</option></select>
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;"><input type="checkbox" id="ofc-filter-p0p1-only"> Show P0/P1 Only</label>
@@ -10994,7 +10996,7 @@ loadData();
   let hasData = false;
   let allEntries = [];
   let config = { high_load_threshold: 8, critical_load_threshold: 12 };
-  let filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
+  let filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', p0p1Only: false };
   // Server-computed, NOT re-derived from the (already bookmark-filtered)
   // allEntries - see loadData(): a ticket only keeps its real Bookmark
   // once it's already mapped, so computing "unmapped"/"coverage" from
@@ -11074,9 +11076,10 @@ loadData();
   function getFiltered() {
     return allEntries.filter(e => {
       if (filters.region && e.region !== filters.region) return false;
-      if (filters.province && e.district !== filters.province) return false;
+      if (filters.province && e.filter_province !== filters.province) return false;
       if (filters.team && e.team !== filters.team) return false;
       if (filters.severity && e.severity !== filters.severity) return false;
+      if (filters.bookmark && e.bookmark !== filters.bookmark) return false;
       if (filters.status && e.status !== filters.status) return false;
       if (filters.p0p1Only && e.severity !== 'P0' && e.severity !== 'P1') return false;
       if (filters.sla) {
@@ -11101,15 +11104,16 @@ loadData();
       el(id).value = cur;
     };
     setOpts('ofc-filter-region', uniq(allEntries.map(e => e.region)), 'Region: ทั้งหมด');
-    setOpts('ofc-filter-province', uniq(allEntries.map(e => e.district)), 'Province: ทั้งหมด');
+    setOpts('ofc-filter-province', uniq(allEntries.map(e => e.filter_province)), 'Province: ทั้งหมด');
     setOpts('ofc-filter-team', uniq(allEntries.map(e => e.team)), 'Team: ทั้งหมด');
     setOpts('ofc-filter-severity', uniq(allEntries.map(e => e.severity)), 'Severity: ทั้งหมด');
+    setOpts('ofc-filter-bookmark', uniq(allEntries.map(e => e.bookmark)), 'Bookmark: ทั้งหมด');
     setOpts('ofc-filter-status', uniq(allEntries.map(e => e.status)), 'Status: ทั้งหมด');
   }
 
   function renderActiveChips() {
     const labels = {
-      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', status: 'Status', sla: 'SLA Status',
+      region: 'Region', province: 'Province', team: 'Team', severity: 'Severity', bookmark: 'Bookmark', status: 'Status', sla: 'SLA Status',
     };
     const chips = Object.entries(filters).filter(([k, v]) => v && k !== 'p0p1Only').map(([k, v]) =>
       `<span class="ofc-chip">${labels[k]}: ${escapeHtml(v)} <span class="x" data-clear="${k}">✕</span></span>`
@@ -11122,7 +11126,7 @@ loadData();
     el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
   }
 
-  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-status', 'ofc-filter-sla'];
+  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
   function setFilter(key, value) {
     filters[key] = filters[key] === value ? (typeof value === 'boolean' ? false : '') : value; // click again to toggle off
     FILTER_SELECT_IDS.forEach(id => {
@@ -11133,12 +11137,12 @@ loadData();
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity', 'status', 'sla'].forEach(k => {
+  ['region', 'province', 'team', 'severity', 'bookmark', 'status', 'sla'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
   el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
   el('ofc-reset-filters').addEventListener('click', () => {
-    filters = { region: '', province: '', team: '', severity: '', status: '', sla: '', p0p1Only: false };
+    filters = { region: '', province: '', team: '', severity: '', bookmark: '', status: '', sla: '', p0p1Only: false };
     FILTER_SELECT_IDS.forEach(id => { el(id).value = ''; });
     el('ofc-filter-p0p1-only').checked = false;
     renderAll();
@@ -11663,9 +11667,12 @@ loadData();
     el('ofc-diag-toggle').textContent = open ? '🔍 แสดงข้อมูลตรวจสอบ (Diagnostics)' : '🔍 ซ่อนข้อมูลตรวจสอบ';
   });
 
-  async function loadData() {
+  async function loadData(forceRefresh) {
+    const btn = el('ofc-refresh-btn');
+    if (forceRefresh) { btn.disabled = true; btn.textContent = '⏳ กำลังโหลด...'; }
     try {
-      const res = await fetch('/api/ofc-monitor');
+      const url = forceRefresh ? '/api/ofc-monitor?force_refresh=1' : '/api/ofc-monitor';
+      const res = await fetch(url);
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
       const data = await res.json();
       allEntries = data.entries || [];
@@ -11673,6 +11680,7 @@ loadData();
       serverStats = { unmapped_total: data.unmapped_total || 0, mapping_coverage: data.mapping_coverage || [] };
       allTeams = data.all_teams || [];
       el('ofc-last-updated').textContent = (data.generated_at || '').split(' ')[1] || '--:--';
+      el('ofc-data-round').textContent = data.data_insert_time || '-';
       el('ofc-diag-panel').innerHTML = formatDiagnostics(data.diagnostics);
       populateFilterOptions();
       if (!allEntries.length) {
@@ -11689,9 +11697,14 @@ loadData();
       console.error('OFC Monitor load failed', e);
       el('ofc-no-data').style.display = 'block';
       el('ofc-no-data').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message;
+    } finally {
+      if (forceRefresh) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
     }
   }
-  el('ofc-refresh-btn').addEventListener('click', loadData);
+  // force_refresh=1 on click (explicit request: make sure Refresh
+  // actually gets fresh data) - bypasses the backend's own 5-minute
+  // Sheets cache, unlike the automatic load when the tab first opens.
+  el('ofc-refresh-btn').addEventListener('click', () => loadData(true));
 
   // SLA Remaining ticks forward every minute purely client-side (explicit
   // request: "Update SLA Timer ทุก 1 นาที โดยไม่ Fetch Google Sheet ใหม่")
