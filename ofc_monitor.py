@@ -57,6 +57,91 @@ _mapping_lock = threading.Lock()
 MAPPING_CACHE_TTL_SECONDS = 300
 MAPPING_FETCH_TIMEOUT_SECONDS = 15
 
+# Remark/note storage (explicit request: a per-ticket free-text note,
+# something no source sheet has - needs its own place to persist).
+# Same spreadsheet the Pending Ticket mirror export already writes to
+# (EXPORT_SHEET_ID in pending_ticket.py), but its own tab.
+NOTE_SHEET_ID = "10Y3Pyp6-MqlrcxiDXdAjTNWWZLgDWp94dZvU51lOxWU"
+NOTE_WORKSHEET_GID = 804374063
+NOTE_HEADER = ["TICKETID", "Remark", "updated_by", "updated_at"]
+
+_note_cache = {"data": None, "ts": 0}
+_note_lock = threading.Lock()
+NOTE_CACHE_TTL_SECONDS = 60  # short TTL - remarks are meant to feel responsive after saving, unlike the 5-minute source-data caches above
+
+
+def _get_note_worksheet(gs_client):
+    sh = gs_client.open_by_key(NOTE_SHEET_ID)
+    for ws in sh.worksheets():
+        if ws.id == NOTE_WORKSHEET_GID:
+            return ws
+    # Falls back to creating the tab if the gid given doesn't (yet) exist
+    # - keeps this working even before anyone manually sets the tab up,
+    # rather than throwing on every remark save.
+    return sh.add_worksheet(title="Note Ticket", rows=2000, cols=len(NOTE_HEADER))
+
+
+def _fetch_note_rows_raw(gs_client):
+    ws = _get_note_worksheet(gs_client)
+    rows = ws.get_all_values()
+    if not rows:
+        ws.append_row(NOTE_HEADER)
+        return [NOTE_HEADER]
+    return rows
+
+
+def load_ofc_remarks(gs_client, use_cache=True):
+    """Returns {ticket_id_upper: remark_text}. Cached briefly (60s, much
+    shorter than the source-data caches above) - a remark someone just
+    typed and saved should show back up on refresh quickly, not sit
+    behind the same 5-minute window as Daily/mapping data that changes
+    far less often."""
+    now = time.monotonic()
+    if not use_cache:
+        rows = _fetch_note_rows_raw(gs_client)
+    else:
+        with _note_lock:
+            if _note_cache["data"] is not None and (now - _note_cache["ts"]) < NOTE_CACHE_TTL_SECONDS:
+                rows = _note_cache["data"]
+            else:
+                rows = _fetch_note_rows_raw(gs_client)
+                _note_cache["data"] = rows
+                _note_cache["ts"] = time.monotonic()
+    if not rows:
+        return {}
+    header = rows[0]
+    col = {name.strip(): i for i, name in enumerate(header) if name.strip()}
+    tid_idx = col.get("TICKETID", 0)
+    remark_idx = col.get("Remark", 1)
+    remarks = {}
+    for row in rows[1:]:
+        if not row or not any(row):
+            continue
+        tid = row[tid_idx].strip() if tid_idx < len(row) else ""
+        if not tid:
+            continue
+        remarks[tid.upper()] = row[remark_idx] if remark_idx < len(row) else ""
+    return remarks
+
+
+def save_ofc_remark(gs_client, ticket_id, remark, updated_by=None):
+    ticket_id = (ticket_id or "").strip()
+    if not ticket_id:
+        raise ValueError("ticket_id is required")
+    ws = _get_note_worksheet(gs_client)
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cell = None
+    try:
+        cell = ws.find(ticket_id)
+    except Exception:
+        cell = None  # gspread raises if not found rather than returning None, depending on version - either way, "not found" means append below
+    if cell is not None:
+        ws.update(f"A{cell.row}", [[ticket_id, remark, updated_by or "", now_str]])
+    else:
+        ws.append_row([ticket_id, remark, updated_by or "", now_str])
+    with _note_lock:
+        _note_cache["data"] = None  # invalidate - next read gets the fresh value instead of waiting out the TTL
+
 # Config (spec section 8: "ต้องทำเป็น Config ที่แก้ไขได้ง่ายใน Code ห้าม
 # Hardcode กระจายหลายจุด") - the ONLY place these thresholds are defined.
 HIGH_LOAD_THRESHOLD = 8
@@ -202,6 +287,14 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
     # look broken even though a real HTTP round-trip did happen.
     daily_rows = mateline_status.fetch_ggs_daily_rows(gs_client, use_cache=not force_refresh)
     mapping, mapping_header = build_ticket_mapping(gs_client, use_cache=not force_refresh)
+    try:
+        remarks = load_ofc_remarks(gs_client, use_cache=not force_refresh)
+    except Exception:
+        # A failure here shouldn't take down the whole page - every
+        # entry just falls back to "no remark yet" if the Note Ticket
+        # sheet can't be reached this time.
+        log.exception("load_ofc_remarks failed - remarks will show blank for this response")
+        remarks = {}
 
     if not daily_rows:
         return {"entries": [], "integrity": {}, "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -312,6 +405,7 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
             "subject": _safe_str(get(row, "Subject")),
             "alarm_description": _safe_str(get(row, "Alarm Description")),
             "pause_resume_time": _safe_str(get(row, "Pause/Resume Time")),
+            "remark": remarks.get(tid_upper, ""),
             "departed": _safe_str(get(row, "Departed")),
             "arrived": _safe_str(get(row, "Arrived")),
             "completed": _safe_str(get(row, "Completed")),

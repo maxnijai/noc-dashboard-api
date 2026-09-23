@@ -3106,6 +3106,21 @@ def api_ofc_monitor():
         log.exception("ofc-monitor API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ofc-monitor/remark', methods=['POST'])
+def api_ofc_monitor_remark():
+    try:
+        data = request.get_json(force=True) or {}
+        ticket_id = (data.get('ticket_id') or '').strip()
+        if not ticket_id:
+            return jsonify({'error': 'ไม่พบ ticket_id'}), 400
+        _, gs_client = get_drive_and_sheets_clients()
+        updated_by = session.get('user_email')
+        ofc_monitor.save_ofc_remark(gs_client, ticket_id, data.get('remark', ''), updated_by=updated_by)
+        return jsonify({'ok': True})
+    except Exception as e:
+        log.exception("ofc-monitor remark save failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/flood-nan')
 def api_flood_nan():
     """Every known Nan-province site plotted on a map, color-coded by the
