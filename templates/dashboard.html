@@ -1842,6 +1842,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-priority"><option value="">Priority: ทั้งหมด</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option></select>
         <select id="ofc-filter-bookmark"><option value="">Bookmark: ทั้งหมด</option></select>
         <select id="ofc-filter-status"><option value="">Status: ทั้งหมด</option></select>
         <select id="ofc-filter-sla"><option value="">SLA Status: ทั้งหมด</option><option>OVER SLA</option><option>≤30 min</option><option>31–60 min</option><option>61–120 min</option><option>&gt;120 min</option></select>
@@ -11089,6 +11090,35 @@ loadData();
     const styles = { P0: 'background:#E24B4A22; color:#E24B4A;', P1: 'background:#EF9F2722; color:#c77d1a;', P2: 'background:#63992222; color:#4a7d19;' };
     return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; cursor:help; ${styles[pr]}" title="${escapeHtml(debugTip)}">${pr}</span>`;
   }
+  // Today vs not-today date styling (explicit request: help the team
+  // "focus" by making a Departed/Arrived/Completed/Closed value that
+  // happened TODAY look different from one that's been sitting since an
+  // earlier day). Bangkok "today" via the same pure-UTC-math pattern
+  // used everywhere else in this module (Date.now() + fixed 7h offset,
+  // read through UTC getters) - never depends on the viewer's own
+  // browser/OS timezone.
+  function bangkokTodayStr() {
+    const bkk = new Date(Date.now() + 7 * 3600 * 1000);
+    return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
+  }
+  function isNotToday(dateStr) {
+    if (!dateStr) return false;
+    const m = String(dateStr).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return false;
+    const norm = `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    return norm !== bangkokTodayStr();
+  }
+  function focusDateCell(dateStr) {
+    if (!dateStr) return '-';
+    // Today: plain, unremarkable text - nothing to focus on here.
+    // Not today: amber/orange + a small marker, so a ticket that's been
+    // sitting since an earlier day visibly stands out from one moving
+    // today.
+    if (isNotToday(dateStr)) {
+      return `<span style="color:#c77d1a; font-weight:700;">📅 ${escapeHtml(dateStr)}</span>`;
+    }
+    return escapeHtml(dateStr);
+  }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
     if (minutes < 0) return 'OVER SLA';
@@ -11172,7 +11202,7 @@ loadData();
     el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
   }
 
-  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
+  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-priority', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
   function setFilter(key, value) {
     filters[key] = filters[key] === value ? (typeof value === 'boolean' ? false : '') : value; // click again to toggle off
     FILTER_SELECT_IDS.forEach(id => {
@@ -11183,7 +11213,7 @@ loadData();
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity', 'bookmark', 'status', 'sla'].forEach(k => {
+  ['region', 'province', 'team', 'severity', 'priority', 'bookmark', 'status', 'sla'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
   el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
@@ -11577,6 +11607,20 @@ loadData();
   // this is a separate, simpler grouping that doesn't depend on a
   // successful ticket-to-mapping join at all. ─────────────────────────
   const openProvinceGroups = new Set();
+  // Latest progress (explicit request: too many mostly-empty columns) -
+  // a ticket only has ONE of these meaningfully filled in at a time as
+  // it moves through Departed -> Arrived -> Completed -> Closed, so
+  // showing all 4 as separate columns is mostly blank cells. Picks the
+  // FURTHEST-ALONG stage that actually has a value, checking from
+  // Closed backwards, and labels which stage it is so nothing is lost -
+  // just laid out in one column instead of four.
+  function latestProgressCell(e) {
+    const stages = [['Closed', e.closed], ['Completed', e.completed], ['Arrived', e.arrived], ['Departed', e.departed]];
+    const found = stages.find(([, v]) => v);
+    if (!found) return '<span style="color:var(--text3);">-</span>';
+    const [label, value] = found;
+    return `<span style="color:var(--text3); font-size:10px;">${label}:</span> ${focusDateCell(value)}`;
+  }
   function renderProvinceGroups(filtered) {
     const byProvince = {};
     filtered.forEach(e => { (byProvince[e.province] = byProvince[e.province] || []).push(e); });
@@ -11589,7 +11633,7 @@ loadData();
       const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
       const bodyHtml = teams.map(team => {
         const teamRows = byTeam[team];
-        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="13" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="10" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
         const ticketRows = teamRows.map(e => {
           const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
           const mins = slaMinutesRemaining(e);
@@ -11602,7 +11646,7 @@ loadData();
           <td>${slaBadgeHtml(mins)}</td>
           <td>${escapeHtml(e.status)}</td>
           <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.pause_resume_time)}">${escapeHtml(e.pause_resume_time) || '-'}</td>
-          <td>${escapeHtml(e.departed) || '-'}</td><td>${escapeHtml(e.arrived) || '-'}</td><td>${escapeHtml(e.completed) || '-'}</td><td>${escapeHtml(e.closed) || '-'}</td>
+          <td style="white-space:nowrap;">${latestProgressCell(e)}</td>
         </tr>`;
         }).join('');
         return teamHeader + ticketRows;
@@ -11614,7 +11658,7 @@ loadData();
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Latest Progress</th></tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
         </div>
