@@ -11589,7 +11589,7 @@ loadData();
       const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
       const bodyHtml = teams.map(team => {
         const teamRows = byTeam[team];
-        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="12" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="13" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
         const ticketRows = teamRows.map(e => {
           const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
           const mins = slaMinutesRemaining(e);
@@ -11601,6 +11601,7 @@ loadData();
           <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
           <td>${slaBadgeHtml(mins)}</td>
           <td>${escapeHtml(e.status)}</td>
+          <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.pause_resume_time)}">${escapeHtml(e.pause_resume_time) || '-'}</td>
           <td>${escapeHtml(e.departed) || '-'}</td><td>${escapeHtml(e.arrived) || '-'}</td><td>${escapeHtml(e.completed) || '-'}</td><td>${escapeHtml(e.closed) || '-'}</td>
         </tr>`;
         }).join('');
@@ -11613,7 +11614,7 @@ loadData();
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
         </div>
