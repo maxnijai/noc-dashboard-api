@@ -1873,7 +1873,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div class="ofc-card">
-          <div class="t">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <div class="t" style="margin-bottom:0;">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+            <div style="display:flex; gap:6px;">
+              <button class="ofc-btn" id="ofc-province-expand-all" style="font-size:11px; padding:4px 10px;">⊕ Expand All</button>
+              <button class="ofc-btn" id="ofc-province-collapse-all" style="font-size:11px; padding:4px 10px;">⊖ Collapse All</button>
+            </div>
+          </div>
           <div id="ofc-province-groups"></div>
         </div>
       </div>
@@ -11633,7 +11639,7 @@ loadData();
       const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
       const bodyHtml = teams.map(team => {
         const teamRows = byTeam[team];
-        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="10" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="11" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
         const ticketRows = teamRows.map(e => {
           const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
           const mins = slaMinutesRemaining(e);
@@ -11643,6 +11649,7 @@ loadData();
           <td>${priorityBadgeHtml(e)}</td>
           <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject) || '-'}</td>
           <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
+          <td><input type="text" class="ofc-remark-input" data-remark-ticket="${escapeHtml(e.ticket_id)}" value="${escapeHtml(e.remark)}" placeholder="เพิ่ม Note..." style="width:140px; font-size:11.5px; padding:3px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg2); color:var(--text);"></td>
           <td>${slaBadgeHtml(mins)}</td>
           <td>${escapeHtml(e.status)}</td>
           <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.pause_resume_time)}">${escapeHtml(e.pause_resume_time) || '-'}</td>
@@ -11658,7 +11665,7 @@ loadData();
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Latest Progress</th></tr></thead>
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>Remark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Latest Progress</th></tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
         </div>
@@ -11806,6 +11813,50 @@ loadData();
   // actually gets fresh data) - bypasses the backend's own 5-minute
   // Sheets cache, unlike the automatic load when the tab first opens.
   el('ofc-refresh-btn').addEventListener('click', () => loadData(true));
+
+  el('ofc-province-expand-all').addEventListener('click', () => {
+    const filtered = getFiltered();
+    const provinces = new Set(filtered.map(e => e.province));
+    provinces.forEach(p => openProvinceGroups.add(p));
+    renderProvinceGroups(filtered);
+  });
+  el('ofc-province-collapse-all').addEventListener('click', () => {
+    openProvinceGroups.clear();
+    renderProvinceGroups(getFiltered());
+  });
+
+  // Remark auto-save on blur (explicit request: note-taking per ticket).
+  // Attached ONCE here, delegated on the stable container - not inside
+  // renderProvinceGroups, since that function reruns on every filter
+  // change / the 60s SLA tick / Refresh, and a listener added there
+  // would stack a new duplicate on top each time, firing the save
+  // multiple times per blur after a few re-renders.
+  // Known limitation: if a periodic re-render happens while someone is
+  // mid-typing (before they've blurred/tabbed away), that unsaved text
+  // is lost - saves only happen on blur, there's no draft-preservation
+  // across re-renders.
+  el('ofc-province-groups').addEventListener('blur', async (evt) => {
+    const input = evt.target.closest('[data-remark-ticket]');
+    if (!input) return;
+    const ticketId = input.dataset.remarkTicket;
+    const entry = allEntries.find(e => e.ticket_id === ticketId);
+    const newVal = input.value;
+    if (entry && entry.remark === newVal) return; // unchanged - don't hit the API for nothing
+    try {
+      const res = await fetch('/api/ofc-monitor/remark', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: ticketId, remark: newVal }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      if (entry) entry.remark = newVal; // keep local state in sync so a re-render right after doesn't show the old value
+      input.style.borderColor = '#639922';
+      setTimeout(() => { input.style.borderColor = 'var(--border)'; }, 1200);
+    } catch (e) {
+      console.error('Remark save failed', e);
+      input.style.borderColor = '#E24B4A';
+      input.title = 'บันทึกไม่สำเร็จ: ' + e.message;
+    }
+  }, true); // capture phase - blur doesn't bubble, so this is required for delegation to work at all
 
   // SLA Remaining ticks forward every minute purely client-side (explicit
   // request: "Update SLA Timer ทุก 1 นาที โดยไม่ Fetch Google Sheet ใหม่")
