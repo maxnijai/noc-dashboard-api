@@ -11044,30 +11044,50 @@ loadData();
     if (!finish) return null;
     return (finish.getTime() - Date.now()) / 60000;
   }
-  // P0/P1/P2 (explicit request) - reuses the SAME formula already
-  // established elsewhere in this app (realtime_monitor._classify_
-  // priority, also reused verbatim by pending_ticket._classify_
-  // priority_at): how overdue Require Finish Time is right now, NOT
-  // the raw Severity text (which is values like "SA4-24H", never
-  // literally "P0"/"P1"/"P2" - comparing against those directly was
-  // why every P0/P1 count showed 0 before this). null (can't compute -
-  // no Require Finish Time, or already Completed/Closed) is left
-  // unclassified rather than guessed into a bucket.
-  //   > 24h overdue  -> P0
-  //   0-24h overdue  -> P1
-  //   not yet due    -> P2
+  // "Tomorrow's 01:15 Bangkok time" as a real UTC instant - the exact
+  // reference point realtime_monitor._classify_priority uses (confirmed
+  // from that file directly, not guessed). Built the same way as every
+  // other Bangkok-time calculation in this module: shift by the fixed
+  // +7h offset and work in UTC-getter/setter space, never relying on
+  // the viewer's own browser/OS timezone.
+  function bangkokTomorrow0115() {
+    const bkkNow = new Date(Date.now() + 7 * 3600 * 1000);
+    const y = bkkNow.getUTCFullYear(), m = bkkNow.getUTCMonth(), d = bkkNow.getUTCDate();
+    const tomorrowAsUtcFields = Date.UTC(y, m, d + 1, 1, 15, 0); // fields are Bangkok wall-clock, read via UTC getters above
+    return new Date(tomorrowAsUtcFields - 7 * 3600 * 1000); // shift back to the TRUE UTC instant
+  }
+  // P0/P1/P2 (explicit request, formula confirmed from realtime_monitor.py
+  // directly - not the literal "now" I'd guessed at first, which wrongly
+  // put a ticket with only 20 minutes left into P2 just because it
+  // technically wasn't overdue YET). diff_hours = tomorrow's 01:15 minus
+  // Require Finish Time:
+  //   > 24h  -> P0 (over SLA by more than a day, as of tomorrow's checkpoint)
+  //   0-24h  -> P1 (over SLA under a day - this is what catches
+  //                 "still has a little time left right now, but will
+  //                 clearly have breached well before tomorrow's 01:15")
+  //   <= 0h  -> P2 (genuinely not due until after tomorrow's checkpoint)
+  // null (can't compute - no Require Finish Time, or already Completed/
+  // Closed) is left unclassified rather than guessed into a bucket.
   function classifyPriority(e) {
-    const mins = slaMinutesRemaining(e);
-    if (mins == null) return null;
-    if (mins < -1440) return 'P0';
-    if (mins < 0) return 'P1';
+    if (e.completed || e.closed) return null;
+    const tf = parseSheetDateTime(e.require_finish_time);
+    if (!tf) return null;
+    const diffHours = (bangkokTomorrow0115().getTime() - tf.getTime()) / 3600000;
+    if (diffHours > 24) return 'P0';
+    if (diffHours > 0) return 'P1';
     return 'P2';
   }
   function priorityBadgeHtml(e) {
     const pr = classifyPriority(e);
-    if (!pr) return '<span style="color:var(--text3); font-size:11px;">-</span>';
+    const tf = parseSheetDateTime(e.require_finish_time);
+    const ref = bangkokTomorrow0115();
+    const debugTip = `Require Finish Time (ดิบ): "${e.require_finish_time || '(ว่าง)'}"\n`
+      + `แปลงเป็นเวลาได้: ${tf ? tf.toISOString() : 'แปลงไม่ได้'}\n`
+      + `จุดอ้างอิง (01:15 พรุ่งนี้): ${ref.toISOString()}\n`
+      + (tf ? `ห่างกัน: ${((ref.getTime() - tf.getTime()) / 3600000).toFixed(2)} ชม.` : '');
+    if (!pr) return `<span style="color:var(--text3); font-size:11px; cursor:help;" title="${escapeHtml(debugTip)}">-</span>`;
     const styles = { P0: 'background:#E24B4A22; color:#E24B4A;', P1: 'background:#EF9F2722; color:#c77d1a;', P2: 'background:#63992222; color:#4a7d19;' };
-    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; ${styles[pr]}">${pr}</span>`;
+    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; cursor:help; ${styles[pr]}" title="${escapeHtml(debugTip)}">${pr}</span>`;
   }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
