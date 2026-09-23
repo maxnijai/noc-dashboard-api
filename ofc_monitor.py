@@ -311,6 +311,7 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
             "site_id": _safe_str(get(row, "Site ID")),
             "subject": _safe_str(get(row, "Subject")),
             "alarm_description": _safe_str(get(row, "Alarm Description")),
+            "pause_resume_time": _safe_str(get(row, "Pause/Resume Time")),
             "departed": _safe_str(get(row, "Departed")),
             "arrived": _safe_str(get(row, "Arrived")),
             "completed": _safe_str(get(row, "Completed")),
