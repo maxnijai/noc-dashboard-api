@@ -559,9 +559,24 @@ def trigger_background_export(gs_client, all_entries=None):
         _export_throttle["in_flight"] = True
         _export_throttle["last_started"] = now
 
-    if all_entries is None:
-        all_entries = _fetch_full_ticket_entries(gs_client)
-    export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    # Real bug this try/except fixes: _fetch_full_ticket_entries below
+    # runs SYNCHRONOUSLY, before the background thread even exists - if
+    # it throws (any transient Sheets error), in_flight was already set
+    # True above and nothing was left to reset it back to False. Every
+    # future call would then see in_flight still True and silently skip
+    # forever, with no retry and no further log line - exactly what
+    # happened in production: one bad moment permanently wedged the
+    # export until the process was restarted, while the mirror sheet
+    # sat frozen on stale data from whatever last succeeded.
+    try:
+        if all_entries is None:
+            all_entries = _fetch_full_ticket_entries(gs_client)
+        export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        log.exception("trigger_background_export: failed building the ticket list to export - giving up on this attempt")
+        with _export_throttle_lock:
+            _export_throttle["in_flight"] = False
+        return _export_throttle["last_insert_time"] or bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
 
     def _export_in_background(entries, insert_time_str):
         try:
