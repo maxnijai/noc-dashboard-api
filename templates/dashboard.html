@@ -979,6 +979,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
     </div>
+    <!-- Total Pending row (same layout as the Over SLA row above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
+    <div id="p0-total-row" style="display:none; flex-wrap:wrap; gap:16px; margin-bottom:18px; align-items:stretch;">
+      <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
+      <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px;"></div>
+    </div>
     <div id="p0-body"></div>
   </div>
 
@@ -2570,6 +2575,7 @@ async function loadP0SnapshotComparison(prefix) {
         <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
       </div>`;
     if (window.renderTotalP0Compare) window.renderTotalP0Compare(data);
+    try { renderTotalPendingRow(prefix, data); } catch (e) { console.error('Total Pending row failed', e); }
     loadP0DailyTrendSparklines(accents, data.groups);
   } catch (e) {
     console.error('Snapshot comparison load failed', e);
@@ -2580,14 +2586,16 @@ async function loadP0SnapshotComparison(prefix) {
 const p0TrendCharts = {};
 let cachedP0DailyTrendData = null;
 
-function renderP0Sparkline(key, accent, labels, series) {
-  const canvas = document.getElementById('p0-trend-' + key);
-  const numEl = document.getElementById('p0-trend-num-' + key);
+function renderP0Sparkline(key, accent, labels, series, idPrefix) {
+  idPrefix = idPrefix || 'p0-trend'; // default keeps the existing Over SLA cards exactly as they were; 'tp-trend' is the Total Pending row
+  const canvas = document.getElementById(idPrefix + '-' + key);
+  const numEl = document.getElementById(idPrefix + '-num-' + key);
+  const chartKey = idPrefix + '|' + key;
   if (!canvas) return false;
   const lastVal = [...series].reverse().find(v => v != null);
   if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
-  if (p0TrendCharts[key]) p0TrendCharts[key].destroy();
-  p0TrendCharts[key] = new Chart(canvas.getContext('2d'), {
+  if (p0TrendCharts[chartKey]) p0TrendCharts[chartKey].destroy();
+  p0TrendCharts[chartKey] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels,
@@ -2644,6 +2652,106 @@ async function loadP0DailyTrendSparklines(accents, groups) {
   } catch (e) {
     console.error('P0 daily trend sparklines failed', e);
   }
+  try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
+}
+
+// ── TOTAL PENDING row (all priorities) ─────────────────────────────────────
+// Same cards as the Over SLA row above, fed by the SAME two API responses
+// (extra keys only: groups[].snapshot_total/current_total, series_total) -
+// no extra request. Anything missing simply leaves the row hidden.
+const TP_ACCENTS = ['#2563eb', '#7c3aed', '#B45309', '#0891b2'];
+const TP_NAVY = '#27466F';
+let tpGroupKeys = [];
+
+function tpDiffHtml(diff) {
+  const up = diff > 0, down = diff < 0;
+  const color = up ? '#B23A3A' : (down ? '#639922' : 'var(--text3)');
+  return `<span style="color:${color}; font-weight:700; white-space:nowrap;">${up ? '▲' : (down ? '▼' : '–')} ${(diff > 0 ? '+' : '') + diff}</span>`;
+}
+
+function renderTotalPendingRow(prefix, data) {
+  const row = document.getElementById(prefix + '-total-row');
+  const kpiEl = document.getElementById(prefix + '-total-kpi-summary');
+  const cmpEl = document.getElementById(prefix + '-total-snapshot-compare');
+  if (!row || !kpiEl || !cmpEl) return;
+  const groups = (data && data.groups) || [];
+  const ok = groups.length && groups.every(g => g.current_total != null && g.snapshot_total != null);
+  if (!ok) { row.style.display = 'none'; return; }
+
+  tpGroupKeys = groups.map(g => g.key);
+  const totalNow = groups.reduce((s, g) => s + g.current_total, 0);
+  const totalSnap = groups.reduce((s, g) => s + g.snapshot_total, 0);
+
+  kpiEl.innerHTML = `
+    <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${TP_NAVY}; border-radius:var(--r); padding:14px 16px;">
+      <div style="display:flex; align-items:stretch; gap:16px;">
+        <div style="flex:1;">
+          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
+          <div style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY};">${totalNow}</div>
+        </div>
+        <div style="flex:1; border-left:1px solid var(--border); padding-left:16px;">
+          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div>
+          <div style="display:flex; align-items:baseline; gap:8px;">
+            <span style="font-size:32px; font-weight:800; line-height:1;">${totalSnap}</span>
+            <span style="font-size:13px;">${tpDiffHtml(totalNow - totalSnap)}</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+          <span id="tp-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:${TP_NAVY}; white-space:nowrap;">…</span>
+        </div>
+        <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-TOTAL"></canvas></div>
+      </div>
+    </div>`;
+
+  const cards = groups.map((g, i) => {
+    const accent = TP_ACCENTS[i % TP_ACCENTS.length];
+    return `
+      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
+        <div style="font-size:32px; font-weight:800; line-height:1;">${g.current_total}</div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_total}</b></span>
+          ${tpDiffHtml(g.total_diff)}
+        </div>
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span id="tp-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
+          </div>
+          <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-${g.key}"></canvas></div>
+        </div>
+      </div>`;
+  }).join('');
+  cmpEl.innerHTML = `
+    <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%; background:var(--bg1);">
+      <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
+        📦 Total Pending (ทุก Priority) เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} · กรอง CORP ออกแล้ว
+      </div>
+      <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
+    </div>`;
+  row.style.display = 'flex';
+  try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
+}
+
+function renderTotalPendingSparklines() {
+  const data = cachedP0DailyTrendData;
+  if (!data || !data.series_total || !tpGroupKeys.length) return;
+  const labels = data.dates.map(d => d.slice(5).replace('-', '/'));
+  tpGroupKeys.forEach((k, i) => {
+    renderP0Sparkline(k, TP_ACCENTS[i % TP_ACCENTS.length], labels, data.series_total[k] || [], 'tp-trend');
+  });
+  const totalSeries = data.dates.map((_, i) => {
+    let sum = null;
+    tpGroupKeys.forEach(k => {
+      const v = (data.series_total[k] || [])[i];
+      if (v != null) sum = (sum || 0) + v;
+    });
+    return sum;
+  });
+  renderP0Sparkline('TOTAL', TP_NAVY, labels, totalSeries, 'tp-trend');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12443,7 +12551,12 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ year_month: yearMonth }),
       });
-      if (!res.ok) throw new Error('add-month failed');
+      if (!res.ok) {
+        // Surface the server's real reason instead of a generic failure -
+        // the backend already returns {error: <exception text>} on a 500.
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
       const data = await fetchData();
       scheduleData = data;
       populateProvinceFilter(data);
@@ -12455,7 +12568,7 @@ loadData();
       render();
     } catch (e) {
       console.error('Add next month failed', e);
-      alert('เพิ่มเดือนถัดไปไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+      alert('เพิ่มเดือนถัดไปไม่สำเร็จ ลองใหม่อีกครั้งครับ\n\nสาเหตุจากระบบ: ' + e.message);
     }
     btn.disabled = false;
     btn.textContent = '+ วางแผนเดือนถัดไป';
