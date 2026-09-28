@@ -1147,6 +1147,7 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
 
     dates = []
     series = {k: [] for k in P0_COMPARISON_GROUPS}
+    series_total = {k: [] for k in P0_COMPARISON_GROUPS}  # Total Pending per day @01:15 - additive, never mixed into "series"
     debug_today = None
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
@@ -1154,6 +1155,12 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
         is_today = day == today
 
         rows, file_info = _get_rows_for_day(drive_service, day, today)
+        total_counts = {k: None for k in P0_COMPARISON_GROUPS}
+        if rows is not None:
+            try:
+                total_counts = _count_total_by_group(rows)
+            except Exception:
+                log.exception("build_p0_daily_trend: total-pending count failed for %s - P0 series unaffected", date_str)
         if rows is None:
             counts = {k: None for k in P0_COMPARISON_GROUPS}
         else:
@@ -1167,8 +1174,9 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
 
         for k in P0_COMPARISON_GROUPS:
             series[k].append(counts.get(k))
+            series_total[k].append(total_counts.get(k))
 
-    return {"dates": dates, "series": series, "debug_today": debug_today}
+    return {"dates": dates, "series": series, "series_total": series_total, "debug_today": debug_today}
 
 
 
@@ -1190,13 +1198,61 @@ def _classify_priority_at(target_finish_str, reference_dt):
         return "P2"
 
 
-def _count_p0_by_group(rows, reference_dt):
-    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+def _rows_have_owner_group(rows):
+    """True if this rowset carries a TRUEOWNERGROUP column at all. Live
+    rows do; a Drive backup snapshot may not - and applying the CORP
+    filter to rows that simply lack the column would drop EVERY row (an
+    absent value can't match the "-NOP" pattern), silently zeroing the
+    whole card. So the filter is only applied when the column exists."""
+    for r in rows:
+        present = "TRUEOWNERGROUP" in r
+        if not present:
+            log.info("P0/Total Pending counters: rowset has no TRUEOWNERGROUP column - CORP filter skipped for this rowset (counts include any CORP rows)")
+        return present
+    return False
+
+
+def _owner_group_ok(r, apply_filter):
+    """Same rule as every other tab (explicit request): a TRUEOWNERGROUP
+    that isn't a recognized NOR "-NOP" province (e.g. "-CORP") is not
+    counted."""
+    if not apply_filter:
+        return True
+    return _extract_region_province(r.get("TRUEOWNERGROUP"))[1] is not None
+
+
+def _count_total_by_group(rows):
+    """Total PENDING per group - every ticket in scope regardless of
+    priority (P0+P1+P2, and tickets whose TARGETFINISH doesn't parse
+    too), same Region/Severity scope, same CORP filter and same group
+    matching as _count_p0_by_group so the two rows of cards are directly
+    comparable. Pure counting - never touches or changes the P0 numbers."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
     counts = {k: 0 for k in P0_COMPARISON_GROUPS}
     for r in rows:
         if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
             continue
         if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        for key in P0_COMPARISON_GROUPS:
+            if row_matches_view(r, key):
+                counts[key] += 1
+    return counts
+
+
+def _count_p0_by_group(rows, reference_dt):
+    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    apply_tog = _rows_have_owner_group(rows)  # CORP filter (explicit request), skipped if this rowset has no TRUEOWNERGROUP column
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
             continue
         priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
         for key in P0_COMPARISON_GROUPS:
@@ -1221,10 +1277,13 @@ def _count_p0_by_group_diagnostic(rows, reference_dt):
     from ticket_views import BOOKMARK_VIEWS, row_matches_view
     counts = {k: 0 for k in P0_COMPARISON_GROUPS}
     stages = {"total_rows": len(rows), "passed_region_severity": 0, "targetfinish_parsed_ok": 0, "priority_p0_or_p1": 0}
+    apply_tog = _rows_have_owner_group(rows)
     for r in rows:
         if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
             continue
         if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
             continue
         stages["passed_region_severity"] += 1
         if _parse_dt(r.get("TARGETFINISH")) is not None:
@@ -1267,8 +1326,10 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
             if _p0_snapshot_cache["data"] is not None and (now - _p0_snapshot_cache["ts"]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
                 cached_snapshot = _p0_snapshot_cache["data"]
 
+    snapshot_total_counts = None
     if cached_snapshot is not None:
-        snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count = cached_snapshot
+        snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count = cached_snapshot[:5]
+        snapshot_total_counts = cached_snapshot[5] if len(cached_snapshot) > 5 else None
     else:
         today = bangkok_now().date()
         file_info = find_nightly_file(drive_service, today)
@@ -1284,24 +1345,43 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         snapshot_row_count = len(snapshot_rows)
         reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
         snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
+        try:
+            snapshot_total_counts = _count_total_by_group(snapshot_rows)
+        except Exception:
+            log.exception("build_p0_snapshot_comparison: snapshot total-pending count failed - P0 cards unaffected")
+            snapshot_total_counts = None
         if use_cache:
             with _p0_snapshot_lock:
-                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count)
+                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count, snapshot_total_counts)
                 _p0_snapshot_cache["ts"] = now
 
     live_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
     current_reference_dt = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
     current_counts = _count_p0_by_group(live_rows, current_reference_dt)
+    try:
+        current_total_counts = _count_total_by_group(live_rows)
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: live total-pending count failed - P0 cards unaffected")
+        current_total_counts = None
 
     groups = []
     for key in P0_COMPARISON_GROUPS:
         s = snapshot_counts[key]
         c = current_counts[key]
-        groups.append({
+        g = {
             "key": key, "label": BOOKMARK_VIEWS[key]["label"],
             "snapshot_p0": s, "current_p0": c, "diff": c - s,
-        })
+        }
+        # Total Pending (additive keys only - the P0 keys above are exactly
+        # what they always were). None on either side = that half couldn't
+        # be computed, and the frontend simply leaves the new row out.
+        st = snapshot_total_counts.get(key) if snapshot_total_counts else None
+        ct = current_total_counts.get(key) if current_total_counts else None
+        g["snapshot_total"] = st
+        g["current_total"] = ct
+        g["total_diff"] = (ct - st) if (st is not None and ct is not None) else None
+        groups.append(g)
 
     return {
         "snapshot_date": snapshot_date.strftime("%Y-%m-%d"),
