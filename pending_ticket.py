@@ -1243,6 +1243,41 @@ def _count_total_by_group(rows):
     return counts
 
 
+def _province_breakdown_by_group(rows, reference_dt):
+    """Per group, per province: (p0_counts, total_counts). Uses exactly the
+    same scope, CORP filter, group matching and FBB P0+P1 rule as
+    _count_p0_by_group / _count_total_by_group, so each group's province
+    counts always add back up to the number on its card (checked by the
+    caller). Live rows only - current snapshot of who has the most."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
+    p0 = {k: {} for k in P0_COMPARISON_GROUPS}
+    total = {k: {} for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            total[key][prov] = total[key].get(prov, 0) + 1
+            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            if priority in allowed:
+                p0[key][prov] = p0[key].get(prov, 0) + 1
+    return p0, total
+
+
+def _top_n_provinces(counts, n=5):
+    """[[province_code, count], ...] highest first, ties broken by code so
+    the order is stable between refreshes."""
+    return [[k, v] for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+
 def _count_p0_by_group(rows, reference_dt):
     from ticket_views import BOOKMARK_VIEWS, row_matches_view
     counts = {k: 0 for k in P0_COMPARISON_GROUPS}
@@ -1365,6 +1400,30 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         log.exception("build_p0_snapshot_comparison: live total-pending count failed - P0 cards unaffected")
         current_total_counts = None
 
+    # Top 5 provinces per group + overall (explicit request; current data
+    # only, no 01:15 comparison per province). Isolated: if this fails the
+    # cards just render without the Top 5 block, nothing else changes.
+    top_p0_by_group = top_total_by_group = overall_top_p0 = overall_top_total = None
+    try:
+        prov_p0, prov_total = _province_breakdown_by_group(live_rows, current_reference_dt)
+        for key in P0_COMPARISON_GROUPS:
+            if sum(prov_p0[key].values()) != current_counts[key] or (current_total_counts and sum(prov_total[key].values()) != current_total_counts[key]):
+                log.warning("Top 5 provinces: group %s province sums (%s p0 / %s total) don't match card counts (%s / %s)",
+                            key, sum(prov_p0[key].values()), sum(prov_total[key].values()), current_counts[key], (current_total_counts or {}).get(key))
+        top_p0_by_group = {k: _top_n_provinces(prov_p0[k]) for k in P0_COMPARISON_GROUPS}
+        top_total_by_group = {k: _top_n_provinces(prov_total[k]) for k in P0_COMPARISON_GROUPS}
+        all_p0, all_total = {}, {}
+        for k in P0_COMPARISON_GROUPS:
+            for prov, n in prov_p0[k].items():
+                all_p0[prov] = all_p0.get(prov, 0) + n
+            for prov, n in prov_total[k].items():
+                all_total[prov] = all_total.get(prov, 0) + n
+        overall_top_p0 = _top_n_provinces(all_p0)
+        overall_top_total = _top_n_provinces(all_total)
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: Top 5 provinces failed - cards render without them")
+        top_p0_by_group = top_total_by_group = overall_top_p0 = overall_top_total = None
+
     groups = []
     for key in P0_COMPARISON_GROUPS:
         s = snapshot_counts[key]
@@ -1381,6 +1440,8 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         g["snapshot_total"] = st
         g["current_total"] = ct
         g["total_diff"] = (ct - st) if (st is not None and ct is not None) else None
+        g["top_p0"] = top_p0_by_group.get(key) if top_p0_by_group else None
+        g["top_total"] = top_total_by_group.get(key) if top_total_by_group else None
         groups.append(g)
 
     return {
@@ -1390,6 +1451,8 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         "snapshot_row_count": snapshot_row_count,  # diagnostic - if this is 0, the backup file itself had no rows; if >0 but every snapshot_p0 is 0, the issue is in classification/matching, not the file
         "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
         "groups": groups,
+        "overall_top_p0": overall_top_p0,          # sum of the 4 groups, per province (matches how the big cards are defined)
+        "overall_top_total": overall_top_total,
     }
 
 
