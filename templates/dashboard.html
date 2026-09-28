@@ -975,6 +975,15 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="p0-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
+    <style>
+      .p0-hide-top5 .p0-top5 { display: none; }
+      .p0-t5r { display: grid; grid-template-columns: 14px minmax(0,1fr) 46px 30px; align-items: center; gap: 6px; font-size: 11.5px; padding: 2.5px 3px; border-radius: 4px; cursor: pointer; }
+      .p0-t5r:hover { background: var(--bg3); }
+      .p0-t5r.p0-t5-static { cursor: default; }
+    </style>
+    <div style="display:flex; justify-content:flex-end; margin:0 0 8px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); cursor:pointer;"><input type="checkbox" id="p0-top5-toggle" checked> แสดง Top 5 จังหวัดในการ์ด</label>
+    </div>
     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px; align-items:stretch;">
       <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
@@ -2558,6 +2567,7 @@ async function loadP0SnapshotComparison(prefix) {
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
         </div>
+        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
@@ -2659,6 +2669,60 @@ async function loadP0DailyTrendSparklines(accents, groups) {
 // Same cards as the Over SLA row above, fed by the SAME two API responses
 // (extra keys only: groups[].snapshot_total/current_total, series_total) -
 // no extra request. Anything missing simply leaves the row hidden.
+// Top 5 provinces block (explicit request) - current data only. Clicking a
+// province filters the matching section table below (p0FocusProvince, defined
+// inside the page module). `list` = [[provinceCode, count], ...] from the API.
+function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function p0Top5Html(list, base, accent, scope, groupKey) {
+  if (!list || !list.length || !base) return '';
+  const max = Math.max(...list.map(a => a[1]), 1);
+  const shown = list.reduce((s, a) => s + a[1], 0);
+  const rest = base - shown;
+  const hint = scope === 'total' ? 'คลิกเพื่อกรองตารางด้านล่าง (ตารางแสดงเฉพาะ P0 ของจังหวัดนี้)' : 'คลิกเพื่อกรองตารางด้านล่าง';
+  const rows = list.map((a, i) => {
+    const code = a[0], n = a[1];
+    const clickable = !String(code).startsWith('(');
+    const name = clickable ? provinceEnLabel(code) : code;
+    const click = clickable ? ` onclick="p0FocusProvince('${p0T5Esc(groupKey || '')}','${p0T5Esc(code)}')"` : '';
+    return `<div class="p0-t5r ${clickable ? '' : 'p0-t5-static'}"${click} title="${p0T5Esc(name)}: ${n} ใบ${clickable ? ' — ' + hint : ''}">
+      <span style="color:var(--text3); font-size:10px; text-align:right;">${i + 1}</span>
+      <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p0T5Esc(name)}</span>
+      <span style="height:6px; border-radius:3px; background:var(--bg3); overflow:hidden;"><i style="display:block; height:100%; width:${Math.round(n / max * 100)}%; background:${accent}; border-radius:3px;"></i></span>
+      <b style="text-align:right; font-variant-numeric:tabular-nums;">${n}</b>
+    </div>`;
+  }).join('');
+  return `<div class="p0-top5" style="margin-top:10px; padding-top:9px; border-top:1px dashed var(--border2);">
+    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px;"><span>Top 5 จังหวัด</span><span>${Math.round(shown / base * 100)}% ของทั้งหมด</span></div>
+    ${rows}${rest > 0 ? `<div style="font-size:10.5px; color:var(--text3); margin-top:3px; text-align:right;">อื่นๆ อีก ${rest} ใบ</div>` : ''}
+  </div>`;
+}
+// Big "Total P0" card's Top 5 - sum of the 4 groups per province (same
+// definition as the big cards' compare number). Called by the page module.
+window.p0BigTop5Html = function (data) {
+  if (!data || !data.overall_top_p0 || !data.groups) return '';
+  const base = data.groups.reduce((s, g) => s + (g.current_p0 || 0), 0);
+  return p0Top5Html(data.overall_top_p0, base, '#B23A3A', 'p0', '');
+};
+(function () {
+  const KEY = 'p0-show-top5';
+  let show = true;
+  try { show = localStorage.getItem(KEY) !== '0'; } catch (e) { /* storage blocked - default on */ }
+  function apply() {
+    document.body.classList.toggle('p0-hide-top5', !show);
+    const c = document.getElementById('p0-top5-toggle');
+    if (c) c.checked = show;
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    apply();
+    const c = document.getElementById('p0-top5-toggle');
+    if (c) c.addEventListener('change', e => {
+      show = e.target.checked;
+      try { localStorage.setItem(KEY, show ? '1' : '0'); } catch (err) { /* ignore */ }
+      apply();
+    });
+  });
+})();
+
 const TP_ACCENTS = ['#2563eb', '#7c3aed', '#B45309', '#0891b2'];
 const TP_NAVY = '#27466F';
 let tpGroupKeys = [];
@@ -2697,6 +2761,7 @@ function renderTotalPendingRow(prefix, data) {
           </div>
         </div>
       </div>
+      ${p0Top5Html(data.overall_top_total, totalNow, TP_NAVY, 'total', '')}
       <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
         <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
           <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
@@ -2716,6 +2781,7 @@ function renderTotalPendingRow(prefix, data) {
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_total}</b></span>
           ${tpDiffHtml(g.total_diff)}
         </div>
+        ${p0Top5Html(g.top_total, g.current_total, accent, 'total', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
@@ -7067,6 +7133,8 @@ function renderPivot(ft) {
     cachedSnapshotData = data;
     const targetEl = document.getElementById('p0-total-p0-compare');
     if (targetEl) targetEl.innerHTML = renderTotalP0CompareInner(data);
+    const top5El = document.getElementById('p0-total-top5');
+    if (top5El && window.p0BigTop5Html) top5El.innerHTML = window.p0BigTop5Html(data);
   };
 
   const REMAINING_HOURS_BUCKET_COLS = [
@@ -7151,6 +7219,7 @@ function renderPivot(ft) {
           </div>
           <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
         </div>
+        <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
@@ -7299,6 +7368,45 @@ function renderPivot(ft) {
 
     el('p0-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
   }
+
+  // Top 5 card click (explicit request): filters the matching section table
+  // below to that province (and scrolls to it). groupKey '' = the big cards
+  // (every section that has that province). Clicking the same province
+  // again clears it, like the matrix cells do. Those tables only list
+  // Over SLA (P0) tickets, so from a Total Pending card the table can hold
+  // fewer rows than the number clicked - and a section with no rows for that
+  // province is skipped with a short message instead of being filtered to nothing.
+  const P0_GROUP_TO_BOOKMARK = { MB: '7.MB with SA1-4', FBB: '4.FBB with SA1-4', NW_NSA12: '3. All NW Incident NSA1-2', NSA34: 'NSA3-4' };
+  function p0Toast(msg) {
+    let t = document.getElementById('p0-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'p0-toast';
+      t.style.cssText = 'position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#27466F; color:#fff; padding:9px 16px; border-radius:8px; font-size:12.5px; z-index:9999; box-shadow:0 4px 14px rgba(0,0,0,.25);';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(t._h);
+    t._h = setTimeout(() => { t.style.display = 'none'; }, 3200);
+  }
+  window.p0FocusProvince = function (groupKey, province) {
+    if (!lastData || !province) return;
+    const blocks = lastData.province_summary || [];
+    const inScope = groupKey ? blocks.filter(b => b.bookmark === P0_GROUP_TO_BOOKMARK[groupKey]) : blocks;
+    const targets = inScope.filter(b => b.rows.some(r => r.province === province));
+    if (!targets.length) {
+      p0Toast(`ไม่มี Ticket P0 ของ ${provinceEnLabel(province)} ในตารางด้านล่าง (ตารางแสดงเฉพาะ Over SLA)`);
+      return;
+    }
+    const allSame = targets.every(b => getSectionFilter(b.bookmark).province === province);
+    targets.forEach(b => { getSectionFilter(b.bookmark).province = allSame ? '' : province; });
+    render(lastData);
+    if (!allSame) {
+      const sec = document.getElementById('p0-section-' + blocks.indexOf(targets[0]));
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   window.filterP0SectionProvince = function (bookmark, province) {
     const f = getSectionFilter(bookmark);
