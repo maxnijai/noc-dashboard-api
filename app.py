@@ -3645,10 +3645,62 @@ def add_no_cache_headers(resp):
         resp.headers['Expires'] = '0'
     return resp
 
+def run_pending_auto_fill():
+    """22:00 Bangkok nightly job (scheduled in start()). Fills the default plan
+    for untouched over-SLA tickets - all the rules live in
+    pending_ticket.auto_fill_blank_work_log. Never raises (a scheduler thread
+    must not die). Set env PENDING_AUTO_FILL_ENABLED=0 to switch it off
+    without a code change.
+
+    Every gunicorn worker registers this job, so all of them fire at 22:00 -
+    an O_EXCL lock file (one per Bangkok date, same container) lets exactly one
+    run; the function is idempotent anyway, this just avoids duplicate work."""
+    import tempfile
+    import pending_ticket as _pt
+    if os.environ.get('PENDING_AUTO_FILL_ENABLED', '1') == '0':
+        log.info("pending auto-fill: disabled by PENDING_AUTO_FILL_ENABLED=0")
+        return
+    lock_path = os.path.join(tempfile.gettempdir(), f"pending_auto_fill_{bangkok_now().strftime('%Y%m%d')}.lock")
+    try:
+        os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        log.info("pending auto-fill: another worker already ran it today (%s) - skipping", lock_path)
+        return
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        _pt.auto_fill_blank_work_log(gs_client)
+    except Exception:
+        log.exception("pending auto-fill failed")
+        try:
+            os.remove(lock_path)   # free the lock so a manual re-run / retry is possible
+        except OSError:
+            pass
+
+
+@app.route('/api/pending-ticket/auto-fill', methods=['POST'])
+def api_pending_auto_fill():
+    """Manual check/run of the nightly auto-fill. DRY RUN unless the body is
+    exactly {"dry_run": false} - so a stray call only reports, never writes."""
+    try:
+        import pending_ticket as _pt
+        data = request.get_json(silent=True) or {}
+        dry_run = data.get('dry_run', True) is not False
+        _, gs_client = get_drive_and_sheets_clients()
+        result = _pt.auto_fill_blank_work_log(gs_client, dry_run=dry_run)
+        log.info("pending auto-fill manual call by %s dry_run=%s", session.get('user_email'), dry_run)
+        return jsonify(result)
+    except Exception as e:
+        log.exception("pending auto-fill API failed")
+        return jsonify({'error': str(e)}), 500
+
+
 def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
+    # 22:00 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=22 would fire at 05:00 Bangkok.
+    s.add_job(run_pending_auto_fill, 'cron', hour=22, minute=0, timezone='Asia/Bangkok',
+              id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
     s.start()
 
 start()

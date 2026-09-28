@@ -419,6 +419,130 @@ def rename_group_problem_value(gs_client, old_value, new_value):
     return changed
 
 
+# ---------------------------------------------------------------------------
+# Nightly auto-fill of untouched over-SLA tickets (22:00 Bangkok, see app.py)
+# ---------------------------------------------------------------------------
+# Explicit request: every night, a ticket whose Aging_Flag_Group is one of the
+# four OverSLA buckets below and whose five work-log fields are ALL still
+# empty (nobody has touched it) gets a default plan filled in, stamped
+# "System automatic". Anything a person already entered - even a single field -
+# is left exactly as it is.
+AUTO_FILL_AGING_GROUPS = (
+    "1) OverSLA : > 30 days",
+    "2) OverSLA : < 30 days",
+    "3) OverSLA : < 7 days",
+    "4) OverSLA : < 3 days",
+)
+AUTO_FILL_VALUES = {
+    "group_problem": "Workload - Assigning team access site",
+    "action_team": "OFC",
+    "detail": "Team on progress fixing/wait update from team",
+    "image_link": "",   # deliberately left empty
+}
+AUTO_FILL_UPDATED_BY = "System automatic"
+_auto_fill_run_lock = threading.Lock()
+
+
+def _norm_aging(v):
+    """Whitespace/case-insensitive form, so "1) OverSLA : > 30 days" still
+    matches if the sheet ever has double spaces or different casing."""
+    return re.sub(r"\s+", "", str(v or "")).lower()
+
+
+_AUTO_FILL_AGING_NORM = {_norm_aging(x) for x in AUTO_FILL_AGING_GROUPS}
+
+
+def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
+    """Fills the default plan for untouched over-SLA tickets. Returns a
+    summary dict (never raises for "nothing to do").
+
+    Safety rules:
+      * Scope = exactly the tickets the Pending Ticket tab lists
+        (_fetch_full_ticket_entries), so CORP/out-of-scope rows are never touched.
+      * Eligible only if Aging_Flag_Group is one of AUTO_FILL_AGING_GROUPS AND
+        group_problem, action_team, detail, image_link, plan_closed_date are ALL
+        blank in TicketWorkLog (read fresh from the sheet, not from the cache).
+      * Idempotent: once filled, a ticket is no longer blank, so re-running the
+        same night writes nothing.
+      * Writes are batched (one batch_update for existing rows + append_rows for
+        new ones) - per-ticket writes would blow through the Sheets write quota.
+      * dry_run=True reports what WOULD change and writes nothing."""
+    if not _auto_fill_run_lock.acquire(blocking=False):
+        return {"skipped": "another auto-fill run is already in progress"}
+    try:
+        from datetime import timedelta as _td
+        if AUTO_FILL_VALUES["group_problem"] not in GROUP_PROBLEM_OPTIONS or AUTO_FILL_VALUES["action_team"] not in ACTION_TEAM_OPTIONS:
+            raise RuntimeError("auto-fill defaults are not valid dropdown options - refusing to write")
+
+        now_dt = bangkok_now()
+        plan_date = (now_dt.date() + _td(days=1)).strftime("%Y-%m-%d")   # Day+1
+        now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        _invalidate_work_log_cache()                  # never decide from a stale (up to 2h old) cache
+        entries = _fetch_full_ticket_entries(gs_client)
+
+        sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+        ws = _ensure_work_log_tab(sh)
+        sheet_rows = ws.get_all_values()
+        existing = {}                                  # ticket_id -> (sheet row number, [B..F cells])
+        for i, row in enumerate(sheet_rows[1:], start=2):
+            if row and row[0]:
+                padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
+                existing[padded[0]] = (i, padded[1:6])
+
+        summary = {
+            "dry_run": bool(dry_run), "plan_closed_date": plan_date,
+            "tickets_in_scope": len(entries), "in_aging_buckets": 0,
+            "skipped_already_has_data": 0, "to_update_existing_rows": 0, "to_append_new_rows": 0,
+            "written": 0, "sample_ticket_ids": [],
+        }
+        updates, appends, seen = [], [], set()
+        for e in entries:
+            tid = str(e.get("TICKETID", "")).strip()
+            if not tid or tid in seen:
+                continue
+            seen.add(tid)
+            if _norm_aging(e.get("Aging_Flag_Group")) not in _AUTO_FILL_AGING_NORM:
+                continue
+            summary["in_aging_buckets"] += 1
+            row_no, cells = existing.get(tid, (None, [""] * 5))
+            if any(str(c).strip() for c in cells):
+                summary["skipped_already_has_data"] += 1
+                continue
+            values = [
+                tid, AUTO_FILL_VALUES["group_problem"], AUTO_FILL_VALUES["action_team"],
+                AUTO_FILL_VALUES["detail"], AUTO_FILL_VALUES["image_link"],
+                plan_date, now_str, AUTO_FILL_UPDATED_BY,
+            ]
+            if row_no is not None:
+                updates.append((row_no, values))
+            else:
+                appends.append(values)
+            if len(summary["sample_ticket_ids"]) < 20:
+                summary["sample_ticket_ids"].append(tid)
+
+        summary["to_update_existing_rows"] = len(updates)
+        summary["to_append_new_rows"] = len(appends)
+
+        if not dry_run and (updates or appends):
+            for i in range(0, len(updates), chunk_size):
+                chunk = updates[i:i + chunk_size]
+                ws.batch_update(
+                    [{"range": f"A{r}:H{r}", "values": [v]} for r, v in chunk],
+                    value_input_option="RAW",
+                )
+                summary["written"] += len(chunk)
+            for i in range(0, len(appends), chunk_size):
+                chunk = appends[i:i + chunk_size]
+                ws.append_rows(chunk, value_input_option="RAW")
+                summary["written"] += len(chunk)
+            _invalidate_work_log_cache()               # next page load re-reads the sheet and shows the new values
+        log.info("Pending auto-fill %s: %s", "DRY RUN" if dry_run else "DONE", summary)
+        return summary
+    finally:
+        _auto_fill_run_lock.release()
+
+
 def _get_export_worksheet(gs_client):
     sh = gs_client.open_by_key(EXPORT_SHEET_ID)
     for ws in sh.worksheets():
