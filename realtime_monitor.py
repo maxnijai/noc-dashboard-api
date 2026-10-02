@@ -127,14 +127,23 @@ def fetch_rows(gs_client=None):
 
 
 def _row_matches_filters(row, region_filter, trueowner_filter, aging_filter, district_filter):
+    # trueowner_filter / district_filter (explicit multi-select request):
+    # now a collection (list/set/tuple) of allowed values, same "membership"
+    # shape aging_filter already used - a single string still works too
+    # (wrapped into a one-item set), so this stays backward compatible with
+    # any other caller still passing the old single value.
     if region_filter and str(row.get("Region", "")).strip() not in region_filter:
         return False
-    if trueowner_filter and str(row.get("TRUEOWNERGROUP", "")).strip() != trueowner_filter:
-        return False
+    if trueowner_filter:
+        allowed = {trueowner_filter} if isinstance(trueowner_filter, str) else set(trueowner_filter)
+        if str(row.get("TRUEOWNERGROUP", "")).strip() not in allowed:
+            return False
     if aging_filter and str(row.get("Aging_Flag_Group", "")).strip() not in aging_filter:
         return False
-    if district_filter and str(row.get("DISTRICT", "")).strip() != district_filter:
-        return False
+    if district_filter:
+        allowed = {district_filter} if isinstance(district_filter, str) else set(district_filter)
+        if str(row.get("DISTRICT", "")).strip() not in allowed:
+            return False
     return True
 
 
@@ -183,11 +192,30 @@ def _classification_breakdown(rows, n=8):
 
 
 def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
-                             trueowner_filter=None, aging_filter=None, district_filter=None):
+                             trueowner_filter=None, aging_filter=None, district_filter=None,
+                             view_keys=None):
+    """view_keys (explicit multi-select request): a list of BOOKMARK_VIEWS
+    keys to combine - a row counts if it matches ANY of them (union, not
+    intersection - e.g. selecting both FBB and MB shows every ticket that's
+    in either view, not just ones that are somehow both). view_key (the
+    original single-value parameter) is still accepted and used whenever
+    view_keys is not given, so any other caller of this function keeps
+    working unchanged."""
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
-    if view_key not in BOOKMARK_VIEWS:
-        raise ValueError(f"Unknown view_key {view_key!r}")
+    # Distinguish "not given" (None -> fall back to view_key) from
+    # "given but empty" ([] -> must raise, not silently use the default) -
+    # a plain `if view_keys else [view_key]` would treat both the same
+    # way, since an empty list is falsy too.
+    keys = list(view_keys) if view_keys is not None else [view_key]
+    if not keys:
+        raise ValueError("at least one view must be selected")
+    unknown = [k for k in keys if k not in BOOKMARK_VIEWS]
+    if unknown:
+        raise ValueError(f"Unknown view_key(s) {unknown!r}")
+
+    def _matches_any_view(row):
+        return any(_row_matches_view(row, k) for k in keys)
 
     all_rows = fetch_rows(gs_client)
     now_dt = bangkok_now()
@@ -195,7 +223,7 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
     matched = [
         r for r in all_rows
         if str(r.get("Region", "")).strip() in ALLOWED_REGIONS
-        and _row_matches_view(r, view_key)
+        and _matches_any_view(r)
         and _row_matches_filters(r, region_filter, trueowner_filter, aging_filter, district_filter)
     ]
 
@@ -204,7 +232,7 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
     # so dropdowns don't shrink themselves out as the user filters).
     view_only = [
         r for r in all_rows
-        if str(r.get("Region", "")).strip() in ALLOWED_REGIONS and _row_matches_view(r, view_key)
+        if str(r.get("Region", "")).strip() in ALLOWED_REGIONS and _matches_any_view(r)
     ]
     filter_options = {
         "regions": sorted({str(r.get("Region", "")).strip() for r in view_only if r.get("Region")}),
@@ -241,8 +269,8 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
     detail_rows = detail_rows[:DETAIL_ROW_LIMIT]
 
     response = {
-        "view": view_key,
-        "view_label": BOOKMARK_VIEWS[view_key]["label"],
+        "view": keys[0], "views": keys,                                            # "view" kept singular for backward compatibility; "views" is the real multi-select list
+        "view_label": BOOKMARK_VIEWS[keys[0]]["label"], "view_labels": [BOOKMARK_VIEWS[k]["label"] for k in keys],
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
         "total": len(matched),
         "filter_options": filter_options,

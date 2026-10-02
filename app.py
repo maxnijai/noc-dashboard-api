@@ -2316,22 +2316,34 @@ def api_rebuild():
 
 @app.route('/api/realtime-monitor')
 def api_realtime_monitor():
-    view = request.args.get('view', default='FBB')
-    if view not in BOOKMARK_VIEWS:
-        return jsonify({'error': f'Unknown view {view!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
+    # Multi-select (explicit request): view/trueowner/district now each
+    # accept a comma-separated list, same shape 'region' and 'aging'
+    # already used. 'view' (singular, comma-joined) is still accepted and
+    # kept as the primary param name so no other caller of this route
+    # breaks; a request with none of it set falls back to the single
+    # default view exactly as before.
+    view_param = request.args.get('view', default='FBB')
+    view_keys = [v.strip() for v in view_param.split(',') if v.strip()] or ['FBB']
+    unknown = [v for v in view_keys if v not in BOOKMARK_VIEWS]
+    if unknown:
+        return jsonify({'error': f'Unknown view(s) {unknown!r}. Valid: {list(BOOKMARK_VIEWS)}'}), 400
     region_param = request.args.get('region') or None
     region_filter = [r.strip() for r in region_param.split(',') if r.strip()] if region_param else None
-    trueowner = request.args.get('trueowner') or None
+    trueowner_param = request.args.get('trueowner') or None
+    trueowner_filter = [t.strip() for t in trueowner_param.split(',') if t.strip()] if trueowner_param else None
     aging_param = request.args.get('aging') or None
     aging_filter = [a.strip() for a in aging_param.split(',') if a.strip()] if aging_param else None
-    district = request.args.get('district') or None
+    district_param = request.args.get('district') or None
+    district_filter = [d.strip() for d in district_param.split(',') if d.strip()] if district_param else None
     try:
         _, gs_client = get_drive_and_sheets_clients()
         data = build_realtime_response(
-            gs_client, view_key=view, region_filter=region_filter,
-            trueowner_filter=trueowner, aging_filter=aging_filter, district_filter=district,
+            gs_client, view_keys=view_keys, region_filter=region_filter,
+            trueowner_filter=trueowner_filter, aging_filter=aging_filter, district_filter=district_filter,
         )
         return jsonify(data)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
         log.exception("realtime-monitor API failed")
         return jsonify({'error': str(e)}), 500
@@ -3686,7 +3698,7 @@ def api_pending_auto_fill():
         data = request.get_json(silent=True) or {}
         dry_run = data.get('dry_run', True) is not False
         _, gs_client = get_drive_and_sheets_clients()
-        result = _pt.auto_fill_blank_work_log(gs_client, dry_run=dry_run)
+        result = _pt.auto_fill_blank_work_log(gs_client, dry_run=dry_run, explain_ticket_id=data.get('explain_ticket_id'))
         log.info("pending auto-fill manual call by %s dry_run=%s", session.get('user_email'), dry_run)
         return jsonify(result)
     except Exception as e:
@@ -3702,6 +3714,12 @@ def start():
     s.add_job(run_pending_auto_fill, 'cron', hour=22, minute=0, timezone='Asia/Bangkok',
               id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
     s.start()
+    try:
+        # Startup proof in the logs that the nightly job is registered and when it will next fire.
+        _job = s.get_job('pending_auto_fill')
+        log.info("pending auto-fill scheduled - next run at %s", _job.next_run_time if _job else "NOT REGISTERED")
+    except Exception:
+        log.exception("could not read the pending auto-fill schedule")
 
 start()
 if __name__ == '__main__':
