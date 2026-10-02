@@ -882,8 +882,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">DISTRICT</div>
-    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
-      <canvas id="rm-chart-district"></canvas>
+    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); margin-bottom:20px;">
+      <table id="rm-district-pivot" style="border-collapse:collapse; width:100%; font-size:12px;"></table>
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">แผนที่ตำแหน่ง Ticket (Priority)</div>
@@ -6127,7 +6127,7 @@ function renderPivot(ft) {
       ctx.restore();
     },
   };
-  const RM_PER_BAR_TOTAL_CHARTS = new Set(['rm-chart-trueowner', 'rm-chart-district']);
+  const RM_PER_BAR_TOTAL_CHARTS = new Set(['rm-chart-trueowner']); // district is now a pivot table (its own Total column already does this job)
 
   function buildBarChart(canvasId, breakdown, agingOrder, agingColors) {
     const ctx = document.getElementById(canvasId);
@@ -6149,6 +6149,53 @@ function renderPivot(ft) {
         plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
       },
     });
+  }
+
+  // District pivot table (explicit request: bar chart -> pivot) - rows =
+  // district, columns = Aging in the SAME order the bar chart's legend
+  // used (oldest/most-overdue first), Total column rightmost, rows sorted
+  // by Total descending. Column header colors reuse agingColors straight
+  // from the API response, not a hardcoded palette, so this always
+  // matches whatever the Region/SLA/TRUEOWNERGROUP charts' legend shows.
+  function rmFgForBg(hex) {
+    const c = String(hex || '').replace('#', '');
+    if (c.length !== 6) return '#fff';
+    const r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1c2a3a' : '#fff';
+  }
+  function buildDistrictPivot(tableId, breakdown, agingOrder, agingColors) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    if (!breakdown.length) { table.innerHTML = `<tr><td style="padding:14px; color:var(--text3); text-align:center;">ไม่มีข้อมูล</td></tr>`; return; }
+
+    const rows = breakdown.map(b => ({
+      district: b.category,
+      counts: b.aging_counts,
+      total: agingOrder.reduce((s, k) => s + (b.aging_counts[k] || 0), 0),
+    })).sort((a, b) => b.total - a.total);
+
+    const head = `<thead><tr>
+      <th style="padding:7px 10px; text-align:left; background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">District</th>
+      ${agingOrder.map(k => `<th style="padding:7px 10px; text-align:center; white-space:nowrap; font-size:10px; text-transform:uppercase; letter-spacing:.03em; background:${agingColors[k] || '#8b949e'}; color:${rmFgForBg(agingColors[k])};" title="${rmEsc(k)}">${rmEsc(k)}</th>`).join('')}
+      <th style="padding:7px 10px; text-align:center; background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Total</th>
+    </tr></thead>`;
+
+    const body = rows.map((r, i) => `<tr style="border-top:1px solid var(--border); ${i % 2 ? 'background:var(--bg3);' : ''}">
+      <td style="padding:6px 10px; text-align:left; font-weight:600; white-space:nowrap;">${rmEsc(r.district)}</td>
+      ${agingOrder.map(k => { const v = r.counts[k] || 0; return `<td style="padding:6px 10px; text-align:center; ${v ? '' : 'color:var(--text3);'}">${v || '–'}</td>`; }).join('')}
+      <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4, var(--bg3));">${r.total}</td>
+    </tr>`).join('');
+
+    const grand = { total: 0 };
+    agingOrder.forEach(k => { grand[k] = 0; });
+    rows.forEach(r => { agingOrder.forEach(k => { grand[k] += (r.counts[k] || 0); }); grand.total += r.total; });
+    const foot = `<tfoot><tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:800;">
+      <td style="padding:6px 10px; text-align:left;">รวมทั้งหมด</td>
+      ${agingOrder.map(k => `<td style="padding:6px 10px; text-align:center;">${grand[k] || '–'}</td>`).join('')}
+      <td style="padding:6px 10px; text-align:center;">${grand.total}</td>
+    </tr></tfoot>`;
+
+    table.innerHTML = head + `<tbody>${body}</tbody>` + foot;
   }
 
   const DONUT_PALETTE = ['#2563eb', '#639922', '#EF9F27', '#E24B4A', '#7c3aed', '#B45309', '#0891b2', '#be185d', '#8b949e'];
@@ -6260,7 +6307,7 @@ function renderPivot(ft) {
     buildSlaDonut('rm-chart-sla-donut', data.sla_breakdown, data.aging_order, data.aging_colors);
     buildClassificationDonut('rm-chart-classification-donut', data.classification_breakdown);
     buildBarChart('rm-chart-trueowner', data.breakdown_trueowner, data.aging_order, data.aging_colors);
-    buildBarChart('rm-chart-district', data.breakdown_district, data.aging_order, data.aging_colors);
+    buildDistrictPivot('rm-district-pivot', data.breakdown_district, data.aging_order, data.aging_colors);
     renderMap(data.map_points);
     renderDetailTable(data.detail_rows, data.detail_truncated, data.total);
   }
