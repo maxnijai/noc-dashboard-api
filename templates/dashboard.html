@@ -808,34 +808,49 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
 
   <div class="page active" id="page-realtimemonitor">
+    <style>
+      /* Multi-select dropdown panel (View chips reuse the .rm-chip look;
+         TRUEOWNERGROUP/Aging/District reuse the .rm-msel look) - explicit
+         multi-select request. Scoped under #page-realtimemonitor so
+         nothing outside this tab is affected. */
+      #page-realtimemonitor .rm-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--border2); border-radius:20px; background:var(--bg2); cursor:pointer; font-size:12px; user-select:none; }
+      #page-realtimemonitor .rm-chip.active { background:color-mix(in srgb, var(--accent, #2563eb) 12%, transparent); border-color:var(--accent, #2563eb); color:var(--accent, #2563eb); font-weight:700; }
+      #page-realtimemonitor .rm-msel { position:relative; }
+      #page-realtimemonitor .rm-msel-btn { padding:6px 10px; border:1px solid var(--border2); border-radius:6px; background:var(--bg2); font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-width:150px; justify-content:space-between; color:var(--text); }
+      #page-realtimemonitor .rm-msel-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; background:var(--bg2); border:1px solid var(--border2); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:8px; width:260px; max-height:260px; overflow-y:auto; }
+      #page-realtimemonitor .rm-msel.open .rm-msel-panel { display:block; }
+      #page-realtimemonitor .rm-msel-row { display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:5px; font-size:12px; cursor:pointer; }
+      #page-realtimemonitor .rm-msel-row:hover { background:var(--bg3); }
+      #page-realtimemonitor .rm-msel-actions { display:flex; justify-content:space-between; font-size:11px; padding:4px 6px 8px; border-bottom:1px dashed var(--border); margin-bottom:4px; }
+      #page-realtimemonitor .rm-msel-actions a { color:#2563eb; cursor:pointer; text-decoration:none; }
+    </style>
     <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;" id="rm-view-tabs">
-      <label style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
-        View:
-        <select id="rm-view-select" style="padding:6px 10px;">
-          <option value="FBB">4.FBB with SA1-4</option>
-          <option value="NW_NSA12">3. All NW Incident NSA1-2</option>
-          <option value="MB">7.MB with SA1-4</option>
-          <option value="NSA34">NSA3 / NSA4</option>
-        </select>
-      </label>
+      <span style="font-size:13px; font-weight:600;">View (เลือกได้หลายอัน):</span>
+      <div id="rm-view-chips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
     </div>
 
-    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
       <label>Region:
         <span style="display:inline-flex; gap:8px; margin-left:4px;">
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR1" checked> NOR1</label>
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR2" checked> NOR2</label>
         </span>
       </label>
-      <label>TRUEOWNERGROUP:
-        <select id="rm-trueowner"><option value="">ทั้งหมด</option></select>
-      </label>
-      <label>Aging_Flag_Group:
-        <select id="rm-aging"><option value="">ทั้งหมด</option></select>
-      </label>
-      <label>DISTRICT:
-        <select id="rm-district"><option value="">ทั้งหมด</option></select>
-      </label>
+      <div class="rm-msel" id="rm-msel-trueowner">
+        <div style="font-size:13px; margin-bottom:4px;">TRUEOWNERGROUP:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-trueowner"><span id="rm-trueowner-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-trueowner-panel"></div>
+      </div>
+      <div class="rm-msel" id="rm-msel-aging">
+        <div style="font-size:13px; margin-bottom:4px;">Aging_Flag_Group:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-aging"><span id="rm-aging-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-aging-panel"></div>
+      </div>
+      <div class="rm-msel" id="rm-msel-district">
+        <div style="font-size:13px; margin-bottom:4px;">DISTRICT:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-district"><span id="rm-district-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-district-panel"></div>
+      </div>
       <button id="rm-reload" class="btn-secondary">Refresh</button>
       <span id="rm-status" style="color:var(--text3); font-size:12px;"></span>
     </div>
@@ -5944,7 +5959,20 @@ function renderPivot(ft) {
 <script>
 // ===================== REALTIME MONITORING =====================
 (function () {
-  let currentView = 'FBB';
+  // View (explicit multi-select request): a Set of BOOKMARK_VIEWS keys,
+  // at least one always selected. RM_VIEWS is the same 4 options the old
+  // <select> had, just rendered as chips instead.
+  const RM_VIEWS = [
+    ['FBB', '4.FBB with SA1-4'],
+    ['NW_NSA12', '3. All NW Incident NSA1-2'],
+    ['MB', '7.MB with SA1-4'],
+    ['NSA34', 'NSA3 / NSA4'],
+  ];
+  let currentViews = new Set(['FBB']);
+  // TRUEOWNERGROUP/Aging/District (explicit multi-select request): each a
+  // Set of selected values; empty Set = "ทั้งหมด" (all), matching exactly
+  // what an unselected <select> used to mean.
+  let rmMultiSel = { trueowner: new Set(), aging: new Set(), district: new Set() };
   let charts = { region: null, trueowner: null, district: null };
   let map = null;
   let markerLayer = null;
@@ -5960,6 +5988,85 @@ function renderPivot(ft) {
     ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['DISTRICT', 'DISTRICT'], ['Subimpact', 'Subimpact'],
   ];
 
+  function rmEsc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  function renderViewChips() {
+    const wrap = document.getElementById('rm-view-chips');
+    wrap.innerHTML = RM_VIEWS.map(([k, label]) =>
+      `<label class="rm-chip ${currentViews.has(k) ? 'active' : ''}" data-view-key="${k}"><input type="checkbox" style="display:none;" ${currentViews.has(k) ? 'checked' : ''}> ${rmEsc(label)}</label>`
+    ).join('');
+    wrap.querySelectorAll('[data-view-key]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const k = chip.dataset.viewKey;
+        if (currentViews.has(k)) {
+          if (currentViews.size > 1) currentViews.delete(k); // always keep at least one view selected
+        } else {
+          currentViews.add(k);
+        }
+        renderViewChips();
+        // Dependent dropdowns are scoped per-view, same as before - reset them on any view change.
+        ['trueowner', 'aging', 'district'].forEach(key => {
+          rmMultiSel[key].clear();
+          const sel = document.getElementById(`rm-${key}-panel`);
+          if (sel) delete sel.dataset.populated;
+        });
+        reload();
+      });
+    });
+  }
+
+  // Builds one multi-select panel's rows + button label. Called once per
+  // panel per dataset refresh (same "populate once per view" rule the old
+  // single-select dropdowns followed, via the dataset.populated guard).
+  function populateMultiSelectOnce(key, values) {
+    const panel = document.getElementById(`rm-${key}-panel`);
+    const label = document.getElementById(`rm-${key}-label`);
+    if (panel.dataset.populated) { updateMultiSelectLabel(key, label, values.length); return; }
+    const selSet = rmMultiSel[key];
+    panel.innerHTML = `
+      <div class="rm-msel-actions"><a data-msel-all="${key}">เลือกทั้งหมด</a><a data-msel-clear="${key}">ล้าง</a></div>
+      ${values.map(v => `<label class="rm-msel-row"><input type="checkbox" data-msel-val="${rmEsc(v)}"> ${rmEsc(v)}</label>`).join('')}`;
+    panel.querySelectorAll('[data-msel-val]').forEach(cb => {
+      cb.checked = selSet.has(cb.dataset.mselVal);
+      cb.addEventListener('change', () => {
+        cb.checked ? selSet.add(cb.dataset.mselVal) : selSet.delete(cb.dataset.mselVal);
+        updateMultiSelectLabel(key, label, values.length);
+        reload();
+      });
+    });
+    panel.querySelector(`[data-msel-all="${key}"]`).addEventListener('click', () => {
+      values.forEach(v => selSet.add(v));
+      panel.querySelectorAll('[data-msel-val]').forEach(cb => { cb.checked = true; });
+      updateMultiSelectLabel(key, label, values.length);
+      reload();
+    });
+    panel.querySelector(`[data-msel-clear="${key}"]`).addEventListener('click', () => {
+      selSet.clear();
+      panel.querySelectorAll('[data-msel-val]').forEach(cb => { cb.checked = false; });
+      updateMultiSelectLabel(key, label, values.length);
+      reload();
+    });
+    panel.dataset.populated = '1';
+    updateMultiSelectLabel(key, label, values.length);
+  }
+  function updateMultiSelectLabel(key, labelEl, total) {
+    const n = rmMultiSel[key].size;
+    labelEl.textContent = n === 0 ? 'ทั้งหมด' : `${n}/${total} เลือก`;
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.rm-msel')) {
+      document.querySelectorAll('#page-realtimemonitor .rm-msel.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+  document.querySelectorAll('#page-realtimemonitor [data-msel-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.mselToggle;
+      document.querySelectorAll('#page-realtimemonitor .rm-msel.open').forEach(m => { if (m.id !== panelId) m.classList.remove('open'); });
+      document.getElementById(panelId).classList.toggle('open');
+    });
+  });
+
   function populateSelectOnce(sel, values) {
     if (sel.dataset.populated) return;
     values.forEach(v => {
@@ -5972,17 +6079,14 @@ function renderPivot(ft) {
 
   async function fetchData() {
     const regions = [...document.querySelectorAll('.rm-region-cb:checked')].map(cb => cb.value);
-    const trueowner = document.getElementById('rm-trueowner').value;
-    const aging = document.getElementById('rm-aging').value;
-    const district = document.getElementById('rm-district').value;
     const statusEl = document.getElementById('rm-status');
     statusEl.textContent = 'กำลังโหลด...';
 
-    const params = new URLSearchParams({ view: currentView });
+    const params = new URLSearchParams({ view: [...currentViews].join(',') });
     if (regions.length) params.set('region', regions.join(','));
-    if (trueowner) params.set('trueowner', trueowner);
-    if (aging) params.set('aging', aging);
-    if (district) params.set('district', district);
+    if (rmMultiSel.trueowner.size) params.set('trueowner', [...rmMultiSel.trueowner].join(','));
+    if (rmMultiSel.aging.size) params.set('aging', [...rmMultiSel.aging].join(','));
+    if (rmMultiSel.district.size) params.set('district', [...rmMultiSel.district].join(','));
 
     const res = await fetch(`/api/realtime-monitor?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
@@ -5992,6 +6096,32 @@ function renderPivot(ft) {
     return data;
   }
 
+  // Draws the per-bar total (= Pending Ticket count for that province/
+  // group, explicit request) just above each bar - a small self-contained
+  // Chart.js plugin instead of pulling in an extra datalabels library, so
+  // nothing else on the page is affected. Only attached to the
+  // per-province/per-group charts (TRUEOWNERGROUP, District), not Region.
+  const rmBarTotalPlugin = {
+    id: 'rmBarTotalPlugin',
+    afterDatasetsDraw(chart) {
+      const { ctx, data } = chart;
+      ctx.save();
+      ctx.font = '700 10px system-ui, sans-serif';
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text') || '#1c2a3a';
+      ctx.textAlign = 'center';
+      data.labels.forEach((_, i) => {
+        const total = chart.data.datasets.reduce((sum, ds) => sum + (ds.data[i] || 0), 0);
+        if (!total) return;
+        const meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+        const bar = meta.data[i];
+        if (!bar) return;
+        ctx.fillText(total, bar.x, bar.y - 6);
+      });
+      ctx.restore();
+    },
+  };
+  const RM_PER_BAR_TOTAL_CHARTS = new Set(['rm-chart-trueowner', 'rm-chart-district']);
+
   function buildBarChart(canvasId, breakdown, agingOrder, agingColors) {
     const ctx = document.getElementById(canvasId);
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -6000,11 +6130,14 @@ function renderPivot(ft) {
       label: k, backgroundColor: agingColors[k], stack: 'aging',
       data: breakdown.map(b => b.aging_counts[k] || 0),
     }));
+    const showTotals = RM_PER_BAR_TOTAL_CHARTS.has(canvasId);
     charts[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: { labels, datasets },
+      plugins: showTotals ? [rmBarTotalPlugin] : [],
       options: {
         responsive: true, maintainAspectRatio: false,
+        layout: showTotals ? { padding: { top: 18 } } : undefined,
         scales: { x: { stacked: true, ticks: { autoSkip: false, maxRotation: 60, minRotation: 0, font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } },
         plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
       },
@@ -6112,10 +6245,9 @@ function renderPivot(ft) {
   }
 
   function renderAll(data) {
-    populateSelectOnce(document.getElementById('rm-trueowner'), data.filter_options.trueowners);
-    populateSelectOnce(document.getElementById('rm-district'), data.filter_options.districts);
-    const agingSel = document.getElementById('rm-aging');
-    if (!agingSel.dataset.populated) { populateSelectOnce(agingSel, data.aging_order); }
+    populateMultiSelectOnce('trueowner', data.filter_options.trueowners);
+    populateMultiSelectOnce('district', data.filter_options.districts);
+    populateMultiSelectOnce('aging', data.aging_order);
 
     buildBarChart('rm-chart-region', data.breakdown_region, data.aging_order, data.aging_colors);
     buildSlaDonut('rm-chart-sla-donut', data.sla_breakdown, data.aging_order, data.aging_colors);
@@ -6147,21 +6279,9 @@ function renderPivot(ft) {
     } catch (e) { /* silent - poll again next tick */ }
   }
 
-  document.getElementById('rm-view-select').addEventListener('change', (e) => {
-    currentView = e.target.value;
-    // Reset dependent filters/dropdowns since they're scoped per-view
-    ['rm-trueowner', 'rm-district', 'rm-aging'].forEach(id => {
-      const sel = document.getElementById(id);
-      sel.innerHTML = '<option value="">ทั้งหมด</option>';
-      delete sel.dataset.populated;
-    });
-    reload();
-  });
+  renderViewChips(); // the view-chip click handlers (and their dependent-filter reset) are wired inside renderViewChips() itself
 
   document.getElementById('rm-reload').addEventListener('click', reload);
-  document.getElementById('rm-trueowner').addEventListener('change', reload);
-  document.getElementById('rm-aging').addEventListener('change', reload);
-  document.getElementById('rm-district').addEventListener('change', reload);
   document.querySelectorAll('.rm-region-cb').forEach(cb => cb.addEventListener('change', reload));
 
   window.initRealtimeMonitorTab = function () {
