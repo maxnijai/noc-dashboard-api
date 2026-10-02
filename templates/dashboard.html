@@ -1003,14 +1003,20 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
          4 Bookmark cards used to be 2 separately-bordered flex items with a gap between
          them, which read as "running separately" - now one bordered/background panel
          with the pieces as borderless children inside it, divided by a vertical rule. -->
-    <div style="display:flex; flex-wrap:wrap; margin-bottom:18px; align-items:stretch; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
-      <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
-      <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
+    <div style="margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div id="p0-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
+      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+        <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
+        <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
+      </div>
     </div>
     <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
-    <div id="p0-total-row" style="display:none; flex-wrap:wrap; margin-bottom:18px; align-items:stretch; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+    <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div id="p0-total-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
+      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
       <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
+      </div>
     </div>
     <div id="p0-body"></div>
   </div>
@@ -2596,13 +2602,13 @@ async function loadP0SnapshotComparison(prefix) {
         </div>
       </div>`;
     }).join('');
-    container.innerHTML = `
-      <div style="height:100%; background:var(--bg1);">
-        <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
-          📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}, ${data.snapshot_row_count} แถว) · ปัจจุบัน: ${data.current_generated_at}
-        </div>
-        <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
-      </div>`;
+    container.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
+    // Header text moved OUT of this panel-only container and into the
+    // shared top-bar that spans the whole merged block (explicit request:
+    // the big card had no such bar above it, so its content started lower
+    // than the Bookmark cards' - this is what caused the row misalignment).
+    const topbarEl = document.getElementById(prefix + '-topbar');
+    if (topbarEl) topbarEl.textContent = `📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}, ${data.snapshot_row_count} แถว) · ปัจจุบัน: ${data.current_generated_at}`;
     if (window.renderTotalP0Compare) window.renderTotalP0Compare(data);
     try { renderTotalPendingRow(prefix, data); } catch (e) { console.error('Total Pending row failed', e); }
     loadP0DailyTrendSparklines(accents, data.groups);
@@ -2765,20 +2771,18 @@ function renderTotalPendingRow(prefix, data) {
   const totalNow = groups.reduce((s, g) => s + g.current_total, 0);
   const totalSnap = groups.reduce((s, g) => s + g.snapshot_total, 0);
 
+  // Single-column structure, same as every Bookmark card in this row
+  // (explicit request: match Bookmark exactly) - was a 2-column split with
+  // its own bigger 32px "เทียบเมื่อคืน" number before, which is why it
+  // never quite lined up with the compact "@01:15: X ▲+Y" line the
+  // Bookmark cards use.
   kpiEl.innerHTML = `
     <div style="height:100%; box-shadow:inset 3px 0 0 ${TP_NAVY}; padding:14px 16px;">
-      <div style="display:flex; align-items:stretch; gap:16px;">
-        <div style="flex:1;">
-          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
-          <div style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY};">${totalNow}</div>
-        </div>
-        <div style="flex:1; border-left:1px solid var(--border); padding-left:16px;">
-          <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div>
-          <div style="display:flex; align-items:baseline; gap:8px;">
-            <span style="font-size:32px; font-weight:800; line-height:1;">${totalSnap}</span>
-            <span style="font-size:13px;">${tpDiffHtml(totalNow - totalSnap)}</span>
-          </div>
-        </div>
+      <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
+      <div style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY};">${totalNow}</div>
+      <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="white-space:nowrap;">@01:15: <b>${totalSnap}</b></span>
+        <span style="white-space:nowrap;">${tpDiffHtml(totalNow - totalSnap)}</span>
       </div>
       ${p0Top5Html(data.overall_top_total, totalNow, TP_NAVY, 'total', '')}
       <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
@@ -2810,14 +2814,13 @@ function renderTotalPendingRow(prefix, data) {
         </div>
       </div>`;
   }).join('');
-  cmpEl.innerHTML = `
-    <div style="height:100%; background:var(--bg1);">
-      <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
-        📦 Total Pending (ทุก Priority) เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} · กรอง CORP ออกแล้ว
-      </div>
-      <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
-    </div>`;
-  row.style.display = 'flex';
+  cmpEl.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
+  // Same shared-topbar move as the P0 row above, for the same reason -
+  // the big "Total Pending" card had no header bar above it, so its
+  // content started higher than the Bookmark cards' did.
+  const totalTopbarEl = document.getElementById(prefix + '-total-topbar');
+  if (totalTopbarEl) totalTopbarEl.textContent = `📦 Total Pending (ทุก Priority) เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} · กรอง CORP ออกแล้ว`;
+  row.style.display = 'block';
   try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
 }
 
@@ -7235,9 +7238,13 @@ function renderPivot(ft) {
 
   let cachedSnapshotData = null;
 
+  // Same compact one-line format every Bookmark card uses for its own
+  // @01:15 compare line (explicit request: match the big card's text to
+  // the Bookmark cards' exactly) - was its own bigger 32px number in a
+  // separate column before, which is why it never quite matched.
   function renderTotalP0CompareInner(snapshotData) {
     if (!snapshotData) {
-      return `<div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div><div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
+      return `<div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
     }
     const totalSnapshot = snapshotData.groups.reduce((s, g) => s + g.snapshot_p0, 0);
     const totalCurrent = snapshotData.groups.reduce((s, g) => s + g.current_p0, 0);
@@ -7246,10 +7253,9 @@ function renderPivot(ft) {
     const diffArrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '–');
     const diffLabel = (diff > 0 ? '+' : '') + diff;
     return `
-      <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div>
-      <div style="display:flex; align-items:baseline; gap:8px;">
-        <span style="font-size:32px; font-weight:800; line-height:1;">${totalSnapshot}</span>
-        <span style="font-size:13px; font-weight:700; color:${diffColor};">${diffArrow} ${diffLabel}</span>
+      <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="white-space:nowrap;">@01:15: <b>${totalSnapshot}</b></span>
+        <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
       </div>`;
   }
 
@@ -7334,15 +7340,14 @@ function renderPivot(ft) {
   function renderExecutiveSummary(data) {
     const totalP0 = data.total_over_sla || 0;
 
+    // Single-column structure now, same as every Bookmark card - label,
+    // number, compact compare line, Top5, Trend, all at the identical
+    // font-sizes those cards use (explicit request: match Bookmark exactly).
     const totalCard = `
       <div style="height:100%; box-shadow:inset 3px 0 0 #B23A3A; padding:14px 16px;">
-        <div style="display:flex; align-items:stretch; gap:16px;">
-          <div style="flex:1;">
-            <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
-            <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
-          </div>
-          <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
-        </div>
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
+        <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+        <div id="p0-total-p0-compare">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
         <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
