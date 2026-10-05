@@ -808,34 +808,49 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
 
   <div class="page active" id="page-realtimemonitor">
+    <style>
+      /* Multi-select dropdown panel (View chips reuse the .rm-chip look;
+         TRUEOWNERGROUP/Aging/District reuse the .rm-msel look) - explicit
+         multi-select request. Scoped under #page-realtimemonitor so
+         nothing outside this tab is affected. */
+      #page-realtimemonitor .rm-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--border2); border-radius:20px; background:var(--bg2); cursor:pointer; font-size:12px; user-select:none; }
+      #page-realtimemonitor .rm-chip.active { background:color-mix(in srgb, var(--accent, #2563eb) 12%, transparent); border-color:var(--accent, #2563eb); color:var(--accent, #2563eb); font-weight:700; }
+      #page-realtimemonitor .rm-msel { position:relative; }
+      #page-realtimemonitor .rm-msel-btn { padding:6px 10px; border:1px solid var(--border2); border-radius:6px; background:var(--bg2); font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-width:150px; justify-content:space-between; color:var(--text); }
+      #page-realtimemonitor .rm-msel-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; background:var(--bg2); border:1px solid var(--border2); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:8px; width:260px; max-height:260px; overflow-y:auto; }
+      #page-realtimemonitor .rm-msel.open .rm-msel-panel { display:block; }
+      #page-realtimemonitor .rm-msel-row { display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:5px; font-size:12px; cursor:pointer; }
+      #page-realtimemonitor .rm-msel-row:hover { background:var(--bg3); }
+      #page-realtimemonitor .rm-msel-actions { display:flex; justify-content:space-between; font-size:11px; padding:4px 6px 8px; border-bottom:1px dashed var(--border); margin-bottom:4px; }
+      #page-realtimemonitor .rm-msel-actions a { color:#2563eb; cursor:pointer; text-decoration:none; }
+    </style>
     <div style="display:flex; gap:12px; margin-bottom:12px; flex-wrap:wrap; align-items:center;" id="rm-view-tabs">
-      <label style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
-        View:
-        <select id="rm-view-select" style="padding:6px 10px;">
-          <option value="FBB">4.FBB with SA1-4</option>
-          <option value="NW_NSA12">3. All NW Incident NSA1-2</option>
-          <option value="MB">7.MB with SA1-4</option>
-          <option value="NSA34">NSA3 / NSA4</option>
-        </select>
-      </label>
+      <span style="font-size:13px; font-weight:600;">View (เลือกได้หลายอัน):</span>
+      <div id="rm-view-chips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
     </div>
 
-    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
+    <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
       <label>Region:
         <span style="display:inline-flex; gap:8px; margin-left:4px;">
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR1" checked> NOR1</label>
           <label style="font-weight:400;"><input type="checkbox" class="rm-region-cb" value="NOR2" checked> NOR2</label>
         </span>
       </label>
-      <label>TRUEOWNERGROUP:
-        <select id="rm-trueowner"><option value="">ทั้งหมด</option></select>
-      </label>
-      <label>Aging_Flag_Group:
-        <select id="rm-aging"><option value="">ทั้งหมด</option></select>
-      </label>
-      <label>DISTRICT:
-        <select id="rm-district"><option value="">ทั้งหมด</option></select>
-      </label>
+      <div class="rm-msel" id="rm-msel-trueowner">
+        <div style="font-size:13px; margin-bottom:4px;">TRUEOWNERGROUP:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-trueowner"><span id="rm-trueowner-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-trueowner-panel"></div>
+      </div>
+      <div class="rm-msel" id="rm-msel-aging">
+        <div style="font-size:13px; margin-bottom:4px;">Aging_Flag_Group:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-aging"><span id="rm-aging-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-aging-panel"></div>
+      </div>
+      <div class="rm-msel" id="rm-msel-district">
+        <div style="font-size:13px; margin-bottom:4px;">DISTRICT:</div>
+        <div class="rm-msel-btn" data-msel-toggle="rm-msel-district"><span id="rm-district-label">ทั้งหมด</span><span>▾</span></div>
+        <div class="rm-msel-panel" id="rm-district-panel"></div>
+      </div>
       <button id="rm-reload" class="btn-secondary">Refresh</button>
       <span id="rm-status" style="color:var(--text3); font-size:12px;"></span>
     </div>
@@ -867,8 +882,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">DISTRICT</div>
-    <div class="pt-chart-wrap" style="position:relative; height:220px; margin-bottom:20px;">
-      <canvas id="rm-chart-district"></canvas>
+    <div style="overflow-x:auto; border:1px solid var(--border); border-radius:var(--r); margin-bottom:20px;">
+      <table id="rm-district-pivot" style="border-collapse:collapse; width:100%; font-size:12px;"></table>
     </div>
 
     <div style="font-size:13px; font-weight:500; margin-bottom:8px;">แผนที่ตำแหน่ง Ticket (Priority)</div>
@@ -975,9 +990,78 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="p0-reload" class="btn-secondary">Refresh</button>
       </div>
     </div>
-    <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:18px; align-items:stretch;">
-      <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
-      <div id="p0-snapshot-compare" style="flex:2; min-width:340px;"></div>
+    <style>
+      .p0-hide-top5 .p0-top5 { display: none; }
+      .p0-t5r { display: grid; grid-template-columns: 14px minmax(0,1fr) 46px 30px; align-items: center; gap: 6px; font-size: 11.5px; padding: 2.5px 3px; border-radius: 4px; cursor: pointer; }
+      .p0-t5r:hover { background: var(--bg3); }
+      .p0-t5r.p0-t5-static { cursor: default; }
+      /* ---- Focus P0 drill down panel (click a card number / TOP 5 province) ---- */
+      .p0dd-click { cursor: pointer; border-radius: 6px; transition: background .12s; }
+      .p0dd-click:hover { background: color-mix(in srgb, #2563eb 12%, transparent); }
+      .p0dd-wrap { display: none; border-top: 2px solid #2563eb; }
+      .p0dd-wrap.open { display: block; animation: p0ddIn .25s ease; }
+      @keyframes p0ddIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+      .p0dd-panel { padding: 14px; background: var(--bg1); }
+      .p0dd-loading { padding: 24px; text-align: center; color: var(--text3); }
+      .p0dd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .p0dd-crumbs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+      .p0dd-crumb { padding: 3px 10px; border-radius: 14px; border: 1px solid var(--border2); background: var(--bg2); cursor: pointer; font-weight: 600; }
+      .p0dd-crumb.last { background: #2563eb; color: #fff; border-color: #2563eb; cursor: default; }
+      .p0dd-hint { font-size: 11px; color: var(--text3); font-weight: 400; }
+      .p0dd-kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      .p0dd-kpi { border: 1px solid var(--border); background: var(--bg2); border-radius: 8px; padding: 6px 12px; min-width: 92px; user-select: none; border-left: 4px solid var(--c); }
+      .p0dd-kpi.f { cursor: pointer; } .p0dd-kpi.off { opacity: .38; }
+      .p0dd-kpi b { display: block; font-size: 20px; line-height: 1.1; } .p0dd-kpi span { font-size: 10.5px; color: var(--text3); }
+      .p0dd-grid2 { display: grid; grid-template-columns: 1.45fr 1fr; gap: 12px; }
+      .p0dd-grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+      @media (max-width: 1000px) { .p0dd-grid2, .p0dd-grid3 { grid-template-columns: 1fr; } }
+      .p0dd-box { border: 1px solid var(--border); border-radius: 8px; background: var(--bg2); overflow: hidden; min-width: 0; }
+      .p0dd-bt { padding: 7px 12px; font-size: 11.5px; font-weight: 700; background: var(--bg3); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .p0dd-map { height: 400px; width: 100%; }
+      .p0dd-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text2); padding: 6px 12px 10px; align-items: center; }
+      .p0dd-scroll { max-height: 400px; overflow: auto; }
+      table.p0dd-t { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+      table.p0dd-t th { background: var(--bg3); color: var(--text2); font-size: 10px; text-transform: uppercase; padding: 6px 8px; text-align: center; white-space: nowrap; position: sticky; top: 0; }
+      table.p0dd-t td { padding: 6px 8px; border-top: 1px solid var(--border); text-align: center; white-space: nowrap; }
+      table.p0dd-t td.l, table.p0dd-t th.l { text-align: left; }
+      table.p0dd-t tr.row { cursor: pointer; } table.p0dd-t tr.row:hover { background: var(--bg3); }
+      table.p0dd-t tr.row.sel { background: color-mix(in srgb, #2563eb 10%, transparent); }
+      .p0dd-badge { display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700; }
+      .p0dd-badge.b-cr { background: #d64545; color: #fff; } .p0dd-badge.b-hi { background: #d6454522; color: #d64545; }
+      .p0dd-badge.b-md { background: #e08a1e22; color: #a8620b; } .p0dd-badge.b-lo { background: #3f914222; color: #3f9142; }
+      .p0dd-bar { display: inline-block; height: 7px; border-radius: 3px; background: #2563eb; vertical-align: middle; }
+      .p0dd-ins { margin: 0; padding-left: 18px; line-height: 1.75; font-size: 12px; }
+      /* map markers (Leaflet divIcons) */
+      .p0dd-icon { background: none; border: 0; }
+      .p0dd-pin { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+      .p0dd-lbl { background: rgba(28,42,58,.82); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-bottom: 1px; white-space: nowrap; }
+      .p0dd-lbl.none { background: rgba(132,150,168,.85); }
+      .p0dd-cl { border-radius: 50%; border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); opacity: .92; }
+      .leaflet-container.p0dd-hi .p0dd-base { opacity: .18; }
+    </style>
+    <div style="display:flex; justify-content:flex-end; margin:0 0 8px;">
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); cursor:pointer;"><input type="checkbox" id="p0-top5-toggle" checked> แสดง Top 5 จังหวัดในการ์ด</label>
+    </div>
+    <!-- Merged into one shared block (explicit request: the big-number card and the
+         4 Bookmark cards used to be 2 separately-bordered flex items with a gap between
+         them, which read as "running separately" - now one bordered/background panel
+         with the pieces as borderless children inside it, divided by a vertical rule. -->
+    <div style="margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div id="p0-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
+      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+        <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
+        <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
+      </div>
+      <div id="p0dd-p0" class="p0dd-wrap"></div>
+    </div>
+    <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
+    <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
+      <div id="p0-total-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
+      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
+      <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
+      </div>
+      <div id="p0dd-total" class="p0dd-wrap"></div>
     </div>
     <div id="p0-body"></div>
   </div>
@@ -1842,6 +1926,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <select id="ofc-filter-province"><option value="">Province: ทั้งหมด</option></select>
         <select id="ofc-filter-team"><option value="">Team: ทั้งหมด</option></select>
         <select id="ofc-filter-severity"><option value="">Severity: ทั้งหมด</option></select>
+        <select id="ofc-filter-priority"><option value="">Priority: ทั้งหมด</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option></select>
         <select id="ofc-filter-bookmark"><option value="">Bookmark: ทั้งหมด</option></select>
         <select id="ofc-filter-status"><option value="">Status: ทั้งหมด</option></select>
         <select id="ofc-filter-sla"><option value="">SLA Status: ทั้งหมด</option><option>OVER SLA</option><option>≤30 min</option><option>31–60 min</option><option>61–120 min</option><option>&gt;120 min</option></select>
@@ -1872,7 +1957,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         </div>
 
         <div class="ofc-card">
-          <div class="t">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <div class="t" style="margin-bottom:0;">🗂️ WORK ORDER BY PROVINCE <span style="font-weight:400; color:var(--text3); font-size:11px;">(ทุก Bookmark — จัดกลุ่มตามจังหวัด แล้วแยกทีมย่อยข้างใน — คลิกหัวข้อจังหวัดเพื่อขยาย)</span></div>
+            <div style="display:flex; gap:6px;">
+              <button class="ofc-btn" id="ofc-province-expand-all" style="font-size:11px; padding:4px 10px;">⊕ Expand All</button>
+              <button class="ofc-btn" id="ofc-province-collapse-all" style="font-size:11px; padding:4px 10px;">⊖ Collapse All</button>
+            </div>
+          </div>
           <div id="ofc-province-groups"></div>
         </div>
       </div>
@@ -2541,11 +2632,12 @@ async function loadP0SnapshotComparison(prefix) {
       return `
       <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
-        <div style="font-size:32px; font-weight:800; line-height:1;">${g.current_p0}</div>
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
         </div>
+        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
@@ -2555,14 +2647,15 @@ async function loadP0SnapshotComparison(prefix) {
         </div>
       </div>`;
     }).join('');
-    container.innerHTML = `
-      <div style="border:1px solid var(--border); border-radius:var(--r); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); height:100%; background:var(--bg1);">
-        <div style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3);">
-          📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}, ${data.snapshot_row_count} แถว) · ปัจจุบัน: ${data.current_generated_at}
-        </div>
-        <div style="padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>
-      </div>`;
+    container.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
+    // Header text moved OUT of this panel-only container and into the
+    // shared top-bar that spans the whole merged block (explicit request:
+    // the big card had no such bar above it, so its content started lower
+    // than the Bookmark cards' - this is what caused the row misalignment).
+    const topbarEl = document.getElementById(prefix + '-topbar');
+    if (topbarEl) topbarEl.textContent = `📊 P0 เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} (${data.snapshot_date}, ${data.snapshot_row_count} แถว) · ปัจจุบัน: ${data.current_generated_at}`;
     if (window.renderTotalP0Compare) window.renderTotalP0Compare(data);
+    try { renderTotalPendingRow(prefix, data); } catch (e) { console.error('Total Pending row failed', e); }
     loadP0DailyTrendSparklines(accents, data.groups);
   } catch (e) {
     console.error('Snapshot comparison load failed', e);
@@ -2573,14 +2666,16 @@ async function loadP0SnapshotComparison(prefix) {
 const p0TrendCharts = {};
 let cachedP0DailyTrendData = null;
 
-function renderP0Sparkline(key, accent, labels, series) {
-  const canvas = document.getElementById('p0-trend-' + key);
-  const numEl = document.getElementById('p0-trend-num-' + key);
+function renderP0Sparkline(key, accent, labels, series, idPrefix) {
+  idPrefix = idPrefix || 'p0-trend'; // default keeps the existing Over SLA cards exactly as they were; 'tp-trend' is the Total Pending row
+  const canvas = document.getElementById(idPrefix + '-' + key);
+  const numEl = document.getElementById(idPrefix + '-num-' + key);
+  const chartKey = idPrefix + '|' + key;
   if (!canvas) return false;
   const lastVal = [...series].reverse().find(v => v != null);
   if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
-  if (p0TrendCharts[key]) p0TrendCharts[key].destroy();
-  p0TrendCharts[key] = new Chart(canvas.getContext('2d'), {
+  if (p0TrendCharts[chartKey]) p0TrendCharts[chartKey].destroy();
+  p0TrendCharts[chartKey] = new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels,
@@ -2637,6 +2732,384 @@ async function loadP0DailyTrendSparklines(accents, groups) {
   } catch (e) {
     console.error('P0 daily trend sparklines failed', e);
   }
+  try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
+}
+
+// ── TOTAL PENDING row (all priorities) ─────────────────────────────────────
+// Same cards as the Over SLA row above, fed by the SAME two API responses
+// (extra keys only: groups[].snapshot_total/current_total, series_total) -
+// no extra request. Anything missing simply leaves the row hidden.
+// Top 5 provinces block (explicit request) - current data only. Clicking a
+// province filters the matching section table below (p0FocusProvince, defined
+// inside the page module). `list` = [[provinceCode, count], ...] from the API.
+function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function p0Top5Html(list, base, accent, scope, groupKey) {
+  if (!list || !list.length || !base) return '';
+  const max = Math.max(...list.map(a => a[1]), 1);
+  const shown = list.reduce((s, a) => s + a[1], 0);
+  const rest = base - shown;
+  const hint = scope === 'total' ? 'คลิกเพื่อกรองตารางด้านล่าง (ตารางแสดงเฉพาะ P0 ของจังหวัดนี้)' : 'คลิกเพื่อกรองตารางด้านล่าง';
+  const rows = list.map((a, i) => {
+    const code = a[0], n = a[1];
+    const clickable = !String(code).startsWith('(');
+    const name = clickable ? provinceEnLabel(code) : code;
+    const gk = p0T5Esc(groupKey || ''), pc = p0T5Esc(code);
+    // P0 row: keep the existing "filter the table below" behaviour and also open the drill down.
+    // Total Pending row: the table below only lists P0 tickets, so filtering it would just show a
+    // misleading subset - open the drill down only.
+    const click = clickable ? ` onclick="${scope === 'total' ? '' : `p0FocusProvince('${gk}','${pc}'); `}p0OpenDrilldown('${scope}','${gk}','${pc}')"` : '';
+    return `<div class="p0-t5r ${clickable ? '' : 'p0-t5-static'}"${click} title="${p0T5Esc(name)}: ${n} ใบ${clickable ? ' — ' + hint : ''}">
+      <span style="color:var(--text3); font-size:10px; text-align:right;">${i + 1}</span>
+      <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p0T5Esc(name)}</span>
+      <span style="height:6px; border-radius:3px; background:var(--bg3); overflow:hidden;"><i style="display:block; height:100%; width:${Math.round(n / max * 100)}%; background:${accent}; border-radius:3px;"></i></span>
+      <b style="text-align:right; font-variant-numeric:tabular-nums;">${n}</b>
+    </div>`;
+  }).join('');
+  return `<div class="p0-top5" style="margin-top:10px; padding-top:9px; border-top:1px dashed var(--border2);">
+    <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px;"><span>Top 5 จังหวัด</span><span>${Math.round(shown / base * 100)}% ของทั้งหมด</span></div>
+    ${rows}${rest > 0 ? `<div style="font-size:10.5px; color:var(--text3); margin-top:3px; text-align:right;">อื่นๆ อีก ${rest} ใบ</div>` : ''}
+  </div>`;
+}
+// Big "Total P0" card's Top 5 - sum of the 4 groups per province (same
+// definition as the big cards' compare number). Called by the page module.
+window.p0BigTop5Html = function (data) {
+  if (!data || !data.overall_top_p0 || !data.groups) return '';
+  const base = data.groups.reduce((s, g) => s + (g.current_p0 || 0), 0);
+  return p0Top5Html(data.overall_top_p0, base, '#B23A3A', 'p0', '');
+};
+(function () {
+  const KEY = 'p0-show-top5';
+  let show = true;
+  try { show = localStorage.getItem(KEY) !== '0'; } catch (e) { /* storage blocked - default on */ }
+  function apply() {
+    document.body.classList.toggle('p0-hide-top5', !show);
+    const c = document.getElementById('p0-top5-toggle');
+    if (c) c.checked = show;
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    apply();
+    const c = document.getElementById('p0-top5-toggle');
+    if (c) c.addEventListener('change', e => {
+      show = e.target.checked;
+      try { localStorage.setItem(KEY, show ? '1' : '0'); } catch (err) { /* ignore */ }
+      apply();
+    });
+  });
+})();
+
+// ============================================================================
+// P0 DRILL DOWN (explicit request) - click a card's big number, or a province
+// in a card's TOP 5, and a hidden Analysis panel expands under that block:
+// a map of the jobs (pin colour = status, floating team name), jobs per team
+// with a rough risk level, and district / CINAME analysis. Data comes from
+// /api/p0-drilldown, loaded lazily on the first click only, and is read-only:
+// nothing here changes any existing number or any other request.
+// ============================================================================
+const P0DD = { data: null, promise: null, open: null, hi: null, off: new Set(), lbl: true, map: null, base: null, hiLayer: null, vis: [] };
+const P0DD_GROUPS = { MB: '7.MB with SA1-4', FBB: '4.FBB with SA1-4', NW_NSA12: '3. All NW Incident NSA1-2', NSA34: 'NSA3 / NSA4' };
+const P0DD_STATS = [['wait', 'ยังไม่เดินทาง', '#d64545'], ['dep', 'เดินทางแล้ว', '#2563eb'], ['arr', 'ถึงไซต์แล้ว', '#e08a1e'], ['done', 'Complete', '#3f9142'], ['closed', 'Closed', '#6b7a8d']];
+const P0DD_ST = Object.fromEntries(P0DD_STATS.map(s => [s[0], s]));
+const P0DD_CLUSTER_ABOVE = 150;   // more visible jobs than this -> grouped into numbered circles
+const P0DD_LABELS_MAX = 120;      // team-name labels only when this few single pins are on the map
+const P0DD_RISK = { high: 8, critical: 12, wide_km: 60 }; // same load thresholds OFC Monitor already uses (8 / 12)
+
+function p0ddTeamCode(t) { return t ? String(t).trim().split(/\s+/)[0].replace(/^MT-NR-/, '') : ''; }
+function p0ddKm(a, b) {
+  const d = Math.PI / 180, dl = (b.la - a.la) * d, dn = (b.lo - a.lo) * d;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a.la * d) * Math.cos(b.la * d) * Math.sin(dn / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+function p0ddLoad(force) {
+  if (!force && P0DD.data) return Promise.resolve(P0DD.data);
+  if (P0DD.promise) return P0DD.promise;
+  P0DD.promise = fetch('/api/p0-drilldown')
+    .then(async r => { if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || ('API ' + r.status)); } return r.json(); })
+    .then(d => { P0DD.data = d; P0DD.promise = null; return d; })
+    .catch(e => { P0DD.promise = null; throw e; });
+  return P0DD.promise;
+}
+function p0ddScoped() {
+  const o = P0DD.open;
+  return P0DD.data.tickets.filter(t => (o.row === 'p0' ? t.z === 1 : true) && (o.g === 'ALL' || t.g === o.g) && (!o.p || t.p === o.p));
+}
+function p0ddPinSvg(st) {
+  const c = P0DD_ST[st][2];
+  if (st === 'dep') return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}" stroke="#fff" stroke-width="1.5"/><path d="M5 14v-2.4l1.6-3.4h10.8L19 11.6V14h-1.4a2 2 0 0 0-3.8 0H10a2 2 0 0 0-3.8 0z" fill="#fff"/><circle cx="8.2" cy="14.4" r="1.5" fill="#fff" stroke="${c}"/><circle cx="15.8" cy="14.4" r="1.5" fill="#fff" stroke="${c}"/></svg>`;
+  if (st === 'closed') return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}" stroke="#fff" stroke-width="1.5"/><circle cx="9" cy="12" r="2.8" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 12h7M16.5 12v2.5M19 12v2" stroke="#fff" stroke-width="1.8" fill="none"/></svg>`;
+  return `<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 23s8-6.8 8-13a8 8 0 1 0-16 0c0 6.2 8 13 8 13z" fill="${c}" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="10" r="3.2" fill="#fff"/>${st === 'done' ? '<path d="M10.2 10l1.4 1.5 2.4-2.8" stroke="' + c + '" stroke-width="1.6" fill="none"/>' : ''}</svg>`;
+}
+function p0ddLegendIcon(st) {
+  const c = P0DD_ST[st][2];
+  return `<svg width="14" height="14" viewBox="0 0 24 24">${st === 'dep' || st === 'closed' ? `<circle cx="12" cy="12" r="11" fill="${c}"/>` : `<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" fill="${c}"/><circle cx="12" cy="10" r="2.8" fill="#fff"/>`}</svg>`;
+}
+function p0ddScopeLabels() {
+  const o = P0DD.open, c = [[o.row === 'p0' ? 'Total P0' : 'Total Pending', 'ALL', '']];
+  if (o.g !== 'ALL') c.push([P0DD_GROUPS[o.g] || o.g, o.g, '']);
+  if (o.p) c.push([provinceEnLabel(o.p), o.g, o.p]);
+  return c;
+}
+window.p0ddSetScope = function (g, p) { const o = P0DD.open; if (!o) return; P0DD.open = { row: o.row, g, p }; P0DD.off = new Set(); P0DD.hi = null; p0ddRender(); };
+function p0ddClose() {
+  const o = P0DD.open;
+  if (P0DD.map) { P0DD.map.remove(); P0DD.map = null; }
+  P0DD.base = P0DD.hiLayer = null;
+  ['p0', 'total'].forEach(r => { const w = document.getElementById('p0dd-' + r); if (w) { w.classList.remove('open'); w.innerHTML = ''; } });
+  P0DD.open = null; P0DD.hi = null;
+}
+window.p0OpenDrilldown = function (row, g, p) {
+  g = g || 'ALL'; p = p || '';
+  const o = P0DD.open;
+  if (o && o.row === row && o.g === g && o.p === p) { p0ddClose(); return; }
+  p0ddClose();
+  const wrap = document.getElementById('p0dd-' + row);
+  if (!wrap) return;
+  P0DD.open = { row, g, p }; P0DD.off = new Set(); P0DD.hi = null;
+  wrap.classList.add('open');
+  wrap.innerHTML = `<div class="p0dd-panel"><div class="p0dd-loading">กำลังโหลดพิกัดและข้อมูลทีม...</div></div>`;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  p0ddLoad(false).then(() => { if (P0DD.open && P0DD.open.row === row) p0ddRender(); })
+    .catch(e => { if (P0DD.open && P0DD.open.row === row) wrap.innerHTML = `<div class="p0dd-panel" style="color:#B23A3A;">โหลดไม่สำเร็จ: ${p0T5Esc(e.message)} <button class="btn-secondary" onclick="p0ddReload()">ลองใหม่</button></div>`; });
+};
+window.p0ddReload = function () { P0DD.data = null; const o = P0DD.open; if (!o) return; const w = document.getElementById('p0dd-' + o.row); if (w) w.innerHTML = `<div class="p0dd-panel"><div class="p0dd-loading">กำลังโหลดพิกัดและข้อมูลทีม...</div></div>`; p0ddLoad(true).then(() => { if (P0DD.open) p0ddRender(); }).catch(e => { if (w) w.innerHTML = `<div class="p0dd-panel" style="color:#B23A3A;">โหลดไม่สำเร็จ: ${p0T5Esc(e.message)}</div>`; }); };
+
+function p0ddRender() {
+  const o = P0DD.open, wrap = document.getElementById('p0dd-' + o.row);
+  if (!wrap || !P0DD.data) return;
+  if (P0DD.map) { P0DD.map.remove(); P0DD.map = null; }
+  const all = p0ddScoped();
+  const teams = {};
+  all.forEach(t => { if (t.t) (teams[t.t] = teams[t.t] || []).push(t); });
+  const noCoord = all.filter(t => t.la == null).length, unassigned = all.filter(t => !t.t).length;
+  const crumbs = p0ddScopeLabels().map((c, i, a) => `<span class="p0dd-crumb ${i === a.length - 1 ? 'last' : ''}" ${i < a.length - 1 ? `onclick="p0ddSetScope('${c[1]}','${c[2]}')"` : ''}>${p0T5Esc(c[0])}</span>`).join(' › ');
+  const kpis = P0DD_STATS.map(s => `<div class="p0dd-kpi f ${P0DD.off.has(s[0]) ? 'off' : ''}" data-st="${s[0]}" style="--c:${s[2]}"><b>${all.filter(t => t.s === s[0]).length}</b><span>${s[1]}</span></div>`).join('')
+    + `<div class="p0dd-kpi" style="--c:#7c3aed"><b>${Object.keys(teams).length}</b><span>ทีมที่เกี่ยวข้อง</span></div><div class="p0dd-kpi" style="--c:#8496a8"><b>${unassigned}</b><span>ยังไม่มีทีม</span></div>`;
+  wrap.innerHTML = `<div class="p0dd-panel">
+    <div class="p0dd-head"><div class="p0dd-crumbs">🔎 Drill down: ${crumbs} <span class="p0dd-hint">· ${all.length} งาน · ข้อมูล ${p0T5Esc(P0DD.data.generated_at)}</span></div>
+      <div style="display:flex; gap:8px; align-items:center;"><label class="p0dd-hint" style="cursor:pointer;"><input type="checkbox" id="p0dd-lbl-chk" ${P0DD.lbl ? 'checked' : ''}> แสดงชื่อทีมบนหมุด</label><button class="btn-secondary" onclick="p0ddReload()">↻ รีเฟรช</button><button class="btn-secondary" onclick="p0OpenDrilldown('${o.row}','${o.g}','${o.p}')">ปิด ✕</button></div></div>
+    <div class="p0dd-kpis">${kpis}</div>
+    <div class="p0dd-grid2">
+      <div class="p0dd-box"><div class="p0dd-bt"><span>🗺️ แผนที่พิกัดงาน (สีตามสถานะ)</span><span class="p0dd-hint" id="p0dd-maphint"></span></div>
+        <div id="p0dd-map" class="p0dd-map"></div>
+        <div class="p0dd-legend">${P0DD_STATS.map(s => `<span style="display:inline-flex; gap:4px; align-items:center;">${p0ddLegendIcon(s[0])}${s[1]}</span>`).join('')}${noCoord ? `<span class="p0dd-hint">· ไม่มีพิกัด ${noCoord} งาน (ไม่แสดงบนแผนที่ แต่นับในตาราง)</span>` : ''}</div></div>
+      <div class="p0dd-box"><div class="p0dd-bt"><span>👷 งานต่อทีม &amp; ความเสี่ยงทำไม่ทัน</span><span class="p0dd-hint">≥${P0DD_RISK.high} สูง · ≥${P0DD_RISK.critical} วิกฤต (เกณฑ์เดิม OFC Monitor)</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-teamT"></table></div></div>
+    </div>
+    <div class="p0dd-grid3">
+      <div class="p0dd-box"><div class="p0dd-bt"><span>📍 Analysis ราย${o.p ? 'อำเภอ' : 'จังหวัด'}</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-distT"></table></div></div>
+      <div class="p0dd-box"><div class="p0dd-bt"><span>🏢 Analysis CINAME (ไซต์/ลูกค้า)</span><span class="p0dd-hint">ไซต์ที่มีหลายงานซ้อนกัน</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-ciT"></table></div></div>
+    </div>
+    <div class="p0dd-box" style="margin-top:12px;"><div class="p0dd-bt"><span>💡 สรุปให้อัตโนมัติ</span></div><div style="padding:10px 12px;"><ul class="p0dd-ins" id="p0dd-ins"></ul></div></div></div>`;
+  wrap.querySelector('#p0dd-lbl-chk').onchange = e => { P0DD.lbl = e.target.checked; p0ddDrawMarkers(); };
+  wrap.querySelectorAll('.p0dd-kpi.f').forEach(k => k.onclick = () => { const s = k.dataset.st; P0DD.off.has(s) ? P0DD.off.delete(s) : P0DD.off.add(s); k.classList.toggle('off', P0DD.off.has(s)); p0ddDrawMarkers(); });
+  p0ddInitMap(all);
+  p0ddDrawTables(all, teams);
+}
+function p0ddInitMap(all) {
+  const el = document.getElementById('p0dd-map');
+  if (!el || typeof L === 'undefined') return;
+  const pts = all.filter(t => t.la != null);
+  P0DD.map = L.map(el, { zoomControl: true, preferCanvas: false }).setView([17.2, 99.7], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(P0DD.map);
+  P0DD.base = L.layerGroup().addTo(P0DD.map);
+  P0DD.hiLayer = L.layerGroup().addTo(P0DD.map);
+  P0DD.map.on('zoomend', p0ddDrawMarkers);
+  if (pts.length) {
+    const b = L.latLngBounds(pts.map(t => [t.la, t.lo]));
+    P0DD.map.fitBounds(b, { padding: [30, 30], maxZoom: 13 });
+  }
+  setTimeout(() => { if (P0DD.map) { P0DD.map.invalidateSize(); p0ddDrawMarkers(); } }, 120);
+}
+function p0ddPinIcon(t, withLabel, cls) {
+  const code = p0ddTeamCode(t.t), label = withLabel ? `<span class="p0dd-lbl ${t.t ? '' : 'none'}">${p0T5Esc(code || 'ยังไม่มีทีม')}</span>` : '';
+  return L.divIcon({ className: 'p0dd-icon ' + (cls || ''), iconSize: [0, 0], iconAnchor: [0, 0], html: `<div class="p0dd-pin">${label}${p0ddPinSvg(t.s)}</div>` });
+}
+function p0ddTip(t) {
+  return `<b>${p0T5Esc(t.i)}</b><br>${p0T5Esc(t.c)} · ${p0T5Esc(t.d)}, ${p0T5Esc(provinceEnLabel(t.p))}<br>สถานะ: ${P0DD_ST[t.s][1]}<br>ทีม: ${t.t ? p0T5Esc(t.t) : 'ยังไม่มี'}<br>Aging: ${p0T5Esc((P0DD.data.aging_order || [])[t.a] || '-')}`;
+}
+function p0ddDrawMarkers() {
+  if (!P0DD.map || !P0DD.base) return;
+  P0DD.base.clearLayers();
+  const seen = new Set(), vis = [];
+  p0ddScoped().forEach(t => { if (t.la == null || P0DD.off.has(t.s) || seen.has(t.i)) return; seen.add(t.i); vis.push(t); });
+  P0DD.vis = vis;
+  const clustered = vis.length > P0DD_CLUSTER_ABOVE, zoom = P0DD.map.getZoom();
+  const hint = document.getElementById('p0dd-maphint');
+  let pins = [];
+  if (!clustered) pins = vis;
+  else {
+    const cells = {};
+    vis.forEach(t => { const p = P0DD.map.project([t.la, t.lo], zoom); const k = Math.floor(p.x / 46) + '_' + Math.floor(p.y / 46); (cells[k] = cells[k] || []).push(t); });
+    Object.values(cells).forEach(a => {
+      if (a.length === 1) { pins.push(a[0]); return; }
+      const cnt = {}; a.forEach(t => { cnt[t.s] = (cnt[t.s] || 0) + 1; });
+      const dom = Object.entries(cnt).sort((x, y) => y[1] - x[1])[0][0], d = Math.min(52, 22 + Math.sqrt(a.length) * 4);
+      const ll = [a.reduce((s, t) => s + t.la, 0) / a.length, a.reduce((s, t) => s + t.lo, 0) / a.length];
+      const m = L.marker(ll, { icon: L.divIcon({ className: 'p0dd-icon p0dd-base', iconSize: [d, d], iconAnchor: [d / 2, d / 2], html: `<div class="p0dd-cl" style="width:${d}px;height:${d}px;background:${P0DD_ST[dom][2]};">${a.length}</div>` }) }).addTo(P0DD.base);
+      m.bindTooltip(`<b>${a.length} งานในบริเวณนี้</b><br>` + Object.entries(cnt).map(([s, n]) => `${P0DD_ST[s][1]}: ${n}`).join('<br>') + `<br>ทีม ${new Set(a.filter(t => t.t).map(t => t.t)).size} ทีม (ซูมเข้าเพื่อแยกหมุด)`, { direction: 'top' });
+      m.on('click', () => P0DD.map.setView(ll, Math.min(18, zoom + 2)));
+    });
+  }
+  const withLabel = P0DD.lbl && pins.length <= P0DD_LABELS_MAX;
+  pins.forEach(t => {
+    const m = L.marker([t.la, t.lo], { icon: p0ddPinIcon(t, withLabel, 'p0dd-base') }).addTo(P0DD.base);
+    m.bindTooltip(p0ddTip(t), { direction: 'top', offset: [0, -26] });
+    if (t.t) { m.on('mouseover', () => p0ddHighlight(t.t)); m.on('mouseout', () => p0ddHighlight(null)); }
+  });
+  if (hint) hint.textContent = clustered ? `งาน ${vis.length} จุด รวมเป็นวงกลมตัวเลข · ซูม/คลิกวงกลมเพื่อแยกหมุด` : 'ชี้หมุด/แถวทีมเพื่อดูงานของทีมเดียวกัน';
+  p0ddHighlight(P0DD.hi);
+}
+// Highlight one team: dim everything else and draw that team's jobs on top, joined by a dashed line.
+// The overlay markers are non-interactive, so they never steal the mouse from the pins underneath.
+function p0ddHighlight(team) {
+  P0DD.hi = team || null;
+  if (!P0DD.map || !P0DD.hiLayer) return;
+  P0DD.hiLayer.clearLayers();
+  const c = P0DD.map.getContainer();
+  c.classList.toggle('p0dd-hi', !!team);
+  document.querySelectorAll('#p0dd-teamT tr.row').forEach(r => r.classList.toggle('sel', r.dataset.team === team));
+  if (!team) return;
+  const mine = P0DD.vis.filter(t => t.t === team).sort((a, b) => b.lo - a.lo);
+  if (mine.length > 1) L.polyline(mine.map(t => [t.la, t.lo]), { color: '#7c3aed', weight: 2, dashArray: '6 5', interactive: false }).addTo(P0DD.hiLayer);
+  mine.forEach(t => L.marker([t.la, t.lo], { icon: p0ddPinIcon(t, true, 'p0dd-top'), interactive: false, zIndexOffset: 1000 }).addTo(P0DD.hiLayer));
+}
+function p0ddDrawTables(all, teams) {
+  const o = P0DD.open, tr = Object.entries(teams).map(([name, a]) => {
+    const open = a.filter(t => t.s !== 'closed'), pend = a.filter(t => t.s === 'wait' || t.s === 'dep').length, g = a.filter(t => t.la != null);
+    let sp = 0; for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) sp = Math.max(sp, p0ddKm(g[i], g[j]));
+    const lvl = open.length >= P0DD_RISK.critical ? 'cr' : open.length >= P0DD_RISK.high ? 'hi' : (open.length >= 5 || sp > P0DD_RISK.wide_km) ? 'md' : 'lo';
+    return { name, open: open.length, pend, sp, ds: new Set(a.map(t => t.d)).size, lvl, score: open.length + pend * 0.5 + sp / 25 };
+  }).sort((a, b) => b.score - a.score);
+  const mx = Math.max(1, ...tr.map(r => r.open)), LB = { cr: 'วิกฤต', hi: 'สูง', md: 'กลาง', lo: 'ต่ำ' };
+  document.getElementById('p0dd-teamT').innerHTML = '<thead><tr><th class="l">ทีม</th><th>งานค้าง</th><th>ยังไม่จบ</th><th>อำเภอ</th><th>รัศมีงาน</th><th>เสี่ยง</th></tr></thead><tbody>'
+    + (tr.length ? tr.map(r => `<tr class="row" data-team="${p0T5Esc(r.name)}" title="${p0T5Esc(r.name)}"><td class="l"><b>${p0T5Esc(p0ddTeamCode(r.name))}</b></td><td><span class="p0dd-bar" style="width:${Math.round(r.open / mx * 44)}px"></span> <b>${r.open}</b></td><td>${r.pend}</td><td>${r.ds}</td><td>${r.sp.toFixed(0)} กม.</td><td><span class="p0dd-badge b-${r.lvl}">${LB[r.lvl]}</span></td></tr>`).join('') : '<tr><td colspan="6" class="l" style="color:var(--text3);">ไม่มีข้อมูลทีมในขอบเขตนี้</td></tr>') + '</tbody>';
+  document.querySelectorAll('#p0dd-teamT tr.row').forEach(x => { x.onmouseenter = () => p0ddHighlight(x.dataset.team); x.onmouseleave = () => p0ddHighlight(null); });
+  const key = o.p ? 'd' : 'p', dm = {};
+  all.forEach(t => { const k = t[key] || '(ไม่ระบุ)', d = dm[k] = dm[k] || { n: 0, w: 0, tm: new Set() }; d.n++; if (t.s === 'wait') d.w++; if (t.t) d.tm.add(t.t); });
+  const dr = Object.entries(dm).sort((a, b) => b[1].n - a[1].n), nm = k => o.p ? k : provinceEnLabel(k);
+  document.getElementById('p0dd-distT').innerHTML = `<thead><tr><th class="l">${o.p ? 'อำเภอ' : 'จังหวัด'}</th><th>งาน</th><th>ยังไม่เดินทาง</th><th>ทีม</th><th>งาน/ทีม</th></tr></thead><tbody>`
+    + dr.map(([k, v]) => `<tr><td class="l">${p0T5Esc(nm(k))}</td><td><b>${v.n}</b></td><td style="color:${v.w ? '#d64545' : 'inherit'}">${v.w || '–'}</td><td>${v.tm.size || '–'}</td><td>${v.tm.size ? (v.n / v.tm.size).toFixed(1) : '–'}</td></tr>`).join('') + '</tbody>';
+  const cm = {};
+  all.forEach(t => { const k = t.c || '(ไม่ระบุ)', c = cm[k] = cm[k] || { n: 0, tm: new Set(), d: t.d, op: 0 }; c.n++; if (t.t) c.tm.add(t.t); if (t.s !== 'closed') c.op++; });
+  const cr = Object.entries(cm).sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+  document.getElementById('p0dd-ciT').innerHTML = '<thead><tr><th class="l">CINAME</th><th>งาน</th><th>ยังไม่ปิด</th><th class="l">อำเภอ</th><th>ทีม</th></tr></thead><tbody>'
+    + cr.map(([c, v]) => `<tr><td class="l"><b>${p0T5Esc(c)}</b></td><td><b>${v.n}</b>${v.n > 1 ? ' <span class="p0dd-badge b-md">ซ้ำ</span>' : ''}</td><td>${v.op}</td><td class="l">${p0T5Esc(v.d)}</td><td>${v.tm.size || '–'}</td></tr>`).join('') + '</tbody>';
+  // auto insights
+  const ins = [], waits = all.filter(t => t.s === 'wait' && t.la != null);
+  if (tr.length) {
+    const t0 = tr[0];
+    ins.push(`ทีม <b>${p0T5Esc(p0ddTeamCode(t0.name))}</b> ถืองานค้าง <b>${t0.open}</b> งาน กระจาย <b>${t0.ds}</b> อำเภอ รัศมีงานกว้างสุด ~<b>${t0.sp.toFixed(0)} กม.</b> ${t0.lvl === 'cr' || t0.lvl === 'hi' ? '→ เสี่ยงปิดไม่ทันสูง ควรแบ่งงานให้ทีมอื่น' : '→ เฝ้าระวัง'}`);
+    const n = tr.filter(r => r.lvl === 'cr' || r.lvl === 'hi').length;
+    if (n) ins.push(`มี <b>${n}</b> จาก <b>${tr.length}</b> ทีมที่ภาระ ≥${P0DD_RISK.high} งาน (เสี่ยงสูง/วิกฤต)`);
+    if (waits.length && o.p) {
+      let best = null;
+      tr.slice().reverse().forEach(r => { if (r.lvl === 'hi' || r.lvl === 'cr') return; const near = waits.filter(w => w.t !== r.name && teams[r.name].some(t => t.la != null && p0ddKm(t, w) < 8)); if (near.length && (!best || near.length > best.n)) best = { r, n: near.length }; });
+      if (best) ins.push(`ทีม <b>${p0T5Esc(p0ddTeamCode(best.r.name))}</b> (ภาระ ${best.r.open} งาน) อยู่ห่างจาก <b>${best.n}</b> งานที่ยังไม่เดินทางไม่เกิน 8 กม. → พิจารณาให้ทีมนี้รับเพิ่ม`);
+    }
+  }
+  const rep = cr.filter(([, v]) => v.n > 1);
+  if (rep.length) ins.push(`<b>${rep.length}</b> ไซต์มีหลายงานซ้อนกัน (เช่น <b>${p0T5Esc(rep[0][0])}</b> ${rep[0][1].n} งาน) → ส่งทีมเดียวทำรอบเดียวได้`);
+  if (dr.length) ins.push(`${o.p ? 'อำเภอ' : 'จังหวัด'} <b>${p0T5Esc(nm(dr[0][0]))}</b> มีงานมากสุด (<b>${dr[0][1].n}</b>)${dr[0][1].w ? ` และยังไม่เดินทาง <b>${dr[0][1].w}</b> งาน` : ''}`);
+  const un = all.filter(t => !t.t).length; if (un) ins.push(`มี <b>${un}</b> งานที่ยังไม่มีทีมรับ (ป้ายสีเทาบนแผนที่)`);
+  document.getElementById('p0dd-ins').innerHTML = ins.map(i => `<li>${i}</li>`).join('') || '<li>ไม่มีข้อมูล</li>';
+}
+// One delegated listener for the 4 big-number click targets (the TOP 5 rows call p0OpenDrilldown directly).
+document.addEventListener('click', (e) => {
+  const el = e.target.closest && e.target.closest('[data-dd-row]');
+  if (!el) return;
+  window.p0OpenDrilldown(el.dataset.ddRow, el.dataset.ddG, el.dataset.ddP || '');
+});
+
+const TP_ACCENTS = ['#2563eb', '#7c3aed', '#B45309', '#0891b2'];
+const TP_NAVY = '#27466F';
+let tpGroupKeys = [];
+
+function tpDiffHtml(diff) {
+  const up = diff > 0, down = diff < 0;
+  const color = up ? '#B23A3A' : (down ? '#639922' : 'var(--text3)');
+  return `<span style="color:${color}; font-weight:700; white-space:nowrap;">${up ? '▲' : (down ? '▼' : '–')} ${(diff > 0 ? '+' : '') + diff}</span>`;
+}
+
+function renderTotalPendingRow(prefix, data) {
+  const row = document.getElementById(prefix + '-total-row');
+  const kpiEl = document.getElementById(prefix + '-total-kpi-summary');
+  const cmpEl = document.getElementById(prefix + '-total-snapshot-compare');
+  if (!row || !kpiEl || !cmpEl) return;
+  const groups = (data && data.groups) || [];
+  const ok = groups.length && groups.every(g => g.current_total != null && g.snapshot_total != null);
+  if (!ok) { row.style.display = 'none'; return; }
+
+  tpGroupKeys = groups.map(g => g.key);
+  const totalNow = groups.reduce((s, g) => s + g.current_total, 0);
+  const totalSnap = groups.reduce((s, g) => s + g.snapshot_total, 0);
+
+  // Single-column structure, same as every Bookmark card in this row
+  // (explicit request: match Bookmark exactly) - was a 2-column split with
+  // its own bigger 32px "เทียบเมื่อคืน" number before, which is why it
+  // never quite lined up with the compact "@01:15: X ▲+Y" line the
+  // Bookmark cards use.
+  kpiEl.innerHTML = `
+    <div style="height:100%; box-shadow:inset 3px 0 0 ${TP_NAVY}; padding:14px 16px;">
+      <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
+      <div class="p0dd-click" data-dd-row="total" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalNow}</div>
+      <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="white-space:nowrap;">@01:15: <b>${totalSnap}</b></span>
+        <span style="white-space:nowrap;">${tpDiffHtml(totalNow - totalSnap)}</span>
+      </div>
+      ${p0Top5Html(data.overall_top_total, totalNow, TP_NAVY, 'total', '')}
+      <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+          <span id="tp-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:${TP_NAVY}; white-space:nowrap;">…</span>
+        </div>
+        <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-TOTAL"></canvas></div>
+      </div>
+    </div>`;
+
+  const cards = groups.map((g, i) => {
+    const accent = TP_ACCENTS[i % TP_ACCENTS.length];
+    return `
+      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
+        <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_total}</b></span>
+          ${tpDiffHtml(g.total_diff)}
+        </div>
+        ${p0Top5Html(g.top_total, g.current_total, accent, 'total', g.key)}
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span id="tp-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
+          </div>
+          <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-${g.key}"></canvas></div>
+        </div>
+      </div>`;
+  }).join('');
+  cmpEl.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
+  // Same shared-topbar move as the P0 row above, for the same reason -
+  // the big "Total Pending" card had no header bar above it, so its
+  // content started higher than the Bookmark cards' did.
+  const totalTopbarEl = document.getElementById(prefix + '-total-topbar');
+  if (totalTopbarEl) totalTopbarEl.textContent = `📦 Total Pending (ทุก Priority) เทียบกับ Snapshot 01:15 — snapshot: ${data.snapshot_matched_at} · กรอง CORP ออกแล้ว`;
+  row.style.display = 'block';
+  try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
+}
+
+function renderTotalPendingSparklines() {
+  const data = cachedP0DailyTrendData;
+  if (!data || !data.series_total || !tpGroupKeys.length) return;
+  const labels = data.dates.map(d => d.slice(5).replace('-', '/'));
+  tpGroupKeys.forEach((k, i) => {
+    renderP0Sparkline(k, TP_ACCENTS[i % TP_ACCENTS.length], labels, data.series_total[k] || [], 'tp-trend');
+  });
+  const totalSeries = data.dates.map((_, i) => {
+    let sum = null;
+    tpGroupKeys.forEach(k => {
+      const v = (data.series_total[k] || [])[i];
+      if (v != null) sum = (sum || 0) + v;
+    });
+    return sum;
+  });
+  renderP0Sparkline('TOTAL', TP_NAVY, labels, totalSeries, 'tp-trend');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -5763,7 +6236,20 @@ function renderPivot(ft) {
 <script>
 // ===================== REALTIME MONITORING =====================
 (function () {
-  let currentView = 'FBB';
+  // View (explicit multi-select request): a Set of BOOKMARK_VIEWS keys,
+  // at least one always selected. RM_VIEWS is the same 4 options the old
+  // <select> had, just rendered as chips instead.
+  const RM_VIEWS = [
+    ['FBB', '4.FBB with SA1-4'],
+    ['NW_NSA12', '3. All NW Incident NSA1-2'],
+    ['MB', '7.MB with SA1-4'],
+    ['NSA34', 'NSA3 / NSA4'],
+  ];
+  let currentViews = new Set(['FBB']);
+  // TRUEOWNERGROUP/Aging/District (explicit multi-select request): each a
+  // Set of selected values; empty Set = "ทั้งหมด" (all), matching exactly
+  // what an unselected <select> used to mean.
+  let rmMultiSel = { trueowner: new Set(), aging: new Set(), district: new Set() };
   let charts = { region: null, trueowner: null, district: null };
   let map = null;
   let markerLayer = null;
@@ -5779,6 +6265,85 @@ function renderPivot(ft) {
     ['TRUEOWNERGROUP', 'TRUEOWNERGROUP'], ['DISTRICT', 'DISTRICT'], ['Subimpact', 'Subimpact'],
   ];
 
+  function rmEsc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  function renderViewChips() {
+    const wrap = document.getElementById('rm-view-chips');
+    wrap.innerHTML = RM_VIEWS.map(([k, label]) =>
+      `<label class="rm-chip ${currentViews.has(k) ? 'active' : ''}" data-view-key="${k}"><input type="checkbox" style="display:none;" ${currentViews.has(k) ? 'checked' : ''}> ${rmEsc(label)}</label>`
+    ).join('');
+    wrap.querySelectorAll('[data-view-key]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const k = chip.dataset.viewKey;
+        if (currentViews.has(k)) {
+          if (currentViews.size > 1) currentViews.delete(k); // always keep at least one view selected
+        } else {
+          currentViews.add(k);
+        }
+        renderViewChips();
+        // Dependent dropdowns are scoped per-view, same as before - reset them on any view change.
+        ['trueowner', 'aging', 'district'].forEach(key => {
+          rmMultiSel[key].clear();
+          const sel = document.getElementById(`rm-${key}-panel`);
+          if (sel) delete sel.dataset.populated;
+        });
+        reload();
+      });
+    });
+  }
+
+  // Builds one multi-select panel's rows + button label. Called once per
+  // panel per dataset refresh (same "populate once per view" rule the old
+  // single-select dropdowns followed, via the dataset.populated guard).
+  function populateMultiSelectOnce(key, values) {
+    const panel = document.getElementById(`rm-${key}-panel`);
+    const label = document.getElementById(`rm-${key}-label`);
+    if (panel.dataset.populated) { updateMultiSelectLabel(key, label, values.length); return; }
+    const selSet = rmMultiSel[key];
+    panel.innerHTML = `
+      <div class="rm-msel-actions"><a data-msel-all="${key}">เลือกทั้งหมด</a><a data-msel-clear="${key}">ล้าง</a></div>
+      ${values.map(v => `<label class="rm-msel-row"><input type="checkbox" data-msel-val="${rmEsc(v)}"> ${rmEsc(v)}</label>`).join('')}`;
+    panel.querySelectorAll('[data-msel-val]').forEach(cb => {
+      cb.checked = selSet.has(cb.dataset.mselVal);
+      cb.addEventListener('change', () => {
+        cb.checked ? selSet.add(cb.dataset.mselVal) : selSet.delete(cb.dataset.mselVal);
+        updateMultiSelectLabel(key, label, values.length);
+        reload();
+      });
+    });
+    panel.querySelector(`[data-msel-all="${key}"]`).addEventListener('click', () => {
+      values.forEach(v => selSet.add(v));
+      panel.querySelectorAll('[data-msel-val]').forEach(cb => { cb.checked = true; });
+      updateMultiSelectLabel(key, label, values.length);
+      reload();
+    });
+    panel.querySelector(`[data-msel-clear="${key}"]`).addEventListener('click', () => {
+      selSet.clear();
+      panel.querySelectorAll('[data-msel-val]').forEach(cb => { cb.checked = false; });
+      updateMultiSelectLabel(key, label, values.length);
+      reload();
+    });
+    panel.dataset.populated = '1';
+    updateMultiSelectLabel(key, label, values.length);
+  }
+  function updateMultiSelectLabel(key, labelEl, total) {
+    const n = rmMultiSel[key].size;
+    labelEl.textContent = n === 0 ? 'ทั้งหมด' : `${n}/${total} เลือก`;
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.rm-msel')) {
+      document.querySelectorAll('#page-realtimemonitor .rm-msel.open').forEach(m => m.classList.remove('open'));
+    }
+  });
+  document.querySelectorAll('#page-realtimemonitor [data-msel-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = btn.dataset.mselToggle;
+      document.querySelectorAll('#page-realtimemonitor .rm-msel.open').forEach(m => { if (m.id !== panelId) m.classList.remove('open'); });
+      document.getElementById(panelId).classList.toggle('open');
+    });
+  });
+
   function populateSelectOnce(sel, values) {
     if (sel.dataset.populated) return;
     values.forEach(v => {
@@ -5791,17 +6356,14 @@ function renderPivot(ft) {
 
   async function fetchData() {
     const regions = [...document.querySelectorAll('.rm-region-cb:checked')].map(cb => cb.value);
-    const trueowner = document.getElementById('rm-trueowner').value;
-    const aging = document.getElementById('rm-aging').value;
-    const district = document.getElementById('rm-district').value;
     const statusEl = document.getElementById('rm-status');
     statusEl.textContent = 'กำลังโหลด...';
 
-    const params = new URLSearchParams({ view: currentView });
+    const params = new URLSearchParams({ view: [...currentViews].join(',') });
     if (regions.length) params.set('region', regions.join(','));
-    if (trueowner) params.set('trueowner', trueowner);
-    if (aging) params.set('aging', aging);
-    if (district) params.set('district', district);
+    if (rmMultiSel.trueowner.size) params.set('trueowner', [...rmMultiSel.trueowner].join(','));
+    if (rmMultiSel.aging.size) params.set('aging', [...rmMultiSel.aging].join(','));
+    if (rmMultiSel.district.size) params.set('district', [...rmMultiSel.district].join(','));
 
     const res = await fetch(`/api/realtime-monitor?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
@@ -5811,6 +6373,32 @@ function renderPivot(ft) {
     return data;
   }
 
+  // Draws the per-bar total (= Pending Ticket count for that province/
+  // group, explicit request) just above each bar - a small self-contained
+  // Chart.js plugin instead of pulling in an extra datalabels library, so
+  // nothing else on the page is affected. Only attached to the
+  // per-province/per-group charts (TRUEOWNERGROUP, District), not Region.
+  const rmBarTotalPlugin = {
+    id: 'rmBarTotalPlugin',
+    afterDatasetsDraw(chart) {
+      const { ctx, data } = chart;
+      ctx.save();
+      ctx.font = '700 10px system-ui, sans-serif';
+      ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text') || '#1c2a3a';
+      ctx.textAlign = 'center';
+      data.labels.forEach((_, i) => {
+        const total = chart.data.datasets.reduce((sum, ds) => sum + (ds.data[i] || 0), 0);
+        if (!total) return;
+        const meta = chart.getDatasetMeta(chart.data.datasets.length - 1);
+        const bar = meta.data[i];
+        if (!bar) return;
+        ctx.fillText(total, bar.x, bar.y - 6);
+      });
+      ctx.restore();
+    },
+  };
+  const RM_PER_BAR_TOTAL_CHARTS = new Set(['rm-chart-trueowner']); // district is now a pivot table (its own Total column already does this job)
+
   function buildBarChart(canvasId, breakdown, agingOrder, agingColors) {
     const ctx = document.getElementById(canvasId);
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -5819,15 +6407,65 @@ function renderPivot(ft) {
       label: k, backgroundColor: agingColors[k], stack: 'aging',
       data: breakdown.map(b => b.aging_counts[k] || 0),
     }));
+    const showTotals = RM_PER_BAR_TOTAL_CHARTS.has(canvasId);
     charts[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: { labels, datasets },
+      plugins: showTotals ? [rmBarTotalPlugin] : [],
       options: {
         responsive: true, maintainAspectRatio: false,
+        layout: showTotals ? { padding: { top: 18 } } : undefined,
         scales: { x: { stacked: true, ticks: { autoSkip: false, maxRotation: 60, minRotation: 0, font: { size: 10 } } }, y: { stacked: true, beginAtZero: true } },
         plugins: { legend: { display: canvasId === 'rm-chart-region', position: 'top', labels: { font: { size: 10 } } } },
       },
     });
+  }
+
+  // District pivot table (explicit request: bar chart -> pivot) - rows =
+  // district, columns = Aging in the SAME order the bar chart's legend
+  // used (oldest/most-overdue first), Total column rightmost, rows sorted
+  // by Total descending. Column header colors reuse agingColors straight
+  // from the API response, not a hardcoded palette, so this always
+  // matches whatever the Region/SLA/TRUEOWNERGROUP charts' legend shows.
+  function rmFgForBg(hex) {
+    const c = String(hex || '').replace('#', '');
+    if (c.length !== 6) return '#fff';
+    const r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1c2a3a' : '#fff';
+  }
+  function buildDistrictPivot(tableId, breakdown, agingOrder, agingColors) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    if (!breakdown.length) { table.innerHTML = `<tr><td style="padding:14px; color:var(--text3); text-align:center;">ไม่มีข้อมูล</td></tr>`; return; }
+
+    const rows = breakdown.map(b => ({
+      district: b.category,
+      counts: b.aging_counts,
+      total: agingOrder.reduce((s, k) => s + (b.aging_counts[k] || 0), 0),
+    })).sort((a, b) => b.total - a.total);
+
+    const head = `<thead><tr>
+      <th style="padding:7px 10px; text-align:left; background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">District</th>
+      ${agingOrder.map(k => `<th style="padding:7px 10px; text-align:center; white-space:nowrap; font-size:10px; text-transform:uppercase; letter-spacing:.03em; background:${agingColors[k] || '#8b949e'}; color:${rmFgForBg(agingColors[k])};" title="${rmEsc(k)}">${rmEsc(k)}</th>`).join('')}
+      <th style="padding:7px 10px; text-align:center; background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Total</th>
+    </tr></thead>`;
+
+    const body = rows.map((r, i) => `<tr style="border-top:1px solid var(--border); ${i % 2 ? 'background:var(--bg3);' : ''}">
+      <td style="padding:6px 10px; text-align:left; font-weight:600; white-space:nowrap;">${rmEsc(r.district)}</td>
+      ${agingOrder.map(k => { const v = r.counts[k] || 0; return `<td style="padding:6px 10px; text-align:center; ${v ? '' : 'color:var(--text3);'}">${v || '–'}</td>`; }).join('')}
+      <td style="padding:6px 10px; text-align:center; font-weight:800; background:var(--bg4, var(--bg3));">${r.total}</td>
+    </tr>`).join('');
+
+    const grand = { total: 0 };
+    agingOrder.forEach(k => { grand[k] = 0; });
+    rows.forEach(r => { agingOrder.forEach(k => { grand[k] += (r.counts[k] || 0); }); grand.total += r.total; });
+    const foot = `<tfoot><tr style="border-top:2px solid var(--border2); background:var(--bg3); font-weight:800;">
+      <td style="padding:6px 10px; text-align:left;">รวมทั้งหมด</td>
+      ${agingOrder.map(k => `<td style="padding:6px 10px; text-align:center;">${grand[k] || '–'}</td>`).join('')}
+      <td style="padding:6px 10px; text-align:center;">${grand.total}</td>
+    </tr></tfoot>`;
+
+    table.innerHTML = head + `<tbody>${body}</tbody>` + foot;
   }
 
   const DONUT_PALETTE = ['#2563eb', '#639922', '#EF9F27', '#E24B4A', '#7c3aed', '#B45309', '#0891b2', '#be185d', '#8b949e'];
@@ -5931,16 +6569,15 @@ function renderPivot(ft) {
   }
 
   function renderAll(data) {
-    populateSelectOnce(document.getElementById('rm-trueowner'), data.filter_options.trueowners);
-    populateSelectOnce(document.getElementById('rm-district'), data.filter_options.districts);
-    const agingSel = document.getElementById('rm-aging');
-    if (!agingSel.dataset.populated) { populateSelectOnce(agingSel, data.aging_order); }
+    populateMultiSelectOnce('trueowner', data.filter_options.trueowners);
+    populateMultiSelectOnce('district', data.filter_options.districts);
+    populateMultiSelectOnce('aging', data.aging_order);
 
     buildBarChart('rm-chart-region', data.breakdown_region, data.aging_order, data.aging_colors);
     buildSlaDonut('rm-chart-sla-donut', data.sla_breakdown, data.aging_order, data.aging_colors);
     buildClassificationDonut('rm-chart-classification-donut', data.classification_breakdown);
     buildBarChart('rm-chart-trueowner', data.breakdown_trueowner, data.aging_order, data.aging_colors);
-    buildBarChart('rm-chart-district', data.breakdown_district, data.aging_order, data.aging_colors);
+    buildDistrictPivot('rm-district-pivot', data.breakdown_district, data.aging_order, data.aging_colors);
     renderMap(data.map_points);
     renderDetailTable(data.detail_rows, data.detail_truncated, data.total);
   }
@@ -5966,21 +6603,9 @@ function renderPivot(ft) {
     } catch (e) { /* silent - poll again next tick */ }
   }
 
-  document.getElementById('rm-view-select').addEventListener('change', (e) => {
-    currentView = e.target.value;
-    // Reset dependent filters/dropdowns since they're scoped per-view
-    ['rm-trueowner', 'rm-district', 'rm-aging'].forEach(id => {
-      const sel = document.getElementById(id);
-      sel.innerHTML = '<option value="">ทั้งหมด</option>';
-      delete sel.dataset.populated;
-    });
-    reload();
-  });
+  renderViewChips(); // the view-chip click handlers (and their dependent-filter reset) are wired inside renderViewChips() itself
 
   document.getElementById('rm-reload').addEventListener('click', reload);
-  document.getElementById('rm-trueowner').addEventListener('change', reload);
-  document.getElementById('rm-aging').addEventListener('change', reload);
-  document.getElementById('rm-district').addEventListener('change', reload);
   document.querySelectorAll('.rm-region-cb').forEach(cb => cb.addEventListener('change', reload));
 
   window.initRealtimeMonitorTab = function () {
@@ -6930,9 +7555,13 @@ function renderPivot(ft) {
 
   let cachedSnapshotData = null;
 
+  // Same compact one-line format every Bookmark card uses for its own
+  // @01:15 compare line (explicit request: match the big card's text to
+  // the Bookmark cards' exactly) - was its own bigger 32px number in a
+  // separate column before, which is why it never quite matched.
   function renderTotalP0CompareInner(snapshotData) {
     if (!snapshotData) {
-      return `<div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div><div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
+      return `<div style="font-size:12px; color:var(--text3);">กำลังโหลด...</div>`;
     }
     const totalSnapshot = snapshotData.groups.reduce((s, g) => s + g.snapshot_p0, 0);
     const totalCurrent = snapshotData.groups.reduce((s, g) => s + g.current_p0, 0);
@@ -6941,10 +7570,9 @@ function renderPivot(ft) {
     const diffArrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '–');
     const diffLabel = (diff > 0 ? '+' : '') + diff;
     return `
-      <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">เทียบเมื่อคืน (01:15)</div>
-      <div style="display:flex; align-items:baseline; gap:8px;">
-        <span style="font-size:32px; font-weight:800; line-height:1;">${totalSnapshot}</span>
-        <span style="font-size:13px; font-weight:700; color:${diffColor};">${diffArrow} ${diffLabel}</span>
+      <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <span style="white-space:nowrap;">@01:15: <b>${totalSnapshot}</b></span>
+        <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
       </div>`;
   }
 
@@ -6952,6 +7580,8 @@ function renderPivot(ft) {
     cachedSnapshotData = data;
     const targetEl = document.getElementById('p0-total-p0-compare');
     if (targetEl) targetEl.innerHTML = renderTotalP0CompareInner(data);
+    const top5El = document.getElementById('p0-total-top5');
+    if (top5El && window.p0BigTop5Html) top5El.innerHTML = window.p0BigTop5Html(data);
   };
 
   const REMAINING_HOURS_BUCKET_COLS = [
@@ -7027,15 +7657,15 @@ function renderPivot(ft) {
   function renderExecutiveSummary(data) {
     const totalP0 = data.total_over_sla || 0;
 
+    // Single-column structure now, same as every Bookmark card - label,
+    // number, compact compare line, Top5, Trend, all at the identical
+    // font-sizes those cards use (explicit request: match Bookmark exactly).
     const totalCard = `
-      <div style="height:100%; background:var(--bg2); border:1px solid var(--border); border-left:3px solid #B23A3A; border-radius:var(--r); padding:14px 16px;">
-        <div style="display:flex; align-items:stretch; gap:16px;">
-          <div style="flex:1;">
-            <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
-            <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
-          </div>
-          <div id="p0-total-p0-compare" style="flex:1; border-left:1px solid var(--border); padding-left:16px;">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
-        </div>
+      <div style="height:100%; box-shadow:inset 3px 0 0 #B23A3A; padding:14px 16px;">
+        <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalP0}</div>
+        <div id="p0-total-p0-compare">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
+        <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
@@ -7184,6 +7814,45 @@ function renderPivot(ft) {
 
     el('p0-body').innerHTML = sections || '<div style="padding:20px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</div>';
   }
+
+  // Top 5 card click (explicit request): filters the matching section table
+  // below to that province (and scrolls to it). groupKey '' = the big cards
+  // (every section that has that province). Clicking the same province
+  // again clears it, like the matrix cells do. Those tables only list
+  // Over SLA (P0) tickets, so from a Total Pending card the table can hold
+  // fewer rows than the number clicked - and a section with no rows for that
+  // province is skipped with a short message instead of being filtered to nothing.
+  const P0_GROUP_TO_BOOKMARK = { MB: '7.MB with SA1-4', FBB: '4.FBB with SA1-4', NW_NSA12: '3. All NW Incident NSA1-2', NSA34: 'NSA3-4' };
+  function p0Toast(msg) {
+    let t = document.getElementById('p0-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'p0-toast';
+      t.style.cssText = 'position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#27466F; color:#fff; padding:9px 16px; border-radius:8px; font-size:12.5px; z-index:9999; box-shadow:0 4px 14px rgba(0,0,0,.25);';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(t._h);
+    t._h = setTimeout(() => { t.style.display = 'none'; }, 3200);
+  }
+  window.p0FocusProvince = function (groupKey, province) {
+    if (!lastData || !province) return;
+    const blocks = lastData.province_summary || [];
+    const inScope = groupKey ? blocks.filter(b => b.bookmark === P0_GROUP_TO_BOOKMARK[groupKey]) : blocks;
+    const targets = inScope.filter(b => b.rows.some(r => r.province === province));
+    if (!targets.length) {
+      p0Toast(`ไม่มี Ticket P0 ของ ${provinceEnLabel(province)} ในตารางด้านล่าง (ตารางแสดงเฉพาะ Over SLA)`);
+      return;
+    }
+    const allSame = targets.every(b => getSectionFilter(b.bookmark).province === province);
+    targets.forEach(b => { getSectionFilter(b.bookmark).province = allSame ? '' : province; });
+    render(lastData);
+    if (!allSame) {
+      const sec = document.getElementById('p0-section-' + blocks.indexOf(targets[0]));
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   window.filterP0SectionProvince = function (bookmark, province) {
     const f = getSectionFilter(bookmark);
@@ -11079,9 +11748,44 @@ loadData();
   }
   function priorityBadgeHtml(e) {
     const pr = classifyPriority(e);
-    if (!pr) return '<span style="color:var(--text3); font-size:11px;">-</span>';
+    const tf = parseSheetDateTime(e.require_finish_time);
+    const ref = bangkokTomorrow0115();
+    const debugTip = `Require Finish Time (ดิบ): "${e.require_finish_time || '(ว่าง)'}"\n`
+      + `แปลงเป็นเวลาได้: ${tf ? tf.toISOString() : 'แปลงไม่ได้'}\n`
+      + `จุดอ้างอิง (01:15 พรุ่งนี้): ${ref.toISOString()}\n`
+      + (tf ? `ห่างกัน: ${((ref.getTime() - tf.getTime()) / 3600000).toFixed(2)} ชม.` : '');
+    if (!pr) return `<span style="color:var(--text3); font-size:11px; cursor:help;" title="${escapeHtml(debugTip)}">-</span>`;
     const styles = { P0: 'background:#E24B4A22; color:#E24B4A;', P1: 'background:#EF9F2722; color:#c77d1a;', P2: 'background:#63992222; color:#4a7d19;' };
-    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; ${styles[pr]}">${pr}</span>`;
+    return `<span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px; font-weight:800; cursor:help; ${styles[pr]}" title="${escapeHtml(debugTip)}">${pr}</span>`;
+  }
+  // Today vs not-today date styling (explicit request: help the team
+  // "focus" by making a Departed/Arrived/Completed/Closed value that
+  // happened TODAY look different from one that's been sitting since an
+  // earlier day). Bangkok "today" via the same pure-UTC-math pattern
+  // used everywhere else in this module (Date.now() + fixed 7h offset,
+  // read through UTC getters) - never depends on the viewer's own
+  // browser/OS timezone.
+  function bangkokTodayStr() {
+    const bkk = new Date(Date.now() + 7 * 3600 * 1000);
+    return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
+  }
+  function isNotToday(dateStr) {
+    if (!dateStr) return false;
+    const m = String(dateStr).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!m) return false;
+    const norm = `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    return norm !== bangkokTodayStr();
+  }
+  function focusDateCell(dateStr) {
+    if (!dateStr) return '-';
+    // Today: plain, unremarkable text - nothing to focus on here.
+    // Not today: amber/orange + a small marker, so a ticket that's been
+    // sitting since an earlier day visibly stands out from one moving
+    // today.
+    if (isNotToday(dateStr)) {
+      return `<span style="color:#c77d1a; font-weight:700;">📅 ${escapeHtml(dateStr)}</span>`;
+    }
+    return escapeHtml(dateStr);
   }
   function slaStatusLabel(minutes) {
     if (minutes == null) return null;
@@ -11166,7 +11870,7 @@ loadData();
     el('ofc-reset-filters').style.display = anyActive ? 'inline' : 'none';
   }
 
-  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
+  const FILTER_SELECT_IDS = ['ofc-filter-region', 'ofc-filter-province', 'ofc-filter-team', 'ofc-filter-severity', 'ofc-filter-priority', 'ofc-filter-bookmark', 'ofc-filter-status', 'ofc-filter-sla'];
   function setFilter(key, value) {
     filters[key] = filters[key] === value ? (typeof value === 'boolean' ? false : '') : value; // click again to toggle off
     FILTER_SELECT_IDS.forEach(id => {
@@ -11177,7 +11881,7 @@ loadData();
     renderAll();
   }
 
-  ['region', 'province', 'team', 'severity', 'bookmark', 'status', 'sla'].forEach(k => {
+  ['region', 'province', 'team', 'severity', 'priority', 'bookmark', 'status', 'sla'].forEach(k => {
     el(`ofc-filter-${k}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderAll(); });
   });
   el('ofc-filter-p0p1-only').addEventListener('change', (e) => { filters.p0p1Only = e.target.checked; renderAll(); });
@@ -11571,6 +12275,20 @@ loadData();
   // this is a separate, simpler grouping that doesn't depend on a
   // successful ticket-to-mapping join at all. ─────────────────────────
   const openProvinceGroups = new Set();
+  // Latest progress (explicit request: too many mostly-empty columns) -
+  // a ticket only has ONE of these meaningfully filled in at a time as
+  // it moves through Departed -> Arrived -> Completed -> Closed, so
+  // showing all 4 as separate columns is mostly blank cells. Picks the
+  // FURTHEST-ALONG stage that actually has a value, checking from
+  // Closed backwards, and labels which stage it is so nothing is lost -
+  // just laid out in one column instead of four.
+  function latestProgressCell(e) {
+    const stages = [['Closed', e.closed], ['Completed', e.completed], ['Arrived', e.arrived], ['Departed', e.departed]];
+    const found = stages.find(([, v]) => v);
+    if (!found) return '<span style="color:var(--text3);">-</span>';
+    const [label, value] = found;
+    return `<span style="color:var(--text3); font-size:10px;">${label}:</span> ${focusDateCell(value)}`;
+  }
   function renderProvinceGroups(filtered) {
     const byProvince = {};
     filtered.forEach(e => { (byProvince[e.province] = byProvince[e.province] || []).push(e); });
@@ -11583,7 +12301,7 @@ loadData();
       const teams = Object.keys(byTeam).sort((a, b) => byTeam[b].length - byTeam[a].length);
       const bodyHtml = teams.map(team => {
         const teamRows = byTeam[team];
-        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="12" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text2);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
+        const teamHeader = `<tr style="background:var(--bg3);"><td colspan="11" style="padding:5px 8px; font-weight:700; font-size:11px; color:var(--text);">👷 ${escapeHtml(team)} (${teamRows.length} WO)</td></tr>`;
         const ticketRows = teamRows.map(e => {
           const isFbbOnline = e.bookmark === '4.FBB with SA1-4';
           const mins = slaMinutesRemaining(e);
@@ -11593,9 +12311,11 @@ loadData();
           <td>${priorityBadgeHtml(e)}</td>
           <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.subject)}">${escapeHtml(e.subject) || '-'}</td>
           <td style="${isFbbOnline ? 'color:#E24B4A; font-weight:800;' : ''}">${escapeHtml(e.bookmark) || '-'}</td>
+          <td><input type="text" class="ofc-remark-input" data-remark-ticket="${escapeHtml(e.ticket_id)}" value="${escapeHtml(e.remark)}" placeholder="เพิ่ม Note..." style="width:140px; font-size:11.5px; padding:3px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg2); color:var(--text);"></td>
           <td>${slaBadgeHtml(mins)}</td>
           <td>${escapeHtml(e.status)}</td>
-          <td>${escapeHtml(e.departed) || '-'}</td><td>${escapeHtml(e.arrived) || '-'}</td><td>${escapeHtml(e.completed) || '-'}</td><td>${escapeHtml(e.closed) || '-'}</td>
+          <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(e.pause_resume_time)}">${escapeHtml(e.pause_resume_time) || '-'}</td>
+          <td style="white-space:nowrap;">${latestProgressCell(e)}</td>
         </tr>`;
         }).join('');
         return teamHeader + ticketRows;
@@ -11607,7 +12327,7 @@ loadData();
         </div>
         <div class="ofc-detail-team-body ${isOpen ? 'open' : ''}">
           <table class="ofc-table">
-            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>SLA Status</th><th>Status</th><th>Departed</th><th>Arrived</th><th>Completed</th><th>Closed</th></tr></thead>
+            <thead><tr><th>Source Ticket ID</th><th>Site ID</th><th>Severity</th><th>Priority</th><th>Subject</th><th>Bookmark</th><th>Remark</th><th>SLA Status</th><th>Status</th><th>Pause/Resume Time</th><th>Latest Progress</th></tr></thead>
             <tbody>${bodyHtml}</tbody>
           </table>
         </div>
@@ -11755,6 +12475,50 @@ loadData();
   // actually gets fresh data) - bypasses the backend's own 5-minute
   // Sheets cache, unlike the automatic load when the tab first opens.
   el('ofc-refresh-btn').addEventListener('click', () => loadData(true));
+
+  el('ofc-province-expand-all').addEventListener('click', () => {
+    const filtered = getFiltered();
+    const provinces = new Set(filtered.map(e => e.province));
+    provinces.forEach(p => openProvinceGroups.add(p));
+    renderProvinceGroups(filtered);
+  });
+  el('ofc-province-collapse-all').addEventListener('click', () => {
+    openProvinceGroups.clear();
+    renderProvinceGroups(getFiltered());
+  });
+
+  // Remark auto-save on blur (explicit request: note-taking per ticket).
+  // Attached ONCE here, delegated on the stable container - not inside
+  // renderProvinceGroups, since that function reruns on every filter
+  // change / the 60s SLA tick / Refresh, and a listener added there
+  // would stack a new duplicate on top each time, firing the save
+  // multiple times per blur after a few re-renders.
+  // Known limitation: if a periodic re-render happens while someone is
+  // mid-typing (before they've blurred/tabbed away), that unsaved text
+  // is lost - saves only happen on blur, there's no draft-preservation
+  // across re-renders.
+  el('ofc-province-groups').addEventListener('blur', async (evt) => {
+    const input = evt.target.closest('[data-remark-ticket]');
+    if (!input) return;
+    const ticketId = input.dataset.remarkTicket;
+    const entry = allEntries.find(e => e.ticket_id === ticketId);
+    const newVal = input.value;
+    if (entry && entry.remark === newVal) return; // unchanged - don't hit the API for nothing
+    try {
+      const res = await fetch('/api/ofc-monitor/remark', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: ticketId, remark: newVal }),
+      });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
+      if (entry) entry.remark = newVal; // keep local state in sync so a re-render right after doesn't show the old value
+      input.style.borderColor = '#639922';
+      setTimeout(() => { input.style.borderColor = 'var(--border)'; }, 1200);
+    } catch (e) {
+      console.error('Remark save failed', e);
+      input.style.borderColor = '#E24B4A';
+      input.title = 'บันทึกไม่สำเร็จ: ' + e.message;
+    }
+  }, true); // capture phase - blur doesn't bubble, so this is required for delegation to work at all
 
   // SLA Remaining ticks forward every minute purely client-side (explicit
   // request: "Update SLA Timer ทุก 1 นาที โดยไม่ Fetch Google Sheet ใหม่")
@@ -12341,7 +13105,12 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ year_month: yearMonth }),
       });
-      if (!res.ok) throw new Error('add-month failed');
+      if (!res.ok) {
+        // Surface the server's real reason instead of a generic failure -
+        // the backend already returns {error: <exception text>} on a 500.
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
       const data = await fetchData();
       scheduleData = data;
       populateProvinceFilter(data);
@@ -12353,7 +13122,7 @@ loadData();
       render();
     } catch (e) {
       console.error('Add next month failed', e);
-      alert('เพิ่มเดือนถัดไปไม่สำเร็จ ลองใหม่อีกครั้งครับ');
+      alert('เพิ่มเดือนถัดไปไม่สำเร็จ ลองใหม่อีกครั้งครับ\n\nสาเหตุจากระบบ: ' + e.message);
     }
     btn.disabled = false;
     btn.textContent = '+ วางแผนเดือนถัดไป';
