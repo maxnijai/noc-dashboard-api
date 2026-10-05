@@ -423,7 +423,7 @@ def rename_group_problem_value(gs_client, old_value, new_value):
 # Nightly auto-fill of untouched over-SLA tickets (22:00 Bangkok, see app.py)
 # ---------------------------------------------------------------------------
 # Explicit request: every night, a ticket whose Aging_Flag_Group is one of the
-# four OverSLA buckets below and whose five work-log fields are ALL still
+# OverSLA buckets below and whose five work-log fields are ALL still
 # empty (nobody has touched it) gets a default plan filled in, stamped
 # "System automatic". Anything a person already entered - even a single field -
 # is left exactly as it is.
@@ -432,6 +432,7 @@ AUTO_FILL_AGING_GROUPS = (
     "2) OverSLA : < 30 days",
     "3) OverSLA : < 7 days",
     "4) OverSLA : < 3 days",
+    "5) OverSLA : < 1 day",     # added on request - same rule as the four above
 )
 AUTO_FILL_VALUES = {
     "group_problem": "Workload - Assigning team access site",
@@ -450,9 +451,10 @@ def _norm_aging(v):
 
 
 _AUTO_FILL_AGING_NORM = {_norm_aging(x) for x in AUTO_FILL_AGING_GROUPS}
+_AUTO_FILL_AGING_CANON = {_norm_aging(x): x for x in AUTO_FILL_AGING_GROUPS}
 
 
-def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
+def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_ticket_id=None):
     """Fills the default plan for untouched over-SLA tickets. Returns a
     summary dict (never raises for "nothing to do").
 
@@ -466,7 +468,9 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
         same night writes nothing.
       * Writes are batched (one batch_update for existing rows + append_rows for
         new ones) - per-ticket writes would blow through the Sheets write quota.
-      * dry_run=True reports what WOULD change and writes nothing."""
+      * dry_run=True reports what WOULD change and writes nothing.
+      * explain_ticket_id (optional) adds an "explain" entry saying why that one
+        ticket was / wasn't picked - a read-only answer to "why didn't ticket X update?"."""
     if not _auto_fill_run_lock.acquire(blocking=False):
         return {"skipped": "another auto-fill run is already in progress"}
     try:
@@ -494,8 +498,10 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
             "dry_run": bool(dry_run), "plan_closed_date": plan_date,
             "tickets_in_scope": len(entries), "in_aging_buckets": 0,
             "skipped_already_has_data": 0, "to_update_existing_rows": 0, "to_append_new_rows": 0,
-            "written": 0, "sample_ticket_ids": [],
+            "written": 0, "to_fill_by_bucket": {g: 0 for g in AUTO_FILL_AGING_GROUPS}, "sample_ticket_ids": [],
         }
+        target = str(explain_ticket_id or "").strip()
+        explain = None
         updates, appends, seen = [], [], set()
         for e in entries:
             tid = str(e.get("TICKETID", "")).strip()
@@ -503,17 +509,31 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
                 continue
             seen.add(tid)
             if _norm_aging(e.get("Aging_Flag_Group")) not in _AUTO_FILL_AGING_NORM:
+                if tid == target:
+                    explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": False,
+                               "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                               "reason": "Aging_Flag_Group is not one of the eligible buckets (rule covers only: " + " | ".join(AUTO_FILL_AGING_GROUPS) + ")"}
                 continue
             summary["in_aging_buckets"] += 1
             row_no, cells = existing.get(tid, (None, [""] * 5))
             if any(str(c).strip() for c in cells):
                 summary["skipped_already_has_data"] += 1
+                if tid == target:
+                    explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": False,
+                               "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                               "reason": "already has data in TicketWorkLog - a person's entry is never overwritten",
+                               "current_values": dict(zip(["group_problem", "action_team", "detail", "image_link", "plan_closed_date"], cells))}
                 continue
+            if tid == target:
+                explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": True,
+                           "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                           "reason": "eligible: over-SLA bucket and all 5 fields empty" + ("" if not dry_run else " (dry run - nothing written)")}
             values = [
                 tid, AUTO_FILL_VALUES["group_problem"], AUTO_FILL_VALUES["action_team"],
                 AUTO_FILL_VALUES["detail"], AUTO_FILL_VALUES["image_link"],
                 plan_date, now_str, AUTO_FILL_UPDATED_BY,
             ]
+            summary["to_fill_by_bucket"][_AUTO_FILL_AGING_CANON[_norm_aging(e.get("Aging_Flag_Group"))]] += 1
             if row_no is not None:
                 updates.append((row_no, values))
             else:
@@ -523,6 +543,29 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200):
 
         summary["to_update_existing_rows"] = len(updates)
         summary["to_append_new_rows"] = len(appends)
+
+        if target:
+            if explain is None:
+                # Not in the Pending Ticket tab's list at all - look at the raw live sheet to say why.
+                try:
+                    raw = next((r for r in fetch_live_rows(gs_client) if str(r.get("TICKETID", "")).strip() == target), None)
+                    if raw is None:
+                        explain = {"ticket_id": target, "in_pending_ticket_tab": False, "would_fill": False,
+                                   "reason": "not in the live pending sheet right now (already closed, or not synced into the sheet yet)"}
+                    else:
+                        why = []
+                        if str(raw.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+                            why.append(f"Region '{raw.get('Region')}' is outside NOR1/NOR2")
+                        if str(raw.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+                            why.append(f"SEVERITY '{raw.get('SEVERITY')}' is not an allowed severity")
+                        if _extract_region_province(raw.get("TRUEOWNERGROUP"))[1] is None:
+                            why.append(f"TRUEOWNERGROUP '{raw.get('TRUEOWNERGROUP')}' is not a NOR '-NOP' group (e.g. CORP) - excluded from the tab")
+                        explain = {"ticket_id": target, "in_pending_ticket_tab": False, "would_fill": False,
+                                   "aging_flag_group": str(raw.get("Aging_Flag_Group", "")),
+                                   "reason": "; ".join(why) or "in the live sheet but not in the tab's list (unexpected - check filters)"}
+                except Exception as ex:
+                    explain = {"ticket_id": target, "would_fill": False, "reason": f"could not look up the live sheet: {ex}"}
+            summary["explain"] = explain
 
         if not dry_run and (updates or appends):
             for i in range(0, len(updates), chunk_size):
@@ -1400,6 +1443,138 @@ def _top_n_provinces(counts, n=5):
     """[[province_code, count], ...] highest first, ties broken by code so
     the order is stable between refreshes."""
     return [[k, v] for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+
+# ---------------------------------------------------------------------------
+# Drill down data for the Focus P0 cards (map + team/district/CINAME analysis)
+# ---------------------------------------------------------------------------
+_DD_STAGE_RANK = {"wait": 0, "dep": 1, "arr": 2, "done": 3, "closed": 4}
+
+
+def _dd_daily_extras(gs_client):
+    """{ticket_id_upper: {"team", "st"}} from the GGS Daily sheet (the same
+    sheet and bounded/cached reader the Mateline status column already
+    uses). st = the furthest stage that row has a timestamp for -
+    Closed > Completed > Arrived > Departed, else "wait" - regardless of
+    which day it happened (the map shows where a job IS, not whether it
+    moved today). If a ticket has several Daily rows, the most advanced one
+    wins (ties keep the first). Returns {} if the sheet can't be read, so
+    the drill down still works from the live sheet's own Tech_Team."""
+    from mateline_status import fetch_ggs_daily_rows
+    try:
+        rows = fetch_ggs_daily_rows(gs_client)
+    except Exception:
+        log.exception("drilldown: could not read GGS Daily sheet - falling back to live-sheet Tech_Team only")
+        return {}
+    if not rows:
+        return {}
+    col = {str(n).strip(): i for i, n in enumerate(rows[0]) if str(n).strip()}
+
+    def get(row, name):
+        i = col.get(name)
+        return str(row[i]).strip() if i is not None and i < len(row) and row[i] is not None else ""
+
+    out = {}
+    for row in rows[1:]:
+        if not row or not any(row):
+            continue
+        if get(row, "Status").lower() in ("canceled", "cancelled"):
+            continue
+        tids = [t for t in (get(row, "Source Ticket ID"), get(row, "External TicketID")) if t]
+        if not tids:
+            continue
+        if get(row, "Closed"):
+            st = "closed"
+        elif get(row, "Completed"):
+            st = "done"
+        elif get(row, "Arrived"):
+            st = "arr"
+        elif get(row, "Departed"):
+            st = "dep"
+        elif get(row, "Status").lower().startswith("closed"):
+            st = "closed"
+        else:
+            st = "wait"
+        entry = {"team": get(row, "Team"), "st": st}
+        for t in tids:
+            key = t.upper()
+            prev = out.get(key)
+            if prev is None or _DD_STAGE_RANK[st] > _DD_STAGE_RANK[prev["st"]]:
+                out[key] = entry
+    return out
+
+
+def _dd_coord(v, lo, hi):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(f, 5) if lo <= f <= hi else None
+
+
+def build_p0_drilldown(gs_client):
+    """Ticket-level data behind the Focus P0 cards' drill down. One record
+    per (ticket, group) - the same unit the cards count - so the numbers
+    in the drill down add up exactly to the numbers on the cards:
+      z = 1 when this record counts toward that group's Over SLA (P0) card
+      (FBB: P0+P1, others: P0 - the same rule as _count_p0_by_group), and
+      every record counts toward the Total Pending card.
+    Same scope as the cards: NOR1/NOR2, allowed severities, CORP excluded.
+    Read-only; never touches the work log or any existing computation."""
+    from ticket_views import row_matches_view
+    from datetime import timedelta as _td
+    live_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    reference_dt = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    extras = _dd_daily_extras(gs_client)
+    apply_tog = _rows_have_owner_group(live_rows)
+    aging_idx = {k: i for i, k in enumerate(AGING_ORDER)}
+
+    records, counts_p0, counts_total, no_coord = [], {k: 0 for k in P0_COMPARISON_GROUPS}, {k: 0 for k in P0_COMPARISON_GROUPS}, 0
+    for r in live_rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        tid = str(r.get("TICKETID", "")).strip()
+        ex = extras.get(tid.upper(), {})
+        team = ex.get("team") or str(r.get("Tech_Team", "") or "").strip()
+        st = ex.get("st") or "wait"
+        lat, lon = _dd_coord(r.get("LATITUDE"), 5, 21), _dd_coord(r.get("LONGITUDE"), 97, 106)
+        if lat is None or lon is None:
+            lat = lon = None
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            z = 1 if priority in allowed else 0
+            counts_total[key] += 1
+            counts_p0[key] += z
+            if lat is None:
+                no_coord += 1
+            records.append({
+                "i": tid, "g": key, "p": prov, "z": z, "la": lat, "lo": lon, "s": st, "t": team,
+                "d": str(r.get("DISTRICT", "") or "").strip(), "c": str(r.get("CINAME", "") or "").strip(),
+                "a": aging_idx.get(str(r.get("Aging_Flag_Group", "")).strip(), -1),
+            })
+    # The drill down must add up to the cards - verify against the existing counters.
+    try:
+        chk_p0, chk_total = _count_p0_by_group(live_rows, reference_dt), _count_total_by_group(live_rows)
+        if chk_p0 != counts_p0 or chk_total != counts_total:
+            log.warning("drilldown counts differ from card counters: p0 %s vs %s, total %s vs %s", counts_p0, chk_p0, counts_total, chk_total)
+    except Exception:
+        log.exception("drilldown: consistency check could not run")
+    return {
+        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "aging_order": list(AGING_ORDER),
+        "tickets": records,
+        "no_coordinate_records": no_coord,
+        "team_source_note": "GGS Daily 'Team' column, falling back to the live sheet's Tech_Team",
+    }
 
 
 def _count_p0_by_group(rows, reference_dt):

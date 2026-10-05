@@ -19,6 +19,7 @@ from pending_ticket import (
     rename_group_problem_value,
     build_p0_snapshot_comparison,
     build_p0_daily_trend,
+    build_p0_drilldown,
     build_pending_ticket_xlsx,
 )
 import oncall
@@ -3270,6 +3271,18 @@ def api_p0_snapshot_comparison():
         return jsonify(data)
     except Exception as e:
         log.exception("p0-snapshot-comparison API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-drilldown')
+def api_p0_drilldown():
+    """Ticket-level data (coordinates, team, status, district, CINAME) behind
+    the Focus P0 cards' drill down. Loaded lazily the first time someone
+    clicks a card, never on page load, so it can't slow the page down."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(build_p0_drilldown(gs_client))
+    except Exception as e:
+        log.exception("p0-drilldown API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-daily-trend')
