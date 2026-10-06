@@ -340,7 +340,170 @@ def _row_number_from_append_response(resp):
         return None
 
 
-def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
+# ---------------------------------------------------------------------------
+# Detail timeline: dated lines ("06/10 text") inside the existing `detail` cell
+# ---------------------------------------------------------------------------
+# Explicit request: the รายละเอียด field becomes a running timeline, one dated
+# line per update, stored as plain multi-line text in the SAME TicketWorkLog
+# "detail" cell (no new column or tab, so the mirror sheet, Excel export and
+# every report that reads it keep working). add/edit/delete work on the
+# LATEST text read fresh from the sheet and touch ONLY the one line involved,
+# so two people updating the same ticket never overwrite each other's lines,
+# and text the team typed before this feature is never rewritten.
+_DETAIL_LINE_RX = re.compile(r"^\s*(\d{1,2})/(\d{1,2})(?:/\d{2,4})?\s+(.*)$")
+DETAIL_LINE_MAX_CHARS = 1000
+DETAIL_MAX_CHARS = 30000          # Sheets cell limit is 50,000; stay well under it
+_detail_op_lock = threading.Lock()  # serialises read-modify-write within this process
+
+
+class DetailOpError(Exception):
+    """A user-facing problem with a detail-line operation (bad input / line changed)."""
+    def __init__(self, message, status=400, current=None):
+        super().__init__(message)
+        self.status = status
+        self.current = current
+
+
+def _parse_detail_line(line):
+    m = _DETAIL_LINE_RX.match(line)
+    return (int(m.group(1)), int(m.group(2)), m.group(3)) if m else (None, None, line)
+
+
+def _valid_day_month(d, m):
+    from datetime import date as _date
+    try:
+        _date(2024, int(m), int(d))   # 2024 = leap year, so 29/02 is accepted
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def apply_detail_op(current_text, op):
+    """Pure function: (latest stored text, op) -> new text. Works on the RAW
+    lines (blank lines included) and changes only the line involved.
+      add : {"type":"add","d":6,"m":10,"text":"..."} - if a line already starts with that
+            day/month the LAST such line is replaced, otherwise the new line is appended
+      edit: {"type":"edit","old":"<exact existing line>","text":"..."} - a dated line keeps its
+            day/month (the year of an old-style "05/10/2026" line is dropped only here)
+      del : {"type":"del","old":"<exact existing line>"} - deleting a line already gone is a no-op
+    Raises DetailOpError for bad input, or when an edited line was changed by someone else."""
+    raw = str(current_text or "").split("\n")
+    t = (op or {}).get("type")
+
+    def clean(txt):
+        txt = re.sub(r"\s*[\r\n]+\s*", " ", str(txt or "")).strip()
+        if not txt:
+            raise DetailOpError("กรุณาพิมพ์ข้อความอัปเดตก่อน")
+        if len(txt) > DETAIL_LINE_MAX_CHARS:
+            raise DetailOpError(f"ข้อความยาวเกินไป (สูงสุด {DETAIL_LINE_MAX_CHARS} ตัวอักษรต่อบรรทัด)")
+        return txt
+
+    if t == "add":
+        d, m = op.get("d"), op.get("m")
+        if not _valid_day_month(d, m):
+            raise DetailOpError("วันที่ไม่ถูกต้อง")
+        new_line = f"{int(d):02d}/{int(m):02d} {clean(op.get('text'))}"
+        at = -1
+        for i, l in enumerate(raw):
+            ld, lm, _ = _parse_detail_line(l)
+            if ld == int(d) and lm == int(m):
+                at = i
+        if at >= 0:
+            raw[at] = new_line
+        else:
+            while raw and raw[-1].strip() == "":
+                raw.pop()
+            raw.append(new_line)
+    elif t == "edit":
+        old = op.get("old")
+        if old not in raw:
+            raise DetailOpError("บรรทัดนี้ถูกแก้ไขโดยคนอื่นแล้ว กรุณาดูข้อมูลล่าสุดก่อน", status=409, current=str(current_text or ""))
+        ld, lm, _ = _parse_detail_line(old)
+        txt = clean(op.get("text"))
+        raw[raw.index(old)] = f"{ld:02d}/{lm:02d} {txt}" if ld is not None else txt
+    elif t == "del":
+        old = op.get("old")
+        if old in raw:
+            raw.remove(old)
+    else:
+        raise DetailOpError("unknown operation")
+    new_text = "\n".join(raw)
+    if len(new_text) > DETAIL_MAX_CHARS:
+        raise DetailOpError("รายละเอียดยาวเกินกำหนด กรุณาลบบรรทัดเก่าบางส่วนก่อน")
+    return new_text
+
+
+def _read_work_log_row_fresh(ws, ticket_id):
+    """(sheet row number, padded 8-cell row) for ticket_id, read straight from the sheet -
+    NOT from the 2-hour cache, which could hand back an out-of-date detail and defeat the
+    whole point of not overwriting. The cached row number is only used as a hint and is
+    verified against the ticket id in column A; if it doesn't match, the column is rescanned.
+    Returns (None, None) if the ticket has no row yet."""
+    with _cache_lock:
+        hint = _work_log_row_index_cache.get(ticket_id)
+    if hint:
+        row = ws.row_values(hint)
+        if row and row[0] == ticket_id:
+            return hint, row + [""] * (len(WORK_LOG_HEADER) - len(row))
+    col = ws.col_values(1)
+    if ticket_id in col:
+        idx = col.index(ticket_id) + 1
+        row = ws.row_values(idx)
+        with _cache_lock:
+            _work_log_row_index_cache[ticket_id] = idx
+        return idx, row + [""] * (len(WORK_LOG_HEADER) - len(row))
+    return None, None
+
+
+def read_work_log_detail_fresh(gs_client, ticket_id):
+    load_work_log(gs_client)   # keeps the row-number hint warm (cache hit unless >2h idle)
+    ws = _ensure_work_log_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+    _, row = _read_work_log_row_fresh(ws, ticket_id)
+    return row[3] if row else ""
+
+
+def update_detail_lines(gs_client, ticket_id, op, updated_by=None):
+    """Applies one add/edit/delete to ticket_id's detail cell (see apply_detail_op) and stamps
+    updated_at/updated_by. Writes ONLY the detail cell and those two stamps (RAW, so Sheets never
+    reinterprets a line like "06/10 ..." as a date) - Group Problem, Action Team, Link and Plan
+    Closed Date are never touched. Creates the ticket's row if it has none yet (an add only)."""
+    if not ticket_id:
+        raise DetailOpError("ticket_id is required")
+    load_work_log(gs_client)
+    ws = _ensure_work_log_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    by = updated_by or "unknown"
+    with _detail_op_lock:
+        row_idx, row = _read_work_log_row_fresh(ws, ticket_id)
+        current = row[3] if row else ""
+        if row is None and (op or {}).get("type") != "add":
+            raise DetailOpError("ยังไม่มีรายละเอียดของ Ticket นี้", status=409, current="")
+        new_text = apply_detail_op(current, op)
+        changed = new_text != current
+        if changed:
+            if row_idx is not None:
+                ws.batch_update([
+                    {"range": f"D{row_idx}", "values": [[new_text]]},
+                    {"range": f"G{row_idx}:H{row_idx}", "values": [[now_str, by]]},
+                ], value_input_option="RAW")
+            else:
+                resp = ws.append_row([ticket_id, "", "", new_text, "", "", now_str, by], value_input_option="RAW")
+                row_idx = _row_number_from_append_response(resp)
+                if row_idx is None:
+                    _invalidate_work_log_cache()
+            with _cache_lock:
+                if _work_log_cache["data"] is not None:
+                    entry = _work_log_cache["data"].setdefault(ticket_id, {
+                        "group_problem": "", "action_team": "", "detail": "", "image_link": "",
+                        "plan_closed_date": "", "updated_at": "", "updated_by": "",
+                    })
+                    entry["detail"], entry["updated_at"], entry["updated_by"] = new_text, now_str, by
+                if row_idx is not None:
+                    _work_log_row_index_cache[ticket_id] = row_idx
+    return {"detail": new_text, "updated_at": now_str if changed else (row[6] if row else ""), "updated_by": by if changed else (row[7] if row else ""), "changed": changed}
+
+
+def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None, keep_detail=False):
     """fields: dict with any of group_problem/action_team/detail/image_link/
     plan_closed_date. Upserts the row for ticket_id, stamping updated_at (and
     updated_by once a login system exists - for now defaults to 'unknown').
@@ -374,7 +537,16 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
     with _cache_lock:
         row_idx = _work_log_row_index_cache.get(ticket_id)
 
-    if row_idx is not None:
+    if row_idx is not None and keep_detail:
+        # The detail timeline is edited through update_detail_lines (line by line), so this
+        # save must NOT write the detail cell at all - its copy of the text, loaded with the
+        # page, may already be out of date and would wipe lines added since. Everything else
+        # is written exactly as before (same value interpretation as the full-row update).
+        ws.batch_update([
+            {"range": f"B{row_idx}:C{row_idx}", "values": [[row_values[1], row_values[2]]]},
+            {"range": f"E{row_idx}:H{row_idx}", "values": [row_values[4:8]]},
+        ], value_input_option="USER_ENTERED")
+    elif row_idx is not None:
         ws.update(f"A{row_idx}:H{row_idx}", [row_values])
     else:
         resp = ws.append_row(row_values)
@@ -530,7 +702,8 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
                            "reason": "eligible: over-SLA bucket and all 5 fields empty" + ("" if not dry_run else " (dry run - nothing written)")}
             values = [
                 tid, AUTO_FILL_VALUES["group_problem"], AUTO_FILL_VALUES["action_team"],
-                AUTO_FILL_VALUES["detail"], AUTO_FILL_VALUES["image_link"],
+                f"{now_dt.strftime('%d/%m')} {AUTO_FILL_VALUES['detail']}",   # dated, so it reads as the first line of the detail timeline
+                AUTO_FILL_VALUES["image_link"],
                 plan_date, now_str, AUTO_FILL_UPDATED_BY,
             ]
             summary["to_fill_by_bucket"][_AUTO_FILL_AGING_CANON[_norm_aging(e.get("Aging_Flag_Group"))]] += 1

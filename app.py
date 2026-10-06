@@ -21,6 +21,9 @@ from pending_ticket import (
     build_p0_daily_trend,
     build_p0_drilldown,
     build_pending_ticket_xlsx,
+    update_detail_lines,
+    read_work_log_detail_fresh,
+    DetailOpError,
 )
 import oncall
 import oncall_escalation
@@ -2430,11 +2433,39 @@ def api_pending_ticket_update():
     if not action_team:
         return jsonify({'error': 'Action Team ห้ามว่าง'}), 400
 
-    # รายละเอียดต้องกรอกทุกครั้งและต้องอยู่ในรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข"
-    detail = (fields.get('detail') or '').strip()
-    if not detail or '/' not in detail:
-        return jsonify({'error': 'detail ต้องกรอกตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมี /)'}), 400
-    fields['detail'] = detail
+    # รายละเอียด: ต้องมีอย่างน้อย 1 บรรทัดเสมอ (ไม่บังคับรูปแบบ "ปัญหา/วิธีแก้ไข" แล้ว เพราะ
+    # รายละเอียดเป็นไทม์ไลน์รายวัน "06/10 ข้อความ" ตามที่ลูกค้าต้องการ)
+    # keep_detail=true (หน้าเว็บรุ่นใหม่): ไม่รับ/ไม่เขียนทับช่องรายละเอียด - ไทม์ไลน์แก้ผ่าน
+    # /api/pending-ticket/detail-line ทีละบรรทัด จึงตรวจจากค่าล่าสุดในชีตแทน
+    keep_detail = bool(payload.get('keep_detail'))
+    if keep_detail:
+        try:
+            _, gs_client_chk = get_drive_and_sheets_clients()
+            stored_detail = (read_work_log_detail_fresh(gs_client_chk, ticket_id) or '').strip()
+        except Exception as e:
+            log.exception("pending-ticket update: could not read current detail")
+            return jsonify({'error': str(e)}), 500
+        if not stored_detail:
+            return jsonify({'error': 'ต้องมีรายละเอียดอย่างน้อย 1 บรรทัด กรุณาเพิ่มในไทม์ไลน์ก่อน'}), 400
+        fields['detail'] = stored_detail   # used only for the response/cache; never written
+    else:
+        detail = (fields.get('detail') or '').strip()
+        if not detail:
+            return jsonify({'error': 'รายละเอียดห้ามว่าง (ต้องมีอย่างน้อย 1 บรรทัด)'}), 400
+        fields['detail'] = detail
+        # Stale-page guard: this branch is only reached by a browser tab opened BEFORE the timeline
+        # update (the new page sends keep_detail). Such a tab holds an old copy of the text, and
+        # saving it would silently wipe lines added since (by people or the 22:00 auto-fill) - so if
+        # what's stored now differs from what the tab sent, ask for a refresh instead of overwriting.
+        try:
+            _, gs_client_chk = get_drive_and_sheets_clients()
+            stored_now = read_work_log_detail_fresh(gs_client_chk, ticket_id) or ''
+        except Exception as e:
+            log.exception("pending-ticket update: could not read current detail")
+            return jsonify({'error': str(e)}), 500
+        _norm = lambda t: str(t or '').replace('\r\n', '\n').strip()
+        if _norm(stored_now) and _norm(stored_now) != _norm(detail):
+            return jsonify({'error': 'รายละเอียดของ Ticket นี้ถูกแก้ไขโดยคนอื่น/ระบบไปแล้ว กรุณารีเฟรชหน้าเว็บ (Ctrl+F5) แล้วลองใหม่', 'detail': stored_now}), 409
 
     # Plan Closed Date ห้ามว่าง, ห้ามเป็นวันที่ย้อนหลังวันปัจจุบัน, และห้ามอยู่ไกลเกินไปในอนาคต
     # (เช็คหลังนี้ดักปัญหาคนพิมพ์ปี พ.ศ. แทน ค.ศ. โดยไม่ตั้งใจ เช่น 2569 แทน 2026 -
@@ -2452,10 +2483,32 @@ def api_pending_ticket_update():
     updated_by = session.get('user_name') or 'unknown'
     try:
         _, gs_client = get_drive_and_sheets_clients()
-        saved = save_work_log_entry(gs_client, ticket_id, fields, updated_by=updated_by)
+        saved = save_work_log_entry(gs_client, ticket_id, fields, updated_by=updated_by, keep_detail=keep_detail)
         return jsonify({'status': 'saved', 'row': saved})
     except Exception as e:
         log.exception("pending-ticket update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/pending-ticket/detail-line', methods=['POST'])
+def api_pending_ticket_detail_line():
+    """Add / edit / delete ONE line of a ticket's detail timeline ("06/10 ข้อความ").
+    Applied on the latest text read fresh from the sheet and saved immediately - it never
+    rewrites the whole cell, so simultaneous updates from different people merge instead of
+    overwriting each other. Same access as /api/pending-ticket/update (logged-in users)."""
+    payload = request.get_json(silent=True) or {}
+    ticket_id = (payload.get('ticket_id') or '').strip()
+    op = {k: payload.get(k) for k in ('type', 'd', 'm', 'text', 'old')}
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(update_detail_lines(gs_client, ticket_id, op, updated_by=updated_by))
+    except DetailOpError as e:
+        body = {'error': str(e)}
+        if e.current is not None:
+            body['detail'] = e.current
+        return jsonify(body), e.status
+    except Exception as e:
+        log.exception("pending-ticket detail-line failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/exclusive-pending')
