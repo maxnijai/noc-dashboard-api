@@ -7,6 +7,7 @@ from google.oauth2.service_account import Credentials
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from pending_trend import get_drive_and_sheets_clients, bangkok_now
+from generator_test import build_generator_test_response
 from realtime_monitor import (
     build_realtime_response,
     get_insert_time,
@@ -2314,6 +2315,24 @@ def api_status():
 def api_rebuild():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     return jsonify({'status':'rebuilding'})
+
+@app.route('/api/generator-test')
+def api_generator_test():
+    """Portable Generator Test summary for NODE teams (Weekly by ISO week of UpdatedAt + Daily).
+    ?week=2026-W41|current  ?day=2026-10-06|today  ?force_refresh=1 (skip the 60s sheet cache).
+    Read-only. Rules live in generator_test.py."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        data = build_generator_test_response(
+            gs_client, week=request.args.get('week') or None, day=request.args.get('day') or None,
+            use_cache=request.args.get('force_refresh') != '1',
+        )
+        return jsonify(data)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("generator-test API failed")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/realtime-monitor')
 def api_realtime_monitor():
