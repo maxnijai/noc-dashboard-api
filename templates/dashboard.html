@@ -13542,6 +13542,10 @@ loadData();
     const g = d.diagnostics, L = [`รูปแบบเวลาใน UpdatedAt: ${esc(g.date_format)}`, `แถวในชีตทั้งหมด ${g.rows_total} แถว · อ่านเวลาไม่ได้ ${g.unreadable_updatedat} แถว`];
     if (g.missing_columns.length) L.push(`<span class="gt-ko">ไม่พบคอลัมน์: ${esc(g.missing_columns.join(', '))}</span>`);
     if (g.roster_unknown_province.length) L.push(`ทีม NODE ใน roster ที่รหัสจังหวัดไม่รู้จัก (ไม่ถูกนับ): ${esc(g.roster_unknown_province.join(', '))}`);
+    if (g.roster_stats && g.roster_stats.rows) {
+      const fmt = o => Object.entries(o).map(([k, v]) => `${esc(k)} ×${v}`).join(', ');
+      L.push(`รายชื่อทีม (แท็บ ${esc(g.teams_tab || '-')}): ${g.roster_stats.rows} แถว · TypeTeam: ${fmt(g.roster_stats.type_values)} · Active: ${fmt(g.roster_stats.active_values)} → ใช้เฉพาะ NOD + Y = ${d.roster_size} ทีม`);
+    }
     return `<div class="gt-sec"><h3>การอ่านข้อมูลจากชีต</h3><ul class="gt-an">${L.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
   }
   function render() {
