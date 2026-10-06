@@ -766,6 +766,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
   </div>
+  <div class="nav-item" onclick="showPage('generatortest')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1.5L3 9h4l-1 5.5L13 7H9l0-5.5z" stroke="#e0a21e" stroke-width="1.3" stroke-linejoin="round"/></svg>
+    Generator Test
+  </div>
 
   <div class="nav-section">Regional Monitoring</div>
   <div class="nav-item" onclick="showPage('floodnan')">
@@ -2037,6 +2041,72 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
+
+  <!-- GENERATOR TEST -->
+  <div class="page" id="page-generatortest">
+    <style>
+      #page-generatortest { --gt-blue:#2563eb; --gt-green:#3f9142; --gt-red:#d64545; --gt-amber:#e08a1e; --gt-gray:#6b7a8d; --gt-purple:#7c3aed; }
+      #page-generatortest .gt-bar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px; padding:10px 12px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); }
+      #page-generatortest .gt-bar label { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--text2); font-weight:600; }
+      #page-generatortest .gt-bar select, #page-generatortest .gt-bar input[type=date] { padding:5px 8px; }
+      #page-generatortest .gt-pills { display:flex; gap:6px; flex-wrap:wrap; }
+      #page-generatortest .gt-pill { padding:6px 16px; border:1px solid var(--border2); border-radius:18px; background:var(--bg2); cursor:pointer; font-weight:700; color:var(--text2); font-size:12.5px; }
+      #page-generatortest .gt-pill.on { background:var(--gt-blue); border-color:var(--gt-blue); color:#fff; }
+      #page-generatortest .gt-asof { margin-left:auto; font-size:11.5px; color:var(--text3); }
+      #page-generatortest .gt-msg { padding:10px 14px; border-radius:var(--r); margin-bottom:12px; font-size:12.5px; line-height:1.7; }
+      #page-generatortest .gt-msg.warn { background:#e08a1e22; color:#a8620b; border:1px solid #e08a1e66; }
+      #page-generatortest .gt-msg.err { background:#d6454522; color:#b23a3a; border:1px solid #d6454566; }
+      #page-generatortest .gt-sum { background:var(--bg2); border:1px solid var(--border); border-left:4px solid var(--gt-blue); border-radius:var(--r); padding:12px 16px; margin-bottom:14px; line-height:1.9; font-size:13px; }
+      #page-generatortest .gt-sum b { color:var(--gt-blue); }
+      #page-generatortest .gt-warnpill { display:inline-block; background:#e08a1e22; color:#a8620b; border-radius:10px; padding:0 8px; font-size:11px; font-weight:700; margin-left:6px; }
+      #page-generatortest .gt-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:14px; }
+      #page-generatortest .gt-kpi { background:var(--bg2); border:1px solid var(--border); border-left:4px solid var(--c); border-radius:var(--r); padding:10px 12px; }
+      #page-generatortest .gt-kpi b { display:block; font-size:26px; line-height:1.1; }
+      #page-generatortest .gt-kpi span { font-size:11px; color:var(--text3); }
+      #page-generatortest .gt-sec { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px; overflow:hidden; }
+      #page-generatortest .gt-sec > h3 { margin:0; padding:8px 14px; font-size:12.5px; background:var(--bg3); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+      #page-generatortest .gt-body { overflow:auto; }
+      #page-generatortest .gt-grid2 { display:grid; grid-template-columns:1fr 1.6fr; gap:14px; }
+      @media (max-width:1000px) { #page-generatortest .gt-grid2 { grid-template-columns:1fr; } }
+      #page-generatortest table.gt-t { border-collapse:collapse; width:100%; font-size:12px; }
+      #page-generatortest table.gt-t th { background:var(--bg3); color:var(--text2); font-size:10px; text-transform:uppercase; letter-spacing:.03em; padding:7px 9px; text-align:center; white-space:nowrap; }
+      #page-generatortest table.gt-t td { padding:6px 9px; border-top:1px solid var(--border); text-align:center; white-space:nowrap; }
+      #page-generatortest table.gt-t td.l, #page-generatortest table.gt-t th.l { text-align:left; }
+      #page-generatortest table.gt-t tr.sub td { background:var(--bg3); font-weight:800; }
+      #page-generatortest table.gt-t tr.tot td { background:color-mix(in srgb, #2563eb 10%, transparent); font-weight:800; border-top:2px solid var(--border2); }
+      #page-generatortest .gt-pct { position:relative; min-width:84px; }
+      #page-generatortest .gt-pct i { position:absolute; left:0; top:0; bottom:0; background:#3f914226; }
+      #page-generatortest .gt-pct span { position:relative; font-weight:700; }
+      #page-generatortest .gt-st { display:inline-block; padding:1px 9px; border-radius:12px; font-size:10.5px; font-weight:700; }
+      #page-generatortest .gt-st.ok { background:#3f914222; color:#3f9142; } #page-generatortest .gt-st.bad { background:#d6454522; color:#d64545; }
+      #page-generatortest .gt-st.fix { background:#e08a1e22; color:#a8620b; } #page-generatortest .gt-st.none { background:#6b7a8d22; color:#6b7a8d; }
+      #page-generatortest .gt-st.unk { background:#7c3aed22; color:#7c3aed; }
+      #page-generatortest .gt-zero { color:var(--text3); }
+      #page-generatortest details { border-top:1px solid var(--border); }
+      #page-generatortest details > summary { padding:7px 12px; cursor:pointer; font-weight:700; background:var(--bg3); list-style:none; }
+      #page-generatortest details > summary::before { content:'▸ '; color:var(--text3); } #page-generatortest details[open] > summary::before { content:'▾ '; }
+      #page-generatortest .gt-chips { display:flex; flex-wrap:wrap; gap:5px; padding:8px 12px; }
+      #page-generatortest .gt-chip { border:1px solid var(--border2); border-radius:12px; padding:1px 9px; font-size:11px; background:var(--bg1, var(--bg2)); }
+      #page-generatortest .gt-ok { color:#3f9142; font-weight:700; } #page-generatortest .gt-ko { color:#d64545; font-weight:700; }
+      #page-generatortest .gt-delta.up { color:#3f9142; font-weight:700; } #page-generatortest .gt-delta.dn { color:#d64545; font-weight:700; } #page-generatortest .gt-delta.eq { color:var(--text3); }
+      #page-generatortest ul.gt-an { margin:0; padding:10px 14px 10px 30px; line-height:1.85; font-size:12.5px; }
+      #page-generatortest .gt-chk { padding:6px 14px 12px; line-height:1.9; font-size:12.5px; }
+    </style>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-size:16px; font-weight:700;">⚡ Generator Test</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">สรุป Portable Generator ของทีม NODE — Weekly Start Test (ISO week ของ UpdatedAt เวลาไทย) และ Daily Check · ข้อมูลจาก BBTEC Smart App</div>
+      </div>
+    </div>
+    <div class="gt-bar">
+      <div class="gt-pills" id="gt-pills"></div>
+      <label>สัปดาห์ (Weekly) <select id="gt-week"></select></label>
+      <label>วันที่ (Daily) <input type="date" id="gt-day"></label>
+      <button class="btn-secondary" id="gt-refresh" style="font-size:12px; padding:5px 12px;">↻ Refresh</button>
+      <span class="gt-asof" id="gt-asof"></span>
+    </div>
+    <div id="gt-out"><div style="padding:30px; text-align:center; color:var(--text3);">กำลังโหลด...</div></div>
+  </div>
 
   <!-- ONCALL TEAM -->
   <div class="page" id="page-oncallteam">
@@ -5517,6 +5587,7 @@ function showPage(id) {
   if (id==='sa2risk') { setTimeout(()=>{ if (window.initSa2RiskTab) window.initSa2RiskTab(); },50); }
   if (id==='ofcmonitor') { setTimeout(()=>{ if (window.initOfcMonitorTab) window.initOfcMonitorTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
+  if (id==='generatortest') { setTimeout(()=>{ if (window.initGeneratorTestTab) window.initGeneratorTestTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
   toggleMobileSidebar(false); // picking a tab on mobile should close the drawer
@@ -13411,6 +13482,130 @@ loadData();
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
   window.initOncallTeamTab = function () { if (!loaded) reload(); };
 })();
+
+// ===== GENERATOR TEST (begin) =====
+// Renders /api/generator-test (rules are applied server-side in generator_test.py; this only draws).
+(function () {
+  const state = { tab: 'W', week: '', day: '', data: null, loading: false };
+  let loaded = false;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+  const z = n => n ? n : '<span class="gt-zero">–</span>';
+  const pcell = (a, b) => `<td class="gt-pct"><i style="width:${pct(a, b)}%"></i><span>${pct(a, b)}%</span></td>`;
+  const stCls = s => ({ 'ติดปกติ': 'ok', 'พร้อมใช้งาน': 'ok', 'สตาร์ทไม่ติด': 'bad', 'ชำรุด': 'bad', 'ส่งซ่อม': 'fix', 'ไม่มี Gen': 'none' }[s] || 'unk');
+
+  function overview(A, title) {
+    const o = A.nor, S = A.statuses;
+    const rows = [['ทีม NODE ทั้งหมด', o.total], ['ลงข้อมูลแล้ว', o.sent], ['ยังไม่ส่ง', o.not_sent], ...S.map((s, i) => [s + (i === 0 ? ' (ผ่าน)' : ''), o[s]])];
+    if (o.unknown) rows.push(['ค่า GenStatus ไม่รู้จัก', o.unknown]);
+    return `<div class="gt-sec"><h3>A. ภาพรวม NOR — ${title}</h3><div class="gt-body"><table class="gt-t"><thead><tr><th class="l">รายการ</th><th>จำนวนทีม</th><th>% ของทีมทั้งหมด</th></tr></thead><tbody>${rows.map(r => `<tr><td class="l">${r[0]}</td><td><b>${r[1]}</b></td>${pcell(r[1], o.total)}</tr>`).join('')}</tbody></table></div></div>`;
+  }
+  function regionTbl(A) {
+    const line = (n, o, cls) => `<tr class="${cls || ''}"><td class="l">${cls ? n : '<b>' + n + '</b>'}</td><td>${o.total}</td><td>${o.sent}</td><td>${z(o.not_sent)}</td>${pcell(o.sent, o.total)}</tr>`;
+    return `<div class="gt-sec"><h3>B. แยก Region</h3><div class="gt-body"><table class="gt-t"><thead><tr><th class="l">Region</th><th>ทีมทั้งหมด</th><th>ลงข้อมูล</th><th>ยังไม่ส่ง</th><th>% ลงข้อมูล</th></tr></thead><tbody>${line('NOR1', A.reg.NOR1)}${line('NOR2', A.reg.NOR2)}${line('NOR รวม', A.nor, 'tot')}</tbody></table></div></div>`;
+  }
+  function provTbl(A) {
+    const S = A.statuses;
+    const row = (label, o, cls, reg) => `<tr class="${cls || ''}"><td class="l">${reg || ''}</td><td class="l">${label}</td><td>${o.total}</td>${S.map(s => `<td>${z(o[s])}</td>`).join('')}<td>${o.sent}</td><td>${z(o.not_sent)}</td>${pcell(o.sent, o.total)}</tr>`;
+    let h = `<div class="gt-sec"><h3>C. แยกจังหวัด</h3><div class="gt-body"><table class="gt-t"><thead><tr><th class="l">Region</th><th class="l">Province</th><th>ทีมทั้งหมด</th>${S.map(s => `<th>${s}</th>`).join('')}<th>ลงข้อมูล</th><th>ยังไม่ส่ง</th><th>% ลงข้อมูล</th></tr></thead><tbody>`;
+    Object.entries(A.regions).forEach(([g, ps]) => { ps.forEach(p => { h += row(p, A.prov[p], '', g); }); h += row('รวม ' + g, A.reg[g], 'sub', g); });
+    return h + row('NOR รวม', A.nor, 'tot', '') + '</tbody></table></div></div>';
+  }
+  function lists(A) {
+    const groups = [];
+    Object.entries(A.regions).forEach(([g, ps]) => ps.forEach(p => groups.push({ g, p, sent: A.sent.filter(s => s.province === p), ns: A.not_sent.filter(t => (/-NR-([A-Z]{3})-/.exec(t) || [])[1] === p) })));
+    const sentHtml = groups.filter(x => x.sent.length).map(x => `<details><summary>${x.g} · ${x.p} <span style="font-weight:400; color:var(--text3);">(${x.sent.length} ทีม)</span></summary><table class="gt-t"><thead><tr><th class="l">TeamID</th><th>สถานะ</th><th>น้ำมันเพียงพอ</th><th>ระดับน้ำมัน</th><th>UpdatedAt (เวลาไทย)</th></tr></thead><tbody>${x.sent.map(r => `<tr><td class="l">${esc(r.team)}</td><td><span class="gt-st ${stCls(r.status)}">${esc(r.status)}</span></td><td>${esc(r.fuel_enough)}</td><td>${esc(r.fuel_level)}</td><td>${esc(r.updated_at)}</td></tr>`).join('')}</tbody></table></details>`).join('') || '<div style="padding:10px 14px; color:var(--text3);">ยังไม่มีทีมส่ง</div>';
+    const nsHtml = groups.filter(x => x.ns.length).map(x => `<details><summary>${x.g} · ${x.p} <span style="font-weight:400; color:var(--text3);">(${x.ns.length} ทีม)</span></summary><div class="gt-chips">${x.ns.map(t => `<span class="gt-chip">${esc(t)}</span>`).join('')}</div></details>`).join('') || '<div style="padding:10px 14px;" class="gt-ok">ส่งครบทุกทีม ✓</div>';
+    return `<div class="gt-grid2"><div class="gt-sec"><h3>D1. ยังไม่ส่ง (${A.not_sent.length} ทีม)</h3><div class="gt-body">${nsHtml}</div></div><div class="gt-sec"><h3>D2. ส่งแล้ว (${A.sent.length} ทีม)</h3><div class="gt-body">${sentHtml}</div></div></div>`;
+  }
+  function follow(A) {
+    return `<div class="gt-sec"><h3>E. ทีมที่ต้องติดตาม (${A.follow.length} ทีม)</h3><div class="gt-body"><table class="gt-t"><thead><tr><th class="l">TeamID</th><th>สถานะ</th><th class="l">เหตุผล</th><th class="l">Remark</th></tr></thead><tbody>${A.follow.map(f => `<tr><td class="l">${esc(f.team)}</td><td><span class="gt-st ${stCls(f.status)}">${esc(f.status)}</span></td><td class="l">${f.why.map(esc).join(' · ')}</td><td class="l">${esc(f.remark || '-')}</td></tr>`).join('') || '<tr><td colspan="4" class="gt-ok">ไม่มี ✓</td></tr>'}</tbody></table></div></div>`;
+  }
+  function compare(d) {
+    const P = d.previous_week, A = d.weekly;
+    if (!P.has_data) return `<div class="gt-sec"><h3>F. เทียบสัปดาห์ก่อนหน้า (${esc(P.label)})</h3><div style="padding:12px 14px; color:var(--text3);">ไม่มีข้อมูลสัปดาห์ก่อนหน้า</div></div>`;
+    const rows = [['NOR1', P.reg_sent.NOR1, A.reg.NOR1.sent], ['NOR2', P.reg_sent.NOR2, A.reg.NOR2.sent], ['NOR รวม', P.nor_sent, A.nor.sent]];
+    return `<div class="gt-sec"><h3>F. เทียบสัปดาห์ก่อนหน้า (${esc(P.label)})</h3><div class="gt-body"><table class="gt-t"><thead><tr><th class="l">Region</th><th>ลงข้อมูลสัปดาห์ก่อน</th><th>ลงข้อมูลสัปดาห์นี้</th><th>เพิ่ม/ลด</th></tr></thead><tbody>${rows.map(([n, a, b]) => { const dl = b - a; return `<tr class="${n === 'NOR รวม' ? 'tot' : ''}"><td class="l">${n}</td><td>${a}</td><td>${b}</td><td><span class="gt-delta ${dl > 0 ? 'up' : dl < 0 ? 'dn' : 'eq'}">${dl > 0 ? '▲ +' + dl : dl < 0 ? '▼ ' + dl : '– 0'}</span></td></tr>`; }).join('')}</tbody></table></div></div>`;
+  }
+  function anomalies(A, isW) {
+    const a = A.anomalies, L = [];
+    L.push(`แถวที่ตัดออก: ไม่ใช่ทีม NODE (ในช่วงที่เลือก) ${a.dropped_other_team} แถว · UpdatedAt ว่าง/อ่านไม่ได้ (ทั้งชีต) ${a.dropped_no_time} แถว`);
+    L.push(a.dups.length ? `ส่งซ้ำในช่วงเดียวกัน (ใช้แถวล่าสุด): ${a.dups.join(', ')}` : 'ส่งซ้ำ: ไม่พบ');
+    L.push(a.mismatch.length ? `Region/Province ที่กรอกไม่ตรง TeamID (ใช้ค่าจาก TeamID): ${a.mismatch.join(' | ')}` : 'Region/Province ไม่ตรง TeamID: ไม่พบ');
+    L.push(a.not_in_roster.length ? `ทีม NODE ที่ไม่อยู่ใน roster (ไม่รวมในผลรวม): ${a.not_in_roster.join(', ')}` : 'ทีม NODE นอก roster: ไม่พบ');
+    if (isW) L.push(a.period_bad.length ? `Period ไม่ตรงกับสัปดาห์จาก UpdatedAt (ใช้ UpdatedAt): ${a.period_bad.join(' | ')}` : 'Period ไม่ตรง: ไม่พบ');
+    L.push(a.unknown_status.length ? `GenStatus ที่ไม่รู้จัก: ${a.unknown_status.join(', ')}` : 'GenStatus ไม่รู้จัก: ไม่พบ');
+    return `<div class="gt-sec"><h3>ข้อมูลผิดปกติและข้อควรระวัง — ${isW ? 'Weekly' : 'Daily'}</h3><div class="gt-body"><ul class="gt-an">${L.map(x => `<li>${esc(x)}</li>`).join('')}</ul><div class="gt-chk">${A.checks.map(c => `<div>${c.ok ? '<span class="gt-ok">✓ ผ่าน</span>' : '<span class="gt-ko">✗ ไม่ตรง</span>'} ${esc(c.text)}</div>`).join('')}</div></div></div>`;
+  }
+  function diagnostics(d) {
+    const g = d.diagnostics, L = [`รูปแบบเวลาใน UpdatedAt: ${esc(g.date_format)}`, `แถวในชีตทั้งหมด ${g.rows_total} แถว · อ่านเวลาไม่ได้ ${g.unreadable_updatedat} แถว`];
+    if (g.missing_columns.length) L.push(`<span class="gt-ko">ไม่พบคอลัมน์: ${esc(g.missing_columns.join(', '))}</span>`);
+    if (g.roster_unknown_province.length) L.push(`ทีม NODE ใน roster ที่รหัสจังหวัดไม่รู้จัก (ไม่ถูกนับ): ${esc(g.roster_unknown_province.join(', '))}`);
+    return `<div class="gt-sec"><h3>การอ่านข้อมูลจากชีต</h3><ul class="gt-an">${L.map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+  }
+  function render() {
+    const d = state.data, out = $('gt-out');
+    if (!d) return;
+    $('gt-pills').innerHTML = [['W', 'Weekly Generator Start Test'], ['D', 'Daily Generator Check'], ['X', 'ข้อมูลผิดปกติ']].map(([k, l]) => `<span class="gt-pill ${state.tab === k ? 'on' : ''}" data-gt-tab="${k}">${l}</span>`).join('');
+    $('gt-asof').textContent = `ข้อมูล ณ ${d.as_of} น. (เวลาไทย) · ทีม NODE ใน roster ${d.roster_size} ทีม`;
+    const wk = $('gt-week');
+    if (!wk.options.length || wk.dataset.n !== String(d.weeks.length)) { wk.innerHTML = d.weeks.map(w => `<option value="${w.key}">${esc(w.label)}${w.current ? ' · สัปดาห์ปัจจุบัน' : ''}</option>`).join(''); wk.dataset.n = String(d.weeks.length); }
+    if (d.week) wk.value = d.week.key;
+    const dy = $('gt-day'); dy.max = d.today; if (d.day) dy.value = d.day.date;
+    let html = '';
+    if (d.stale) html += '<div class="gt-msg warn">⚠️ อ่านชีตรอบล่าสุดไม่สำเร็จ — กำลังแสดงข้อมูลรอบก่อนหน้า (อาจเก่ากว่าในชีต) กด Refresh เพื่อลองใหม่</div>';
+    if (d.roster_missing) {
+      const e = d.diagnostics.teams_error;
+      out.innerHTML = html + `<div class="gt-msg err">${esc(d.message)}${e ? `<br><span style="font-size:11px;">รายละเอียด: ${esc(e)}</span>` : ''}</div>` + diagnostics(d);
+      return;
+    }
+    const W = d.weekly, D = d.daily, S = W.statuses, DS = D.statuses;
+    const wUnk = W.nor.unknown;
+    html += `<div class="gt-sum"><div>① <b>Weekly ${esc(d.week.label)}</b>: ลงข้อมูล <b>${W.nor.sent}/${W.nor.total}</b> ทีม (${pct(W.nor.sent, W.nor.total)}%) · ยังไม่ส่ง <b>${W.nor.not_sent}</b> ทีม${d.week.is_current ? '<span class="gt-warnpill">สัปดาห์ยังไม่จบ ข้อมูลอาจเพิ่มได้อีก</span>' : ''}</div>
+      <div>② ผลทดสอบ: ติดปกติ <b>${W.nor[S[0]]}</b> · สตาร์ทไม่ติด <b>${W.nor[S[1]]}</b> · ส่งซ่อม <b>${W.nor[S[2]]}</b> · ไม่มี Gen <b>${W.nor[S[3]]}</b>${wUnk ? ` · ไม่รู้จัก <b>${wUnk}</b>` : ''} (ลงข้อมูลแล้ว ≠ ทดสอบผ่าน)</div>
+      <div>③ <b>Daily ${esc(d.day.date)}</b>${d.day.is_today ? ` (ข้อมูล ณ ${esc(d.day.as_of_time)} น.)` : ''}: ลงข้อมูล <b>${D.nor.sent}/${D.nor.total}</b> ทีม · พร้อมใช้งาน <b>${D.nor[DS[0]]}</b> · ชำรุด <b>${D.nor[DS[1]]}</b> · ส่งซ่อม <b>${D.nor[DS[2]]}</b> · ไม่มี Gen <b>${D.nor[DS[3]]}</b></div></div>`;
+    const kp = (A, cols) => `<div class="gt-kpis">${cols.map(([l, v, c]) => `<div class="gt-kpi" style="--c:${c}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
+    if (state.tab === 'W') html += kp(W, [['ลงข้อมูล', W.nor.sent, '#2563eb'], ['ยังไม่ส่ง', W.nor.not_sent, '#6b7a8d'], [S[0], W.nor[S[0]], '#3f9142'], [S[1], W.nor[S[1]], '#d64545'], [S[2], W.nor[S[2]], '#e08a1e'], [S[3], W.nor[S[3]], '#8496a8']])
+      + `<div class="gt-grid2">${overview(W, 'Weekly')}<div>${regionTbl(W)}${compare(d)}</div></div>` + provTbl(W) + lists(W) + follow(W);
+    else if (state.tab === 'D') html += kp(D, [['ลงข้อมูล', D.nor.sent, '#2563eb'], ['ยังไม่ส่ง', D.nor.not_sent, '#6b7a8d'], [DS[0], D.nor[DS[0]], '#3f9142'], [DS[1], D.nor[DS[1]], '#d64545'], [DS[2], D.nor[DS[2]], '#e08a1e'], [DS[3], D.nor[DS[3]], '#8496a8']])
+      + `<div class="gt-grid2">${overview(D, 'Daily')}<div>${regionTbl(D)}</div></div>` + provTbl(D) + lists(D) + follow(D);
+    else html += anomalies(W, true) + anomalies(D, false) + diagnostics(d);
+    out.innerHTML = html;
+  }
+  async function reload(force) {
+    if (state.loading) return;
+    state.loading = true;
+    const params = new URLSearchParams();
+    if (state.week) params.set('week', state.week);
+    if (state.day) params.set('day', state.day);
+    if (force) params.set('force_refresh', '1');
+    try {
+      const res = await fetch('/api/generator-test?' + params.toString());
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ('API ' + res.status));
+      state.data = data;
+      if (data.week) state.week = data.week.key;
+      if (data.day) state.day = data.day.date;
+      loaded = true;
+      render();
+    } catch (e) {
+      console.error('Generator Test load failed', e);
+      $('gt-out').innerHTML = `<div class="gt-msg err">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}<br><span style="font-size:11px;">ถ้าเป็นเรื่องสิทธิ์ ให้แชร์ไฟล์ Smart App Data ให้บัญชี Service Account ของ Dashboard (อ่านอย่างเดียว)</span></div>`;
+    } finally { state.loading = false; }
+  }
+  document.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-gt-tab]');
+    if (t) { state.tab = t.dataset.gtTab; render(); }
+  });
+  const wk = $('gt-week'), dy = $('gt-day');
+  if (wk) wk.addEventListener('change', () => { state.week = wk.value; reload(false); });
+  if (dy) dy.addEventListener('change', () => { state.day = dy.value || ''; reload(false); });
+  const rf = $('gt-refresh'); if (rf) rf.addEventListener('click', () => reload(true));
+  window.initGeneratorTestTab = function () { if (!loaded) reload(false); };
+})();
+// ===== GENERATOR TEST (end) =====
+
 
 // ── FLOOD NAN MONITORING ────────────────────────────────────────────────
 (function () {
