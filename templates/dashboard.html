@@ -80,6 +80,45 @@ select:focus, .btn:hover { border-color: var(--border2); }
 .rt-view-btn.active { background: var(--bg4); border-color: var(--blue); color: var(--blue); font-weight: 500; }
 .ptk-overdue { background: #fce7e6 !important; border-color: #E24B4A !important; }
 .ptk-dirty { box-shadow: 0 0 0 2px rgba(47,111,214,.35); }
+/* ---- Detail timeline widget (Pending Ticket + Exclusive/P0 tables) ---- */
+.dtl { min-width: 240px; max-width: 360px; font-size: 12px; }
+.dtl-muted { color: var(--text3); }
+.dtl-sum { display: flex; gap: 6px; align-items: flex-start; cursor: pointer; border: 1px solid var(--border2); border-radius: 6px; padding: 5px 8px; background: var(--bg2); }
+.dtl-sum:hover { border-color: #2563eb; }
+.dtl-sum.open { border-color: #2563eb; background: color-mix(in srgb, #2563eb 5%, transparent); }
+.dtl-txt { flex: 1; min-width: 0; line-height: 1.45; word-break: break-word; }
+.dtl-txt b { color: #2563eb; }
+.dtl-cnt { white-space: nowrap; font-size: 11px; color: var(--text3); }
+.dtl-stale { display: inline-block; margin-top: 3px; font-size: 10.5px; color: #a8620b; background: #e08a1e22; border-radius: 8px; padding: 0 7px; }
+.dtl-tl { margin-top: 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg1); padding: 8px 10px; }
+.dtl-line { display: flex; gap: 8px; align-items: flex-start; padding: 4px; border-radius: 5px; }
+.dtl-line:hover { background: var(--bg3); }
+.dtl-d { flex: 0 0 42px; font-weight: 700; color: #2563eb; font-variant-numeric: tabular-nums; }
+.dtl-line.today .dtl-d { color: #3f9142; }
+.dtl-line.legacy .dtl-d { color: var(--text3); font-weight: 400; }
+.dtl-line.legacy .dtl-t { color: var(--text2); }
+.dtl-t { flex: 1; min-width: 0; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.dtl-act { display: none; gap: 4px; }
+.dtl-line:hover .dtl-act { display: flex; }
+.dtl-ib { border: 0; background: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 0 3px; }
+.dtl-ib:hover { color: #2563eb; } .dtl-ib.del:hover { color: #d64545; }
+.dtl-tag { font-size: 10px; border-radius: 8px; padding: 0 6px; margin-left: 4px; background: #7c3aed22; color: #7c3aed; }
+.dtl-edit-in { width: 100%; font: inherit; padding: 3px 6px; border: 1px solid #2563eb; border-radius: 4px; background: var(--bg2); color: var(--text); }
+.dtl-add { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border2); }
+.dtl-row1 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.dtl-chip { display: inline-flex; align-items: center; border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; background: var(--bg2); white-space: nowrap; }
+.dtl-chip button { border: 0; background: var(--bg3); padding: 3px 8px; cursor: pointer; color: var(--text2); }
+.dtl-chip span { padding: 3px 8px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dtl-chip span.today { color: #3f9142; }
+.dtl-in { flex: 1; min-width: 120px; padding: 5px 8px; border: 1px solid var(--border2); border-radius: 6px; background: var(--bg2); color: var(--text); font: inherit; }
+.dtl-addbtn { border: 0; background: #2563eb; color: #fff; border-radius: 6px; padding: 5px 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.dtl-addbtn.rep { background: #e08a1e; }
+.dtl-quick { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.dtl-q { border: 1px solid var(--border2); background: var(--bg2); border-radius: 12px; padding: 1px 9px; font-size: 11px; cursor: pointer; color: var(--text2); }
+.dtl-q:hover { border-color: #2563eb; color: #2563eb; }
+.dtl-meta { margin-top: 6px; font-size: 10.5px; color: var(--text3); }
+#dtl-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1c2a3a; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 12.5px; display: none; z-index: 9999; box-shadow: 0 4px 14px rgba(0,0,0,.3); max-width: 90vw; }
+
 .ptk-sticky-1 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
 .ptk-sticky-2 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
 .ptk-sticky-3 { position:sticky; left:250px; width:240px; min-width:240px; max-width:240px; overflow:hidden; text-overflow:ellipsis; z-index:3; }
@@ -3116,6 +3155,143 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('p0-snapshot-compare')) loadP0SnapshotComparison('p0');
 });
 
+// ============================================================================
+// DETAIL TIMELINE (explicit request) - the รายละเอียด field is a running
+// timeline: one dated line per update ("06/10 ติดฝน"), stored as plain
+// multi-line text in the SAME detail cell. Add / edit / delete go to
+// /api/pending-ticket/detail-line one line at a time and save immediately
+// (the server applies each change to the latest text), so people updating the
+// same ticket don't overwrite each other and old free-text is never rewritten.
+// The row's Save button no longer sends the detail text at all (keep_detail).
+// ============================================================================
+const DTL = { open: new Set(), pick: {}, editing: null, busy: new Set() };
+const DTL_SYS_TEXT = 'Team on progress fixing/wait update from team';
+const DTL_RX = /^\s*(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\s+(.*)$/;   // dd/mm (an old-style year is tolerated) + text
+const DTL_QUICK = ['เดินทางเข้าซ่อม', 'ติดฝน', 'น้ำท่วม', 'รอเข้าพื้นที่', 'รอวัสดุ', 'ลูกค้าไม่สะดวก', 'ซ่อมเสร็จ รอตรวจสอบ'];
+function dtlEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function dtlPad(n) { return String(n).padStart(2, '0'); }
+function dtlFmt(d, m) { return dtlPad(d) + '/' + dtlPad(m); }
+function dtlToday() { const [, m, d] = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }).split('-').map(Number); return { d, m }; }
+function dtlParse(line) { const m = DTL_RX.exec(line); return m ? { d: +m[1], m: +m[2], t: m[3], raw: line } : { d: null, m: null, t: line, raw: line }; }
+function dtlLines(txt) { return String(txt || '').split('\n').filter(l => l.trim() !== '').map(dtlParse); }
+function dtlSame(p, d, m) { return p.d === d && p.m === m; }
+function dtlStore(el) { return el.querySelector('textarea.dtl-store'); }
+function dtlToast(msg) {
+  let t = document.getElementById('dtl-toast');
+  if (!t) { t = document.createElement('div'); t.id = 'dtl-toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
+// scope: 'ptk' (Pending Ticket table) or 'exd' (Exclusive / P0 detail tables) - decides the class
+// the hidden text holder gets, so each page's Save function can still read the current text from it.
+window.dtlWidgetHtml = function (tid, text, scope) {
+  return `<div class="dtl" data-tid="${dtlEsc(tid)}" data-scope="${scope}"><textarea class="dtl-store ${scope}-detail" hidden>${dtlEsc(text)}</textarea><div class="dtl-body">${dtlBodyHtml(tid, text)}</div></div>`;
+};
+function dtlBodyHtml(tid, text) {
+  const P = dtlLines(text), td = dtlToday(), isOpen = DTL.open.has(tid);
+  const dated = P.filter(p => p.d !== null), last = dated.length ? dated[dated.length - 1] : null;
+  const stale = !last || !dtlSame(last, td.d, td.m);
+  const head = last ? `<b>${dtlFmt(last.d, last.m)}</b> ${dtlEsc(last.t)}` : (P.length ? `<span class="dtl-muted">${dtlEsc(P[0].t)}</span>` : '<span class="dtl-muted">— ยังไม่มีอัปเดต · คลิกเพื่อเพิ่ม —</span>');
+  let html = `<div class="dtl-sum ${isOpen ? 'open' : ''}" data-dtl="toggle"><div class="dtl-txt">${head}${stale && P.length ? '<br><span class="dtl-stale">ยังไม่อัปเดตวันนี้</span>' : ''}</div><span class="dtl-cnt">${P.length ? P.length + ' บรรทัด ' : ''}${isOpen ? '▴' : '▾'}</span></div>`;
+  if (!isOpen) return html;
+  const pk = DTL.pick[tid] || (DTL.pick[tid] = { d: td.d, m: td.m, text: '' });
+  const exists = P.some(x => dtlSame(x, pk.d, pk.m)), isToday = dtlSame(pk, td.d, td.m);
+  const rows = P.map(x => {
+    const datedLine = x.d !== null, isSys = datedLine && x.t.trim() === DTL_SYS_TEXT, tdy = datedLine && dtlSame(x, td.d, td.m);
+    if (DTL.editing && DTL.editing.tid === tid && DTL.editing.raw === x.raw)
+      return `<div class="dtl-line"><span class="dtl-d">${datedLine ? dtlFmt(x.d, x.m) : ''}</span><input class="dtl-edit-in" value="${dtlEsc(datedLine ? x.t : x.raw)}"><span class="dtl-act" style="display:flex"><button class="dtl-ib" data-dtl="edit-save" title="บันทึก">✓</button><button class="dtl-ib" data-dtl="edit-cancel" title="ยกเลิก">✕</button></span></div>`;
+    return `<div class="dtl-line ${datedLine ? '' : 'legacy'} ${tdy ? 'today' : ''}" data-raw="${dtlEsc(x.raw)}"><span class="dtl-d">${datedLine ? dtlFmt(x.d, x.m) : 'เดิม'}</span><span class="dtl-t">${dtlEsc(datedLine ? x.t : x.raw)}${isSys ? '<span class="dtl-tag">🤖 ระบบ</span>' : ''}</span><span class="dtl-act"><button class="dtl-ib" data-dtl="edit" title="แก้">✎</button><button class="dtl-ib del" data-dtl="del" title="ลบ">🗑</button></span></div>`;
+  }).join('') || '<div class="dtl-muted" style="padding:4px;">ยังไม่มีอัปเดต</div>';
+  html += `<div class="dtl-tl">${rows}<div class="dtl-add"><div class="dtl-row1">
+    <span class="dtl-chip"><button data-dtl="day" data-n="-1" title="วันก่อนหน้า">◀</button><span class="${isToday ? 'today' : ''}">${dtlFmt(pk.d, pk.m)}${isToday ? ' · วันนี้' : ''}</span><button data-dtl="day" data-n="1" title="วันถัดไป">▶</button></span>
+    <input class="dtl-in" placeholder="พิมพ์อัปเดต เช่น ติดฝน รอน้ำลด..." maxlength="1000" value="${dtlEsc(pk.text)}">
+    <button class="dtl-addbtn ${exists ? 'rep' : ''}" data-dtl="add">${exists ? 'บันทึกทับ ' + dtlFmt(pk.d, pk.m) : '+ เพิ่ม'}</button></div>
+    <div class="dtl-quick">${DTL_QUICK.map(q => `<span class="dtl-q" data-dtl="quick" data-q="${dtlEsc(q)}">${dtlEsc(q)}</span>`).join('')}</div></div>
+    <div class="dtl-meta">บันทึกทันทีเมื่อกดเพิ่ม/แก้/ลบ (ไม่ต้องกด Save ของแถว)</div></div>`;
+  return html;
+}
+function dtlRender(el, focusInput) {
+  const store = dtlStore(el); if (!store) return;
+  el.querySelector('.dtl-body').innerHTML = dtlBodyHtml(el.dataset.tid, store.value);
+  if (focusInput) { const i = el.querySelector('.dtl-in'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  const e = el.querySelector('.dtl-edit-in'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); }
+}
+function dtlAllFor(tid) { return [...document.querySelectorAll('.dtl')].filter(x => x.dataset.tid === tid); }
+// Push the server's latest text into every widget showing this ticket (and the hidden holder the row Save reads).
+window.dtlSetText = function (tid, text) { dtlAllFor(tid).forEach(el => { dtlStore(el).value = text; dtlRender(el); }); };
+async function dtlSend(el, op) {
+  const tid = el.dataset.tid;
+  if (DTL.busy.has(tid)) return false;               // one request at a time per ticket - stops a double-click adding twice
+  DTL.busy.add(tid);
+  const prev = dtlLines(dtlStore(el).value);
+  try {
+    const res = await fetch('/api/pending-ticket/detail-line', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket_id: tid, ...op }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (data.detail !== undefined) window.dtlSetText(tid, data.detail);   // 409: someone changed it - show the latest
+      dtlToast(data.error || ('บันทึกไม่สำเร็จ (' + res.status + ')'));
+      return false;
+    }
+    window.dtlSetText(tid, data.detail);
+    if (data.changed) {
+      const row = el.closest('tr');
+      if (row) { const a = row.querySelector('.ptk-updated-at'), b = row.querySelector('.ptk-updated-by'); if (a) a.textContent = data.updated_at || ''; if (b) b.textContent = data.updated_by || ''; }
+    }
+    const now = dtlLines(data.detail).length;
+    const expected = op.type === 'add' ? (prev.some(p => dtlSame(p, op.d, op.m)) ? 0 : 1) : (op.type === 'del' ? -1 : 0);
+    const extra = now - prev.length - expected;
+    dtlToast(extra > 0 ? `บันทึกแล้ว ✓ — และรวมกับอัปเดตที่คนอื่นเพิ่มเข้ามาพร้อมกัน ${extra} บรรทัด (ไม่ถูกทับ)` : 'บันทึกแล้ว ✓');
+    return true;
+  } catch (e) {
+    dtlToast('บันทึกไม่สำเร็จ: ' + e.message);
+    return false;
+  } finally { DTL.busy.delete(tid); }
+}
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest && e.target.closest('[data-dtl]');
+  if (!t) return;
+  const el = t.closest('.dtl'); if (!el) return;
+  const tid = el.dataset.tid, act = t.dataset.dtl, td = dtlToday();
+  const pk = DTL.pick[tid] || (DTL.pick[tid] = { d: td.d, m: td.m, text: '' });
+  if (act === 'toggle') { DTL.open.has(tid) ? DTL.open.delete(tid) : DTL.open.add(tid); DTL.editing = null; dtlAllFor(tid).forEach(x => dtlRender(x, DTL.open.has(tid))); return; }
+  if (act === 'day') { const i = el.querySelector('.dtl-in'); if (i) pk.text = i.value; const dt = new Date(2026, pk.m - 1, pk.d + (+t.dataset.n)); pk.d = dt.getDate(); pk.m = dt.getMonth() + 1; dtlRender(el, true); return; }
+  if (act === 'quick') { const i = el.querySelector('.dtl-in'); i.value = (i.value ? i.value.replace(/\s*$/, ' ') : '') + t.dataset.q; pk.text = i.value; i.focus(); return; }
+  if (act === 'add') { await dtlAdd(el); return; }
+  const line = t.closest('.dtl-line');
+  if (act === 'edit') { DTL.editing = { tid, raw: line.dataset.raw }; dtlRender(el); return; }
+  if (act === 'edit-cancel') { DTL.editing = null; dtlRender(el); return; }
+  if (act === 'edit-save') { await dtlEditSave(el); return; }
+  if (act === 'del') { if (!confirm('ลบบรรทัดนี้?\n' + line.dataset.raw)) return; await dtlSend(el, { type: 'del', old: line.dataset.raw }); return; }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList) {
+    const el = e.target.closest && e.target.closest('.dtl'); if (!el) return;
+    if (e.target.classList.contains('dtl-in')) { e.preventDefault(); dtlAdd(el); }
+    else if (e.target.classList.contains('dtl-edit-in')) { e.preventDefault(); dtlEditSave(el); }
+  } else if (e.key === 'Escape' && DTL.editing) { const el = e.target.closest && e.target.closest('.dtl'); if (el) { DTL.editing = null; dtlRender(el); } }
+});
+async function dtlAdd(el) {
+  const tid = el.dataset.tid, pk = DTL.pick[tid], i = el.querySelector('.dtl-in'), text = (i.value || '').trim();
+  if (!text) { dtlToast('พิมพ์ข้อความอัปเดตก่อน'); return; }
+  pk.text = text;
+  const ok = await dtlSend(el, { type: 'add', d: pk.d, m: pk.m, text });
+  if (ok) { pk.text = ''; dtlAllFor(tid).forEach(x => dtlRender(x, x === el)); }
+}
+async function dtlEditSave(el) {
+  const tid = el.dataset.tid, v = (el.querySelector('.dtl-edit-in').value || '').trim();
+  if (!v) { dtlToast('ข้อความห้ามว่าง'); return; }
+  const raw = DTL.editing && DTL.editing.raw; DTL.editing = null;
+  await dtlSend(el, { type: 'edit', old: raw, text: v });
+  dtlRender(el);
+}
+// For the row Save functions: is there at least one line? (the hidden holder always has the latest text)
+window.dtlHasDetail = function (rowEl) { const s = rowEl.querySelector('textarea.dtl-store'); return !!(s && s.value.trim()); };
+window.dtlRequireDetail = function (rowEl) {   // highlight + open the widget when a Save is attempted with no detail
+  const el = rowEl.querySelector('.dtl'); if (!el) return;
+  DTL.open.add(el.dataset.tid); dtlRender(el, true);
+  el.style.outline = '2px solid #dc2626'; el.style.background = '#fee2e2'; el.style.borderRadius = '6px';
+  setTimeout(() => { el.style.outline = ''; el.style.background = ''; }, 2500);
+};
+
 // ── Inline editing on Exclusive Pending / P0 Only detail tables ────────────
 // Only rendered at all for the small allow-list (CAN_EDIT_FROM_EXCLUSIVE_VIEWS,
 // checked when the table is built), but the save/validate logic itself is
@@ -3152,9 +3328,9 @@ async function saveExDetailRow(ticketId, btn) {
     alert('กรุณาเลือก Action Team ห้ามว่างครับ'); return;
   }
   const detailVal = detailEl.value.trim();
-  if (!detailVal || !detailVal.includes('/')) {
-    detailEl.style.outline = '2px solid #dc2626'; detailEl.style.background = '#fee2e2';
-    alert('กรุณากรอกรายละเอียดตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมีเครื่องหมาย / คั่น)'); return;
+  if (!detailVal) {
+    dtlRequireDetail(row);
+    alert('กรุณาเพิ่มรายละเอียดอย่างน้อย 1 บรรทัดในไทม์ไลน์ก่อนครับ'); return;
   }
   const planDateVal = planDateEl.value;
   if (!planDateVal) {
@@ -3180,7 +3356,7 @@ async function saveExDetailRow(ticketId, btn) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ticket_id: ticketId, group_problem: groupProblemEl.value, action_team: actionTeamEl.value,
-        detail: detailVal, plan_closed_date: planDateVal, image_link: row.dataset.imageLink || '',
+        keep_detail: true, plan_closed_date: planDateVal, image_link: row.dataset.imageLink || '',
       }),
     });
     if (!res.ok) {
@@ -6766,7 +6942,7 @@ function renderPivot(ft) {
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
         <td data-label="รายละเอียด" style="padding:6px 8px;">
-          <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; max-width:280px; max-height:120px; overflow-y:auto; resize:vertical; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
+          ${dtlWidgetHtml(t.TICKETID, t.detail || '', 'ptk')}
         </td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
@@ -6852,12 +7028,11 @@ function renderPivot(ft) {
       alert('กรุณาเลือก Action Team ห้ามว่างครับ');
       return;
     }
-    // รายละเอียดต้องกรอกทุกครั้งและต้องมีรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (มี "/" คั่น)
-    if (!detailVal || !detailVal.includes('/')) {
-      detailEl.style.outline = '2px solid #dc2626';
-      detailEl.style.background = '#fee2e2';
-      detailEl.focus();
-      alert('กรุณากรอกรายละเอียดตามรูปแบบ "ปัญหาจากการตรวจสอบ/วิธีแก้ไข" (ต้องมีเครื่องหมาย / คั่นระหว่างปัญหากับวิธีแก้ไข)');
+    // รายละเอียดเป็นไทม์ไลน์ (เพิ่มทีละบรรทัดแล้วบันทึกทันที) - ต้องมีอย่างน้อย 1 บรรทัด
+    // ไม่บังคับรูปแบบ "ปัญหา/วิธีแก้ไข" อีกแล้ว
+    if (!detailVal) {
+      dtlRequireDetail(row);
+      alert('กรุณาเพิ่มรายละเอียดอย่างน้อย 1 บรรทัดในไทม์ไลน์ก่อนครับ');
       return;
     }
     if (!planDateVal) {
@@ -6891,7 +7066,7 @@ function renderPivot(ft) {
       ticket_id: ticketId,
       group_problem: groupProblemEl.value,
       action_team: actionTeamEl.value,
-      detail: detailVal,
+      keep_detail: true,   // the timeline is saved line by line; this Save must never overwrite it
       image_link: row.querySelector('.ptk-link').value,
       plan_closed_date: planDateVal,
     };
@@ -6906,6 +7081,7 @@ function renderPivot(ft) {
       const data = await res.json();
       // row shape from the API: [ticket_id, group_problem, action_team, detail, image_link, plan_closed_date, updated_at, updated_by]
       const saved = data.row || [];
+      if (saved[3] !== undefined) dtlSetText(ticketId, saved[3]);   // keep the widget in step with what the server holds
       row.querySelector('.ptk-updated-at').textContent = saved[6] || '';
       row.querySelector('.ptk-updated-by').textContent = saved[7] || '';
       row.classList.remove('ptk-dirty');
@@ -7191,7 +7367,7 @@ function renderPivot(ft) {
           <select class="exd-field exd-action-team" onchange="markExDirty(this)" style="width:100%; font-size:12px;">${optionsHtmlEx(actionTeamOptions, t.action_team)}</select>
         </td>
         <td style="padding:4px 6px; min-width:220px;">
-          <textarea class="exd-field exd-detail" oninput="markExDirty(this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:200px; font-size:12px; resize:vertical;">${escapeHtml(t.detail)}</textarea>
+          ${dtlWidgetHtml(t.TICKETID, t.detail || '', 'exd')}
         </td>
         <td style="padding:4px 6px; min-width:130px;">
           <input type="date" class="exd-field exd-plan-date ${isBackdated ? 'ptk-overdue' : ''}" value="${escapeHtml(planDate)}" max="${maxPlanDate}" onchange="markExDirty(this); checkExPlanDate(this);" style="width:100%; font-size:12px;">
@@ -9731,7 +9907,7 @@ function renderPivot(ft) {
               if (key === 'priority') return `<td style="padding:5px 8px; white-space:nowrap;">${priorityBadge(en.priority)}</td>`;
               if (key === '_remaining') return `<td style="padding:5px 8px; white-space:nowrap; font-weight:800; background:${heat.bg}; color:${heat.color};">${formatRemainingTime(en._remaining)}</td>`;
               if (key === 'over_sla_day') return `<td style="padding:5px 8px; text-align:center;">${en.over_sla_day || '–'}</td>`;
-              if (key === 'SUBJECT' || key === 'detail') return `<td style="padding:5px 8px; max-width:220px; white-space:normal;" title="${escapeHtml(en[key])}">${escapeHtml(en[key])}</td>`;
+              if (key === 'SUBJECT' || key === 'detail') return `<td style="padding:5px 8px; max-width:220px; white-space:${key === 'detail' ? 'pre-line' : 'normal'};" title="${escapeHtml(en[key])}">${escapeHtml(en[key])}</td>`;   // detail is now a multi-line timeline - keep its line breaks visible
               return `<td style="padding:5px 8px; white-space:nowrap;">${escapeHtml(en[key])}</td>`;
             }).join('');
             body += `<tr style="border-top:1px solid var(--border);">${cells}</tr>`;
@@ -9830,7 +10006,7 @@ function renderPivot(ft) {
           <b>Status Mateline:</b> ${escapeHtml(en.status_mateline)}<br>
           <b>Group Problem:</b> ${escapeHtml(en.group_problem)}<br>
           <b>Action Team:</b> ${escapeHtml(en.action_team)}<br>
-          <b>รายละเอียด:</b> ${escapeHtml(en.detail)}<br>
+          <b>รายละเอียด:</b> <span style="white-space:pre-line;">${escapeHtml(en.detail)}</span><br>
           <b>Plan Closed Date:</b> ${escapeHtml(en.plan_closed_date)}
         </div>`);
       markerClusterGroup.addLayer(marker);
