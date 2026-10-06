@@ -995,6 +995,49 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       .p0-t5r { display: grid; grid-template-columns: 14px minmax(0,1fr) 46px 30px; align-items: center; gap: 6px; font-size: 11.5px; padding: 2.5px 3px; border-radius: 4px; cursor: pointer; }
       .p0-t5r:hover { background: var(--bg3); }
       .p0-t5r.p0-t5-static { cursor: default; }
+      /* ---- Focus P0 drill down panel (click a card number / TOP 5 province) ---- */
+      .p0dd-click { cursor: pointer; border-radius: 6px; transition: background .12s; }
+      .p0dd-click:hover { background: color-mix(in srgb, #2563eb 12%, transparent); }
+      .p0dd-wrap { display: none; border-top: 2px solid #2563eb; }
+      .p0dd-wrap.open { display: block; animation: p0ddIn .25s ease; }
+      @keyframes p0ddIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+      .p0dd-panel { padding: 14px; background: var(--bg1); }
+      .p0dd-loading { padding: 24px; text-align: center; color: var(--text3); }
+      .p0dd-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+      .p0dd-crumbs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+      .p0dd-crumb { padding: 3px 10px; border-radius: 14px; border: 1px solid var(--border2); background: var(--bg2); cursor: pointer; font-weight: 600; }
+      .p0dd-crumb.last { background: #2563eb; color: #fff; border-color: #2563eb; cursor: default; }
+      .p0dd-hint { font-size: 11px; color: var(--text3); font-weight: 400; }
+      .p0dd-kpis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+      .p0dd-kpi { border: 1px solid var(--border); background: var(--bg2); border-radius: 8px; padding: 6px 12px; min-width: 92px; user-select: none; border-left: 4px solid var(--c); }
+      .p0dd-kpi.f { cursor: pointer; } .p0dd-kpi.off { opacity: .38; }
+      .p0dd-kpi b { display: block; font-size: 20px; line-height: 1.1; } .p0dd-kpi span { font-size: 10.5px; color: var(--text3); }
+      .p0dd-grid2 { display: grid; grid-template-columns: 1.45fr 1fr; gap: 12px; }
+      .p0dd-grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+      @media (max-width: 1000px) { .p0dd-grid2, .p0dd-grid3 { grid-template-columns: 1fr; } }
+      .p0dd-box { border: 1px solid var(--border); border-radius: 8px; background: var(--bg2); overflow: hidden; min-width: 0; }
+      .p0dd-bt { padding: 7px 12px; font-size: 11.5px; font-weight: 700; background: var(--bg3); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .p0dd-map { height: 400px; width: 100%; }
+      .p0dd-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--text2); padding: 6px 12px 10px; align-items: center; }
+      .p0dd-scroll { max-height: 400px; overflow: auto; }
+      table.p0dd-t { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+      table.p0dd-t th { background: var(--bg3); color: var(--text2); font-size: 10px; text-transform: uppercase; padding: 6px 8px; text-align: center; white-space: nowrap; position: sticky; top: 0; }
+      table.p0dd-t td { padding: 6px 8px; border-top: 1px solid var(--border); text-align: center; white-space: nowrap; }
+      table.p0dd-t td.l, table.p0dd-t th.l { text-align: left; }
+      table.p0dd-t tr.row { cursor: pointer; } table.p0dd-t tr.row:hover { background: var(--bg3); }
+      table.p0dd-t tr.row.sel { background: color-mix(in srgb, #2563eb 10%, transparent); }
+      .p0dd-badge { display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700; }
+      .p0dd-badge.b-cr { background: #d64545; color: #fff; } .p0dd-badge.b-hi { background: #d6454522; color: #d64545; }
+      .p0dd-badge.b-md { background: #e08a1e22; color: #a8620b; } .p0dd-badge.b-lo { background: #3f914222; color: #3f9142; }
+      .p0dd-bar { display: inline-block; height: 7px; border-radius: 3px; background: #2563eb; vertical-align: middle; }
+      .p0dd-ins { margin: 0; padding-left: 18px; line-height: 1.75; font-size: 12px; }
+      /* map markers (Leaflet divIcons) */
+      .p0dd-icon { background: none; border: 0; }
+      .p0dd-pin { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+      .p0dd-lbl { background: rgba(28,42,58,.82); color: #fff; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-bottom: 1px; white-space: nowrap; }
+      .p0dd-lbl.none { background: rgba(132,150,168,.85); }
+      .p0dd-cl { border-radius: 50%; border: 2px solid #fff; color: #fff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,.35); opacity: .92; }
+      .leaflet-container.p0dd-hi .p0dd-base { opacity: .18; }
     </style>
     <div style="display:flex; justify-content:flex-end; margin:0 0 8px;">
       <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); cursor:pointer;"><input type="checkbox" id="p0-top5-toggle" checked> แสดง Top 5 จังหวัดในการ์ด</label>
@@ -1009,6 +1052,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
         <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
+      <div id="p0dd-p0" class="p0dd-wrap"></div>
     </div>
     <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
     <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
@@ -1017,6 +1061,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
+      <div id="p0dd-total" class="p0dd-wrap"></div>
     </div>
     <div id="p0-body"></div>
   </div>
@@ -2587,7 +2632,7 @@ async function loadP0SnapshotComparison(prefix) {
       return `
       <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
-        <div style="font-size:32px; font-weight:800; line-height:1;">${g.current_p0}</div>
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
@@ -2708,7 +2753,11 @@ function p0Top5Html(list, base, accent, scope, groupKey) {
     const code = a[0], n = a[1];
     const clickable = !String(code).startsWith('(');
     const name = clickable ? provinceEnLabel(code) : code;
-    const click = clickable ? ` onclick="p0FocusProvince('${p0T5Esc(groupKey || '')}','${p0T5Esc(code)}')"` : '';
+    const gk = p0T5Esc(groupKey || ''), pc = p0T5Esc(code);
+    // P0 row: keep the existing "filter the table below" behaviour and also open the drill down.
+    // Total Pending row: the table below only lists P0 tickets, so filtering it would just show a
+    // misleading subset - open the drill down only.
+    const click = clickable ? ` onclick="${scope === 'total' ? '' : `p0FocusProvince('${gk}','${pc}'); `}p0OpenDrilldown('${scope}','${gk}','${pc}')"` : '';
     return `<div class="p0-t5r ${clickable ? '' : 'p0-t5-static'}"${click} title="${p0T5Esc(name)}: ${n} ใบ${clickable ? ' — ' + hint : ''}">
       <span style="color:var(--text3); font-size:10px; text-align:right;">${i + 1}</span>
       <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p0T5Esc(name)}</span>
@@ -2748,6 +2797,227 @@ window.p0BigTop5Html = function (data) {
   });
 })();
 
+// ============================================================================
+// P0 DRILL DOWN (explicit request) - click a card's big number, or a province
+// in a card's TOP 5, and a hidden Analysis panel expands under that block:
+// a map of the jobs (pin colour = status, floating team name), jobs per team
+// with a rough risk level, and district / CINAME analysis. Data comes from
+// /api/p0-drilldown, loaded lazily on the first click only, and is read-only:
+// nothing here changes any existing number or any other request.
+// ============================================================================
+const P0DD = { data: null, promise: null, open: null, hi: null, off: new Set(), lbl: true, map: null, base: null, hiLayer: null, vis: [] };
+const P0DD_GROUPS = { MB: '7.MB with SA1-4', FBB: '4.FBB with SA1-4', NW_NSA12: '3. All NW Incident NSA1-2', NSA34: 'NSA3 / NSA4' };
+const P0DD_STATS = [['wait', 'ยังไม่เดินทาง', '#d64545'], ['dep', 'เดินทางแล้ว', '#2563eb'], ['arr', 'ถึงไซต์แล้ว', '#e08a1e'], ['done', 'Complete', '#3f9142'], ['closed', 'Closed', '#6b7a8d']];
+const P0DD_ST = Object.fromEntries(P0DD_STATS.map(s => [s[0], s]));
+const P0DD_CLUSTER_ABOVE = 150;   // more visible jobs than this -> grouped into numbered circles
+const P0DD_LABELS_MAX = 120;      // team-name labels only when this few single pins are on the map
+const P0DD_RISK = { high: 8, critical: 12, wide_km: 60 }; // same load thresholds OFC Monitor already uses (8 / 12)
+
+function p0ddTeamCode(t) { return t ? String(t).trim().split(/\s+/)[0].replace(/^MT-NR-/, '') : ''; }
+function p0ddKm(a, b) {
+  const d = Math.PI / 180, dl = (b.la - a.la) * d, dn = (b.lo - a.lo) * d;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a.la * d) * Math.cos(b.la * d) * Math.sin(dn / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+function p0ddLoad(force) {
+  if (!force && P0DD.data) return Promise.resolve(P0DD.data);
+  if (P0DD.promise) return P0DD.promise;
+  P0DD.promise = fetch('/api/p0-drilldown')
+    .then(async r => { if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || ('API ' + r.status)); } return r.json(); })
+    .then(d => { P0DD.data = d; P0DD.promise = null; return d; })
+    .catch(e => { P0DD.promise = null; throw e; });
+  return P0DD.promise;
+}
+function p0ddScoped() {
+  const o = P0DD.open;
+  return P0DD.data.tickets.filter(t => (o.row === 'p0' ? t.z === 1 : true) && (o.g === 'ALL' || t.g === o.g) && (!o.p || t.p === o.p));
+}
+function p0ddPinSvg(st) {
+  const c = P0DD_ST[st][2];
+  if (st === 'dep') return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}" stroke="#fff" stroke-width="1.5"/><path d="M5 14v-2.4l1.6-3.4h10.8L19 11.6V14h-1.4a2 2 0 0 0-3.8 0H10a2 2 0 0 0-3.8 0z" fill="#fff"/><circle cx="8.2" cy="14.4" r="1.5" fill="#fff" stroke="${c}"/><circle cx="15.8" cy="14.4" r="1.5" fill="#fff" stroke="${c}"/></svg>`;
+  if (st === 'closed') return `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${c}" stroke="#fff" stroke-width="1.5"/><circle cx="9" cy="12" r="2.8" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 12h7M16.5 12v2.5M19 12v2" stroke="#fff" stroke-width="1.8" fill="none"/></svg>`;
+  return `<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 23s8-6.8 8-13a8 8 0 1 0-16 0c0 6.2 8 13 8 13z" fill="${c}" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="10" r="3.2" fill="#fff"/>${st === 'done' ? '<path d="M10.2 10l1.4 1.5 2.4-2.8" stroke="' + c + '" stroke-width="1.6" fill="none"/>' : ''}</svg>`;
+}
+function p0ddLegendIcon(st) {
+  const c = P0DD_ST[st][2];
+  return `<svg width="14" height="14" viewBox="0 0 24 24">${st === 'dep' || st === 'closed' ? `<circle cx="12" cy="12" r="11" fill="${c}"/>` : `<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z" fill="${c}"/><circle cx="12" cy="10" r="2.8" fill="#fff"/>`}</svg>`;
+}
+function p0ddScopeLabels() {
+  const o = P0DD.open, c = [[o.row === 'p0' ? 'Total P0' : 'Total Pending', 'ALL', '']];
+  if (o.g !== 'ALL') c.push([P0DD_GROUPS[o.g] || o.g, o.g, '']);
+  if (o.p) c.push([provinceEnLabel(o.p), o.g, o.p]);
+  return c;
+}
+window.p0ddSetScope = function (g, p) { const o = P0DD.open; if (!o) return; P0DD.open = { row: o.row, g, p }; P0DD.off = new Set(); P0DD.hi = null; p0ddRender(); };
+function p0ddClose() {
+  const o = P0DD.open;
+  if (P0DD.map) { P0DD.map.remove(); P0DD.map = null; }
+  P0DD.base = P0DD.hiLayer = null;
+  ['p0', 'total'].forEach(r => { const w = document.getElementById('p0dd-' + r); if (w) { w.classList.remove('open'); w.innerHTML = ''; } });
+  P0DD.open = null; P0DD.hi = null;
+}
+window.p0OpenDrilldown = function (row, g, p) {
+  g = g || 'ALL'; p = p || '';
+  const o = P0DD.open;
+  if (o && o.row === row && o.g === g && o.p === p) { p0ddClose(); return; }
+  p0ddClose();
+  const wrap = document.getElementById('p0dd-' + row);
+  if (!wrap) return;
+  P0DD.open = { row, g, p }; P0DD.off = new Set(); P0DD.hi = null;
+  wrap.classList.add('open');
+  wrap.innerHTML = `<div class="p0dd-panel"><div class="p0dd-loading">กำลังโหลดพิกัดและข้อมูลทีม...</div></div>`;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  p0ddLoad(false).then(() => { if (P0DD.open && P0DD.open.row === row) p0ddRender(); })
+    .catch(e => { if (P0DD.open && P0DD.open.row === row) wrap.innerHTML = `<div class="p0dd-panel" style="color:#B23A3A;">โหลดไม่สำเร็จ: ${p0T5Esc(e.message)} <button class="btn-secondary" onclick="p0ddReload()">ลองใหม่</button></div>`; });
+};
+window.p0ddReload = function () { P0DD.data = null; const o = P0DD.open; if (!o) return; const w = document.getElementById('p0dd-' + o.row); if (w) w.innerHTML = `<div class="p0dd-panel"><div class="p0dd-loading">กำลังโหลดพิกัดและข้อมูลทีม...</div></div>`; p0ddLoad(true).then(() => { if (P0DD.open) p0ddRender(); }).catch(e => { if (w) w.innerHTML = `<div class="p0dd-panel" style="color:#B23A3A;">โหลดไม่สำเร็จ: ${p0T5Esc(e.message)}</div>`; }); };
+
+function p0ddRender() {
+  const o = P0DD.open, wrap = document.getElementById('p0dd-' + o.row);
+  if (!wrap || !P0DD.data) return;
+  if (P0DD.map) { P0DD.map.remove(); P0DD.map = null; }
+  const all = p0ddScoped();
+  const teams = {};
+  all.forEach(t => { if (t.t) (teams[t.t] = teams[t.t] || []).push(t); });
+  const noCoord = all.filter(t => t.la == null).length, unassigned = all.filter(t => !t.t).length;
+  const crumbs = p0ddScopeLabels().map((c, i, a) => `<span class="p0dd-crumb ${i === a.length - 1 ? 'last' : ''}" ${i < a.length - 1 ? `onclick="p0ddSetScope('${c[1]}','${c[2]}')"` : ''}>${p0T5Esc(c[0])}</span>`).join(' › ');
+  const kpis = P0DD_STATS.map(s => `<div class="p0dd-kpi f ${P0DD.off.has(s[0]) ? 'off' : ''}" data-st="${s[0]}" style="--c:${s[2]}"><b>${all.filter(t => t.s === s[0]).length}</b><span>${s[1]}</span></div>`).join('')
+    + `<div class="p0dd-kpi" style="--c:#7c3aed"><b>${Object.keys(teams).length}</b><span>ทีมที่เกี่ยวข้อง</span></div><div class="p0dd-kpi" style="--c:#8496a8"><b>${unassigned}</b><span>ยังไม่มีทีม</span></div>`;
+  wrap.innerHTML = `<div class="p0dd-panel">
+    <div class="p0dd-head"><div class="p0dd-crumbs">🔎 Drill down: ${crumbs} <span class="p0dd-hint">· ${all.length} งาน · ข้อมูล ${p0T5Esc(P0DD.data.generated_at)}</span></div>
+      <div style="display:flex; gap:8px; align-items:center;"><label class="p0dd-hint" style="cursor:pointer;"><input type="checkbox" id="p0dd-lbl-chk" ${P0DD.lbl ? 'checked' : ''}> แสดงชื่อทีมบนหมุด</label><button class="btn-secondary" onclick="p0ddReload()">↻ รีเฟรช</button><button class="btn-secondary" onclick="p0OpenDrilldown('${o.row}','${o.g}','${o.p}')">ปิด ✕</button></div></div>
+    <div class="p0dd-kpis">${kpis}</div>
+    <div class="p0dd-grid2">
+      <div class="p0dd-box"><div class="p0dd-bt"><span>🗺️ แผนที่พิกัดงาน (สีตามสถานะ)</span><span class="p0dd-hint" id="p0dd-maphint"></span></div>
+        <div id="p0dd-map" class="p0dd-map"></div>
+        <div class="p0dd-legend">${P0DD_STATS.map(s => `<span style="display:inline-flex; gap:4px; align-items:center;">${p0ddLegendIcon(s[0])}${s[1]}</span>`).join('')}${noCoord ? `<span class="p0dd-hint">· ไม่มีพิกัด ${noCoord} งาน (ไม่แสดงบนแผนที่ แต่นับในตาราง)</span>` : ''}</div></div>
+      <div class="p0dd-box"><div class="p0dd-bt"><span>👷 งานต่อทีม &amp; ความเสี่ยงทำไม่ทัน</span><span class="p0dd-hint">≥${P0DD_RISK.high} สูง · ≥${P0DD_RISK.critical} วิกฤต (เกณฑ์เดิม OFC Monitor)</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-teamT"></table></div></div>
+    </div>
+    <div class="p0dd-grid3">
+      <div class="p0dd-box"><div class="p0dd-bt"><span>📍 Analysis ราย${o.p ? 'อำเภอ' : 'จังหวัด'}</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-distT"></table></div></div>
+      <div class="p0dd-box"><div class="p0dd-bt"><span>🏢 Analysis CINAME (ไซต์/ลูกค้า)</span><span class="p0dd-hint">ไซต์ที่มีหลายงานซ้อนกัน</span></div><div class="p0dd-scroll"><table class="p0dd-t" id="p0dd-ciT"></table></div></div>
+    </div>
+    <div class="p0dd-box" style="margin-top:12px;"><div class="p0dd-bt"><span>💡 สรุปให้อัตโนมัติ</span></div><div style="padding:10px 12px;"><ul class="p0dd-ins" id="p0dd-ins"></ul></div></div></div>`;
+  wrap.querySelector('#p0dd-lbl-chk').onchange = e => { P0DD.lbl = e.target.checked; p0ddDrawMarkers(); };
+  wrap.querySelectorAll('.p0dd-kpi.f').forEach(k => k.onclick = () => { const s = k.dataset.st; P0DD.off.has(s) ? P0DD.off.delete(s) : P0DD.off.add(s); k.classList.toggle('off', P0DD.off.has(s)); p0ddDrawMarkers(); });
+  p0ddInitMap(all);
+  p0ddDrawTables(all, teams);
+}
+function p0ddInitMap(all) {
+  const el = document.getElementById('p0dd-map');
+  if (!el || typeof L === 'undefined') return;
+  const pts = all.filter(t => t.la != null);
+  P0DD.map = L.map(el, { zoomControl: true, preferCanvas: false }).setView([17.2, 99.7], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(P0DD.map);
+  P0DD.base = L.layerGroup().addTo(P0DD.map);
+  P0DD.hiLayer = L.layerGroup().addTo(P0DD.map);
+  P0DD.map.on('zoomend', p0ddDrawMarkers);
+  if (pts.length) {
+    const b = L.latLngBounds(pts.map(t => [t.la, t.lo]));
+    P0DD.map.fitBounds(b, { padding: [30, 30], maxZoom: 13 });
+  }
+  setTimeout(() => { if (P0DD.map) { P0DD.map.invalidateSize(); p0ddDrawMarkers(); } }, 120);
+}
+function p0ddPinIcon(t, withLabel, cls) {
+  const code = p0ddTeamCode(t.t), label = withLabel ? `<span class="p0dd-lbl ${t.t ? '' : 'none'}">${p0T5Esc(code || 'ยังไม่มีทีม')}</span>` : '';
+  return L.divIcon({ className: 'p0dd-icon ' + (cls || ''), iconSize: [0, 0], iconAnchor: [0, 0], html: `<div class="p0dd-pin">${label}${p0ddPinSvg(t.s)}</div>` });
+}
+function p0ddTip(t) {
+  return `<b>${p0T5Esc(t.i)}</b><br>${p0T5Esc(t.c)} · ${p0T5Esc(t.d)}, ${p0T5Esc(provinceEnLabel(t.p))}<br>สถานะ: ${P0DD_ST[t.s][1]}<br>ทีม: ${t.t ? p0T5Esc(t.t) : 'ยังไม่มี'}<br>Aging: ${p0T5Esc((P0DD.data.aging_order || [])[t.a] || '-')}`;
+}
+function p0ddDrawMarkers() {
+  if (!P0DD.map || !P0DD.base) return;
+  P0DD.base.clearLayers();
+  const seen = new Set(), vis = [];
+  p0ddScoped().forEach(t => { if (t.la == null || P0DD.off.has(t.s) || seen.has(t.i)) return; seen.add(t.i); vis.push(t); });
+  P0DD.vis = vis;
+  const clustered = vis.length > P0DD_CLUSTER_ABOVE, zoom = P0DD.map.getZoom();
+  const hint = document.getElementById('p0dd-maphint');
+  let pins = [];
+  if (!clustered) pins = vis;
+  else {
+    const cells = {};
+    vis.forEach(t => { const p = P0DD.map.project([t.la, t.lo], zoom); const k = Math.floor(p.x / 46) + '_' + Math.floor(p.y / 46); (cells[k] = cells[k] || []).push(t); });
+    Object.values(cells).forEach(a => {
+      if (a.length === 1) { pins.push(a[0]); return; }
+      const cnt = {}; a.forEach(t => { cnt[t.s] = (cnt[t.s] || 0) + 1; });
+      const dom = Object.entries(cnt).sort((x, y) => y[1] - x[1])[0][0], d = Math.min(52, 22 + Math.sqrt(a.length) * 4);
+      const ll = [a.reduce((s, t) => s + t.la, 0) / a.length, a.reduce((s, t) => s + t.lo, 0) / a.length];
+      const m = L.marker(ll, { icon: L.divIcon({ className: 'p0dd-icon p0dd-base', iconSize: [d, d], iconAnchor: [d / 2, d / 2], html: `<div class="p0dd-cl" style="width:${d}px;height:${d}px;background:${P0DD_ST[dom][2]};">${a.length}</div>` }) }).addTo(P0DD.base);
+      m.bindTooltip(`<b>${a.length} งานในบริเวณนี้</b><br>` + Object.entries(cnt).map(([s, n]) => `${P0DD_ST[s][1]}: ${n}`).join('<br>') + `<br>ทีม ${new Set(a.filter(t => t.t).map(t => t.t)).size} ทีม (ซูมเข้าเพื่อแยกหมุด)`, { direction: 'top' });
+      m.on('click', () => P0DD.map.setView(ll, Math.min(18, zoom + 2)));
+    });
+  }
+  const withLabel = P0DD.lbl && pins.length <= P0DD_LABELS_MAX;
+  pins.forEach(t => {
+    const m = L.marker([t.la, t.lo], { icon: p0ddPinIcon(t, withLabel, 'p0dd-base') }).addTo(P0DD.base);
+    m.bindTooltip(p0ddTip(t), { direction: 'top', offset: [0, -26] });
+    if (t.t) { m.on('mouseover', () => p0ddHighlight(t.t)); m.on('mouseout', () => p0ddHighlight(null)); }
+  });
+  if (hint) hint.textContent = clustered ? `งาน ${vis.length} จุด รวมเป็นวงกลมตัวเลข · ซูม/คลิกวงกลมเพื่อแยกหมุด` : 'ชี้หมุด/แถวทีมเพื่อดูงานของทีมเดียวกัน';
+  p0ddHighlight(P0DD.hi);
+}
+// Highlight one team: dim everything else and draw that team's jobs on top, joined by a dashed line.
+// The overlay markers are non-interactive, so they never steal the mouse from the pins underneath.
+function p0ddHighlight(team) {
+  P0DD.hi = team || null;
+  if (!P0DD.map || !P0DD.hiLayer) return;
+  P0DD.hiLayer.clearLayers();
+  const c = P0DD.map.getContainer();
+  c.classList.toggle('p0dd-hi', !!team);
+  document.querySelectorAll('#p0dd-teamT tr.row').forEach(r => r.classList.toggle('sel', r.dataset.team === team));
+  if (!team) return;
+  const mine = P0DD.vis.filter(t => t.t === team).sort((a, b) => b.lo - a.lo);
+  if (mine.length > 1) L.polyline(mine.map(t => [t.la, t.lo]), { color: '#7c3aed', weight: 2, dashArray: '6 5', interactive: false }).addTo(P0DD.hiLayer);
+  mine.forEach(t => L.marker([t.la, t.lo], { icon: p0ddPinIcon(t, true, 'p0dd-top'), interactive: false, zIndexOffset: 1000 }).addTo(P0DD.hiLayer));
+}
+function p0ddDrawTables(all, teams) {
+  const o = P0DD.open, tr = Object.entries(teams).map(([name, a]) => {
+    const open = a.filter(t => t.s !== 'closed'), pend = a.filter(t => t.s === 'wait' || t.s === 'dep').length, g = a.filter(t => t.la != null);
+    let sp = 0; for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) sp = Math.max(sp, p0ddKm(g[i], g[j]));
+    const lvl = open.length >= P0DD_RISK.critical ? 'cr' : open.length >= P0DD_RISK.high ? 'hi' : (open.length >= 5 || sp > P0DD_RISK.wide_km) ? 'md' : 'lo';
+    return { name, open: open.length, pend, sp, ds: new Set(a.map(t => t.d)).size, lvl, score: open.length + pend * 0.5 + sp / 25 };
+  }).sort((a, b) => b.score - a.score);
+  const mx = Math.max(1, ...tr.map(r => r.open)), LB = { cr: 'วิกฤต', hi: 'สูง', md: 'กลาง', lo: 'ต่ำ' };
+  document.getElementById('p0dd-teamT').innerHTML = '<thead><tr><th class="l">ทีม</th><th>งานค้าง</th><th>ยังไม่จบ</th><th>อำเภอ</th><th>รัศมีงาน</th><th>เสี่ยง</th></tr></thead><tbody>'
+    + (tr.length ? tr.map(r => `<tr class="row" data-team="${p0T5Esc(r.name)}" title="${p0T5Esc(r.name)}"><td class="l"><b>${p0T5Esc(p0ddTeamCode(r.name))}</b></td><td><span class="p0dd-bar" style="width:${Math.round(r.open / mx * 44)}px"></span> <b>${r.open}</b></td><td>${r.pend}</td><td>${r.ds}</td><td>${r.sp.toFixed(0)} กม.</td><td><span class="p0dd-badge b-${r.lvl}">${LB[r.lvl]}</span></td></tr>`).join('') : '<tr><td colspan="6" class="l" style="color:var(--text3);">ไม่มีข้อมูลทีมในขอบเขตนี้</td></tr>') + '</tbody>';
+  document.querySelectorAll('#p0dd-teamT tr.row').forEach(x => { x.onmouseenter = () => p0ddHighlight(x.dataset.team); x.onmouseleave = () => p0ddHighlight(null); });
+  const key = o.p ? 'd' : 'p', dm = {};
+  all.forEach(t => { const k = t[key] || '(ไม่ระบุ)', d = dm[k] = dm[k] || { n: 0, w: 0, tm: new Set() }; d.n++; if (t.s === 'wait') d.w++; if (t.t) d.tm.add(t.t); });
+  const dr = Object.entries(dm).sort((a, b) => b[1].n - a[1].n), nm = k => o.p ? k : provinceEnLabel(k);
+  document.getElementById('p0dd-distT').innerHTML = `<thead><tr><th class="l">${o.p ? 'อำเภอ' : 'จังหวัด'}</th><th>งาน</th><th>ยังไม่เดินทาง</th><th>ทีม</th><th>งาน/ทีม</th></tr></thead><tbody>`
+    + dr.map(([k, v]) => `<tr><td class="l">${p0T5Esc(nm(k))}</td><td><b>${v.n}</b></td><td style="color:${v.w ? '#d64545' : 'inherit'}">${v.w || '–'}</td><td>${v.tm.size || '–'}</td><td>${v.tm.size ? (v.n / v.tm.size).toFixed(1) : '–'}</td></tr>`).join('') + '</tbody>';
+  const cm = {};
+  all.forEach(t => { const k = t.c || '(ไม่ระบุ)', c = cm[k] = cm[k] || { n: 0, tm: new Set(), d: t.d, op: 0 }; c.n++; if (t.t) c.tm.add(t.t); if (t.s !== 'closed') c.op++; });
+  const cr = Object.entries(cm).sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+  document.getElementById('p0dd-ciT').innerHTML = '<thead><tr><th class="l">CINAME</th><th>งาน</th><th>ยังไม่ปิด</th><th class="l">อำเภอ</th><th>ทีม</th></tr></thead><tbody>'
+    + cr.map(([c, v]) => `<tr><td class="l"><b>${p0T5Esc(c)}</b></td><td><b>${v.n}</b>${v.n > 1 ? ' <span class="p0dd-badge b-md">ซ้ำ</span>' : ''}</td><td>${v.op}</td><td class="l">${p0T5Esc(v.d)}</td><td>${v.tm.size || '–'}</td></tr>`).join('') + '</tbody>';
+  // auto insights
+  const ins = [], waits = all.filter(t => t.s === 'wait' && t.la != null);
+  if (tr.length) {
+    const t0 = tr[0];
+    ins.push(`ทีม <b>${p0T5Esc(p0ddTeamCode(t0.name))}</b> ถืองานค้าง <b>${t0.open}</b> งาน กระจาย <b>${t0.ds}</b> อำเภอ รัศมีงานกว้างสุด ~<b>${t0.sp.toFixed(0)} กม.</b> ${t0.lvl === 'cr' || t0.lvl === 'hi' ? '→ เสี่ยงปิดไม่ทันสูง ควรแบ่งงานให้ทีมอื่น' : '→ เฝ้าระวัง'}`);
+    const n = tr.filter(r => r.lvl === 'cr' || r.lvl === 'hi').length;
+    if (n) ins.push(`มี <b>${n}</b> จาก <b>${tr.length}</b> ทีมที่ภาระ ≥${P0DD_RISK.high} งาน (เสี่ยงสูง/วิกฤต)`);
+    if (waits.length && o.p) {
+      let best = null;
+      tr.slice().reverse().forEach(r => { if (r.lvl === 'hi' || r.lvl === 'cr') return; const near = waits.filter(w => w.t !== r.name && teams[r.name].some(t => t.la != null && p0ddKm(t, w) < 8)); if (near.length && (!best || near.length > best.n)) best = { r, n: near.length }; });
+      if (best) ins.push(`ทีม <b>${p0T5Esc(p0ddTeamCode(best.r.name))}</b> (ภาระ ${best.r.open} งาน) อยู่ห่างจาก <b>${best.n}</b> งานที่ยังไม่เดินทางไม่เกิน 8 กม. → พิจารณาให้ทีมนี้รับเพิ่ม`);
+    }
+  }
+  const rep = cr.filter(([, v]) => v.n > 1);
+  if (rep.length) ins.push(`<b>${rep.length}</b> ไซต์มีหลายงานซ้อนกัน (เช่น <b>${p0T5Esc(rep[0][0])}</b> ${rep[0][1].n} งาน) → ส่งทีมเดียวทำรอบเดียวได้`);
+  if (dr.length) ins.push(`${o.p ? 'อำเภอ' : 'จังหวัด'} <b>${p0T5Esc(nm(dr[0][0]))}</b> มีงานมากสุด (<b>${dr[0][1].n}</b>)${dr[0][1].w ? ` และยังไม่เดินทาง <b>${dr[0][1].w}</b> งาน` : ''}`);
+  const un = all.filter(t => !t.t).length; if (un) ins.push(`มี <b>${un}</b> งานที่ยังไม่มีทีมรับ (ป้ายสีเทาบนแผนที่)`);
+  document.getElementById('p0dd-ins').innerHTML = ins.map(i => `<li>${i}</li>`).join('') || '<li>ไม่มีข้อมูล</li>';
+}
+// One delegated listener for the 4 big-number click targets (the TOP 5 rows call p0OpenDrilldown directly).
+document.addEventListener('click', (e) => {
+  const el = e.target.closest && e.target.closest('[data-dd-row]');
+  if (!el) return;
+  window.p0OpenDrilldown(el.dataset.ddRow, el.dataset.ddG, el.dataset.ddP || '');
+});
+
 const TP_ACCENTS = ['#2563eb', '#7c3aed', '#B45309', '#0891b2'];
 const TP_NAVY = '#27466F';
 let tpGroupKeys = [];
@@ -2779,7 +3049,7 @@ function renderTotalPendingRow(prefix, data) {
   kpiEl.innerHTML = `
     <div style="height:100%; box-shadow:inset 3px 0 0 ${TP_NAVY}; padding:14px 16px;">
       <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
-      <div style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY};">${totalNow}</div>
+      <div class="p0dd-click" data-dd-row="total" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalNow}</div>
       <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
         <span style="white-space:nowrap;">@01:15: <b>${totalSnap}</b></span>
         <span style="white-space:nowrap;">${tpDiffHtml(totalNow - totalSnap)}</span>
@@ -2799,7 +3069,7 @@ function renderTotalPendingRow(prefix, data) {
     return `
       <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
-        <div style="font-size:32px; font-weight:800; line-height:1;">${g.current_total}</div>
+        <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_total}</b></span>
           ${tpDiffHtml(g.total_diff)}
@@ -7393,7 +7663,7 @@ function renderPivot(ft) {
     const totalCard = `
       <div style="height:100%; box-shadow:inset 3px 0 0 #B23A3A; padding:14px 16px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
-        <div style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'};">${totalP0}</div>
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalP0}</div>
         <div id="p0-total-p0-compare">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
         <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
