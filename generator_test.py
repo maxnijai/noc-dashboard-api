@@ -7,7 +7,7 @@ Start Test (by ISO week of UpdatedAt) and Daily Generator Check (by day).
 
 The rules are the ones from the "Portable Test GEN" summary prompt, applied in
 code instead of by an AI so the numbers are identical every time:
-  * Scope = teams in the roster (sheet "Teams": TypeTeam = NOD and Active = Y).
+  * Scope = teams in the roster (sheet "Team": TypeTeam = NODE (or NOD) and Active = Y).
     Rows of other teams are not counted (the number dropped is reported); a
     NODE-looking team that is not in the roster is listed separately.
   * Province = the 3 letters after "-NR-" in TeamID; Region from a fixed table.
@@ -40,6 +40,7 @@ TEAMS_SHEET_ID = os.environ.get("GENERATOR_TEAMS_SHEET_ID", GEN_SHEET_ID)
 TEAMS_TAB_NAMES = ("Teams", "Team")   # the roster tab is called "Team" in the Smart App file; "Teams" is also accepted
 TEAMS_TAB_GID = 120379322
 
+NODE_TYPES = {"NOD", "NODE"}     # the Team tab writes "NODE" (the prompt says NOD) - both mean a NODE team
 WEEKLY_TYPE = "Weekly Generator Start Test"
 DAILY_TYPE = "Daily Generator Check"
 WEEKLY_STATUSES = ["ติดปกติ", "สตาร์ทไม่ติด", "ส่งซ่อม", "ไม่มี Gen"]
@@ -265,7 +266,7 @@ def build_dataset(gen_values, teams_values, teams_error=None, teams_title=None):
             tv, av = at(r, c_type).upper() or "(ว่าง)", at(r, c_act).upper() or "(ว่าง)"
             roster_stats["type_values"][tv] = roster_stats["type_values"].get(tv, 0) + 1
             roster_stats["active_values"][av] = roster_stats["active_values"].get(av, 0) + 1
-            if at(r, c_type).upper() != "NOD" or at(r, c_act).upper() != "Y":
+            if at(r, c_type).upper() not in NODE_TYPES or at(r, c_act).upper() != "Y":
                 continue
             if province_of(team) not in REGION_OF:
                 roster_unknown_province.append(team)
@@ -456,7 +457,7 @@ def build_generator_test_response(gs_client, week=None, day=None, use_cache=True
     }
     if not dataset["roster"]:
         # Without the roster nobody can be called "not sent" - say so instead of guessing.
-        base.update({"roster_missing": True, "message": "ไม่พบรายชื่อทีม NODE (แท็บ Teams: TypeTeam = NOD และ Active = Y) จึงสรุปทีมที่ยังไม่ส่งไม่ได้"})
+        base.update({"roster_missing": True, "message": "ไม่พบรายชื่อทีม NODE (แท็บ Team: TypeTeam = NODE/NOD และ Active = Y) จึงสรุปทีมที่ยังไม่ส่งไม่ได้"})
         return base
 
     prev_key = previous_week_key(week)
