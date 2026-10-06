@@ -37,7 +37,8 @@ GEN_SHEET_ID = os.environ.get("GENERATOR_SHEET_ID", "1KJQvrRwhGl61hK3v7XfJj4H3Rl
 GEN_TAB_NAME = "PortableGenTest"
 GEN_TAB_GID = 1325696950           # fallback if the tab is ever renamed
 TEAMS_SHEET_ID = os.environ.get("GENERATOR_TEAMS_SHEET_ID", GEN_SHEET_ID)
-TEAMS_TAB_NAME = "Teams"
+TEAMS_TAB_NAMES = ("Teams", "Team")   # the roster tab is called "Team" in the Smart App file; "Teams" is also accepted
+TEAMS_TAB_GID = 120379322
 
 WEEKLY_TYPE = "Weekly Generator Start Test"
 DAILY_TYPE = "Daily Generator Check"
@@ -196,41 +197,75 @@ def _cell(row, hm, name, default=""):
     return str(row[i]).strip() if i is not None and i < len(row) and row[i] is not None else default
 
 
-def _find_ws(sh, name, gid=None):
-    try:
-        return sh.worksheet(name)
-    except Exception:
-        if gid is not None:
-            for ws in sh.worksheets():
-                if ws.id == gid:
-                    return ws
-        raise
+def _norm_title(t):
+    return re.sub(r"[\s_]+", "", str(t)).lower()
+
+
+def _find_ws(sh, names, gid=None):
+    """Tries each name exactly, then ignoring case/spaces/underscores, then the gid. If nothing matches,
+    raises LookupError listing the tab names that DO exist, so the page can say what to fix."""
+    names = (names,) if isinstance(names, str) else tuple(names)
+    for name in names:
+        try:
+            return sh.worksheet(name)
+        except Exception:
+            pass
+    sheets = sh.worksheets()
+    for name in names:
+        for ws in sheets:
+            if _norm_title(ws.title) == _norm_title(name):
+                return ws
+    if gid is not None:
+        for ws in sheets:
+            if ws.id == gid:
+                return ws
+    raise LookupError(f"ไม่พบแท็บ {' / '.join(chr(34) + n + chr(34) for n in names)} ในไฟล์นี้ (แท็บที่มี: {', '.join(ws.title for ws in sheets) or '-'})")
 
 
 def _read_sheets(gs_client):
     gen_sh = gs_client.open_by_key(GEN_SHEET_ID)
     gen_ws = _find_ws(gen_sh, GEN_TAB_NAME, GEN_TAB_GID)
     gen_values = gen_ws.get_all_values()
-    teams_values, teams_error = [], None
+    teams_values, teams_error, teams_title = [], None, None
     try:
         teams_sh = gen_sh if TEAMS_SHEET_ID == GEN_SHEET_ID else gs_client.open_by_key(TEAMS_SHEET_ID)
-        teams_values = _find_ws(teams_sh, TEAMS_TAB_NAME).get_all_values()
+        teams_ws = _find_ws(teams_sh, TEAMS_TAB_NAMES, TEAMS_TAB_GID)
+        teams_title, teams_values = teams_ws.title, teams_ws.get_all_values()
     except Exception as e:  # missing tab / no access -> roster missing (reported, never guessed)
         teams_error = f"{type(e).__name__}: {e}"
-        log.warning("Generator Test: could not read the %s tab: %s", TEAMS_TAB_NAME, teams_error)
-    return gen_values, teams_values, teams_error
+        log.warning("Generator Test: could not read the roster tab: %s", teams_error)
+    return gen_values, teams_values, teams_error, teams_title
 
 
-def build_dataset(gen_values, teams_values, teams_error=None):
+def _pick_col(hm, *aliases):
+    for a in aliases:
+        if a in hm:
+            return hm[a]
+    return None
+
+
+def build_dataset(gen_values, teams_values, teams_error=None, teams_title=None):
     """Raw sheet values -> {roster, rows, diagnostics}. Pure, so it can be tested without Google."""
     roster, roster_unknown_province = [], []
+    roster_stats = {"rows": 0, "type_values": {}, "active_values": {}}
     if teams_values:
         hm = _header_map(teams_values[0])
-        for r in teams_values[1:]:
-            team = _cell(r, hm, "teamid")
+        c_id, c_type, c_act = _pick_col(hm, "teamid", "teamcode"), _pick_col(hm, "typeteam", "teamtype", "type"), _pick_col(hm, "active", "isactive")
+        missing = [n for n, c in (("TeamID", c_id), ("TypeTeam", c_type), ("Active", c_act)) if c is None]
+        if missing:
+            shown = ", ".join(str(h) for h in teams_values[0] if str(h).strip()) or "-"
+            teams_error = f"แท็บ \"{teams_title or 'Team'}\" ไม่มีคอลัมน์ {', '.join(missing)} (หัวคอลัมน์ที่พบ: {shown})"
+            log.warning("Generator Test: %s", teams_error)
+        at = lambda r, i: str(r[i]).strip() if i is not None and i < len(r) and r[i] is not None else ""
+        for r in teams_values[1:] if not missing else []:
+            team = at(r, c_id)
             if not team:
                 continue
-            if _cell(r, hm, "typeteam").upper() != "NOD" or _cell(r, hm, "active").upper() != "Y":
+            roster_stats["rows"] += 1
+            tv, av = at(r, c_type).upper() or "(ว่าง)", at(r, c_act).upper() or "(ว่าง)"
+            roster_stats["type_values"][tv] = roster_stats["type_values"].get(tv, 0) + 1
+            roster_stats["active_values"][av] = roster_stats["active_values"].get(av, 0) + 1
+            if at(r, c_type).upper() != "NOD" or at(r, c_act).upper() != "Y":
                 continue
             if province_of(team) not in REGION_OF:
                 roster_unknown_province.append(team)
@@ -265,6 +300,7 @@ def build_dataset(gen_values, teams_values, teams_error=None):
         "roster": roster, "rows": rows,
         "diag": {
             "date_format": how, "missing_columns": missing_cols, "teams_error": teams_error,
+            "teams_tab": teams_title, "roster_stats": roster_stats,
             "roster_unknown_province": roster_unknown_province, "rows_total": len(rows),
             "unreadable_updatedat": sum(1 for r in rows if r["dt"] is None),
         },
