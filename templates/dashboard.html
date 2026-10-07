@@ -13720,7 +13720,8 @@ loadData();
         .bindTooltip(`${n.id} · ${n.m} ม.${n.name ? ' · ' + n.name : ''}`).addTo(zLayer));
       L.circleMarker(c, { radius: 9, weight: 3, color: '#e8590c', fillColor: tc, fillOpacity: 1 })
         .bindTooltip(s.id, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(zLayer);
-      zMap.fitBounds(L.circle(c, { radius: j.zoom_m }).getBounds(), { padding: [8, 8] });
+      zMap.setView(c, 15);
+      zMap.fitBounds(L.latLng(c).toBounds(j.zoom_m * 2), { padding: [8, 8] }); // LatLng.toBounds works before the circle is on the map (Circle.getBounds does not)
       zEl.querySelector('#sz-title').innerHTML = `${esc(s.id)} · <span style="color:${tc};">${esc(s.type)}</span>${s.name ? ' · ' + esc(s.name) : ''}`;
       zEl.querySelector('#sz-sub').textContent = `${s.province}${s.district ? ' / ' + s.district : ''} · ${s.la.toFixed(5)}, ${s.lo.toFixed(5)} · ในรัศมี 1 กม. ${j.within_radius} ไซต์ (ใน 500 ม. ${j.within_500})`;
       zEl.querySelector('#sz-list').innerHTML = j.neighbours.map(n => `<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">${esc(n.id)}</td><td style="padding:5px 8px;text-align:right;">${n.m}</td><td style="padding:5px 8px;color:${n.in_500 ? COL.cap : 'var(--text2)'};">${n.in_500 ? 'ใน 500 ม.' : 'ใน 1 กม.'}</td></tr>`).join('')
