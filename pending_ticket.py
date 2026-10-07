@@ -420,7 +420,7 @@ def rename_group_problem_value(gs_client, old_value, new_value):
 
 
 # ---------------------------------------------------------------------------
-# Nightly auto-fill of untouched over-SLA tickets (22:00 Bangkok, see app.py)
+# Nightly auto-fill of untouched tickets (21:30 Bangkok, see app.py)
 # ---------------------------------------------------------------------------
 # Explicit request: every night, a ticket whose Aging_Flag_Group is one of the
 # OverSLA buckets below and whose five work-log fields are ALL still
@@ -433,6 +433,7 @@ AUTO_FILL_AGING_GROUPS = (
     "3) OverSLA : < 7 days",
     "4) OverSLA : < 3 days",
     "5) OverSLA : < 1 day",     # added on request - same rule as the four above
+    "6) Within SLA",           # added on request - same rule: only still-untouched tickets get the default plan
 )
 AUTO_FILL_VALUES = {
     "group_problem": "Workload - Assigning team access site",

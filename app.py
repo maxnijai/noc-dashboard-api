@@ -3690,13 +3690,13 @@ def add_no_cache_headers(resp):
     return resp
 
 def run_pending_auto_fill():
-    """22:00 Bangkok nightly job (scheduled in start()). Fills the default plan
+    """21:30 Bangkok nightly job (scheduled in start()). Fills the default plan
     for untouched over-SLA tickets - all the rules live in
     pending_ticket.auto_fill_blank_work_log. Never raises (a scheduler thread
     must not die). Set env PENDING_AUTO_FILL_ENABLED=0 to switch it off
     without a code change.
 
-    Every gunicorn worker registers this job, so all of them fire at 22:00 -
+    Every gunicorn worker registers this job, so all of them fire at 21:30 -
     an O_EXCL lock file (one per Bangkok date, same container) lets exactly one
     run; the function is idempotent anyway, this just avoids duplicate work."""
     import tempfile
@@ -3742,8 +3742,8 @@ def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
-    # 22:00 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=22 would fire at 05:00 Bangkok.
-    s.add_job(run_pending_auto_fill, 'cron', hour=22, minute=0, timezone='Asia/Bangkok',
+    # 21:30 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=21 would fire at 04:00 Bangkok.
+    s.add_job(run_pending_auto_fill, 'cron', hour=21, minute=30, timezone='Asia/Bangkok',
               id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
     s.start()
     try:
