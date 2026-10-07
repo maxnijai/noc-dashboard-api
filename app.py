@@ -37,6 +37,7 @@ import cm_summary_log
 import historical_closed_ticket
 import sa2_risk
 import ofc_monitor
+import site_capacity
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -3292,6 +3293,31 @@ def api_p0_snapshot_comparison():
         log.exception("p0-snapshot-comparison API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/site-map')
+def api_site_map():
+    """All sites (Capacity/Coverage) + 7.MB with SA1-4 tickets matched to sites. Read-only.
+    ?force_refresh=1 re-reads the GGS site sheet instead of using the 1h cache."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        if request.args.get('force_refresh') == '1':
+            site_capacity.get_site_data(gs_client, use_cache=False)
+        return jsonify(site_capacity.build_site_map_response(gs_client))
+    except Exception as e:
+        log.exception("site-map API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/site-neighbours')
+def api_site_neighbours():
+    """Neighbours within 1 km of one site (?id=CMI0003) with distances - feeds the 1 km zoom map."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(site_capacity.build_site_neighbours_response(gs_client, request.args.get('id')))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        log.exception("site-neighbours API failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/p0-drilldown')
 def api_p0_drilldown():
     """Ticket-level data (coordinates, team, status, district, CINAME) behind
@@ -3746,6 +3772,12 @@ def start():
     s.add_job(run_pending_auto_fill, 'cron', hour=21, minute=30, timezone='Asia/Bangkok',
               id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
     s.start()
+    try:
+        # Preload the site sheet in the background so the first page view already has Site Type.
+        _, _gs = get_drive_and_sheets_clients()
+        site_capacity.warm(_gs)
+    except Exception:
+        log.exception("site_capacity warm-up skipped")
     try:
         # Startup proof in the logs that the nightly job is registered and when it will next fire.
         _job = s.get_job('pending_auto_fill')

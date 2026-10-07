@@ -31,6 +31,7 @@ from datetime import datetime, date
 
 from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
 from mateline_status import build_mateline_status_lookup
+import site_capacity  # Capacity/Coverage site type (additive, never raises into callers)
 from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
 
 log = logging.getLogger(__name__)
@@ -698,7 +699,9 @@ def _fetch_full_ticket_entries(gs_client):
                 pass
         return entry
 
-    return [build_entry(r) for r in scoped]
+    built = [build_entry(r) for r in scoped]
+    site_capacity.annotate_entries(built, gs_client)
+    return built
 
 
 _export_throttle = {"last_started": 0.0, "in_flight": False, "last_insert_time": None}
@@ -1020,6 +1023,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "TRUEOWNERGROUP": _safe_str(true_owner_group),
             "priority": priority,
             "Bookmark": bookmark_label,
+            "SEVERITY": str(r.get("SEVERITY", "")).strip(),
             "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
             "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
             "action_team": wl.get("action_team", ""),
@@ -1032,6 +1036,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "TARGETFINISH": _safe_str(r.get("TARGETFINISH")),
             "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
         })
+    site_capacity.annotate_entries(entries, gs_client)
     if skipped_no_province:
         log.info("build_exclusive_pending_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
