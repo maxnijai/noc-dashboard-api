@@ -2723,6 +2723,7 @@ async function loadP0SnapshotComparison(prefix) {
     const res = await fetch('/api/p0-snapshot-comparison');
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
     const data = await res.json();
+    window.__p0SiteType = data.site_type_mb || null;
     const accents = ['#2563eb', '#7c3aed', '#B45309', '#0891b2']; // one accent color per group, in order
     const cards = data.groups.map((g, i) => {
       const accent = accents[i % accents.length];
@@ -2731,7 +2732,8 @@ async function loadP0SnapshotComparison(prefix) {
       const diffArrow = diffUp ? '▲' : (diffDown ? '▼' : '–');
       const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
       return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+        ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2843,6 +2845,78 @@ async function loadP0DailyTrendSparklines(accents, groups) {
 // Top 5 provinces block (explicit request) - current data only. Clicking a
 // province filters the matching section table below (p0FocusProvince, defined
 // inside the page module). `list` = [[provinceCode, count], ...] from the API.
+// ===== P0 SITE TYPE PANEL (begin) =====
+window.p0SiteBucketOf = function (t) {
+  if (!t || !t.site_type) return 'na';
+  if (t.site_type === 'Capacity') return 'cap';
+  return t.site_flag === 'P0' ? 'cp0' : t.site_flag === 'P1' ? 'cp1' : 'cov';
+};
+window.P0_SITE_TYPES = [
+  { k: 'cp0', n: 'Coverage P0', c: '#d64545', d: 'Coverage · SA1-3' },
+  { k: 'cp1', n: 'Coverage P1', c: '#e08a1e', d: 'Coverage · SA4' },
+  { k: 'cap', n: 'Capacity', c: '#2563eb', d: 'มีไซต์ใกล้เคียง ≤ 1 กม.' },
+  { k: 'cov', n: 'Coverage (อื่นๆ)', c: '#6b7a8d', d: 'Coverage ที่ไม่ใช่ SA1-4' },
+  { k: 'na', n: 'ไม่พบไซต์', c: '#8d99a6', d: 'CINAME/Subject ไม่ตรง LOCATION ID' },
+];
+window.p0SiteTypeLabel = function (k) { const t = window.P0_SITE_TYPES.find(x => x.k === k); return t ? t.n : k; };
+(function () {
+  const st = document.createElement('style');
+  st.textContent = '.p0-stbtn{position:absolute;top:8px;right:10px;font:inherit;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:12px;border:1px solid var(--border2);background:var(--bg3);color:var(--blue);cursor:pointer}.p0-stbtn:hover{border-color:var(--blue)}';
+  document.head.appendChild(st);
+})();
+let P0ST = { sel: '' };
+window.p0OpenSiteType = function () {
+  const d = window.__p0SiteType;
+  if (!d) return;
+  let ov = document.getElementById('p0st-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'p0st-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,22,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:16px;';
+    ov.addEventListener('click', e => {
+      if (e.target === ov) { ov.style.display = 'none'; return; }
+      if (e.target.closest('[data-p0st-close]')) { ov.style.display = 'none'; return; }
+      const tile = e.target.closest('[data-p0st-tile]');
+      if (tile) { P0ST.sel = P0ST.sel === tile.dataset.p0stTile ? '' : tile.dataset.p0stTile; window.p0RenderSiteType(); return; }
+      const cell = e.target.closest('[data-p0st-cell]');
+      if (cell) { ov.style.display = 'none'; window.p0FilterSiteType(cell.dataset.p0stProv, cell.dataset.p0stCell); }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+    document.body.appendChild(ov);
+  }
+  P0ST.sel = '';
+  window.p0RenderSiteType();
+  ov.style.display = 'flex';
+};
+window.p0RenderSiteType = function () {
+  const d = window.__p0SiteType, ov = document.getElementById('p0st-overlay');
+  if (!d || !ov) return;
+  const esc = p0T5Esc;
+  const types = window.P0_SITE_TYPES.filter(t => t.k !== 'cov' || (d.types.cov || 0) > 0);
+  const total = d.total || 0, sel = P0ST.sel;
+  const tiles = types.map(t => `<button type="button" data-p0st-tile="${t.k}" style="border:1px solid var(--border);border-top:3px solid ${t.c};border-radius:6px;padding:8px 10px;background:${sel === t.k ? 'var(--bg3)' : 'none'};text-align:left;font:inherit;color:inherit;cursor:pointer;"><b style="display:block;font-size:24px;line-height:1.1;">${d.types[t.k] || 0}</b><span style="font-size:11.5px;color:var(--text3);">${esc(t.n)} · ${total ? Math.round((d.types[t.k] || 0) / total * 100) : 0}%</span></button>`).join('');
+  let rows = d.provinces.filter(r => !sel || (r[sel] || 0) > 0);
+  if (sel) rows = rows.slice().sort((a, b) => (b[sel] || 0) - (a[sel] || 0) || b.total - a.total);
+  const th = types.map(t => `<th style="padding:7px 10px;text-align:right;font-size:11px;text-transform:uppercase;color:${sel === t.k ? 'var(--text)' : 'var(--text2)'};${sel === t.k ? 'box-shadow:inset 0 -3px 0 ' + t.c + ';' : ''}white-space:nowrap;">${esc(t.n)}</th>`).join('');
+  const body = rows.map(r => {
+    const clickable = !String(r.province).startsWith('(');
+    return `<tr style="border-top:1px solid var(--border);"><td style="padding:6px 10px;">${esc(clickable ? provinceEnLabel(r.province) : r.province)}</td>` +
+      types.map(t => { const v = r[t.k] || 0; return v ? `<td ${clickable ? `data-p0st-cell="${t.k}" data-p0st-prov="${esc(r.province)}"` : ''} style="padding:6px 10px;text-align:right;${clickable ? 'cursor:pointer;' : ''}${sel === t.k ? 'font-weight:700;' : ''}background:color-mix(in srgb, ${t.c} ${Math.min(8 + v * 5, 40)}%, transparent);" title="${clickable ? 'คลิกเพื่อกรองตารางตั๋ว' : ''}">${v}</td>` : '<td style="padding:6px 10px;text-align:right;color:var(--text3);opacity:.5;">–</td>'; }).join('') +
+      `<td style="padding:6px 10px;text-align:right;font-weight:700;">${sel ? (r[sel] || 0) : r.total}</td></tr>`;
+  }).join('');
+  const totRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700;"><td style="padding:7px 10px;">รวม${sel ? ' (' + esc(window.p0SiteTypeLabel(sel)) + ')' : ''}</td>${types.map(t => `<td style="padding:7px 10px;text-align:right;">${!sel || sel === t.k ? (d.types[t.k] || 0) : ''}</td>`).join('')}<td style="padding:7px 10px;text-align:right;">${sel ? (d.types[sel] || 0) : total}</td></tr>`;
+  ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(780px,100%);max-height:92vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+      <div><div style="font-size:15px;font-weight:700;">7.MB with SA1-4 · แยกตาม Site Type</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">ตั๋ว Priority 0 ปัจจุบัน ${total} ใบ · แยกตามจังหวัด</div></div>
+      <button type="button" class="btn-secondary" data-p0st-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;">${tiles}</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="border-collapse:collapse;width:100%;font-size:13px;min-width:500px;"><thead><tr style="background:var(--bg3);"><th style="padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text2);">จังหวัด</th>${th}<th style="padding:7px 10px;text-align:right;font-size:11px;text-transform:uppercase;color:var(--text2);">รวม</th></tr></thead><tbody>${body}${totRow}</tbody></table></div>
+    <div style="font-size:12px;color:var(--text3);">คลิกตัวเลขในตารางเพื่อกรองตารางตั๋ว 7.MB ในหน้านี้ (คลิกซ้ำที่เดิมเพื่อล้าง)</div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Coverage P0 = ไซต์ Coverage และ Severity SA1-3 · Coverage P1 = ไซต์ Coverage และ Severity SA4 · Capacity = มีไซต์อื่นภายใน 1 กม. · ไม่พบไซต์ = CINAME/Subject ไม่ตรงกับ LOCATION ID</div>
+  </div>`;
+};
+// ===== P0 SITE TYPE PANEL (end) =====
 function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function p0Top5Html(list, base, accent, scope, groupKey) {
   if (!list || !list.length || !base) return '';
@@ -7792,7 +7866,7 @@ function renderPivot(ft) {
   let sectionCategoryAgingMode = {}; // bookmark -> 'aging' | 'province' (which dimension is the Category matrix's columns), per-section (NSA3-4 only)
 
   function getSectionFilter(bookmark) {
-    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '', remainingBucket: '' });
+    return sectionFilters[bookmark] || (sectionFilters[bookmark] = { province: '', aging: '', groupProblem: '', planDate: '', category: '', statusMateline: '', remainingBucket: '', siteType: '' });
   }
 
   function render(data) {
@@ -7818,6 +7892,7 @@ function renderPivot(ft) {
         if (f.aging && (t.Aging_Flag_Group || '') !== f.aging) return false;
         if (f.groupProblem && (t.group_problem || '') !== f.groupProblem) return false;
         if (f.category && (t.subject_category || '') !== f.category) return false;
+        if (f.siteType && window.p0SiteBucketOf(t) !== f.siteType) return false;
         if (f.statusMateline && (t.status_mateline || '(ไม่พบใน MatelineX)') !== f.statusMateline) return false;
         if (f.planDate) {
           const isNoPlan = f.planDate.startsWith('(');
@@ -7836,7 +7911,7 @@ function renderPivot(ft) {
         if (searchQuery && !(t.TICKETID || '').toLowerCase().includes(searchQuery)) return false;
         return true;
       });
-      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || f.remainingBucket || searchQuery);
+      const isFiltered = !!(f.province || f.aging || f.groupProblem || f.planDate || f.category || f.statusMateline || f.remainingBucket || f.siteType || searchQuery);
 
       const matrixBlock = f.province
         ? { bookmark: block.bookmark, rows: block.rows.filter(r => r.province === f.province) }
@@ -7870,6 +7945,7 @@ function renderPivot(ft) {
       if (f.aging) chips.push(`Aging: ${escapeHtml(f.aging)}`);
       if (f.groupProblem) chips.push(`Group Problem: ${escapeHtml(f.groupProblem)}`);
       if (f.category) chips.push(`Category: ${escapeHtml(f.category)}`);
+      if (f.siteType) chips.push(`Site Type: ${escapeHtml(window.p0SiteTypeLabel(f.siteType))}`);
       if (f.statusMateline) chips.push(`Status Mateline: ${escapeHtml(f.statusMateline)}`);
       if (f.planDate) chips.push(`Plan Date: ${escapeHtml(f.planDate)}`);
       const chipBar = chips.length
@@ -7944,6 +8020,21 @@ function renderPivot(ft) {
     clearTimeout(t._h);
     t._h = setTimeout(() => { t.style.display = 'none'; }, 3200);
   }
+  // Site Type panel (7.MB card) -> filter the 7.MB section table to province + Site Type. Same cell clicked again clears it.
+  window.p0FilterSiteType = function (province, bucket) {
+    if (!lastData) return;
+    const bm = P0_GROUP_TO_BOOKMARK.MB;
+    const f = getSectionFilter(bm);
+    const same = (f.province || '') === (province || '') && (f.siteType || '') === (bucket || '');
+    f.province = same ? '' : (province || '');
+    f.siteType = same ? '' : (bucket || '');
+    render(lastData);
+    if (!same) {
+      const idx = (lastData.province_summary || []).findIndex(b => b.bookmark === bm);
+      const sec = document.getElementById('p0-section-' + idx);
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
   window.p0FocusProvince = function (groupKey, province) {
     if (!lastData || !province) return;
     const blocks = lastData.province_summary || [];
