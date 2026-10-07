@@ -720,6 +720,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="3"/><path d="M8 0a1 1 0 011 1v1.06a6.002 6.002 0 015 5H15a1 1 0 010 2h-1.06a6.002 6.002 0 01-5 5V15a1 1 0 01-2 0v-1.06a6.002 6.002 0 01-5-5H1a1 1 0 010-2h1.06a6.002 6.002 0 015-5V1a1 1 0 011-1z" opacity=".35"/></svg>
     Realtime Monitoring
   </div>
+  <div class="nav-item" onclick="showPage('sitemap')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 14.5s5-4.3 5-8.2A5 5 0 003 6.3c0 3.9 5 8.2 5 8.2z" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="6.3" r="1.8" fill="#2563eb"/></svg>
+    Site Map
+  </div>
 
   <div class="nav-section">Ticket Monitoring</div>
   <div class="nav-item" onclick="showPage('pendingticket')">
@@ -962,6 +966,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left;">Tech_Status</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
             <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
+            <th style="padding:6px 8px; text-align:left; min-width:130px;">Site Type</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
             <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
             <th style="padding:6px 8px; text-align:left; min-width:140px;">Plan Closed Date</th>
@@ -2041,6 +2046,32 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
+
+  <!-- SITE MAP (Capacity / Coverage) -->
+  <div class="page" id="page-sitemap">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-size:16px; font-weight:700;">Site Map — Capacity / Coverage</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Capacity = มีไซต์อื่นในรัศมี 1 กม. · Coverage = ไม่มี · วงกลมบนไซต์คือตั๋ว 7.MB with SA1-4 (แดง = Coverage P0, เหลือง = Coverage P1, ม่วง = ตั๋วอื่น) · คลิกวงกลมหรือ CINAME เพื่อซูมรัศมี 1 กม.</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:12px;">
+        <label style="display:flex; gap:6px; align-items:center;">จังหวัด <select id="sm-prov" style="padding:4px 8px;"><option value="">ทั้งหมด</option></select></label>
+        <label style="display:flex; gap:5px; align-items:center;"><input type="checkbox" id="sm-sites" checked> แสดงไซต์ทั้งหมด</label>
+        <label style="display:flex; gap:5px; align-items:center;"><input type="checkbox" id="sm-tick" checked> แสดงตั๋ว 7.MB</label>
+        <button class="btn-secondary" id="sm-refresh" style="font-size:12px; padding:5px 12px;">↻ Refresh</button>
+        <span id="sm-asof" style="font-size:11px; color:var(--text3);"></span>
+      </div>
+    </div>
+    <div id="sm-msg"></div>
+    <div id="sm-kpis" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:12px;"></div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text3); margin-bottom:6px;">
+      <span><b style="color:#2563eb;">●</b> Capacity</span><span><b style="color:#6b7a8d;">●</b> Coverage</span>
+      <span><b style="color:#d64545;">◯</b> Coverage P0 (SA1-3)</span><span><b style="color:#e08a1e;">◯</b> Coverage P1 (SA4)</span><span><b style="color:#7c3aed;">◯</b> ตั๋วอื่น</span>
+    </div>
+    <div id="sm-map" style="height:560px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px;"></div>
+    <div id="sm-table" style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);"></div>
+    <div id="sm-unmatched"></div>
+  </div>
 
   <!-- GENERATOR TEST -->
   <div class="page" id="page-generatortest">
@@ -5570,7 +5601,7 @@ function showPage(id) {
   const pg = document.getElementById('page-'+id);
   if (pg) pg.classList.add('active');
   document.querySelectorAll('.nav-item').forEach((el,i)=>{
-    el.classList.toggle('active', ['realtimemonitor','pendingticket','p0only','oncallteam','floodnan','summarynan'][i]===id);
+    el.classList.toggle('active', (el.getAttribute('onclick')||'').includes("showPage('"+id+"')"));
   });
   // Scroll page-container to top
   const pc = document.getElementById('page-container');
@@ -5587,6 +5618,7 @@ function showPage(id) {
   if (id==='sa2risk') { setTimeout(()=>{ if (window.initSa2RiskTab) window.initSa2RiskTab(); },50); }
   if (id==='ofcmonitor') { setTimeout(()=>{ if (window.initOfcMonitorTab) window.initOfcMonitorTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
+  if (id==='sitemap') { setTimeout(()=>{ if (window.initSiteMapTab) window.initSiteMapTab(); },50); }
   if (id==='generatortest') { setTimeout(()=>{ if (window.initGeneratorTestTab) window.initGeneratorTestTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -6836,6 +6868,7 @@ function renderPivot(ft) {
         <td data-label="Action Team" style="padding:6px 8px;">
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
+        <td data-label="Site Type" style="padding:6px 8px; white-space:nowrap;">${window.siteTypeHtml ? window.siteTypeHtml(t) : ''}</td>
         <td data-label="รายละเอียด" style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:420px; max-width:560px; max-height:600px; overflow-y:auto; resize:vertical; field-sizing:content; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
         </td>
@@ -6851,7 +6884,7 @@ function renderPivot(ft) {
         <td class="ptk-mobile-hide ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td class="ptk-mobile-hide ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="22" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+    }).join('') || '<tr><td colspan="23" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
   }
 
@@ -7285,6 +7318,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px;">${priorityBadge(t.priority)}</td>
         <td style="padding:6px 8px; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(t.SUBJECT)}">${escapeHtml(t.SUBJECT)}</td>
         ${categoryCell}
+        <td style="padding:6px 8px; white-space:nowrap;">${window.siteTypeHtml ? window.siteTypeHtml(t) : ''}</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
@@ -7303,6 +7337,7 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">Priority</th>
               <th style="padding:6px 8px; text-align:left;">SUBJECT</th>
               ${showCategory ? '<th style="padding:6px 8px; text-align:left;">Category (Auto)</th>' : ''}
+              <th style="padding:6px 8px; text-align:left;">Site Type</th>
               <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
               <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
               <th style="padding:6px 8px; text-align:right;">Over SLA</th>
@@ -12499,7 +12534,10 @@ loadData();
         <br>
         <b>Mapping (data) sheet</b> — คอลัมน์ที่เจอจริง: ${diag.mapping_sheet_headers_found.map(escapeHtml).join(', ')}<br>
         จำนวนที่จับคู่ TICKETID ได้: ${diag.mapping_sheet_entry_count}<br>
-        ค่า Bookmark หลังจับคู่: ${fmtCounts(diag.bookmark_value_counts_after_mapping)} (ระบบมองหา: "${escapeHtml(diag.looking_for_bookmark)}")
+        ค่า Bookmark หลังจับคู่: ${fmtCounts(diag.bookmark_value_counts_after_mapping)} (ระบบมองหา: "${escapeHtml(diag.looking_for_bookmark)}")${diag.mapping_info ? `<br>
+        แหล่งข้อมูล Mapping ที่ใช้: <b>${escapeHtml(diag.mapping_info.source || '-')}</b>${diag.mapping_info.fallback_reason ? ` (เพราะ: ${escapeHtml(diag.mapping_info.fallback_reason)})` : ''} · แถวข้อมูลในแท็บ data: ${diag.mapping_info.data_tab_data_rows} · เพิ่มคีย์จาก EXTERNALSYSTEM_TICKETID: ${diag.mapping_info.external_id_keys_added || 0}<br>
+        ตำแหน่งคอลัมน์ที่ใช้ (0 = คอลัมน์ A): ${Object.entries(diag.mapping_info.columns || {}).map(([k, v]) => k + '=' + (v === null ? 'ไม่พบ' : v)).join(', ')} · คีย์ขึ้นต้นด้วย: ${fmtCounts(diag.mapping_info.key_prefix_counts)}<br>
+        เลข Ticket ฝั่ง Daily ที่หาแถวใน Mapping ไม่เจอ (ตัวอย่าง): ${(diag.daily_ticket_ids_without_mapping_sample || []).map(escapeHtml).join(', ') || '(ไม่มี)'}` : ''}
       </div>`;
   }
 
@@ -13609,6 +13647,171 @@ loadData();
   window.initGeneratorTestTab = function () { if (!loaded) reload(false); };
 })();
 // ===== GENERATOR TEST (end) =====
+
+// ===== SITE MAP / CAPACITY-COVERAGE (begin) =====
+(function () {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const COL = { cap: '#2563eb', cov: '#6b7a8d', p0: '#d64545', p1: '#e08a1e', tick: '#7c3aed' };
+
+  // Shared badge: "Capacity" / "Coverage" / "Coverage P0" / "Coverage P1" + opens the 1 km map. Used by Pending Ticket and Focus P0 tables.
+  window.siteTypeHtml = function (t) {
+    const type = (t && t.site_type) || '', flag = (t && t.site_flag) || '', id = (t && t.site_id) || '';
+    if (!type) return '<span style="color:var(--text3);" title="ไม่พบ CINAME/Subject ที่ตรงกับ LOCATION ID">-</span>';
+    const bg = flag === 'P0' ? COL.p0 : flag === 'P1' ? COL.p1 : type === 'Capacity' ? COL.cap : COL.cov;
+    const st = flag ? `background:${bg};color:#fff;border:1px solid ${bg};` : `background:${bg}18;color:${bg};border:1px solid ${bg}66;`;
+    const text = type === 'Coverage' && flag ? 'Coverage ' + flag : type;
+    return `<button type="button" onclick="siteZoomOpen('${esc(id)}')" title="เปิดแผนที่รัศมี 1 กม. (${esc(id)})" style="${st}padding:1px 9px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${esc(text)} 🗺</button>`;
+  };
+
+  // ---- 1 km zoom modal (Leaflet) ----
+  let zMap = null, zLayer = null, zEl = null;
+  function ensureModal() {
+    if (zEl) return;
+    zEl = document.createElement('div');
+    zEl.id = 'sitezoom-modal';
+    zEl.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,22,.6);z-index:100000;display:none;align-items:center;justify-content:center;padding:16px;';
+    zEl.innerHTML = `
+      <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(980px,100%);max-height:94vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+          <div><div id="sz-title" style="font-size:15px;font-weight:700;"></div><div id="sz-sub" style="font-size:12px;color:var(--text3);margin-top:2px;"></div></div>
+          <button class="btn-secondary" id="sz-close" style="font-size:12px;padding:4px 10px;">ปิด ✕</button>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);">
+          <span><b style="color:${COL.cap};">●</b> ไซต์ใกล้เคียงในรัศมี 1 กม. (นับเป็น Capacity)</span>
+          <span>เส้นทึบ = 1 กม. · เส้นประ = 500 ม.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px;" id="sz-grid">
+          <div id="sz-map" style="height:480px;border:1px solid var(--border);border-radius:8px;"></div>
+          <div style="overflow:auto;max-height:480px;border:1px solid var(--border);border-radius:8px;"><table style="border-collapse:collapse;width:100%;font-size:12px;">
+            <thead><tr style="background:var(--bg3);position:sticky;top:0;"><th style="padding:6px 8px;text-align:left;">ไซต์ใกล้เคียง</th><th style="padding:6px 8px;text-align:right;">ระยะ (ม.)</th><th style="padding:6px 8px;text-align:left;">ประเภท</th></tr></thead>
+            <tbody id="sz-list"></tbody></table></div>
+        </div>
+      </div>`;
+    document.body.appendChild(zEl);
+    zEl.addEventListener('click', e => { if (e.target === zEl) closeModal(); });
+    zEl.querySelector('#sz-close').addEventListener('click', closeModal);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && zEl.style.display !== 'none') closeModal(); });
+    if (window.matchMedia && window.matchMedia('(max-width:760px)').matches) zEl.querySelector('#sz-grid').style.gridTemplateColumns = '1fr';
+  }
+  function closeModal() { if (zEl) zEl.style.display = 'none'; }
+
+  window.siteZoomOpen = async function (id) {
+    if (!id) return;
+    ensureModal();
+    zEl.style.display = 'flex';
+    zEl.querySelector('#sz-title').textContent = id;
+    zEl.querySelector('#sz-sub').textContent = 'กำลังโหลด...';
+    zEl.querySelector('#sz-list').innerHTML = '';
+    if (!zMap) {
+      zMap = L.map(zEl.querySelector('#sz-map'), { zoomControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(zMap);
+      zLayer = L.layerGroup().addTo(zMap);
+    }
+    setTimeout(() => zMap.invalidateSize(), 30);
+    try {
+      const r = await fetch('/api/site-neighbours?id=' + encodeURIComponent(id));
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      const s = j.site, c = [s.la, s.lo], tc = s.type === 'Capacity' ? COL.cap : COL.cov;
+      zLayer.clearLayers();
+      L.circle(c, { radius: j.zoom_m, color: '#17222d', weight: 1.5, fillColor: COL.cap, fillOpacity: 0.05 }).addTo(zLayer);
+      L.circle(c, { radius: j.ref_ring_m || 500, color: '#17222d', weight: 1.5, dashArray: '6 5', fill: false }).addTo(zLayer);
+      j.neighbours.forEach(n => L.circleMarker([n.la, n.lo], { radius: 6, weight: 1, color: '#fff', fillColor: n.counted ? COL.cap : COL.cov, fillOpacity: 0.95 })
+        .bindTooltip(`${n.id} · ${n.m} ม.${n.name ? ' · ' + n.name : ''}`).addTo(zLayer));
+      L.circleMarker(c, { radius: 9, weight: 3, color: '#e8590c', fillColor: tc, fillOpacity: 1 })
+        .bindTooltip(s.id, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(zLayer);
+      zMap.fitBounds(L.circle(c, { radius: j.zoom_m }).getBounds(), { padding: [8, 8] });
+      zEl.querySelector('#sz-title').innerHTML = `${esc(s.id)} · <span style="color:${tc};">${esc(s.type)}</span>${s.name ? ' · ' + esc(s.name) : ''}`;
+      zEl.querySelector('#sz-sub').textContent = `${s.province}${s.district ? ' / ' + s.district : ''} · ${s.la.toFixed(5)}, ${s.lo.toFixed(5)} · ในรัศมี 1 กม. ${j.within_radius} ไซต์ (ใน 500 ม. ${j.within_500})`;
+      zEl.querySelector('#sz-list').innerHTML = j.neighbours.map(n => `<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">${esc(n.id)}</td><td style="padding:5px 8px;text-align:right;">${n.m}</td><td style="padding:5px 8px;color:${n.in_500 ? COL.cap : 'var(--text2)'};">${n.in_500 ? 'ใน 500 ม.' : 'ใน 1 กม.'}</td></tr>`).join('')
+        || '<tr><td colspan="3" style="padding:10px;color:var(--text3);">ไม่มีไซต์อื่นในรัศมี 1 กม.</td></tr>';
+      setTimeout(() => zMap.invalidateSize(), 60);
+    } catch (e) {
+      zEl.querySelector('#sz-sub').textContent = 'โหลดไม่สำเร็จ: ' + e.message;
+    }
+  };
+
+  // ---- Site Map page ----
+  const $ = id => document.getElementById(id);
+  const S = { data: null, loading: false, map: null, sitesLayer: null, tickLayer: null, province: '', showSites: true, showTick: true };
+
+  function ensureMap() {
+    if (S.map) return;
+    S.map = L.map($('sm-map'), { zoomControl: true, preferCanvas: true }).setView([17.6, 99.8], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(S.map);
+    S.sitesLayer = L.layerGroup().addTo(S.map);
+    S.tickLayer = L.layerGroup().addTo(S.map);
+  }
+  const tickColor = t => t.flag === 'P0' ? COL.p0 : t.flag === 'P1' ? COL.p1 : COL.tick;
+
+  function render() {
+    const d = S.data; if (!d) return;
+    const prov = S.province;
+    const sites = d.sites.filter(s => !prov || s[4] === prov);
+    const ticks = d.tickets.filter(t => !prov || t.site_province === prov);
+    const unm = d.unmatched.filter(t => !prov || t.province === prov || true);
+    const cap = sites.filter(s => s[3] === 1).length;
+    const tCap = ticks.filter(t => t.site_type === 'Capacity').length;
+    const p0 = ticks.filter(t => t.flag === 'P0').length, p1 = ticks.filter(t => t.flag === 'P1').length;
+    const kpi = [[sites.length, 'ไซต์ทั้งหมด', COL.cov], [cap, 'Capacity', COL.cap], [sites.length - cap, 'Coverage', COL.cov],
+      [ticks.length, 'ตั๋ว 7.MB ที่จับคู่ได้', COL.tick], [tCap + ' / ' + (ticks.length - tCap), 'ตั๋ว Capacity / Coverage', COL.cap],
+      [p0, 'Coverage P0', COL.p0], [p1, 'Coverage P1', COL.p1], [d.unmatched.length, 'ตั๋วที่ไม่พบไซต์', '#a8620b']];
+    $('sm-kpis').innerHTML = kpi.map(k => `<div style="background:var(--bg2);border:1px solid var(--border);border-left:4px solid ${k[2]};border-radius:var(--r);padding:10px 12px;"><b style="display:block;font-size:24px;line-height:1.1;">${k[0]}</b><span style="font-size:11px;color:var(--text3);">${k[1]}</span></div>`).join('');
+
+    S.sitesLayer.clearLayers(); S.tickLayer.clearLayers();
+    const tickSites = new Set(ticks.map(t => t.site_id));
+    if (S.showSites) sites.forEach(s => { if (S.showTick && tickSites.has(s[0])) return;
+      L.circleMarker([s[1], s[2]], { radius: 3, weight: 0, fillColor: s[3] ? COL.cap : COL.cov, fillOpacity: 0.85 })
+        .bindTooltip(`${s[0]} · ${s[3] ? 'Capacity' : 'Coverage'}`).addTo(S.sitesLayer); });
+    if (S.showTick) ticks.forEach(t => {
+      L.circleMarker([t.la, t.lo], { radius: 11, weight: 3, color: tickColor(t), fill: false })
+        .bindTooltip(`${t.tid} · ${t.site_id} · ${t.site_type}${t.flag ? ' ' + t.flag : ''} · ${t.sev}`)
+        .on('click', () => window.siteZoomOpen(t.site_id)).addTo(S.tickLayer);
+      L.circleMarker([t.la, t.lo], { radius: 4, weight: 0, fillColor: t.site_type === 'Capacity' ? COL.cap : COL.cov, fillOpacity: 1, interactive: false }).addTo(S.tickLayer); });
+    const pts = (S.showTick && ticks.length && prov) ? ticks.map(t => [t.la, t.lo]) : sites.map(s => [s[1], s[2]]);
+    if (pts.length) S.map.fitBounds(pts, { padding: [20, 20], maxZoom: 13 });
+
+    const order = t => (t.flag === 'P0' ? 0 : t.flag === 'P1' ? 1 : 2);
+    const rows = ticks.slice().sort((a, b) => order(a) - order(b) || a.tid.localeCompare(b.tid)).map(t => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px;font-weight:600;white-space:nowrap;">${esc(t.tid)}</td>
+        <td style="padding:6px 8px;"><button type="button" onclick="siteZoomOpen('${esc(t.site_id)}')" style="background:none;border:0;color:var(--blue,#2563eb);cursor:pointer;text-decoration:underline;font:inherit;padding:0;">${esc(t.ci || t.site_id)}</button>${t.site_ids.length > 1 ? ` <span style="color:var(--text3);font-size:11px;">+${t.site_ids.length - 1}</span>` : ''}</td>
+        <td style="padding:6px 8px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(t.subject)}">${esc(t.subject)}</td>
+        <td style="padding:6px 8px;white-space:nowrap;">${esc(t.province)}</td>
+        <td style="padding:6px 8px;">${esc(t.sev)}</td>
+        <td style="padding:6px 8px;white-space:nowrap;">${esc(t.aging)}</td>
+        <td style="padding:6px 8px;">${window.siteTypeHtml({ site_type: t.site_type, site_flag: t.flag, site_id: t.site_id })}</td></tr>`).join('');
+    $('sm-table').innerHTML = `<table style="border-collapse:collapse;width:100%;font-size:12px;"><thead><tr style="background:var(--bg3);">
+      ${['Ticket', 'CINAME', 'SUBJECT', 'จังหวัด', 'SEVERITY', 'Aging', 'Site Type'].map(h => `<th style="padding:7px 8px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text2);">${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows || '<tr><td colspan="7" style="padding:14px;color:var(--text3);">ไม่มีตั๋ว 7.MB ที่จับคู่กับไซต์ได้</td></tr>'}</tbody></table>`;
+    $('sm-unmatched').innerHTML = d.unmatched.length ? `<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);font-weight:700;">ตั๋ว 7.MB ที่ไม่พบไซต์ (${d.unmatched.length}) — CINAME/Subject ไม่ตรงกับ LOCATION ID</summary>
+      <div style="font-size:12px;line-height:1.8;padding:6px 4px;">${d.unmatched.map(t => `${esc(t.tid)} · CINAME: ${esc(t.ci) || '-'} · ${esc(t.subject)}`).join('<br>')}</div></details>` : '';
+    $('sm-asof').textContent = 'ข้อมูลไซต์โหลดเมื่อ ' + new Date(d.loaded_at * 1000).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+  }
+
+  async function load(force) {
+    if (S.loading) return; S.loading = true;
+    $('sm-msg').innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:12px;">กำลังโหลด...</div>';
+    try {
+      const r = await fetch('/api/site-map' + (force ? '?force_refresh=1' : ''));
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      S.data = j; $('sm-msg').innerHTML = '';
+      const provs = [...new Set(j.sites.map(s => s[4]).filter(Boolean))].sort();
+      $('sm-prov').innerHTML = '<option value="">ทั้งหมด</option>' + provs.map(p => `<option value="${esc(p)}"${p === S.province ? ' selected' : ''}>${esc(p)}</option>`).join('');
+      ensureMap(); setTimeout(() => { S.map.invalidateSize(); render(); }, 30);
+    } catch (e) {
+      $('sm-msg').innerHTML = `<div style="padding:10px 14px;border-radius:var(--r);background:#d6454522;color:#b23a3a;border:1px solid #d6454566;font-size:12.5px;">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</div>`;
+    } finally { S.loading = false; }
+  }
+
+  $('sm-prov').addEventListener('change', e => { S.province = e.target.value; render(); });
+  $('sm-sites').addEventListener('change', e => { S.showSites = e.target.checked; render(); });
+  $('sm-tick').addEventListener('change', e => { S.showTick = e.target.checked; render(); });
+  $('sm-refresh').addEventListener('click', () => load(true));
+  window.initSiteMapTab = function () { if (!S.data) load(false); else if (S.map) { S.map.invalidateSize(); } };
+})();
+// ===== SITE MAP / CAPACITY-COVERAGE (end) =====
 
 
 // ── FLOOD NAN MONITORING ────────────────────────────────────────────────
