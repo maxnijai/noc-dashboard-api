@@ -133,6 +133,7 @@ EXPORT_HEADER = [
     "SEVERITY", "TRUEOWNERGROUP", "Bookmark", "Aging_Flag_Group", "SUBDISTRICT",
     "DISTRICT", "Tech_Team", "Tech_Status", "NANO", "Group_Problem", "Action_Team",
     "Detail", "Image_Link", "Plan_Closed_Date", "Updated_At", "Updated_By", "insert_time",
+    "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
 ]
 
 
@@ -597,6 +598,14 @@ def _get_export_worksheet(gs_client):
     return sh.sheet1
 
 
+def _site_type_text(t):
+    """"Capacity" / "Coverage" / "Coverage P0" / "Coverage P1", or "" when the ticket matches no site."""
+    st = str(t.get("site_type", "") or "")
+    if st == "Coverage" and t.get("site_flag"):
+        return "Coverage " + str(t["site_flag"])
+    return st
+
+
 def _ticket_to_export_row(t, insert_time_str=""):
     """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
     by the external mirror export and the on-demand Excel/Google Sheet
@@ -609,6 +618,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         t.get("nano", ""), t.get("group_problem", ""), t.get("action_team", ""), t.get("detail", ""),
         t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
         insert_time_str,
+        _site_type_text(t),
     ]
 
 
@@ -619,6 +629,15 @@ def export_to_external_sheet(gs_client, tickets, insert_time_str):
     every time the tab is loaded or refreshed."""
     ws = _get_export_worksheet(gs_client)
     rows = [_ticket_to_export_row(t, insert_time_str) for t in tickets]
+    # A Sheets write past the grid's edge fails outright, so grow the grid first if the new
+    # right-most column (or more rows than before) doesn't fit. Only ever adds, never removes.
+    try:
+        if ws.col_count < len(EXPORT_HEADER):
+            ws.add_cols(len(EXPORT_HEADER) - ws.col_count)
+        if ws.row_count < len(rows) + 1:
+            ws.add_rows(len(rows) + 1 - ws.row_count)
+    except Exception:
+        log.exception("export_to_external_sheet: could not grow the sheet grid - attempting the write anyway")
     ws.clear()
     ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
     log.info("Exported %d rows to external Pending Ticket mirror sheet", len(rows))
