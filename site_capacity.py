@@ -251,6 +251,21 @@ def flag_for(site_type, severity):
     return ""
 
 
+def bucket_for(data, ciname, subject, severity):
+    """'cp0' / 'cp1' (Coverage P0 / P1), 'cap' (Capacity), 'cov' (Coverage with no P0/P1 flag, e.g. an NSA
+    severity) or 'na' (no site found). Mirrors annotate_entries so the card and the tables always agree."""
+    ids = match_site_ids(data, ciname, subject) if data else []
+    if not ids:
+        return "na"
+    s = data["sites"][data["index"][ids[0]]]
+    if s["type"] == "Capacity":
+        return "cap"
+    if s["type"] == "Coverage":
+        f = flag_for("Coverage", severity)
+        return "cp0" if f == "P0" else "cp1" if f == "P1" else "cov"
+    return "na"  # site has no usable coordinate -> cannot be classified
+
+
 def annotate_entries(entries, gs_client, severity_key="SEVERITY", wait_seconds=8):
     """Adds site_id / site_type / site_flag to each entry dict in place. Never raises."""
     try:

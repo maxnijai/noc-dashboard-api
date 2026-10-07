@@ -1641,6 +1641,41 @@ def _count_p0_by_group_diagnostic(rows, reference_dt):
     return counts, stages
 
 
+def _site_type_breakdown_mb(rows, reference_dt, gs_client):
+    """Site Type split of the 7.MB with SA1-4 P0 tickets (the number on that card), per province.
+    Same Region/Severity/CORP scope, group matching and P0 rule as _count_p0_by_group, so the buckets
+    always add back up to the card's count. Current data only. Returns None when the site sheet isn't
+    available - the card then just has no Site Type button."""
+    from ticket_views import row_matches_view
+    data = site_capacity.get_site_data(gs_client, wait_seconds=8)
+    if not data:
+        return None
+    apply_tog = _rows_have_owner_group(rows)
+    totals = {"cp0": 0, "cp1": 0, "cap": 0, "cov": 0, "na": 0}
+    by_prov = {}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "MB"):
+            continue
+        if _classify_priority_at(r.get("TARGETFINISH"), reference_dt) != "P0":
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        b = site_capacity.bucket_for(data, r.get("CINAME"), r.get("SUBJECT"), r.get("SEVERITY"))
+        totals[b] += 1
+        row = by_prov.setdefault(prov, {"province": prov, "cp0": 0, "cp1": 0, "cap": 0, "cov": 0, "na": 0})
+        row[b] += 1
+    provinces = list(by_prov.values())
+    for row in provinces:
+        row["total"] = row["cp0"] + row["cp1"] + row["cap"] + row["cov"] + row["na"]
+    provinces.sort(key=lambda x: (-x["total"], x["province"]))
+    return {"types": totals, "total": sum(totals.values()), "provinces": provinces}
+
+
 def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
     """Returns {"snapshot_date", "snapshot_matched_at", "groups": [{"key",
     "label", "snapshot_p0", "current_p0", "diff"}, ...]} - P0 count right
@@ -1730,6 +1765,15 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         log.exception("build_p0_snapshot_comparison: Top 5 provinces failed - cards render without them")
         top_p0_by_group = top_total_by_group = overall_top_p0 = overall_top_total = None
 
+    site_type_mb = None
+    try:
+        site_type_mb = _site_type_breakdown_mb(live_rows, current_reference_dt, gs_client)
+        if site_type_mb and site_type_mb["total"] != current_counts["MB"]:
+            log.warning("Site Type breakdown total (%s) != 7.MB card count (%s)", site_type_mb["total"], current_counts["MB"])
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: Site Type breakdown failed - 7.MB card renders without it")
+        site_type_mb = None
+
     groups = []
     for key in P0_COMPARISON_GROUPS:
         s = snapshot_counts[key]
@@ -1759,6 +1803,7 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         "groups": groups,
         "overall_top_p0": overall_top_p0,          # sum of the 4 groups, per province (matches how the big cards are defined)
         "overall_top_total": overall_top_total,
+        "site_type_mb": site_type_mb,  # additive: {"types", "total", "provinces"} for the 7.MB card's Site Type button, or None
     }
 
 
