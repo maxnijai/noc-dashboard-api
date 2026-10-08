@@ -724,6 +724,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 14.5s5-4.3 5-8.2A5 5 0 003 6.3c0 3.9 5 8.2 5 8.2z" stroke="#2563eb" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="6.3" r="1.8" fill="#2563eb"/></svg>
     Site Map
   </div>
+  <div class="nav-item" onclick="showPage('covtest')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="2" fill="#7c5cd6"/><circle cx="8" cy="8" r="4.5" stroke="#7c5cd6" stroke-width="1.2" opacity=".7"/><circle cx="8" cy="8" r="7" stroke="#7c5cd6" stroke-width="1.2" opacity=".4"/></svg>
+    Test Coverage Plot
+  </div>
 
   <div class="nav-section">Ticket Monitoring</div>
   <div class="nav-item" onclick="showPage('pendingticket')">
@@ -2071,6 +2075,64 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div id="sm-map" style="height:560px; border:1px solid var(--border); border-radius:var(--r); margin-bottom:14px;"></div>
     <div id="sm-table" style="overflow:auto; max-height:420px; border:1px solid var(--border); border-radius:var(--r);"></div>
     <div id="sm-unmatched"></div>
+  </div>
+
+  <!-- TEST COVERAGE PLOT (experimental) -->
+  <div class="page" id="page-covtest">
+    <style>
+#page-covtest .ct-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px}
+#page-covtest .ct-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+#page-covtest .ct-bar>div{display:flex;flex-direction:column;min-width:150px;flex:1 1 150px}
+#page-covtest .ct-l{color:var(--text3);font-size:12px;margin-bottom:2px;display:block}
+#page-covtest select,#page-covtest input[type=text],#page-covtest input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);font:inherit}
+#page-covtest table.ct-p{width:100%;border-collapse:collapse}#page-covtest table.ct-p th{color:var(--text3);font-size:12px;text-align:left;padding:4px}#page-covtest table.ct-p td{padding:3px 4px;border-top:1px solid var(--border)}
+#page-covtest table.ct-p input[type=number]{width:90px}#page-covtest table.ct-p input[type=checkbox]{width:auto}
+#page-covtest .ct-kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+#page-covtest .ct-k{border:1px solid var(--border);border-radius:8px;padding:8px}#page-covtest .ct-k b{font-size:20px;display:block}#page-covtest .ct-k span{color:var(--text3);font-size:12px}
+#page-covtest .ct-row{display:flex;gap:12px;flex-wrap:wrap}#ct-map{height:620px;border-radius:var(--r);border:1px solid var(--border);flex:1 1 560px;min-width:280px}
+#page-covtest .ct-side{flex:0 0 270px}
+#page-covtest .ct-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);cursor:pointer;font:inherit}
+#page-covtest .ct-lg{display:grid;grid-template-columns:22px 1fr;gap:3px 8px;align-items:center;margin-top:6px}#page-covtest .ct-lg i{display:block;height:14px;border-radius:3px}
+#page-covtest .ct-mut{color:var(--text3);font-size:12px}#page-covtest .ct-chk{display:flex;gap:6px;align-items:center;margin:6px 0}#page-covtest .ct-chk input{width:auto}
+#page-covtest #ct-info{font-size:13px;margin-top:8px;color:var(--text2)}#page-covtest .ct-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;border:1px solid #888}
+</style>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:700;">Test Coverage Plot <span style="font-size:11px;font-weight:600;background:var(--amber-bg);color:var(--amber);padding:2px 8px;border-radius:10px;margin-left:6px;">ทดลอง</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">จำลอง Capacity/Coverage จากความถี่ · ความสูงเสา · tilt และพล็อต RSRP โดยประมาณ (เสา omni ไม่คิดภูมิประเทศ) — ไม่กระทบ Site Type ที่ใช้ในหน้าอื่น</div>
+    </div>
+    <div id="ct-msg" class="ct-mut" style="margin-bottom:8px;">กำลังโหลดข้อมูลไซต์…</div>
+<div class="ct-card"><b>พารามิเตอร์</b>
+<table class="ct-p"><tr><th>ย่าน</th><th>ใช้</th><th>ระยะ (กม.)</th><th>TILT (°)</th></tr>
+<tbody id="ct-pt"></tbody></table>
+<div class="ct-bar" style="margin-top:8px">
+<div><label class="ct-l">ลำแสงแนวตั้ง (°)</label><input type="number" id="ct-bwv" value="7" step="0.5"></div>
+<div><label class="ct-l">ความสูงเสาเมื่อไม่มีข้อมูล (ม.)</label><input type="number" id="ct-dh" value="30"></div>
+<div><label class="ct-l">เกณฑ์จัดประเภท</label><select id="ct-rule"><option value="model">ไซต์อื่นอยู่ในรัศมีที่ประมาณได้</option><option value="fixed">ไซต์อื่นอยู่ภายใน 1 กม. (กฎเดิม)</option></select></div>
+<div style="flex:0 0 auto;min-width:0;flex-direction:row;gap:6px"><button class="ct-btn" id="ct-pa">นับทุกย่าน</button><button class="ct-btn" id="ct-p18">เฉพาะ 1800 ขึ้นไป</button><button class="ct-btn" id="ct-pr">ค่าเริ่มต้น</button></div>
+</div></div>
+
+<div class="ct-card"><div class="ct-bar">
+<div><label class="ct-l">จังหวัด</label><select id="ct-prov"></select></div>
+<div><label class="ct-l">ค้นหาไซต์ (พิมพ์ชื่อ)</label><input type="text" id="ct-q" list="ct-dl" placeholder="เช่น CMI0005"><datalist id="ct-dl"></datalist></div>
+<div><label class="ct-l">ความถี่ที่ใช้พล็อต RSRP</label><select id="ct-band"><option value="best">Best server</option><option>700</option><option>900</option><option>1800</option><option>2100</option><option>2300</option><option>2600</option></select></div>
+<div><label class="ct-l">ลักษณะพื้นที่ (RSRP)</label><select id="ct-cl"><option value="0">Urban</option><option value="1" selected>Suburban</option><option value="2">Rural/เขา</option></select></div>
+</div>
+<div class="ct-bar" style="margin-top:6px">
+<label class="ct-chk"><input type="checkbox" id="ct-tkonly"> เฉพาะไซต์ที่มี Ticket MB SA1-4</label>
+<label class="ct-chk"><input type="checkbox" id="ct-rs" checked> แสดงแผนที่ RSRP</label>
+<label class="ct-chk"><input type="checkbox" id="ct-sat" checked> ดาวเทียม</label>
+</div></div>
+
+<div class="ct-card"><div class="ct-kp" id="ct-kp"></div></div>
+
+<div class="ct-row"><div id="ct-map"></div>
+<div class="ct-card ct-side"><b>Legend RSRP (dBm)</b><div class="ct-lg" id="ct-lg"></div>
+<div class="ct-mut" style="margin-top:8px"><span class="ct-dot" style="background:#fff"></span>Capacity &nbsp; <span class="ct-dot" style="background:#22c55e"></span>Coverage<br>วงแหวนรอบจุด = ไซต์มี Ticket MB SA1-4: <b style="color:#dc2626">แดง</b> Coverage P0 · <b style="color:#f59e0b">ส้ม</b> Coverage P1 · <b style="color:#2563eb">น้ำเงิน</b> Capacity</div>
+<div id="ct-info" class="ct-mut">คลิกไซต์หรือค้นหาชื่อเพื่อดูรายละเอียดและวงรัศมี</div>
+<div class="ct-mut" id="ct-st" style="margin-top:8px"></div><div class="ct-mut" id="ct-rm"></div>
+<div class="ct-mut" style="margin-top:8px">RSRP: Okumura-Hata + ผลของ tilt, เสา omni, ไม่คิดภูมิประเทศ จึงเป็นค่าประมาณ</div></div></div>
+
+
   </div>
 
   <!-- GENERATOR TEST -->
@@ -5693,6 +5755,7 @@ function showPage(id) {
   if (id==='ofcmonitor') { setTimeout(()=>{ if (window.initOfcMonitorTab) window.initOfcMonitorTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
   if (id==='sitemap') { setTimeout(()=>{ if (window.initSiteMapTab) window.initSiteMapTab(); },50); }
+  if (id==='covtest') { setTimeout(()=>{ if (window.initCovTestTab) window.initCovTestTab(); },50); }
   if (id==='generatortest') { setTimeout(()=>{ if (window.initGeneratorTestTab) window.initGeneratorTestTab(); },50); }
   if (id==='floodnan') { setTimeout(()=>{ if (window.initFloodNanTab) window.initFloodNanTab(); },50); }
   if (id==='summarynan') { setTimeout(()=>{ if (window.initSummaryNanTab) window.initSummaryNanTab(); },50); }
@@ -13918,6 +13981,98 @@ loadData();
   window.initSiteMapTab = function () { if (!S.data) load(false); else if (S.map) { S.map.invalidateSize(); } };
 })();
 // ===== SITE MAP / CAPACITY-COVERAGE (end) =====
+
+// ===== TEST COVERAGE PLOT (begin) =====
+(function () {
+  let booted = false, ctMap = null;
+  function ctInit(S) {
+
+const BK=[700,900,1800,2100,2300,2600],DR={700:8,900:6.5,1800:3.5,2100:3,2300:2.3,2600:2},DT={700:2,900:3,1800:4,2100:5,2300:6,2600:6},FQ={700:750,900:900,1800:1800,2100:2100,2300:2300,2600:2600};
+const $=i=>document.getElementById('ct-'+i),rad=Math.PI/180,KM=111.32;
+$('pt').innerHTML=BK.map(b=>`<tr><td>${b} MHz</td><td><input type="checkbox" id="ct-u${b}" checked></td><td><input type="number" id="ct-r${b}" value="${DR[b]}" step="0.1"></td><td><input type="number" id="ct-t${b}" value="${DT[b]}" step="0.5"></td></tr>`).join('');
+const LG=[[-50,0,'#0b2a9e'],[-70,-50,'#1f4fff'],[-80,-70,'#7fd0ff'],[-90,-80,'#00cc22'],[-105,-90,'#ffc84a'],[-110,-105,'#e3b3a8'],[-120,-110,'#b30000'],[-140,-120,'#ff0000']];
+const col=v=>{if(v>=0)return LG[0][2];for(const l of LG)if(v>=l[0]&&v<l[1])return l[2];return null};
+$('lg').innerHTML=LG.map(l=>`<i style="background:${l[2]}"></i><span>[${l[0]}, ${l[1]}]</span>`).join('');
+const P=()=>({bw:+$('bwv').value||7,dh:+$('dh').value||30,u:BK.map(b=>$('u'+b).checked),r:BK.map(b=>+$('r'+b).value),t:BK.map(b=>+$('t'+b).value)});
+const hOf=(s,p)=>s[3]>0?s[3]:p.dh;
+function radius(s,p){let R=0;const h=hOf(s,p);BK.forEach((b,i)=>{if(!(s[4]>>i&1)||!p.u[i])return;const a=Math.max(p.t[i]-p.bw/2,0.3),rt=h/Math.tan(a*rad)/1000;R=Math.max(R,Math.min(p.r[i],rt));});return R}
+function cls(s,p,R){const lim=$('rule').value==='fixed'?1:R;return s[8]<lim?'cap':'cov'}
+function tkb(s,c){if(!s[9])return '';if(c==='cap')return 'cap';return (s[9]==='SA4')?'cp1':'cp0'}
+const map=L.map(document.getElementById('ct-map'),{preferCanvas:true}).setView([18.8,99.0],8);
+const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'OSM'});
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:18,maxZoom:19,attribution:'Esri'});
+sat.addTo(map);let te=0;sat.on('tileerror',()=>{if(++te===6){$('sat').checked=false;map.removeLayer(sat);street.addTo(map);$('rm').textContent='โหลดภาพดาวเทียมไม่ได้ สลับเป็นแผนที่ถนนให้แล้ว'}});
+$('sat').onchange=()=>{if($('sat').checked){map.removeLayer(street);sat.addTo(map)}else{map.removeLayer(sat);street.addTo(map)}};
+map.createPane('rsp').style.zIndex=350;const rcnv=L.canvas({padding:.5,pane:'rsp'});const rsL=L.layerGroup().addTo(map),stL=L.layerGroup().addTo(map),selL=L.layerGroup().addTo(map),cnv=L.canvas({padding:.5});
+let sel=null;
+// provinces
+const provs=[...new Set(S.map(s=>s[5]).filter(Boolean))].sort();
+$('prov').innerHTML='<option value="">ทุกจังหวัด</option>'+provs.map(x=>`<option>${x}</option>`).join('');
+function inScope(s){const pv=$('prov').value;return (!pv||s[5]===pv)}
+function fillDL(){const pv=$('prov').value;$('dl').innerHTML=S.filter(s=>!pv||s[5]===pv).map(s=>`<option value="${s[0]}">`).join('')}
+fillDL();
+function kpis(p){const c={tot:0,cap:0,cov:0,tk:0,cp0:0,cp1:0,tcap:0};
+ for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s,p,radius(s,p));c.tot++;c[k]++;if(s[9]){c.tk++;const b=tkb(s,k);c[b==='cap'?'tcap':b]++}}
+ $('kp').innerHTML=[['ไซต์ในขอบเขต',c.tot],['Capacity',c.cap],['Coverage',c.cov],['Ticket MB SA1-4',c.tk],['Coverage P0',c.cp0],['Coverage P1',c.cp1],['Capacity (มี Ticket)',c.tcap]].map(x=>`<div class="ct-k"><b>${x[1].toLocaleString()}</b><span>${x[0]}</span></div>`).join('')}
+function drawSites(p){stL.clearLayers();const only=$('tkonly').checked;let n=0;
+ for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s,p,radius(s,p)),tb=tkb(s,k);if(only&&!s[9])continue;n++;
+  const m=L.circleMarker([s[1],s[2]],{renderer:cnv,radius:tb?7:4,weight:tb?3:1,color:tb==='cp0'?'#dc2626':tb==='cp1'?'#f59e0b':tb==='cap'?'#2563eb':'#333',fillColor:k==='cap'?'#fff':'#22c55e',fillOpacity:1});
+  m.bindTooltip(s[0]+' · '+k.toUpperCase()+(s[9]?' · '+s[9]:''));m.on('click',()=>pick(s));m.addTo(stL);}
+ $('st').textContent='ไซต์ที่แสดง '+n.toLocaleString()}
+function rsrp(s,d,i,p,cl){const b=BK[i];d=Math.max(d,0.03);const h=hOf(s,p),f=FQ[b],hb=Math.max(h,10),a=(1.1*Math.log10(f)-0.7)*1.5-(1.56*Math.log10(f)-0.8);
+ let pl=69.55+26.16*Math.log10(f)-13.82*Math.log10(hb)-a+(44.9-6.55*Math.log10(hb))*Math.log10(d);
+ pl-=cl==1?2*Math.pow(Math.log10(f/28),2)+5.4:cl==2?4.78*Math.pow(Math.log10(f),2)-18.33*Math.log10(f)+40.94:0;
+ const th=Math.atan(h/(d*1000))/rad,v=Math.min(12*Math.pow((th-p.t[i])/p.bw,2),20);return 32-pl-v-(cl==0?6:0)}
+const BC=0.09,IDX={};S.forEach(s=>{if(s[7]){const k=Math.floor(s[1]/BC)+','+Math.floor(s[2]/BC);(IDX[k]=IDX[k]||[]).push(s)}});
+function drawRS(p){rsL.clearLayers();if(!$('rs').checked){$('rm').textContent='';return}
+ const bs=$('band').value,cl=+$('cl').value,B=map.getBounds().pad(.03);
+ const w=B.getEast()-B.getWest(),hh=B.getNorth()-B.getSouth();const step=Math.max(0.0007,Math.sqrt(w*hh/5000));
+ const r=Math.max(2.5,Math.min(10,map.getSize().x*step/w*0.8));let n=0;
+ for(let la=B.getSouth();la<B.getNorth();la+=step)for(let lo=B.getWest();lo<B.getEast();lo+=step){
+  let best=-999;const cs=Math.cos(la*rad),ci=Math.floor(la/BC),cj=Math.floor(lo/BC);
+  for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const arr=IDX[(ci+di)+','+(cj+dj)];if(!arr)continue;
+   for(const s of arr){const dy=(la-s[1])*KM,dx=(lo-s[2])*KM*cs,d=Math.hypot(dx,dy);if(d>9)continue;
+    for(let i=0;i<6;i++){if(!(s[4]>>i&1)||!p.u[i])continue;if(bs!=='best'&&BK[i]!=+bs)continue;const v=rsrp(s,d,i,p,cl);if(v>best)best=v}}}
+  const c=best>-140?col(best):null;if(!c)continue;n++;
+  L.circleMarker([la,lo],{renderer:rcnv,radius:r,stroke:false,fillColor:c,fillOpacity:.7,interactive:false}).addTo(rsL)}
+ $('rm').textContent='RSRP: '+n.toLocaleString()+' จุด (ซูมเข้าเพื่อดูละเอียดขึ้น)'}
+function inScope2(s){return true} // ให้ RSRP นับไซต์เพื่อนบ้านข้ามจังหวัดด้วย
+function pick(s){sel=s;const p=P(),R=radius(s,p),k=cls(s,p,R);selL.clearLayers();
+ L.circle([s[1],s[2]],{radius:R*1000,color:'#fff',weight:2,dashArray:'6 5',fill:false}).addTo(selL);
+ L.circle([s[1],s[2]],{radius:1000,color:'#f59e0b',weight:2,fill:false}).addTo(selL);
+ const bands=BK.filter((b,i)=>s[4]>>i&1).join('/')||'-';
+ $('info').innerHTML=`<b>${s[0]}</b> · ${s[5]||'-'}<br>ความสูงเสา: ${s[3]>0?s[3]+' ม.':'ไม่มีข้อมูล (ใช้ '+p.dh+' ม.)'}<br>ความถี่: ${bands}<br>รัศมีประมาณ: <b>${R.toFixed(2)} กม.</b> (วงขาวประ) · วงส้ม = 1 กม.<br>ไซต์ใกล้สุด: ${s[8]>=99?'-':s[8].toFixed(2)+' กม.'}<br>ผล: <b>${k==='cap'?'Capacity':'Coverage'}</b>${s[9]?'<br>Ticket MB: '+s[9]+' → '+({cap:'Capacity',cp0:'Coverage P0',cp1:'Coverage P1'})[tkb(s,k)]:''}`}
+function go(s){map.setView([s[1],s[2]],14);pick(s)}
+function fitScope(){const pv=$('prov').value;if(!pv){map.setView([18.8,99.0],8);return}
+ const a=S.filter(s=>s[5]===pv&&s[7]);if(a.length)map.fitBounds(L.latLngBounds(a.map(s=>[s[1],s[2]])).pad(.1))}
+let T;const redraw=()=>{const p=P();kpis(p);drawSites(p);clearTimeout(T);T=setTimeout(()=>drawRS(p),150);if(sel)pick(sel)};
+['bwv','dh','rule','band','cl','tkonly','rs'].forEach(i=>$(i).addEventListener('input',redraw));
+BK.forEach(b=>['u','r','t'].forEach(x=>$(x+b).addEventListener('input',redraw)));
+$('prov').onchange=()=>{fillDL();fitScope();redraw()};
+$('q').addEventListener('change',()=>{const v=$('q').value.trim().toUpperCase(),s=S.find(x=>x[0].toUpperCase()===v);if(s){if(s[5]&&$('prov').value&&$('prov').value!==s[5]){$('prov').value=s[5];fillDL()}go(s);redraw()}});
+const setAll=f=>{BK.forEach((b,i)=>{$('u'+b).checked=f(b);$('r'+b).value=DR[b];$('t'+b).value=DT[b]});$('bwv').value=7;$('dh').value=30;redraw()};
+$('pa').onclick=()=>setAll(()=>true);$('p18').onclick=()=>setAll(b=>b>=1800);$('pr').onclick=()=>setAll(()=>true);
+map.on('moveend',()=>{clearTimeout(T);T=setTimeout(()=>drawRS(P()),200)});
+redraw();
+
+    ctMap = map;
+  }
+  window.initCovTestTab = function () {
+    const msg = document.getElementById('ct-msg');
+    if (booted) { if (ctMap) ctMap.invalidateSize(); return; }
+    booted = true;
+    fetch('/api/coverage-test').then(r => r.json()).then(j => {
+      if (j.error) throw new Error(j.error);
+      const tk = j.tickets || {};
+      j.sites.forEach(s => s.push(tk[s[0]] || ''));   // s[9] = worst 7.MB SA1-4 severity at this site ('' = none)
+      ctInit(j.sites);
+      setTimeout(() => ctMap && ctMap.invalidateSize(), 50);
+      msg.textContent = 'ข้อมูลไซต์ ' + j.sites.length.toLocaleString() + ' แห่ง · Ticket ' + j.bookmark + ' ' + Object.keys(tk).length.toLocaleString() + ' ไซต์';
+    }).catch(e => { booted = false; msg.textContent = 'โหลดไม่สำเร็จ: ' + (e && e.message || e) + ' (เปิดแท็บใหม่อีกครั้งเพื่อลองซ้ำ)'; });
+  };
+})();
+// ===== TEST COVERAGE PLOT (end) =====
+
 
 
 // ── FLOOD NAN MONITORING ────────────────────────────────────────────────
