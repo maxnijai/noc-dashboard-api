@@ -63,6 +63,24 @@ def _fnum(v):
     return f
 
 
+# Test Coverage Plot (additive): band columns grouped 700/900/1800/2100/2300/2600; tower height from TOWER TYPE
+BAND_COLUMNS = {
+    700: ("4G 700", "5G 700"),
+    900: ("2G 900", "3G 900", "4G 900", "3G 850"),
+    1800: ("2G 1800", "4G 1800", "5G 1800", "4G 1500"),
+    2100: ("3G 2100", "4G 2100", "5G 2100"),
+    2300: ("4G 2300", "5G 2300"),
+    2600: ("4G 2600", "5G 2600"),
+}
+_H_RE1 = re.compile(r"(\d+(?:\.\d+)?)\s*m\b", re.I)
+_H_RE2 = re.compile(r"\bH\s*(\d+(?:\.\d+)?)")
+
+
+def _tower_height(text):
+    m = _H_RE1.search(text or "") or _H_RE2.search(text or "")
+    return float(m.group(1)) if m else 0.0
+
+
 def build_site_data(values):
     """values: list of rows (list of str), first row = header. Pure function (unit-testable)."""
     if not values or len(values) < 2:
@@ -82,6 +100,9 @@ def build_site_data(values):
     c_name = header.index("NAME_EN") if "NAME_EN" in header else None
     c_prov = header.index("PROVINCE_E") if "PROVINCE_E" in header else None
     c_dist = header.index("DISTRICT_E") if "DISTRICT_E" in header else None
+    c_tower = header.index("TOWER TYPE") if "TOWER TYPE" in header else None  # Test Coverage Plot only
+    c_area = header.index("AREA TYPE") if "AREA TYPE" in header else None
+    c_bands = [[header.index(n) for n in names if n in header] for names in BAND_COLUMNS.values()]
 
     def get(row, i):
         return str(row[i]).strip() if i is not None and i < len(row) else ""
@@ -101,6 +122,8 @@ def build_site_data(values):
             "loc_type": loc_type,
             "pair": {p.upper() for p in (get(row, c_pair), get(row, c_ibc)) if p},
             "name": get(row, c_name), "prov": get(row, c_prov).title(), "dist": get(row, c_dist).title(),
+            "h": _tower_height(get(row, c_tower)), "area": get(row, c_area),
+            "mask": sum(1 << k for k, cols in enumerate(c_bands) if any(get(row, c) == "1" for c in cols)),
         }
         index[sid] = len(sites)
         sites.append(s)

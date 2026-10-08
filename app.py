@@ -38,6 +38,7 @@ import historical_closed_ticket
 import sa2_risk
 import ofc_monitor
 import site_capacity
+import coverage_test
 
 SHEET_ID      = '1_l5UAj1etjGgLCR4DSG6qDoK8c1unFnO6NVHVwvmbAU'
 SHEET_NAME    = 'Sheet1'
@@ -3304,6 +3305,16 @@ def api_site_map():
         return jsonify(site_capacity.build_site_map_response(gs_client))
     except Exception as e:
         log.exception("site-map API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coverage-test')
+def api_coverage_test():
+    """Test Coverage Plot tab: sites (height, bands, nearest neighbour) + worst 7.MB SA1-4 severity per site. Read-only."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(coverage_test.build_response(gs_client))
+    except Exception as e:
+        log.exception("coverage-test API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/site-neighbours')
