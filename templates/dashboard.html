@@ -13754,8 +13754,17 @@ loadData();
     return `<button type="button" onclick="siteZoomOpen('${esc(id)}')" title="เปิดแผนที่รัศมี 1 กม. (${esc(id)})" style="${st}padding:1px 9px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${esc(text)} 🗺</button>`;
   };
 
+  // Base maps shared by the 1 km zoom map and the Site Map page: street (OSM) + satellite (Esri World Imagery).
+  function addBaseLayers(map) {
+    const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
+    const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 18, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' });
+    street.addTo(map);
+    L.control.layers({ 'แผนที่': street, 'ดาวเทียม': sat }, null, { position: 'topright', collapsed: false }).addTo(map);
+    return { street, sat };
+  }
+
   // ---- 1 km zoom modal (Leaflet) ----
-  let zMap = null, zLayer = null, zEl = null;
+  let zMap = null, zLayer = null, zEl = null, zSat = false, zRings = [];
   function ensureModal() {
     if (zEl) return;
     zEl = document.createElement('div');
@@ -13795,8 +13804,10 @@ loadData();
     zEl.querySelector('#sz-list').innerHTML = '';
     if (!zMap) {
       zMap = L.map(zEl.querySelector('#sz-map'), { zoomControl: true });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(zMap);
+      addBaseLayers(zMap);
       zLayer = L.layerGroup().addTo(zMap);
+      // rings are dark on the street map and white on satellite imagery so they stay visible on both
+      zMap.on('baselayerchange', e => { zSat = e.name === 'ดาวเทียม'; zRings.forEach(r => r.setStyle({ color: zSat ? '#ffffff' : '#17222d' })); });
     }
     setTimeout(() => zMap.invalidateSize(), 30);
     try {
@@ -13805,8 +13816,11 @@ loadData();
       if (!r.ok) throw new Error(j.error || r.status);
       const s = j.site, c = [s.la, s.lo], tc = s.type === 'Capacity' ? COL.cap : COL.cov;
       zLayer.clearLayers();
-      L.circle(c, { radius: j.zoom_m, color: '#17222d', weight: 1.5, fillColor: COL.cap, fillOpacity: 0.05 }).addTo(zLayer);
-      L.circle(c, { radius: j.ref_ring_m || 500, color: '#17222d', weight: 1.5, dashArray: '6 5', fill: false }).addTo(zLayer);
+      const ringColor = zSat ? '#ffffff' : '#17222d';
+      zRings = [
+        L.circle(c, { radius: j.zoom_m, color: ringColor, weight: 2, fillColor: COL.cap, fillOpacity: 0.05 }).addTo(zLayer),
+        L.circle(c, { radius: j.ref_ring_m || 500, color: ringColor, weight: 2, dashArray: '6 5', fill: false }).addTo(zLayer),
+      ];
       j.neighbours.forEach(n => L.circleMarker([n.la, n.lo], { radius: 6, weight: 1, color: '#fff', fillColor: n.counted ? COL.cap : COL.cov, fillOpacity: 0.95 })
         .bindTooltip(`${n.id} · ${n.m} ม.${n.name ? ' · ' + n.name : ''}`).addTo(zLayer));
       L.circleMarker(c, { radius: 9, weight: 3, color: '#e8590c', fillColor: tc, fillOpacity: 1 })
@@ -13830,7 +13844,7 @@ loadData();
   function ensureMap() {
     if (S.map) return;
     S.map = L.map($('sm-map'), { zoomControl: true, preferCanvas: true }).setView([17.6, 99.8], 7);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(S.map);
+    addBaseLayers(S.map);
     S.sitesLayer = L.layerGroup().addTo(S.map);
     S.tickLayer = L.layerGroup().addTo(S.map);
   }
