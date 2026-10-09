@@ -240,11 +240,12 @@ def _build_pairs(st):
     log.info("coverage-test: %d sites, %d pairs, terrain=%s", n, N, terrain_available())
 
 
-def _ensure_state(gs_client, wait=True):
+def _ensure_state(gs_client, wait=True, data=None, tries=240):
     """Returns the prepared state, or None while it is still being built."""
     if np is None:
         return None
-    data = site_capacity.get_site_data(gs_client)
+    if data is None:
+        data = site_capacity.get_site_data(gs_client)
     if not data:
         raise RuntimeError("Site sheet not loaded: %s" % (site_capacity.last_error() or "try again in a minute"))
     with _lock:
@@ -271,7 +272,7 @@ def _ensure_state(gs_client, wait=True):
                         _state["building"] = False
             threading.Thread(target=job, daemon=True).start()
     if wait:
-        for _ in range(240):  # up to ~120 s on the very first call
+        for _ in range(tries):  # default ~120 s on the very first call
             with _lock:
                 if _state["error"]:
                     raise RuntimeError(_state["error"])
@@ -312,6 +313,13 @@ def classify(gs_client, body):
         raise ValueError("site list changed on the server - reload the tab")
     P = _params(body)
     terrain = bool(body.get("terrain", True)) and terrain_available()
+    cap = _cap_flags(st, P, terrain)
+    return {"status": "ok", "terrain": terrain, "cap": [int(x) for x in cap],
+            "counted": int(st["cnt"].sum()), "capacity": int(cap.sum())}
+
+
+def _cap_flags(st, P, terrain):
+    """Boolean array (per st site): reaches / is reached by another counted, non-pair site on an enabled band."""
     with _work:
         mg = _row_margins(st, P, terrain=terrain)
         reach = (mg >= 0) & (~st["own"])
@@ -319,8 +327,37 @@ def classify(gs_client, body):
         cap[np.unique(st["pa"][reach])] = True
         cap[np.unique(st["pb"][reach])] = True
         cap &= st["cnt"]
-    return {"status": "ok", "terrain": terrain, "cap": [int(x) for x in cap],
-            "counted": int(st["cnt"].sum()), "capacity": int(cap.sum())}
+    return cap
+
+
+def apply_to_data(data):
+    """Production switch: overwrite s['type'] of every counted site in `data` (site_capacity's dataset) with the
+    signal-model result at the default parameters, terrain included. The 1 km result stays in s['type_1km'].
+    Sites that are not counted keep their 1 km type. Needs numpy AND the DEM; otherwise nothing is changed
+    (so a missing file can never silently turn into a no-terrain result). Returns a status dict, never raises."""
+    try:
+        if np is None:
+            return {"status": "fallback", "reason": "numpy is not installed"}
+        _load_dem()
+        if not terrain_available():
+            return {"status": "fallback", "reason": "DEM file not found (%s)" % (_dem.get("err") or "data/dem_small.npz")}
+        st = _ensure_state(None, wait=True, data=data, tries=1200)
+        if st is None:
+            return {"status": "fallback", "reason": "model build did not finish"}
+        cap = _cap_flags(st, _params({}), True)
+        changed = 0
+        for i, s in enumerate(st["sites"]):
+            if not st["cnt"][i]:
+                continue
+            new = "Capacity" if cap[i] else "Coverage"
+            if s["type"] != new:
+                changed += 1
+            s["type"] = new
+        return {"status": "ok", "terrain": True, "changed_vs_1km": changed, "counted": int(st["cnt"].sum()),
+                "capacity_counted": int(cap.sum())}
+    except Exception as e:
+        log.exception("coverage-test: apply_to_data failed")
+        return {"status": "fallback", "reason": str(e)}
 
 
 # --------------------------------------------------------------------------------------------------

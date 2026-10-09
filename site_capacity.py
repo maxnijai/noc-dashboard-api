@@ -138,13 +138,45 @@ def build_site_data(values):
         if s["la"] is None:
             continue
         s["type"] = "Capacity" if neighbours(data, s, NEIGHBOUR_RADIUS_M, first_only=True) else "Coverage"
+        s["type_1km"] = s["type"]
+    data["model"] = {"status": "1km", "reason": ""}
+    _recount(data)
+    return data
+
+
+def _recount(data):
+    sites = data["sites"]
     data["counts"] = {
         "total": len(sites),
         "capacity": sum(1 for s in sites if s["type"] == "Capacity"),
         "coverage": sum(1 for s in sites if s["type"] == "Coverage"),
         "no_coordinate": sum(1 for s in sites if s["la"] is None),
     }
-    return data
+
+
+# Production switch. Site Type comes from the signal model (RSRP + terrain) when SITE_TYPE_MODEL is on (default);
+# set SITE_TYPE_MODEL=0 on Railway to go back to the 1 km rule without a redeploy of code. The 1 km result is what
+# every page shows until the model has finished (about a minute after a start / reload) and whenever the model
+# cannot run (numpy or the DEM file missing) - it never falls back to a no-terrain model.
+MODEL_ENABLED = os.environ.get("SITE_TYPE_MODEL", "1").strip().lower() not in ("0", "false", "off", "no")
+
+
+def _apply_model(data):
+    if not MODEL_ENABLED:
+        data["model"] = {"status": "off", "reason": "SITE_TYPE_MODEL=0"}
+        return
+    try:
+        import coverage_test
+        res = coverage_test.apply_to_data(data)
+    except Exception as e:
+        log.exception("site_capacity: model failed")
+        res = {"status": "fallback", "reason": str(e)}
+    data["model"] = res
+    if res.get("status") == "ok":
+        _recount(data)
+        log.info("site_capacity: signal model applied %s -> %s", res, data["counts"])
+    else:
+        log.warning("site_capacity: signal model NOT applied, keeping the 1 km rule: %s", res)
 
 
 def neighbours(data, site, radius_m, first_only=False):
@@ -195,6 +227,7 @@ def _load_into_cache(gs_client):
         with _lock:
             _state.update(data=data, ts=time.time(), error=None)
         log.info("site_capacity: loaded %s", data["counts"])
+        threading.Thread(target=_apply_model, args=(data,), daemon=True).start()
     except Exception as e:
         log.exception("site_capacity: load failed")
         with _lock:
@@ -354,7 +387,7 @@ def build_site_map_response(gs_client):
         tickets.append(base)
     return {
         "counts": data["counts"], "sites": out_sites, "tickets": tickets, "unmatched": unmatched,
-        "loaded_at": data["loaded_at"], "bookmark": MB_BOOKMARK,
+        "loaded_at": data["loaded_at"], "bookmark": MB_BOOKMARK, "model": data.get("model"),
         "rules": {"radius_m": NEIGHBOUR_RADIUS_M, "zoom_m": ZOOM_RADIUS_M,
                   "neighbour_loc_types": sorted(NEIGHBOUR_LOC_TYPES)},
     }
@@ -373,7 +406,9 @@ def build_site_neighbours_response(gs_client, site_id):
     near = neighbours(data, s, ZOOM_RADIUS_M)
     return {
         "site": {"id": s["id"], "la": s["la"], "lo": s["lo"], "type": s["type"], "name": s["name"],
-                 "province": s["prov"], "district": s["dist"], "loc_type": s["loc_type"]},
+                 "province": s["prov"], "district": s["dist"], "loc_type": s["loc_type"],
+                 "type_1km": s.get("type_1km") or s["type"]},
+        "model": data.get("model"),
         "radius_m": NEIGHBOUR_RADIUS_M, "zoom_m": ZOOM_RADIUS_M, "ref_ring_m": REFERENCE_RING_M,
         "within_radius": sum(1 for _, d in near if d <= NEIGHBOUR_RADIUS_M),
         "within_500": sum(1 for _, d in near if d <= REFERENCE_RING_M),
