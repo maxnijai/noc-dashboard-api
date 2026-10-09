@@ -13830,6 +13830,66 @@ loadData();
 
   // ---- 1 km zoom modal (Leaflet) ----
   let zMap = null, zLayer = null, zEl = null, zSat = false, zRings = [];
+  // RSRP plot inside the popup (same server model + default parameters that decide Capacity / Coverage)
+  let zRsL = null, zRsSeq = 0, zRsT = null;
+  const ZLG = [[-50, '#0b2a9e', '−50…0'], [-70, '#1f4fff', '−70'], [-80, '#7fd0ff', '−80'], [-90, '#00cc22', '−90'], [-105, '#ffc84a', '−105'], [-110, '#e3b3a8', '−110'], [-120, '#b30000', '−120'], [-140, '#ff0000', '−140']];
+  const zcol = v => { for (const g of ZLG) if (v >= g[0]) return g[1]; return null; };
+  async function zPost(path, body) {
+    const r = await fetch('/api/coverage-test/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    return j;
+  }
+  function zFit() {
+    const ll = zEl._c; if (!ll) return;
+    const on = zEl.querySelector('#sz-rs').checked;
+    zMap.fitBounds(L.latLng(ll).toBounds(on ? 9000 : 2000), { padding: [8, 8] });
+  }
+  async function zDrawRs(tries) {
+    const msg = zEl.querySelector('#sz-rm');
+    if (!zRsL) return;
+    if (!zEl.querySelector('#sz-rs').checked) { zRsL.clearLayers(); msg.textContent = ''; return; }
+    const B = zMap.getBounds().pad(0.03);
+    if (B.getNorth() - B.getSouth() > 0.85 || B.getEast() - B.getWest() > 0.85) { msg.textContent = 'ซูมเข้าอีกเล็กน้อยเพื่อดู RSRP'; return; }
+    const my = ++zRsSeq;
+    msg.textContent = 'กำลังคำนวณ RSRP…';
+    let j;
+    try { j = await zPost('raster', { south: B.getSouth(), north: B.getNorth(), west: B.getWest(), east: B.getEast(), band: 'best', terrain: true }); }
+    catch (e) { if (my === zRsSeq) msg.textContent = 'โหลด RSRP ไม่สำเร็จ'; return; }
+    if (my !== zRsSeq) return;
+    if (j.status === 'preparing') {
+      msg.textContent = 'กำลังเตรียมข้อมูลบนเซิร์ฟเวอร์ รอสักครู่…';
+      if ((tries || 0) < 40) setTimeout(() => { if (my === zRsSeq) zDrawRs((tries || 0) + 1); }, 2000);
+      return;
+    }
+    if (j.status !== 'ok') { msg.textContent = 'ซูมเข้าอีกเล็กน้อยเพื่อดู RSRP'; return; }
+    zRsL.clearLayers();
+    const w = B.getEast() - B.getWest(), px = zMap.getSize().x, r = Math.max(2.5, Math.min(10, px * j.step / w * 0.8));
+    let n = 0;
+    for (let iy = 0; iy < j.ny; iy++) for (let ix = 0; ix < j.nx; ix++) {
+      const v = j.v[iy * j.nx + ix];
+      if (v === -128 || v === 127) continue;
+      const c = zcol(v); if (!c) continue;
+      n++;
+      L.circleMarker([j.south + iy * j.step, j.west + ix * j.step], { renderer: zRsL._r, pane: 'zrs', radius: r, stroke: false, fillColor: c, fillOpacity: 0.6, interactive: false }).addTo(zRsL);
+    }
+    msg.textContent = (j.terrain ? 'คิดภูเขา · ' : 'ไม่คิดภูเขา · ') + n.toLocaleString() + ' จุด';
+  }
+  async function zLoadOutage(id) {
+    const out = zEl.querySelector('#sz-out');
+    out.textContent = '';
+    for (let i = 0; i < 20; i++) {
+      let j;
+      try { j = await zPost('site', { id, terrain: true }); } catch (e) { return; }
+      if (zEl.dataset.sid !== id) return;
+      if (j.status === 'preparing') { await new Promise(r => setTimeout(r, 2000)); continue; }
+      if (j.status !== 'ok') return;
+      const o = j.outage;
+      out.innerHTML = `ไซต์ที่สัญญาณถึงกัน: <b>${j.reach_n}</b> แห่ง · รัศมีสัญญาณ (ไม่คิดภูเขา) ≈ <b>${j.ideal_km} กม.</b>` +
+        (o ? ` · <b>ถ้าไซต์นี้ดับ:</b> เสียพื้นที่ <b>${o.pct.toFixed(0)}%</b> (ข้อมูลประกอบ ไม่ใช้ตัดสินป้าย)` : '');
+      return;
+    }
+  }
   function ensureModal() {
     if (zEl) return;
     zEl = document.createElement('div');
@@ -13839,12 +13899,18 @@ loadData();
       <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(980px,100%);max-height:94vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div><div id="sz-title" style="font-size:15px;font-weight:700;"></div><div id="sz-sub" style="font-size:12px;color:var(--text3);margin-top:2px;"></div></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn-secondary" id="sz-plot" style="font-size:12px;padding:4px 10px;font-weight:700;">📡 ดู Coverage Plot</button><button class="btn-secondary" id="sz-close" style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn-secondary" id="sz-plot" style="font-size:12px;padding:4px 10px;font-weight:700;">📡 เปิดแท็บ Coverage Plot (ปรับค่าได้)</button><button class="btn-secondary" id="sz-close" style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);">
           <span><b style="color:${COL.cap};">●</b> ไซต์ใกล้เคียงในรัศมี 1 กม. (ข้อมูลอ้างอิง · ผลตัดสินใช้โมเดลสัญญาณ)</span>
           <span>เส้นทึบ = 1 กม. · เส้นประ = 500 ม.</span>
         </div>
+        <div style="display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;font-size:12px;">
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-weight:600;"><input type="checkbox" id="sz-rs" checked> แสดงสัญญาณ RSRP (โมเดลคิดภูเขา · ค่ามาตรฐาน)</label>
+          <span id="sz-rm" style="color:var(--text3);"></span>
+          <span id="sz-leg" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--text3);"></span>
+        </div>
+        <div id="sz-out" style="font-size:12.5px;"></div>
         <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px;" id="sz-grid">
           <div id="sz-map" style="height:480px;border:1px solid var(--border);border-radius:8px;"></div>
           <div style="overflow:auto;max-height:480px;border:1px solid var(--border);border-radius:8px;"><table style="border-collapse:collapse;width:100%;font-size:12px;">
@@ -13854,6 +13920,8 @@ loadData();
       </div>`;
     document.body.appendChild(zEl);
     zEl.addEventListener('click', e => { if (e.target === zEl) closeModal(); });
+    zEl.querySelector('#sz-leg').innerHTML = ZLG.map(g => `<span style="display:inline-flex;align-items:center;gap:3px;"><i style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${g[1]};"></i>${g[2]}</span>`).join('') + '<span>dBm</span>';
+    zEl.querySelector('#sz-rs').addEventListener('change', () => { if (zMap) { zFit(); zDrawRs(0); } });
     zEl.querySelector('#sz-close').addEventListener('click', closeModal);
     zEl.querySelector('#sz-plot').addEventListener('click', () => { const id = zEl.dataset.sid; closeModal(); if (window.ctOpenSite) window.ctOpenSite(id); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && zEl.style.display !== 'none') closeModal(); });
@@ -13868,10 +13936,18 @@ loadData();
     zEl.querySelector('#sz-title').textContent = id;
     zEl.querySelector('#sz-sub').textContent = 'กำลังโหลด...';
     zEl.querySelector('#sz-list').innerHTML = '';
+    zEl.querySelector('#sz-out').textContent = '';
+    zEl.querySelector('#sz-rm').textContent = '';
+    zEl.dataset.sid = id;
+    if (zRsL) zRsL.clearLayers();
     if (!zMap) {
       zMap = L.map(zEl.querySelector('#sz-map'), { zoomControl: true });
       addBaseLayers(zMap);
       zLayer = L.layerGroup().addTo(zMap);
+      zMap.createPane('zrs').style.zIndex = 350;   // RSRP colours sit under the rings and markers
+      zRsL = L.layerGroup().addTo(zMap);
+      zRsL._r = L.canvas({ pane: 'zrs', padding: 0.3 });
+      zMap.on('moveend', () => { clearTimeout(zRsT); zRsT = setTimeout(() => zDrawRs(0), 250); });
       // rings are dark on the street map and white on satellite imagery so they stay visible on both
       zMap.on('baselayerchange', e => { zSat = e.name === 'ดาวเทียม'; zRings.forEach(r => r.setStyle({ color: zSat ? '#ffffff' : '#17222d' })); });
     }
@@ -13891,11 +13967,13 @@ loadData();
         .bindTooltip(`${n.id} · ${n.m} ม.${n.name ? ' · ' + n.name : ''}`).addTo(zLayer));
       L.circleMarker(c, { radius: 9, weight: 3, color: '#e8590c', fillColor: tc, fillOpacity: 1 })
         .bindTooltip(s.id, { permanent: true, direction: 'top', offset: [0, -8] }).addTo(zLayer);
+      zEl._c = c;
       zMap.setView(c, 15);
-      zMap.fitBounds(L.latLng(c).toBounds(j.zoom_m * 2), { padding: [8, 8] }); // LatLng.toBounds works before the circle is on the map (Circle.getBounds does not)
+      zFit();   // 9 km box with the RSRP plot on, 2 km box (the 1 km ring) with it off
       zEl.querySelector('#sz-title').innerHTML = `${esc(s.id)} · <span style="color:${tc};">${esc(s.type)}</span>${s.name ? ' · ' + esc(s.name) : ''}`;
       zEl.querySelector('#sz-sub').textContent = `${s.province}${s.district ? ' / ' + s.district : ''} · ${s.la.toFixed(5)}, ${s.lo.toFixed(5)} · ในรัศมี 1 กม. ${j.within_radius} ไซต์ (ใน 500 ม. ${j.within_500})` + (j.model && j.model.status === 'ok' ? ` · ตัดสินด้วยโมเดลสัญญาณ (กติกา 1 กม. เดิมให้ผล ${s.type_1km})` : ` · ⚠ ใช้กติกา 1 กม. ชั่วคราว (${(j.model && j.model.reason) || 'โมเดลกำลังคำนวณ'})`);
       zEl.dataset.sid = s.id;
+      zLoadOutage(s.id);
       zEl.querySelector('#sz-list').innerHTML = j.neighbours.map(n => `<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">${esc(n.id)}</td><td style="padding:5px 8px;text-align:right;">${n.m}</td><td style="padding:5px 8px;color:${n.in_500 ? COL.cap : 'var(--text2)'};">${n.in_500 ? 'ใน 500 ม.' : 'ใน 1 กม.'}</td></tr>`).join('')
         || '<tr><td colspan="3" style="padding:10px;color:var(--text3);">ไม่มีไซต์อื่นในรัศมี 1 กม.</td></tr>';
       setTimeout(() => zMap.invalidateSize(), 60);
