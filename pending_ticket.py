@@ -144,6 +144,7 @@ EXPORT_HEADER = [
     "Detail", "Image_Link", "Plan_Closed_Date", "Updated_At", "Updated_By", "insert_time",
     "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
+    "Region",     # column Z: NOR1 / NOR2
 ]
 
 
@@ -661,6 +662,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         insert_time_str,
         _site_type_text(t),
         _category_text(t),
+        t.get("Region", ""),
     ]
 
 
@@ -741,6 +743,7 @@ def _fetch_full_ticket_entries(gs_client):
         entry = {c: r.get(c) for c in LIVE_COLUMNS}
         entry["over_sla_day"] = over_sla_day
         entry["priority"] = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        entry["Region"] = str(r.get("Region", "")).strip()
         entry["nano"] = nano
         entry["insert_time"] = r.get("insert_time", "")
         wl = work_log.get(ticket_id, {})
