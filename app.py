@@ -3317,6 +3317,32 @@ def api_coverage_test():
         log.exception("coverage-test API failed")
         return jsonify({'error': str(e)}), 500
 
+def _covtest_post(fn_name):
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        body = request.get_json(silent=True) or {}
+        return jsonify(getattr(coverage_test, fn_name)(gs_client, body))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("coverage-test %s failed", fn_name)
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/coverage-test/classify', methods=['POST'])
+def api_coverage_test_classify():
+    """Test Coverage Plot: Capacity/Coverage for every site (terrain-aware). Read-only."""
+    return _covtest_post('classify')
+
+@app.route('/api/coverage-test/site', methods=['POST'])
+def api_coverage_test_site():
+    """Test Coverage Plot: one site - terrain polygon, overlapping sites, outage loss. Read-only."""
+    return _covtest_post('site_detail')
+
+@app.route('/api/coverage-test/raster', methods=['POST'])
+def api_coverage_test_raster():
+    """Test Coverage Plot: RSRP grid for the map viewport (terrain-aware). Read-only."""
+    return _covtest_post('raster')
+
 @app.route('/api/site-neighbours')
 def api_site_neighbours():
     """Neighbours within 1 km of one site (?id=CMI0003) with distances - feeds the 1 km zoom map."""
