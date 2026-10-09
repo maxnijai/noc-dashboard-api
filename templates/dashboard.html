@@ -2098,16 +2098,17 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 </style>
     <div style="margin-bottom:12px;">
       <div style="font-size:16px;font-weight:700;">Test Coverage Plot <span style="font-size:11px;font-weight:600;background:var(--amber-bg);color:var(--amber);padding:2px 8px;border-radius:10px;margin-left:6px;">ทดลอง</span></div>
-      <div style="font-size:12px;color:var(--text3);margin-top:2px;">จำลอง Capacity/Coverage จากความถี่ · ความสูงเสา · tilt และพล็อต RSRP โดยประมาณ (เสา omni ไม่คิดภูมิประเทศ) — ไม่กระทบ Site Type ที่ใช้ในหน้าอื่น</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">จำลอง Capacity/Coverage จากความถี่ · ความสูงเสา · tilt · ภูเขาบัง และพล็อต RSRP โดยประมาณ (เสา omni, ค่าพารามิเตอร์เป็นค่าสมมติ) — ไม่กระทบ Site Type ที่ใช้ในหน้าอื่น</div>
     </div>
     <div id="ct-msg" class="ct-mut" style="margin-bottom:8px;">กำลังโหลดข้อมูลไซต์…</div>
 <div class="ct-card"><b>พารามิเตอร์</b>
-<table class="ct-p"><tr><th>ย่าน</th><th>ใช้</th><th>ระยะ (กม.)</th><th>TILT (°)</th></tr>
+<table class="ct-p"><tr><th>ย่าน</th><th>ใช้</th><th>เกณฑ์ RSRP (dBm)</th><th>กำลังส่ง ± (dB)</th><th>M-Tilt (°)</th><th>E-Tilt (°)</th><th>รวม (°)</th></tr>
 <tbody id="ct-pt"></tbody></table>
+<div class="ct-mut" style="margin-top:6px">⚠ ค่าทั้งหมดในตารางเป็น <b>ค่าสมมติ ไม่ใช่มาตรฐาน</b> (กำลังส่ง ± เทียบกับฐาน 15 dBm/RE · M-Tilt + E-Tilt รวมกันเป็น tilt ที่ใช้คำนวณ ทุกไซต์ใช้ค่าเดียวกันเพราะยังไม่มีข้อมูลรายเซกเตอร์) ควรแทนด้วยข้อมูลจริงจากทีม RF · ชั้น 700/900 ตั้งเกณฑ์เข้มกว่าเพราะวิ่งไกลมาก</div>
 <div class="ct-bar" style="margin-top:8px">
 <div><label class="ct-l">ลำแสงแนวตั้ง (°)</label><input type="number" id="ct-bwv" value="7" step="0.5"></div>
 <div><label class="ct-l">ความสูงเสาเมื่อไม่มีข้อมูล (ม.)</label><input type="number" id="ct-dh" value="30"></div>
-<div><label class="ct-l">เกณฑ์จัดประเภท</label><select id="ct-rule"><option value="model">ไซต์อื่นอยู่ในรัศมีที่ประมาณได้</option><option value="fixed">ไซต์อื่นอยู่ภายใน 1 กม. (กฎเดิม)</option></select></div>
+<div><label class="ct-l">ดับแล้วเสียพื้นที่ ≥ (%)</label><input type="number" id="ct-lossp" value="30" step="5"></div><div><label class="ct-l">เกณฑ์จัดประเภท</label><select id="ct-rule"><option value="rsrp" selected>RSRP ผ่านเกณฑ์ของแต่ละชั้น ไปถึงไซต์อื่น</option><option value="fixed">ไซต์อื่นภายใน 1 กม. (กฎเดิม)</option></select></div>
 <div style="flex:0 0 auto;min-width:0;flex-direction:row;gap:6px"><button class="ct-btn" id="ct-pa">นับทุกย่าน</button><button class="ct-btn" id="ct-p18">เฉพาะ 1800 ขึ้นไป</button><button class="ct-btn" id="ct-pr">ค่าเริ่มต้น</button></div>
 </div></div>
 
@@ -2121,12 +2122,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 <label class="ct-chk"><input type="checkbox" id="ct-tkonly"> เฉพาะไซต์ที่มี Ticket MB SA1-4</label>
 <label class="ct-chk"><input type="checkbox" id="ct-rs" checked> แสดงแผนที่ RSRP</label>
 <label class="ct-chk"><input type="checkbox" id="ct-sat" checked> ดาวเทียม</label>
+<label class="ct-chk"><input type="checkbox" id="ct-ter" checked> คิดภูเขาบัง (คำนวณบนเซิร์ฟเวอร์)</label>
 </div></div>
 
 <div class="ct-card"><div class="ct-kp" id="ct-kp"></div></div>
 
 <div class="ct-row"><div id="ct-map"></div>
-<div class="ct-card ct-side"><b>Legend RSRP (dBm)</b><div class="ct-lg" id="ct-lg"></div>
+<div class="ct-card ct-side"><b>Legend RSRP (dBm)</b><div class="ct-lg" id="ct-lg"></div><div class="ct-mut" style="margin-top:6px"><span class="ct-dot" style="background:#ff00ff"></span>หลุมสัญญาณ (เมื่อกด "จำลองไซต์ดับ")</div>
 <div class="ct-mut" style="margin-top:8px"><span class="ct-dot" style="background:#fff"></span>Capacity &nbsp; <span class="ct-dot" style="background:#22c55e"></span>Coverage<br>วงแหวนรอบจุด = ไซต์มี Ticket MB SA1-4: <b style="color:#dc2626">แดง</b> Coverage P0 · <b style="color:#f59e0b">ส้ม</b> Coverage P1 · <b style="color:#2563eb">น้ำเงิน</b> Capacity</div>
 <div id="ct-info" class="ct-mut">คลิกไซต์หรือค้นหาชื่อเพื่อดูรายละเอียดและวงรัศมี</div>
 <div class="ct-mut" id="ct-st" style="margin-top:8px"></div><div class="ct-mut" id="ct-rm"></div>
@@ -13985,19 +13987,53 @@ loadData();
 // ===== TEST COVERAGE PLOT (begin) =====
 (function () {
   let booted = false, ctMap = null;
-  function ctInit(S) {
+  function ctInit(S, TA, TNOTE) {
 
-const BK=[700,900,1800,2100,2300,2600],DR={700:8,900:6.5,1800:3.5,2100:3,2300:2.3,2600:2},DT={700:2,900:3,1800:4,2100:5,2300:6,2600:6},FQ={700:750,900:900,1800:1800,2100:2100,2300:2300,2600:2600};
+const TERR_AVAIL=!!(typeof TA!=='undefined'&&TA);
+const BK=[700,900,1800,2100,2300,2600],DM={700:2,900:2,1800:2,2100:2,2300:2,2600:2},DE={700:0,900:1,1800:2,2100:3,2300:4,2600:4},DTH={700:-95,900:-95,1800:-105,2100:-105,2300:-105,2600:-105},FQ={700:750,900:900,1800:1800,2100:2100,2300:2300,2600:2600};
 const $=i=>document.getElementById('ct-'+i),rad=Math.PI/180,KM=111.32;
-$('pt').innerHTML=BK.map(b=>`<tr><td>${b} MHz</td><td><input type="checkbox" id="ct-u${b}" checked></td><td><input type="number" id="ct-r${b}" value="${DR[b]}" step="0.1"></td><td><input type="number" id="ct-t${b}" value="${DT[b]}" step="0.5"></td></tr>`).join('');
+$('pt').innerHTML=BK.map(b=>`<tr><td>${b} MHz${b<1800?' <span class="ct-mut">(ชั้น Coverage)</span>':''}</td><td><input type="checkbox" id="ct-u${b}" checked></td><td><input type="number" id="ct-h${b}" value="${DTH[b]}" step="1"></td><td><input type="number" id="ct-o${b}" value="0" step="1"></td><td><input type="number" id="ct-m${b}" value="${DM[b]}" step="0.5"></td><td><input type="number" id="ct-e${b}" value="${DE[b]}" step="0.5"></td><td id="ct-s${b}" class="ct-mut">${DM[b]+DE[b]}</td></tr>`).join('');
 const LG=[[-50,0,'#0b2a9e'],[-70,-50,'#1f4fff'],[-80,-70,'#7fd0ff'],[-90,-80,'#00cc22'],[-105,-90,'#ffc84a'],[-110,-105,'#e3b3a8'],[-120,-110,'#b30000'],[-140,-120,'#ff0000']];
 const col=v=>{if(v>=0)return LG[0][2];for(const l of LG)if(v>=l[0]&&v<l[1])return l[2];return null};
 $('lg').innerHTML=LG.map(l=>`<i style="background:${l[2]}"></i><span>[${l[0]}, ${l[1]}]</span>`).join('');
-const P=()=>({bw:+$('bwv').value||7,dh:+$('dh').value||30,u:BK.map(b=>$('u'+b).checked),r:BK.map(b=>+$('r'+b).value),t:BK.map(b=>+$('t'+b).value)});
+const P=()=>({bw:+$('bwv').value||7,dh:+$('dh').value||30,u:BK.map(b=>$('u'+b).checked),th:BK.map(b=>+$('h'+b).value),off:BK.map(b=>+$('o'+b).value||0),t:BK.map(b=>(+$('m'+b).value||0)+(+$('e'+b).value||0))});
 const hOf=(s,p)=>s[3]>0?s[3]:p.dh;
-function radius(s,p){let R=0;const h=hOf(s,p);BK.forEach((b,i)=>{if(!(s[4]>>i&1)||!p.u[i])return;const a=Math.max(p.t[i]-p.bw/2,0.3),rt=h/Math.tan(a*rad)/1000;R=Math.max(R,Math.min(p.r[i],rt));});return R}
-function cls(s,p,R){const lim=$('rule').value==='fixed'?1:R;return s[8]<lim?'cap':'cov'}
-function tkb(s,c){if(!s[9])return '';if(c==='cap')return 'cap';return (s[9]==='SA4')?'cp1':'cp0'}
+let CL=new Map(),SIM=false;
+function bestMargin(s,la,lo,p,cl){const dy=(la-s[1])*KM,dx=(lo-s[2])*KM*Math.cos(la*rad),d=Math.hypot(dx,dy);let b=-999;for(let i=0;i<6;i++){if(!(s[4]>>i&1)||!p.u[i])continue;const v=rsrp(s,d,i,p,cl)-p.th[i];if(v>b)b=v}return b} // >=0 = ผ่านเกณฑ์ของอย่างน้อยหนึ่งชั้น
+function Rscan(s,p,cl){let R=0;for(let d=0.05;d<=12;d+=0.05){let b=-999;for(let i=0;i<6;i++){if(!(s[4]>>i&1)||!p.u[i])continue;const v=rsrp(s,d,i,p,cl)-p.th[i];if(v>b)b=v}if(b>=0)R=d}return R}
+let RC={key:'',m:new Map()},LC={key:'',m:new Map()};
+function pkey(p){return JSON.stringify([p,+$('cl').value])}
+function getR(s,p){const k=pkey(p);if(RC.key!==k){RC={key:k,m:new Map()}}let v=RC.m.get(s);if(v===undefined){v=Rscan(s,p,+$('cl').value);RC.m.set(s,v)}return v}
+function nearby(la,lo){const ci=Math.floor(la/BC),cj=Math.floor(lo/BC),o=[];for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const a=IDX[(ci+di)+','+(cj+dj)];if(a)for(const x of a)o.push(x)}return o}
+const paired=(a,b)=>(a[10]||[]).includes(b[0])||(b[10]||[]).includes(a[0]);
+function reach(s,p){const Ra=getR(s,p),out=[];for(const o of nearby(s[1],s[2])){if(o===s||paired(s,o))continue;const dy=(o[1]-s[1])*KM,dx=(o[2]-s[2])*KM*Math.cos(s[1]*rad),d=Math.hypot(dx,dy);if(d>12)continue;const Rb=getR(o,p);if(d<=Ra||d<=Rb)out.push([o,d,d<=Ra,d<=Rb])}return out.sort((x,y)=>x[1]-y[1])}
+function lossOf(s,p){const cl=+$('cl').value,k=pkey(p);if(LC.key!==k){LC={key:k,m:new Map()}}let v=LC.m.get(s);if(v!==undefined)return v;
+ const R=getR(s,p);if(R<=0){LC.m.set(s,null);return null}
+ const cell=Math.max(0.25,R/12),cs=Math.cos(s[1]*rad),cand=nearby(s[1],s[2]).filter(o=>o!==s);let tot=0,lost=0;
+ for(let y=-R;y<=R;y+=cell)for(let x=-R;x<=R;x+=cell){if(x*x+y*y>R*R)continue;const la=s[1]+y/KM,lo=s[2]+x/(KM*cs);
+  if(bestMargin(s,la,lo,p,cl)<0)continue;tot++;let ok=false;
+  for(const o of cand){const dd=Math.hypot((la-o[1])*KM,(lo-o[2])*KM*cs);if(dd>12)continue;if(bestMargin(o,la,lo,p,cl)>=0){ok=true;break}}
+  if(!ok)lost++}
+ v=tot?{pct:lost/tot*100,tot,lost}:null;LC.m.set(s,v);return v}
+function classifyLocal(p){CL=new Map();const rule=$('rule').value,lp=+$('lossp').value,pv=$('prov').value;
+ for(const s of S){if(!s[7])continue;let k;
+  if(rule==='fixed')k=s[8]<1?'cap':'cov';
+  else if(rule==='rsrp')k=reach(s,p).length?'cap':'cov';
+  else{ if(!(pv?s[5]===pv:s[9])){k='na'} else {const l=lossOf(s,p);k=l&&l.pct>=lp?'cov':'cap'} }
+  CL.set(s,k)}}
+function cls(s){return CL.get(s)||'cap'}
+const terrOn=()=>TERR_AVAIL&&$('ter').checked;
+const pbody=p=>({u:p.u,th:p.th,off:p.off,t:p.t,bw:p.bw,dh:p.dh,cl:+$('cl').value,lossp:+$('lossp').value,terrain:terrOn()});
+async function api(path,body){const r=await fetch('/api/coverage-test/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let j=null;try{j=await r.json()}catch(e){}if(!r.ok||!j||j.error)throw new Error((j&&j.error)||('HTTP '+r.status));return j}
+async function apiWait(path,body){for(let i=0;i<90;i++){const j=await api(path,body);if(j.status!=='preparing')return j;$('rm').textContent='กำลังเตรียมข้อมูลภูเขาบนเซิร์ฟเวอร์ (ครั้งแรกใช้เวลาสักครู่)…';await new Promise(r=>setTimeout(r,2000))}throw new Error('server timeout')}
+let SEQ=0,RSEQ=0;
+async function classify(p){
+ if($('rule').value==='rsrp'&&TERR_AVAIL){
+  try{const j=await apiWait('classify',Object.assign(pbody(p),{n:S.length}));CL=new Map();S.forEach((s,i)=>{if(s[7])CL.set(s,j.cap[i]?'cap':'cov')});return}
+  catch(e){$('rm').textContent='คำนวณบนเซิร์ฟเวอร์ไม่สำเร็จ ใช้โหมดไม่คิดภูเขาแทน ('+e.message+')'}
+ }
+ classifyLocal(p)}
+function tkb(s,c){if(!s[9]||c==='na')return '';if(c==='cap')return 'cap';return (s[9]==='SA4')?'cp1':'cp0'}
 const map=L.map(document.getElementById('ct-map'),{preferCanvas:true}).setView([18.8,99.0],8);
 const street=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'OSM'});
 const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:18,maxZoom:19,attribution:'Esri'});
@@ -14011,48 +14047,87 @@ $('prov').innerHTML='<option value="">ทุกจังหวัด</option>'+p
 function inScope(s){const pv=$('prov').value;return (!pv||s[5]===pv)}
 function fillDL(){const pv=$('prov').value;$('dl').innerHTML=S.filter(s=>!pv||s[5]===pv).map(s=>`<option value="${s[0]}">`).join('')}
 fillDL();
-function kpis(p){const c={tot:0,cap:0,cov:0,tk:0,cp0:0,cp1:0,tcap:0};
- for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s,p,radius(s,p));c.tot++;c[k]++;if(s[9]){c.tk++;const b=tkb(s,k);c[b==='cap'?'tcap':b]++}}
- $('kp').innerHTML=[['ไซต์ในขอบเขต',c.tot],['Capacity',c.cap],['Coverage',c.cov],['Ticket MB SA1-4',c.tk],['Coverage P0',c.cp0],['Coverage P1',c.cp1],['Capacity (มี Ticket)',c.tcap]].map(x=>`<div class="ct-k"><b>${x[1].toLocaleString()}</b><span>${x[0]}</span></div>`).join('')}
+function kpis(p){const c={tot:0,cap:0,cov:0,na:0,tk:0,cp0:0,cp1:0,tcap:0};
+ for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s);c.tot++;c[k]=(c[k]||0)+1;if(s[9]){c.tk++;const b=tkb(s,k);c[b==='cap'?'tcap':b]++}}
+ $('kp').innerHTML=[['ไซต์ในขอบเขต',c.tot],['Capacity',c.cap],['Coverage',c.cov],...(c.na?[['ยังไม่คำนวณ (เลือกจังหวัด)',c.na]]:[]),['Ticket MB SA1-4',c.tk],['Coverage P0',c.cp0],['Coverage P1',c.cp1],['Capacity (มี Ticket)',c.tcap]].map(x=>`<div class="ct-k"><b>${x[1].toLocaleString()}</b><span>${x[0]}</span></div>`).join('')}
 function drawSites(p){stL.clearLayers();const only=$('tkonly').checked;let n=0;
- for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s,p,radius(s,p)),tb=tkb(s,k);if(only&&!s[9])continue;n++;
-  const m=L.circleMarker([s[1],s[2]],{renderer:cnv,radius:tb?7:4,weight:tb?3:1,color:tb==='cp0'?'#dc2626':tb==='cp1'?'#f59e0b':tb==='cap'?'#2563eb':'#333',fillColor:k==='cap'?'#fff':'#22c55e',fillOpacity:1});
+ for(const s of S){if(!s[7]||!inScope(s))continue;const k=cls(s),tb=tkb(s,k);if(only&&!s[9])continue;n++;
+  const m=L.circleMarker([s[1],s[2]],{renderer:cnv,radius:tb?7:4,weight:tb?3:1,color:tb==='cp0'?'#dc2626':tb==='cp1'?'#f59e0b':tb==='cap'?'#2563eb':'#333',fillColor:k==='cap'?'#fff':k==='na'?'#9ca3af':'#22c55e',fillOpacity:1});
   m.bindTooltip(s[0]+' · '+k.toUpperCase()+(s[9]?' · '+s[9]:''));m.on('click',()=>pick(s));m.addTo(stL);}
  $('st').textContent='ไซต์ที่แสดง '+n.toLocaleString()}
 function rsrp(s,d,i,p,cl){const b=BK[i];d=Math.max(d,0.03);const h=hOf(s,p),f=FQ[b],hb=Math.max(h,10),a=(1.1*Math.log10(f)-0.7)*1.5-(1.56*Math.log10(f)-0.8);
  let pl=69.55+26.16*Math.log10(f)-13.82*Math.log10(hb)-a+(44.9-6.55*Math.log10(hb))*Math.log10(d);
  pl-=cl==1?2*Math.pow(Math.log10(f/28),2)+5.4:cl==2?4.78*Math.pow(Math.log10(f),2)-18.33*Math.log10(f)+40.94:0;
- const th=Math.atan(h/(d*1000))/rad,v=Math.min(12*Math.pow((th-p.t[i])/p.bw,2),20);return 32-pl-v-(cl==0?6:0)}
+ const th=Math.atan(h/(d*1000))/rad,v=Math.min(12*Math.pow((th-p.t[i])/p.bw,2),20);return 32-pl-v-(cl==0?6:0)+p.off[i]}
 const BC=0.09,IDX={};S.forEach(s=>{if(s[7]){const k=Math.floor(s[1]/BC)+','+Math.floor(s[2]/BC);(IDX[k]=IDX[k]||[]).push(s)}});
-function drawRS(p){rsL.clearLayers();if(!$('rs').checked){$('rm').textContent='';return}
- const bs=$('band').value,cl=+$('cl').value,B=map.getBounds().pad(.03);
+function drawRSLocal(p){rsL.clearLayers();if(!$('rs').checked){$('rm').textContent='';return}
+ const bs=$('band').value,cl=+$('cl').value,B=map.getBounds().pad(.03),sim=SIM&&sel;
  const w=B.getEast()-B.getWest(),hh=B.getNorth()-B.getSouth();const step=Math.max(0.0007,Math.sqrt(w*hh/5000));
  const r=Math.max(2.5,Math.min(10,map.getSize().x*step/w*0.8));let n=0;
  for(let la=B.getSouth();la<B.getNorth();la+=step)for(let lo=B.getWest();lo<B.getEast();lo+=step){
-  let best=-999;const cs=Math.cos(la*rad),ci=Math.floor(la/BC),cj=Math.floor(lo/BC);
+  let best=-999,bm=-999;const cs=Math.cos(la*rad),ci=Math.floor(la/BC),cj=Math.floor(lo/BC);
   for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){const arr=IDX[(ci+di)+','+(cj+dj)];if(!arr)continue;
-   for(const s of arr){const dy=(la-s[1])*KM,dx=(lo-s[2])*KM*cs,d=Math.hypot(dx,dy);if(d>9)continue;
-    for(let i=0;i<6;i++){if(!(s[4]>>i&1)||!p.u[i])continue;if(bs!=='best'&&BK[i]!=+bs)continue;const v=rsrp(s,d,i,p,cl);if(v>best)best=v}}}
-  const c=best>-140?col(best):null;if(!c)continue;n++;
+   for(const s of arr){if(sim&&s===sel)continue;const dy=(la-s[1])*KM,dx=(lo-s[2])*KM*cs,d=Math.hypot(dx,dy);if(d>9)continue;
+    for(let i=0;i<6;i++){if(!(s[4]>>i&1)||!p.u[i])continue;if(bs!=='best'&&BK[i]!=+bs)continue;const v=rsrp(s,d,i,p,cl);if(v>best)best=v;const m=v-p.th[i];if(m>bm)bm=m}}}
+  let c=best>-140?col(best):null;if(sim&&bestMargin(sel,la,lo,p,cl)>=0&&bm<0){c='#ff00ff'}if(!c)continue;n++;
   L.circleMarker([la,lo],{renderer:rcnv,radius:r,stroke:false,fillColor:c,fillOpacity:.7,interactive:false}).addTo(rsL)}
  $('rm').textContent='RSRP: '+n.toLocaleString()+' จุด (ซูมเข้าเพื่อดูละเอียดขึ้น)'}
+async function drawRS(p){
+ if(!$('rs').checked){rsL.clearLayers();$('rm').textContent='';return}
+ const B=map.getBounds().pad(.03);
+ if(!terrOn()||B.getNorth()-B.getSouth()>0.85||B.getEast()-B.getWest()>0.85){drawRSLocal(p);if(terrOn())$('rm').textContent+=' · ซูมเข้าอีกเล็กน้อยเพื่อดูแบบคิดภูเขา';return}
+ const my=++RSEQ;$('rm').textContent='กำลังคำนวณ RSRP (คิดภูเขา)…';
+ let j;try{j=await apiWait('raster',Object.assign(pbody(p),{south:B.getSouth(),north:B.getNorth(),west:B.getWest(),east:B.getEast(),band:$('band').value,exclude:(SIM&&sel)?sel[0]:'',hole:(SIM&&sel)?sel[0]:''}))}catch(e){if(my===RSEQ)drawRSLocal(p);return}
+ if(my!==RSEQ)return;if(j.status!=='ok'){drawRSLocal(p);return}
+ rsL.clearLayers();const w=B.getEast()-B.getWest(),r=Math.max(2.5,Math.min(10,map.getSize().x*j.step/w*0.8));let n=0;
+ for(let iy=0;iy<j.ny;iy++)for(let ix=0;ix<j.nx;ix++){const v=j.v[iy*j.nx+ix];if(v===-128)continue;const c=v===127?'#ff00ff':col(v);if(!c)continue;n++;
+  L.circleMarker([j.south+iy*j.step,j.west+ix*j.step],{renderer:rcnv,radius:r,stroke:false,fillColor:c,fillOpacity:.7,interactive:false}).addTo(rsL)}
+ $('rm').textContent='RSRP '+(j.terrain?'(คิดภูเขา)':'')+': '+n.toLocaleString()+' จุด'}
 function inScope2(s){return true} // ให้ RSRP นับไซต์เพื่อนบ้านข้ามจังหวัดด้วย
-function pick(s){sel=s;const p=P(),R=radius(s,p),k=cls(s,p,R);selL.clearLayers();
- L.circle([s[1],s[2]],{radius:R*1000,color:'#fff',weight:2,dashArray:'6 5',fill:false}).addTo(selL);
+function pickLocal(s){sel=s;const p=P(),k=cls(s),lp=+$('lossp').value;selL.clearLayers();
+ const R=getR(s,p),rch=reach(s,p),lo=lossOf(s,p),ok=k==='na'?null:k;
+ if(R>0)L.circle([s[1],s[2]],{radius:R*1000,color:'#fff',weight:2,dashArray:'6 5',fill:false}).addTo(selL);
  L.circle([s[1],s[2]],{radius:1000,color:'#f59e0b',weight:2,fill:false}).addTo(selL);
  const bands=BK.filter((b,i)=>s[4]>>i&1).join('/')||'-';
- $('info').innerHTML=`<b>${s[0]}</b> · ${s[5]||'-'}<br>ความสูงเสา: ${s[3]>0?s[3]+' ม.':'ไม่มีข้อมูล (ใช้ '+p.dh+' ม.)'}<br>ความถี่: ${bands}<br>รัศมีประมาณ: <b>${R.toFixed(2)} กม.</b> (วงขาวประ) · วงส้ม = 1 กม.<br>ไซต์ใกล้สุด: ${s[8]>=99?'-':s[8].toFixed(2)+' กม.'}<br>ผล: <b>${k==='cap'?'Capacity':'Coverage'}</b>${s[9]?'<br>Ticket MB: '+s[9]+' → '+({cap:'Capacity',cp0:'Coverage P0',cp1:'Coverage P1'})[tkb(s,k)]:''}`}
+ const lossCls=lo?(lo.pct>=lp?'Coverage':'Capacity'):'-';
+ $('info').innerHTML=`<b>${s[0]}</b> · ${s[5]||'-'}<br>ความสูงเสา: ${s[3]>0?s[3]+' ม.':'ไม่มีข้อมูล (ใช้ '+p.dh+' ม.)'}<br>ความถี่: ${bands}<br>
+ รัศมีที่ RSRP ผ่านเกณฑ์ของชั้น: <b>${R.toFixed(2)} กม.</b> (วงขาวประ) · วงส้ม = 1 กม.<br>
+ ไซต์ที่ซ้อนทับ: <b>${rch.length}</b>${rch.slice(0,4).map(x=>`<br>&nbsp;• ${x[0][0]} ${x[1].toFixed(2)} กม. ${x[2]&&x[3]?'(ถึงกันสองทาง)':x[2]?'(ไซต์นี้ถึงเขา)':'(เขาถึงไซต์นี้)'}`).join('')}${rch.length>4?'<br>&nbsp;…':''}<br>
+ <b>ถ้าไซต์นี้ดับ:</b> ${lo?'เสียพื้นที่ <b>'+lo.pct.toFixed(0)+'%</b> ('+lo.lost+'/'+lo.tot+' จุด) → <b>'+lossCls+'</b>':'ไม่มีพื้นที่ครอบคลุมให้คำนวณ'}<br>
+ ผลตามเกณฑ์ที่เลือก: <b>${k==='na'?'ยังไม่คำนวณ':k==='cap'?'Capacity':'Coverage'}</b>${s[9]?'<br>Ticket MB: '+s[9]+' → '+({cap:'Capacity',cp0:'Coverage P0',cp1:'Coverage P1'})[tkb(s,k)||'cap']:''}
+ <br><button class="ct-btn ${SIM?'on':''}" id="ct-sim" style="margin-top:8px">${SIM?'ยกเลิกการจำลอง':'จำลองไซต์ดับ'}</button>`;
+ $('sim').onclick=()=>{SIM=!SIM;pick(s);drawRS(P())}}
+function pick(s){sel=s;if(terrOn())pickServer(s);else pickLocal(s)}
+async function pickServer(s){sel=s;const p=P(),k=cls(s),lp=+$('lossp').value;selL.clearLayers();$('info').innerHTML='กำลังคำนวณ '+s[0]+' …';
+ let j;try{j=await apiWait('site',Object.assign(pbody(p),{id:s[0]}))}catch(e){pickLocal(s);return}
+ if(sel!==s)return;
+ const la=s[1],lo=s[2],cs=Math.cos(la*rad),rays=j.rays_km||[];
+ if(j.ideal_km>0)L.circle([la,lo],{radius:j.ideal_km*1000,color:'#fff',weight:2,dashArray:'6 5',fill:false}).addTo(selL);
+ L.circle([la,lo],{radius:1000,color:'#f59e0b',weight:2,fill:false}).addTo(selL);
+ if(rays.length){const pts=rays.map((d,i)=>{const a=i*10*rad;return [la+d*Math.cos(a)/KM,lo+d*Math.sin(a)/(KM*cs)]});L.polygon(pts,{color:'#c026d3',weight:2,fillColor:'#c026d3',fillOpacity:.3}).addTo(selL)}
+ const ar=rays.reduce((a,v)=>a+v*v,0)/(rays.length||1),pct=j.ideal_km>0?Math.round(ar/(j.ideal_km*j.ideal_km)*100):0;
+ const o=j.outage,oc=o?(o.pct>=lp?'Coverage':'Capacity'):'-';
+ const bands=BK.filter((b,i)=>s[4]>>i&1).join('/')||'-';
+ $('info').innerHTML=`<b>${s[0]}</b> · ${s[5]||'-'}<br>ความสูงพื้น: <b>${j.ground} ม.</b> · เสา ${s[3]>0?s[3]+' ม.':'ไม่มีข้อมูล (ใช้ '+p.dh+' ม.)'}<br>ความถี่: ${bands}<br>
+ รัศมีไม่คิดภูเขา: <b>${j.ideal_km.toFixed(2)} กม.</b> (วงขาวประ)${j.terrain?`<br>พื้นที่ที่ไปถึงจริงเมื่อคิดภูเขา: <b>${pct}%</b> (พื้นที่สีม่วง)`:''} · วงส้ม = 1 กม.<br>
+ ไซต์ที่ซ้อนทับ: <b>${j.reach_n}</b>${j.reach.slice(0,4).map(x=>`<br>&nbsp;• ${x[0]} ${x[1].toFixed(2)} กม. ${x[2]&&x[3]?'(ถึงกันสองทาง)':x[2]?'(ไซต์นี้ถึงเขา)':'(เขาถึงไซต์นี้)'}`).join('')}${j.reach_n>4?'<br>&nbsp;…':''}<br>
+ <b>ถ้าไซต์นี้ดับ:</b> ${o?'เสียพื้นที่ <b>'+o.pct.toFixed(0)+'%</b> ('+o.lost+'/'+o.tot+' จุด) → <b>'+oc+'</b>':'ไม่มีพื้นที่ครอบคลุมให้คำนวณ'}<br>
+ ผลตามเกณฑ์ที่เลือก: <b>${k==='cap'?'Capacity':'Coverage'}</b>${s[9]?'<br>Ticket MB: '+s[9]+' → '+({cap:'Capacity',cp0:'Coverage P0',cp1:'Coverage P1'})[tkb(s,k)||'cap']:''}
+ <br><button class="ct-btn ${SIM?'on':''}" id="ct-sim" style="margin-top:8px">${SIM?'ยกเลิกการจำลอง':'จำลองไซต์ดับ'}</button>`;
+ $('sim').onclick=()=>{SIM=!SIM;pickServer(s);drawRS(P())}}
 function go(s){map.setView([s[1],s[2]],14);pick(s)}
 function fitScope(){const pv=$('prov').value;if(!pv){map.setView([18.8,99.0],8);return}
  const a=S.filter(s=>s[5]===pv&&s[7]);if(a.length)map.fitBounds(L.latLngBounds(a.map(s=>[s[1],s[2]])).pad(.1))}
-let T;const redraw=()=>{const p=P();kpis(p);drawSites(p);clearTimeout(T);T=setTimeout(()=>drawRS(p),150);if(sel)pick(sel)};
-['bwv','dh','rule','band','cl','tkonly','rs'].forEach(i=>$(i).addEventListener('input',redraw));
-BK.forEach(b=>['u','r','t'].forEach(x=>$(x+b).addEventListener('input',redraw)));
+let T;const redraw=async()=>{const my=++SEQ,p=P();$('st').textContent='กำลังคำนวณ…';await classify(p);if(my!==SEQ)return;kpis(p);drawSites(p);clearTimeout(T);T=setTimeout(()=>drawRS(p),150);if(sel)pick(sel)};
+let DB;const rdb=()=>{clearTimeout(DB);DB=setTimeout(redraw,300)};
+['bwv','dh','rule','lossp','band','cl','tkonly','rs','ter'].forEach(i=>$(i).addEventListener('input',rdb));
+BK.forEach(b=>['u','h','o','m','e'].forEach(x=>$(x+b).addEventListener('input',()=>{$('s'+b).textContent=(+$('m'+b).value||0)+(+$('e'+b).value||0);rdb()})));
 $('prov').onchange=()=>{fillDL();fitScope();redraw()};
 $('q').addEventListener('change',()=>{const v=$('q').value.trim().toUpperCase(),s=S.find(x=>x[0].toUpperCase()===v);if(s){if(s[5]&&$('prov').value&&$('prov').value!==s[5]){$('prov').value=s[5];fillDL()}go(s);redraw()}});
-const setAll=f=>{BK.forEach((b,i)=>{$('u'+b).checked=f(b);$('r'+b).value=DR[b];$('t'+b).value=DT[b]});$('bwv').value=7;$('dh').value=30;redraw()};
+const setAll=f=>{BK.forEach((b,i)=>{$('u'+b).checked=f(b);$('h'+b).value=DTH[b];$('o'+b).value=0;$('m'+b).value=DM[b];$('e'+b).value=DE[b];$('s'+b).textContent=DM[b]+DE[b]});$('bwv').value=7;$('dh').value=30;redraw()};
 $('pa').onclick=()=>setAll(()=>true);$('p18').onclick=()=>setAll(b=>b>=1800);$('pr').onclick=()=>setAll(()=>true);
 map.on('moveend',()=>{clearTimeout(T);T=setTimeout(()=>drawRS(P()),200)});
+if(!TERR_AVAIL){const l=$('ter').parentElement;if(l)l.style.display='none';$('rm').textContent='ไม่มีข้อมูลภูเขาบนเซิร์ฟเวอร์'+((typeof TNOTE!=='undefined'&&TNOTE)?' ('+TNOTE+')':'')+' — ใช้โหมดไม่คิดภูเขา'}
 redraw();
 
     ctMap = map;
@@ -14065,9 +14140,9 @@ redraw();
       if (j.error) throw new Error(j.error);
       const tk = j.tickets || {};
       j.sites.forEach(s => s.push(tk[s[0]] || ''));   // s[9] = worst 7.MB SA1-4 severity at this site ('' = none)
-      ctInit(j.sites);
+      ctInit(j.sites, j.terrain, j.terrain_note);
       setTimeout(() => ctMap && ctMap.invalidateSize(), 50);
-      msg.textContent = 'ข้อมูลไซต์ ' + j.sites.length.toLocaleString() + ' แห่ง · Ticket ' + j.bookmark + ' ' + Object.keys(tk).length.toLocaleString() + ' ไซต์';
+      msg.textContent = 'ข้อมูลไซต์ ' + j.sites.length.toLocaleString() + ' แห่ง · Ticket ' + j.bookmark + ' ' + Object.keys(tk).length.toLocaleString() + ' ไซต์ · ' + (j.terrain ? 'มีข้อมูลภูเขา' : 'ไม่มีข้อมูลภูเขา');
     }).catch(e => { booted = false; msg.textContent = 'โหลดไม่สำเร็จ: ' + (e && e.message || e) + ' (เปิดแท็บใหม่อีกครั้งเพื่อลองซ้ำ)'; });
   };
 })();
