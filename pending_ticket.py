@@ -112,6 +112,15 @@ GROUP_PROBLEM_OPTIONS = [
     "Fiber optic - High loss/Degrade/Animal",
     "Workload - Assigning team access site",
     "Solar Cell - Off Grid",
+    # NSA3/NSA4 specific values (highlighted in the Pending Ticket dropdown by their "N3/4-" prefix)
+    "N3/4-Workload",
+    "N3/4-W@H",
+    "N3/4-Spare part",
+    "N3/4-Improvement",
+    "N3/4-Need Track A Support",
+    "N3/4-Site Access",
+    "N3/4-Solar Cell Off-grid",
+    "N3/4-Solar Cell",
     "Clear",
 ]
 
@@ -856,7 +865,7 @@ def build_pending_ticket_xlsx(matched_entries):
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
                                    severity_filter=None, district_filter=None, group_problem_filter=None,
-                                   aging_filter=None):
+                                   aging_filter=None, category_filter=None):
     """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
     aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
     filter, include everything in that dimension"."""
@@ -895,6 +904,15 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
 
     matched_entries = _multi_filter(pre_district, "DISTRICT", district_filter)
     matched_entries = _multi_filter(matched_entries, "group_problem", group_problem_filter)
+    matched_entries = _multi_filter(matched_entries, "category", category_filter)
+
+    cat_counts = {}
+    for e in all_entries:
+        c = str(e.get("category", "") or "").strip()
+        if c:
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+    filter_options["categories"] = [{"category": c, "count": n}
+                                    for c, n in sorted(cat_counts.items(), key=lambda kv: (-kv[1], kv[0]))]
 
     filter_options["group_problems"] = sorted({
         str(e.get("group_problem", "")).strip() for e in all_entries if e.get("group_problem")
