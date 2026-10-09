@@ -753,6 +753,8 @@ def _fetch_full_ticket_entries(gs_client):
 
     built = [build_entry(r) for r in scoped]
     site_capacity.annotate_entries(built, gs_client)
+    for e in built:  # Pending Ticket table + mirror sheet column "Category" (NSA3/NSA4 only, "" otherwise)
+        e["category"] = _category_text(e)
     return built
 
 
