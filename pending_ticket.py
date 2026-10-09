@@ -134,6 +134,7 @@ EXPORT_HEADER = [
     "DISTRICT", "Tech_Team", "Tech_Status", "NANO", "Group_Problem", "Action_Team",
     "Detail", "Image_Link", "Plan_Closed_Date", "Updated_At", "Updated_By", "insert_time",
     "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
+    "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
 ]
 
 
@@ -272,61 +273,84 @@ def _invalidate_work_log_cache():
         _work_log_cache["ts"] = 0
 
 
-# Ordered keyword rules for _auto_categorize_subject - derived from and
-# validated against a 612-ticket labeled reference set (100% match), all
-# NSA3/NSA4 tickets. Order matters: earlier rules win when a subject
-# matches more than one (e.g. "Service Degraded | RRU-5 HW Partial Fault"
-# needs HW Partial Fault checked before the generic Radio Performance
-# Degraded catch-all, or it'd never be reached).
+# Ordered regex rules for _auto_categorize_subject, matched against the lower-cased SUBJECT. Re-learned on 2026-10-09
+# from the 722 NSA3/NSA4 tickets of TT_Monitoring_P8 (719 match the reference labels exactly; the other 3 are
+# deliberate clean-ups: "Port Down Issue (1)" and the truncated "Input Power Failure. (18:00-20:0" were merged into
+# their normal sub-reason, and the single "IPRAN Alarm (Other)" intrusion ticket became Intrusion Alarm).
+# Order matters: earlier rules win (specific Cell Up/Down reasons first, VSWR before Radio Performance, ...).
+# Patterns are RE2-compatible so the same list is used for the Google Sheet formula.
 SUBJECT_CATEGORY_RULES = [
-    ("Cell Up/Down Alarm", ["cell up/down"]),
-    ("Intrusion Alarm (ความปลอดภัยสถานี)", ["intrusion", "relay_alarm_major_open_doo", "open_door", "open door", "(ason "]),
-    ("Link Failure/Degraded", ["link failure", "link degraded", "ethernet link", "link_failure", "link failure up/down"]),
-    ("HW Partial Fault", ["hw partial fault"]),
-    ("IPRAN Hardware Alarm (Fan/Board)", ["ipran alarm board", "ipran alarm  board"]),
-    ("Environmental Alarm (Temperature/Smoke)", ["temperature"]),
-    ("Radio Performance Degraded", ["service degraded", "service unavailable", "resource allocation failure",
-        "sleeping cell", "increased ber", "internal interference", "performance degraded",
-        "ออกสลับกัน", "node group sync loss", "cell sleep"]),
-    ("External Alarm - Power/Site Infra", ["external alarm", "input power failure", "lossofmains", "main ac power failure", "rectifier"]),
-    ("VSWR Alarm (สายอากาศ/ฟีดเดอร์)", ["vswr", "rf reflected power high"]),
-    ("Solar/Inverter Power Alarm", ["solar cell", "inverter"]),
-    ("Antenna/RET Alarm", ["rxdiversitylost", "retportcurrenttoohigh", "antennasystemproblem",
-        "digitalcable_cablefailure", "antennabranch", "retdevice_retfailure", "rx branch imbalance",
-        "communicationlostwithret", "antenna calibration", "current too high"]),
-    ("Equipment Fault (RET/Connection)", ["rap no connection", "ret not calibrated", "ret failure", "no_connection"]),
-    ("Sync/Timing Alarm", ["timesyncio", "sync ptp", "time reachability"]),
-    ("IPRAN Power/Optical Alarm", ["ipran"]),
-    ("Fan Alarm", ["fan fail", "fan failure"]),
-    ("RF Module Failure", ["rf module failure"]),
-    ("Battery/Power Management Alarm", ["paco-casa", "energy_cell", "swap battery"]),
-    ("DWDM/Optical Transport Alarm", ["dwdm", "mossman input power"]),
-    ("Microwave Link Alarm", ["microwave"]),
-    ("Complaint / No Traffic", ["nbtc"]),
-    ("CPRI/RRU Fiber Alarm", ["cpri", "fan rru"]),
-    ("Transmission Power Alarm", ["input_b power low", "input power low"]),
-    ("FTTX/OLT Alarm", ["olt", "ftth", "fiberhome", "edfa"]),
-    ("Manual Request/Coordination (แจ้งประสานงาน)", ["request check", "เข้าแก้ไขปัญหา", "dpo request", "optimiz", "support for check"]),
-    ("Hardware/Software Fault (FRU/HW/SW)", ["install sw", "rejectsignalfromhardware", "fan speed continuously",
-        "hw fault", "swerror", "sw error", "resource activation timeout", "license key not available",
-        "lan switch abnormality", "resource configuration failure", "fru general problem",
-        "mo configuration not consistent"]),
+    ('Cell Up/Down Alarm: Fiber_cut / Port Down Issue', r"cell up/down.{0,3}fiber_cut / port down"),
+    ('Cell Up/Down Alarm: Fiber_cut / RRU/CPRI/SFP Issue', r"cell up/down.{0,3}fiber_cut / rru"),
+    ('Cell Up/Down Alarm: PEA/MEA / RRU/CPRI/SFP Issue', r"cell up/down.{0,3}pea/mea / rru"),
+    ('Cell Up/Down Alarm: Fiber_cut', r"cell up/down.{0,3}fiber_cut"),
+    ('Cell Up/Down Alarm: PEA/MEA', r"cell up/down.{0,3}pea/mea"),
+    ('Cell Up/Down Alarm: RRU/CPRI/SFP Issue', r"cell up/down.{0,3}rru/cpri"),
+    ('Cell Up/Down Alarm: Port Down Issue', r"cell up/down.{0,3}port down"),
+    ('Cell Up/Down Alarm: Power equipment', r"cell up/down.{0,3}power equipment"),
+    ('Cell Up/Down Alarm: Power Related', r"cell up/down.{0,3}power related"),
+    ('Cell Up/Down Alarm: Power System', r"cell up/down.{0,3}power system"),
+    ('Cell Up/Down Alarm: Transmission', r"cell up/down.{0,3}transmission"),
+    ('Cell Up/Down Alarm: High Temperature', r"cell up/down.{0,3}high temperature"),
+    ('Cell Up/Down Alarm: Radio Down', r"cell up/down.{0,3}radio down"),
+    ('Cell Up/Down Alarm: RAN Related', r"cell up/down.{0,3}ran related"),
+    ('Cell Up/Down Alarm: Frequency Input Power Failure', r"cell up/down.{0,3}frequency input power"),
+    ('Cell Up/Down Alarm: Frequency', r"cell up/down.{0,3}frequency"),
+    ('Cell Up/Down Alarm: Input Power Failure', r"cell up/down.{0,3}input power failure"),
+    ('Cell Up/Down Alarm: Unspecified', r"cell up/down|cell down"),
+    ('External Alarm - Power/Site Infra', r"generator not run"),
+    ('Third-Party/Peering Provider Incident', r"meta incident|akamai|peering|google ggc|netflix"),
+    ('Intrusion Alarm (ความปลอดภัยสถานี)', r"intrusion|open_door|open door|\(ason |fire alarm|alarm_major_open|huawei-tr-rela"),
+    ('CPRI/RRU Fiber Alarm', r"link failure \(cpri\)|fiber loss|port diff|rru port"),
+    ('Link Failure/Degraded', r"link failure|link degraded|ethernet link|link_failure"),
+    ('HW Partial Fault', r"hw partial fault"),
+    ('IPRAN Hardware Alarm (Fan/Board)', r"ipran alarm +board (fail|temperature)"),
+    ('Environmental Alarm (Temperature/Smoke)', r"temperature"),
+    ('VSWR Alarm (สายอากาศ/ฟีดเดอร์)', r"vswr|rf reflected power high"),
+    ('Radio Performance Degraded', r"ul rssi|service degraded|service unavailable|resource allocation failure|sleeping cell|increased ber|internal interference|performance degraded|ออกสลับกัน|node group sync loss|cell sleep"),
+    ('External Alarm - Power/Site Infra', r"external alarm|input power failure|lossofmains|main ac power failure|rectifier|ac_fail|ac power is off|ac mains failure|main breaker|batt backup|powered_off|generator not run"),
+    ('Solar/Inverter Power Alarm', r"solar cell|inverter"),
+    ('Antenna/RET Alarm', r"rx diversity lost|tiltoutofrange|feeder cable|rxdiversitylost|retportcurrenttoohigh|antennasystemproblem|digitalcable_cablefailure|antennabranch|retdevice_retfailure|rx branch imbalance|communicationlostwithret|antenna calibration|current too high"),
+    ('Equipment Fault (RET/Connection)', r"rap no connection|ret not calibrated|ret failure|no_connection"),
+    ('Sync/Timing Alarm', r"timesyncio|sync ptp|time reachability|ntp server|gps receiver"),
+    ('IPRAN Power/Optical Alarm', r"ipran"),
+    ('Fan Alarm', r"fan fail"),
+    ('RF Module Failure', r"rf module failure"),
+    ('Battery/Power Management Alarm', r"paco-casa|energy_cell|swap battery"),
+    ('DWDM/Optical Transport Alarm', r"dwdm|mossman|edfa|voa abnormal"),
+    ('Microwave Link Alarm', r"microwave"),
+    ('Complaint / No Traffic', r"nbtc"),
+    ('CPRI/RRU Fiber Alarm', r"cpri|fan rru"),
+    ('FTTX/OLT Alarm', r"olt|ftth|fiberhome"),
+    ('Transmission Power Alarm', r"input_b power low|input power low|sfp mismatch|power low"),
+    ('Manual Request/Coordination (แจ้งประสานงาน)', r"request check|เข้าแก้ไขปัญหา|dpo request|optimiz|support for check|ชำรุด|remote from|for replace|shelf defect"),
+    ('Hardware/Software Fault (FRU/HW/SW)', r"install sw|rejectsignalfromhardware|fan speed continuously|hw fault|swerror|sw error|resource activation timeout|license key not available|lan switch abnormality|resource configuration failure|fru general problem|mo configuration not consistent"),
 ]
-SUBJECT_CATEGORY_OTHER = "Other/Uncategorized"
+
+# Safety net for wording never seen before: broad families, so a ticket is never left in "Other".
+SUBJECT_CATEGORY_FALLBACKS = [
+    ('Cell Up/Down Alarm: Unspecified', r"cell|rru|sector"),
+    ('External Alarm - Power/Site Infra', r"power|battery|mains|breaker|generator|\bups\b|ac fail|dc "),
+    ('Link Failure/Degraded', r"link|port|fiber|optical|sfp|cpe|pe:|loss"),
+    ('Hardware/Software Fault (FRU/HW/SW)', r"alarm|fault|fail|error|card|board"),
+]
+SUBJECT_CATEGORY_FALLBACK = 'Manual Request/Coordination (แจ้งประสานงาน)'
+SUBJECT_CATEGORY_OTHER = "Other/Uncategorized"  # kept for compatibility; _auto_categorize_subject no longer returns it
+_SUBJECT_RULES_RE = [(c, re.compile(pat)) for c, pat in SUBJECT_CATEGORY_RULES]
+_SUBJECT_FALLBACKS_RE = [(c, re.compile(pat)) for c, pat in SUBJECT_CATEGORY_FALLBACKS]
 
 
 def _auto_categorize_subject(subject):
-    """Groups a ticket SUBJECT line into one of the fixed categories in
-    SUBJECT_CATEGORY_RULES via ordered keyword matching (see that list's
-    docstring for how it was derived/validated). Falls back to
-    SUBJECT_CATEGORY_OTHER for anything that matches none of them."""
+    """Groups a ticket SUBJECT line into one of the categories via the ordered regex rules, then the broad
+    fallback families, then SUBJECT_CATEGORY_FALLBACK - so it never returns "Other/Uncategorized"."""
     s = str(subject or "").lower()
-    if not s.strip():
-        return SUBJECT_CATEGORY_OTHER
-    for category, keywords in SUBJECT_CATEGORY_RULES:
-        if any(k in s for k in keywords):
+    for category, rx in _SUBJECT_RULES_RE:
+        if rx.search(s):
             return category
-    return SUBJECT_CATEGORY_OTHER
+    for category, rx in _SUBJECT_FALLBACKS_RE:
+        if rx.search(s):
+            return category
+    return SUBJECT_CATEGORY_FALLBACK
 
 
 def _row_number_from_append_response(resp):
@@ -606,6 +630,14 @@ def _site_type_text(t):
     return st
 
 
+def _category_text(t):
+    """SUBJECT category (the same _auto_categorize_subject the dashboard uses) for NSA3/NSA4 tickets - the
+    only severities the categories were learned on - and "" for every other ticket."""
+    if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
+        return ""
+    return str(t.get("subject_category") or _auto_categorize_subject(t.get("SUBJECT", "")))
+
+
 def _ticket_to_export_row(t, insert_time_str=""):
     """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
     by the external mirror export and the on-demand Excel/Google Sheet
@@ -619,6 +651,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
         insert_time_str,
         _site_type_text(t),
+        _category_text(t),
     ]
 
 
