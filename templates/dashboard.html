@@ -938,6 +938,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <label>Group Problem:
         <select id="ptk-group-problem-filter" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (แสดงเฉพาะรายการที่มีคนกรอกไว้)"></select>
       </label>
+      <label>Category:
+        <select id="ptk-category" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ (เฉพาะตั๋ว NSA3/NSA4)"></select>
+      </label>
       <label>Search Ticket:
         <input type="text" id="ptk-ticket-search" placeholder="พิมพ์เลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
       </label>
@@ -6879,9 +6882,14 @@ function renderPivot(ft) {
     return [...sel.selectedOptions].map(o => o.value).filter(Boolean);
   }
 
+  // NSA3/NSA4 Group Problem values ("N3/4-...") get a faint amber highlight so they stand out in the dropdown and once chosen.
+  const N34_BG = 'rgba(245, 158, 11, 0.20)';
+  const N34_STYLE = 'background:' + N34_BG + ';';
+  const isN34 = v => String(v || '').indexOf('N3/4-') === 0;
+
   function optionsHtml(options, selected) {
     return '<option value=""></option>' + options.map(o =>
-      `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}>${o}</option>`
+      `<option value="${o.replace(/"/g, '&quot;')}"${o === selected ? ' selected' : ''}${isN34(o) ? ` style="${N34_STYLE}"` : ''}>${o}</option>`
     ).join('');
   }
 
@@ -6892,6 +6900,7 @@ function renderPivot(ft) {
     const severity = selectedValues(el('ptk-severity'));
     const district = selectedValues(el('ptk-district'));
     const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
+    const categoryFilter = selectedValues(el('ptk-category'));
     const params = new URLSearchParams();
     if (aging.length) params.set('aging', aging.join(','));
     if (bookmark.length) params.set('bookmark', bookmark.join(','));
@@ -6899,6 +6908,7 @@ function renderPivot(ft) {
     if (severity.length) params.set('severity', severity.join(','));
     if (district.length) params.set('district', district.join(','));
     if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
+    if (categoryFilter.length) params.set('category', categoryFilter.join(','));
     return params;
   }
 
@@ -6909,6 +6919,7 @@ function renderPivot(ft) {
     const severity = selectedValues(el('ptk-severity'));
     const district = selectedValues(el('ptk-district'));
     const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
+    const categoryFilter = selectedValues(el('ptk-category'));
     const statusEl = el('ptk-status');
     statusEl.textContent = 'กำลังโหลด...';
 
@@ -6927,6 +6938,7 @@ function renderPivot(ft) {
     if (severity.length) params.set('severity', severity.join(','));
     if (district.length) params.set('district', district.join(','));
     if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
+    if (categoryFilter.length) params.set('category', categoryFilter.join(','));
 
     const res = await fetch(`/api/pending-ticket?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
@@ -6963,7 +6975,14 @@ function renderPivot(ft) {
     const gSel = el('ptk-group-problem-filter');
     const prevGroupSelected = new Set(selectedValues(gSel));
     gSel.innerHTML = data.filter_options.group_problems.map(g =>
-      `<option value="${g.replace(/"/g, '&quot;')}"${prevGroupSelected.has(g) ? ' selected' : ''}>${g}</option>`
+      `<option value="${g.replace(/"/g, '&quot;')}"${prevGroupSelected.has(g) ? ' selected' : ''}${isN34(g) ? ` style="${N34_STYLE}"` : ''}>${g}</option>`
+    ).join('');
+
+    // Category filter (NSA3/NSA4 tickets only) - rebuilt every load, keeps the current selection.
+    const cSel = el('ptk-category');
+    const prevCat = new Set(selectedValues(cSel));
+    cSel.innerHTML = (data.filter_options.categories || []).map(c =>
+      `<option value="${c.category.replace(/"/g, '&quot;')}"${prevCat.has(c.category) ? ' selected' : ''}>${c.category} (${c.count})</option>`
     ).join('');
   }
 
@@ -7003,7 +7022,7 @@ function renderPivot(ft) {
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Team || ''}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">${t.Tech_Status || ''}</td>
         <td data-label="Group Problem" style="padding:6px 8px;">
-          <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
+          <select class="ptk-field ptk-group-problem" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background=(this.value.indexOf('N3/4-')===0?'${N34_BG}':'');" style="width:100%;${isN34(t.group_problem) ? N34_STYLE : ''}">${optionsHtml(groupProblemOptions, t.group_problem)}</select>
         </td>
         <td data-label="Action Team" style="padding:6px 8px;">
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
@@ -7194,7 +7213,7 @@ function renderPivot(ft) {
 
   el('ptk-reload').addEventListener('click', reload);
   el('ptk-reset-filters').addEventListener('click', () => {
-    ['ptk-aging', 'ptk-bookmark', 'ptk-trueowner', 'ptk-severity', 'ptk-district', 'ptk-group-problem-filter'].forEach(id => {
+    ['ptk-aging', 'ptk-bookmark', 'ptk-trueowner', 'ptk-severity', 'ptk-district', 'ptk-group-problem-filter', 'ptk-category'].forEach(id => {
       const sel = el(id);
       [...sel.options].forEach(o => o.selected = false);
     });
@@ -7211,6 +7230,7 @@ function renderPivot(ft) {
   el('ptk-severity').addEventListener('change', reload);
   el('ptk-district').addEventListener('change', reload);
   el('ptk-group-problem-filter').addEventListener('change', reload);
+  el('ptk-category').addEventListener('change', reload);
 
   el('ptk-export-excel').addEventListener('click', () => {
     const params = buildPendingTicketParams();
