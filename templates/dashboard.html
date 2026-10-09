@@ -2056,7 +2056,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
       <div>
         <div style="font-size:16px; font-weight:700;">Site Map — Capacity / Coverage</div>
-        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Capacity = มีไซต์อื่นในรัศมี 1 กม. · Coverage = ไม่มี · วงกลมบนไซต์คือตั๋ว 7.MB with SA1-4 (แดง = Coverage P0, เหลือง = Coverage P1, ม่วง = ตั๋วอื่น) · คลิกวงกลมหรือ CINAME เพื่อซูมรัศมี 1 กม.</div>
+        <div style="font-size:12px; color:var(--text3); margin-top:2px;">Capacity = สัญญาณไปถึงไซต์อื่น (โมเดล RSRP ตามความถี่ + ภูเขา) · Coverage = ไม่ถึง · วงกลมบนไซต์คือตั๋ว 7.MB with SA1-4 (แดง = Coverage P0, เหลือง = Coverage P1, ม่วง = ตั๋วอื่น) · คลิกวงกลมหรือ CINAME เพื่อซูมรัศมี 1 กม.</div>
       </div>
       <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:12px;">
         <label style="display:flex; gap:6px; align-items:center;">จังหวัด <select id="sm-prov" style="padding:4px 8px;"><option value="">ทั้งหมด</option></select></label>
@@ -2918,7 +2918,7 @@ window.p0SiteBucketOf = function (t) {
 window.P0_SITE_TYPES = [
   { k: 'cp0', n: 'Coverage P0', c: '#d64545', d: 'Coverage · SA1-3' },
   { k: 'cp1', n: 'Coverage P1', c: '#e08a1e', d: 'Coverage · SA4' },
-  { k: 'cap', n: 'Capacity', c: '#2563eb', d: 'มีไซต์ใกล้เคียง ≤ 1 กม.' },
+  { k: 'cap', n: 'Capacity', c: '#2563eb', d: 'สัญญาณไปถึงไซต์อื่น' },
   { k: 'cov', n: 'Coverage (อื่นๆ)', c: '#6b7a8d', d: 'Coverage ที่ไม่ใช่ SA1-4' },
   { k: 'na', n: 'ไม่พบไซต์', c: '#8d99a6', d: 'CINAME/Subject ไม่ตรง LOCATION ID' },
 ];
@@ -2977,7 +2977,7 @@ window.p0RenderSiteType = function () {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;">${tiles}</div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="border-collapse:collapse;width:100%;font-size:13px;min-width:500px;"><thead><tr style="background:var(--bg3);"><th style="padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--text2);">จังหวัด</th>${th}<th style="padding:7px 10px;text-align:right;font-size:11px;text-transform:uppercase;color:var(--text2);">รวม</th></tr></thead><tbody>${body}${totRow}</tbody></table></div>
     <div style="font-size:12px;color:var(--text3);">คลิกตัวเลขในตารางเพื่อกรองตารางตั๋ว 7.MB ในหน้านี้ (คลิกซ้ำที่เดิมเพื่อล้าง)</div>
-    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Coverage P0 = ไซต์ Coverage และ Severity SA1-3 · Coverage P1 = ไซต์ Coverage และ Severity SA4 · Capacity = มีไซต์อื่นภายใน 1 กม. · ไม่พบไซต์ = CINAME/Subject ไม่ตรงกับ LOCATION ID</div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Coverage P0 = ไซต์ Coverage และ Severity SA1-3 · Coverage P1 = ไซต์ Coverage และ Severity SA4 · Capacity = สัญญาณไปถึงไซต์อื่น (โมเดล RSRP + ภูเขา) · ไม่พบไซต์ = CINAME/Subject ไม่ตรงกับ LOCATION ID</div>
   </div>`;
 };
 // ===== P0 SITE TYPE PANEL (end) =====
@@ -13839,10 +13839,10 @@ loadData();
       <div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(980px,100%);max-height:94vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div><div id="sz-title" style="font-size:15px;font-weight:700;"></div><div id="sz-sub" style="font-size:12px;color:var(--text3);margin-top:2px;"></div></div>
-          <button class="btn-secondary" id="sz-close" style="font-size:12px;padding:4px 10px;">ปิด ✕</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;"><button class="btn-secondary" id="sz-plot" style="font-size:12px;padding:4px 10px;font-weight:700;">📡 ดู Coverage Plot</button><button class="btn-secondary" id="sz-close" style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text3);">
-          <span><b style="color:${COL.cap};">●</b> ไซต์ใกล้เคียงในรัศมี 1 กม. (นับเป็น Capacity)</span>
+          <span><b style="color:${COL.cap};">●</b> ไซต์ใกล้เคียงในรัศมี 1 กม. (ข้อมูลอ้างอิง · ผลตัดสินใช้โมเดลสัญญาณ)</span>
           <span>เส้นทึบ = 1 กม. · เส้นประ = 500 ม.</span>
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px;" id="sz-grid">
@@ -13855,6 +13855,7 @@ loadData();
     document.body.appendChild(zEl);
     zEl.addEventListener('click', e => { if (e.target === zEl) closeModal(); });
     zEl.querySelector('#sz-close').addEventListener('click', closeModal);
+    zEl.querySelector('#sz-plot').addEventListener('click', () => { const id = zEl.dataset.sid; closeModal(); if (window.ctOpenSite) window.ctOpenSite(id); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && zEl.style.display !== 'none') closeModal(); });
     if (window.matchMedia && window.matchMedia('(max-width:760px)').matches) zEl.querySelector('#sz-grid').style.gridTemplateColumns = '1fr';
   }
@@ -13893,7 +13894,8 @@ loadData();
       zMap.setView(c, 15);
       zMap.fitBounds(L.latLng(c).toBounds(j.zoom_m * 2), { padding: [8, 8] }); // LatLng.toBounds works before the circle is on the map (Circle.getBounds does not)
       zEl.querySelector('#sz-title').innerHTML = `${esc(s.id)} · <span style="color:${tc};">${esc(s.type)}</span>${s.name ? ' · ' + esc(s.name) : ''}`;
-      zEl.querySelector('#sz-sub').textContent = `${s.province}${s.district ? ' / ' + s.district : ''} · ${s.la.toFixed(5)}, ${s.lo.toFixed(5)} · ในรัศมี 1 กม. ${j.within_radius} ไซต์ (ใน 500 ม. ${j.within_500})`;
+      zEl.querySelector('#sz-sub').textContent = `${s.province}${s.district ? ' / ' + s.district : ''} · ${s.la.toFixed(5)}, ${s.lo.toFixed(5)} · ในรัศมี 1 กม. ${j.within_radius} ไซต์ (ใน 500 ม. ${j.within_500})` + (j.model && j.model.status === 'ok' ? ` · ตัดสินด้วยโมเดลสัญญาณ (กติกา 1 กม. เดิมให้ผล ${s.type_1km})` : ` · ⚠ ใช้กติกา 1 กม. ชั่วคราว (${(j.model && j.model.reason) || 'โมเดลกำลังคำนวณ'})`);
+      zEl.dataset.sid = s.id;
       zEl.querySelector('#sz-list').innerHTML = j.neighbours.map(n => `<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">${esc(n.id)}</td><td style="padding:5px 8px;text-align:right;">${n.m}</td><td style="padding:5px 8px;color:${n.in_500 ? COL.cap : 'var(--text2)'};">${n.in_500 ? 'ใน 500 ม.' : 'ใน 1 กม.'}</td></tr>`).join('')
         || '<tr><td colspan="3" style="padding:10px;color:var(--text3);">ไม่มีไซต์อื่นในรัศมี 1 กม.</td></tr>';
       setTimeout(() => zMap.invalidateSize(), 60);
@@ -13967,7 +13969,7 @@ loadData();
       const r = await fetch('/api/site-map' + (force ? '?force_refresh=1' : ''));
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || r.status);
-      S.data = j; $('sm-msg').innerHTML = '';
+      S.data = j; $('sm-msg').innerHTML = ''; if (j.model && j.model.status !== 'ok') $('sm-msg').innerHTML = `<div style="padding:8px 12px;margin-bottom:8px;border-radius:var(--r);background:#e08a1e22;color:#a8650f;border:1px solid #e08a1e66;font-size:12px;">ตอนนี้ใช้กติกา 1 กม. ชั่วคราว (${esc(j.model.reason || 'โมเดลสัญญาณกำลังคำนวณ รอประมาณ 1–2 นาทีแล้วรีเฟรช')})</div>`;
       const provs = [...new Set(j.sites.map(s => s[4]).filter(Boolean))].sort();
       $('sm-prov').innerHTML = '<option value="">ทั้งหมด</option>' + provs.map(p => `<option value="${esc(p)}"${p === S.province ? ' selected' : ''}>${esc(p)}</option>`).join('');
       ensureMap(); setTimeout(() => { S.map.invalidateSize(); render(); }, 30);
@@ -14132,6 +14134,16 @@ redraw();
 
     ctMap = map;
   }
+  // Open the Test Coverage Plot tab focused on one site (used by the "ดู Coverage Plot" button of the site map popup).
+  window.ctOpenSite = function (id) {
+    showPage('covtest');
+    let n = 0;
+    (function t() {
+      const q = document.getElementById('ct-q');
+      if (window.__ctReady && q) { q.value = id; q.dispatchEvent(new Event('change')); }
+      else if (n++ < 120) setTimeout(t, 250);
+    })();
+  };
   window.initCovTestTab = function () {
     const msg = document.getElementById('ct-msg');
     if (booted) { if (ctMap) ctMap.invalidateSize(); return; }
@@ -14141,6 +14153,7 @@ redraw();
       const tk = j.tickets || {};
       j.sites.forEach(s => s.push(tk[s[0]] || ''));   // s[9] = worst 7.MB SA1-4 severity at this site ('' = none)
       ctInit(j.sites, j.terrain, j.terrain_note);
+      window.__ctReady = true;
       setTimeout(() => ctMap && ctMap.invalidateSize(), 50);
       msg.textContent = 'ข้อมูลไซต์ ' + j.sites.length.toLocaleString() + ' แห่ง · Ticket ' + j.bookmark + ' ' + Object.keys(tk).length.toLocaleString() + ' ไซต์ · ' + (j.terrain ? 'มีข้อมูลภูเขา' : 'ไม่มีข้อมูลภูเขา');
     }).catch(e => { booted = false; msg.textContent = 'โหลดไม่สำเร็จ: ' + (e && e.message || e) + ' (เปิดแท็บใหม่อีกครั้งเพื่อลองซ้ำ)'; });
