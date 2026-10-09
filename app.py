@@ -2392,12 +2392,13 @@ def api_pending_ticket():
     group_problem = multi('group_problem')
     aging = multi('aging')
     category = multi('category')
+    priority = multi('priority')
     try:
         _, gs_client = get_drive_and_sheets_clients()
         data = build_pending_ticket_response(
             gs_client, bookmark_filter=bookmark, trueowner_filter=trueowner,
             severity_filter=severity, district_filter=district, group_problem_filter=group_problem,
-            aging_filter=aging, category_filter=category,
+            aging_filter=aging, category_filter=category, priority_filter=priority,
         )
         return jsonify(data)
     except Exception as e:
@@ -2412,7 +2413,7 @@ def _pending_ticket_filters_from_request():
         bookmark_filter=multi('bookmark'), trueowner_filter=multi('trueowner'),
         severity_filter=multi('severity'), district_filter=multi('district'),
         group_problem_filter=multi('group_problem'), aging_filter=multi('aging'),
-        category_filter=multi('category'),
+        category_filter=multi('category'), priority_filter=multi('priority'),
     )
 
 @app.route('/api/pending-ticket/export-excel')

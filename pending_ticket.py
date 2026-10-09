@@ -865,7 +865,7 @@ def build_pending_ticket_xlsx(matched_entries):
 
 def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
                                    severity_filter=None, district_filter=None, group_problem_filter=None,
-                                   aging_filter=None, category_filter=None):
+                                   aging_filter=None, category_filter=None, priority_filter=None):
     """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
     aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
     filter, include everything in that dimension"."""
@@ -884,6 +884,9 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
         # dropdown reads 1)->6) like everywhere else Aging is shown.
         "agings": [a for a in AGING_ORDER if a in present_agings],
     }
+    present_prios = {str(e.get("priority", "") or "").strip() for e in all_entries if e.get("priority")}
+    filter_options["priorities"] = ([p for p in ("P0", "P1", "P2") if p in present_prios]
+                                    + sorted(present_prios - {"P0", "P1", "P2"}))
 
     # District counts are faceted on the OTHER active filters (bookmark/trueowner/
     # severity/aging) so the numbers next to each district option stay accurate
@@ -892,6 +895,7 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
     pre_district = _multi_filter(pre_district, "TRUEOWNERGROUP", trueowner_filter)
     pre_district = _multi_filter(pre_district, "SEVERITY", severity_filter)
     pre_district = _multi_filter(pre_district, "Aging_Flag_Group", aging_filter)
+    pre_district = _multi_filter(pre_district, "priority", priority_filter)
     district_counts = {}
     for e in pre_district:
         d = str(e.get("DISTRICT", "")).strip()
