@@ -919,12 +919,21 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
 
   <div class="page" id="page-pendingticket">
+    <style>
+      #ptk-bookmark-chips .ptk-chip { display:inline-flex; align-items:center; padding:5px 10px; border:1px solid var(--border2); border-radius:20px; background:var(--bg2); cursor:pointer; font-size:12px; user-select:none; }
+      #ptk-bookmark-chips .ptk-chip.active { background:color-mix(in srgb, var(--accent, #2563eb) 12%, transparent); border-color:var(--accent, #2563eb); color:var(--accent, #2563eb); font-weight:700; }
+    </style>
     <div class="pt-filter-bar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px; background:var(--bg3); border-radius:var(--r); margin-bottom:16px;">
       <label>Aging_Flag_Group:
         <select id="ptk-aging" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
-      <label>Bookmark:
-        <select id="ptk-bookmark" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <span style="font-weight:600;">View (เลือกได้หลายอัน):</span>
+        <div id="ptk-bookmark-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+        <select id="ptk-bookmark" multiple size="1" style="display:none;"></select>
+      </div>
+      <label>Priority:
+        <select id="ptk-priority" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
       </label>
       <label>TRUEOWNERGROUP:
         <select id="ptk-trueowner" multiple size="1" title="กด Ctrl/Cmd ค้างเพื่อเลือกหลายรายการ"></select>
@@ -6901,6 +6910,7 @@ function renderPivot(ft) {
     const district = selectedValues(el('ptk-district'));
     const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
     const categoryFilter = selectedValues(el('ptk-category'));
+    const priorityFilter = selectedValues(el('ptk-priority'));
     const params = new URLSearchParams();
     if (aging.length) params.set('aging', aging.join(','));
     if (bookmark.length) params.set('bookmark', bookmark.join(','));
@@ -6909,6 +6919,7 @@ function renderPivot(ft) {
     if (district.length) params.set('district', district.join(','));
     if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
     if (categoryFilter.length) params.set('category', categoryFilter.join(','));
+    if (priorityFilter.length) params.set('priority', priorityFilter.join(','));
     return params;
   }
 
@@ -6920,6 +6931,7 @@ function renderPivot(ft) {
     const district = selectedValues(el('ptk-district'));
     const groupProblemFilter = selectedValues(el('ptk-group-problem-filter'));
     const categoryFilter = selectedValues(el('ptk-category'));
+    const priorityFilter = selectedValues(el('ptk-priority'));
     const statusEl = el('ptk-status');
     statusEl.textContent = 'กำลังโหลด...';
 
@@ -6939,12 +6951,34 @@ function renderPivot(ft) {
     if (district.length) params.set('district', district.join(','));
     if (groupProblemFilter.length) params.set('group_problem', groupProblemFilter.join(','));
     if (categoryFilter.length) params.set('category', categoryFilter.join(','));
+    if (priorityFilter.length) params.set('priority', priorityFilter.join(','));
 
     const res = await fetch(`/api/pending-ticket?${params.toString()}`);
     if (!res.ok) { statusEl.textContent = 'โหลดข้อมูลไม่สำเร็จ'; throw new Error(`API ${res.status}`); }
     const data = await res.json();
     statusEl.textContent = `${data.total} tickets — insert_time: ${data.insert_time || '-'}`;
     return data;
+  }
+
+  const BM_CHIP_ORDER = ['4.FBB with SA1-4', '3. All NW Incident NSA1-2', '7.MB with SA1-4'];
+  function renderBookmarkChips() {
+    const sel = el('ptk-bookmark'), box = el('ptk-bookmark-chips');
+    const vals = [...sel.options].map(o => o.value);
+    const ordered = BM_CHIP_ORDER.filter(v => vals.includes(v)).concat(vals.filter(v => !BM_CHIP_ORDER.includes(v)));
+    box.innerHTML = '';
+    ordered.forEach(v => {
+      const opt = [...sel.options].find(o => o.value === v);
+      const b = document.createElement('label');
+      b.className = 'ptk-chip' + (opt && opt.selected ? ' active' : '');
+      b.textContent = v;
+      b.addEventListener('click', ev => {
+        ev.preventDefault();
+        opt.selected = !opt.selected;
+        b.classList.toggle('active', opt.selected);
+        sel.dispatchEvent(new Event('change'));
+      });
+      box.appendChild(b);
+    });
   }
 
   function populateStaticMulti(sel, values) {
@@ -6959,6 +6993,8 @@ function renderPivot(ft) {
   function populateFilters(data) {
     populateStaticMulti(el('ptk-aging'), data.filter_options.agings);
     populateStaticMulti(el('ptk-bookmark'), data.filter_options.bookmarks);
+    populateStaticMulti(el('ptk-priority'), data.filter_options.priorities || []);
+    renderBookmarkChips();
     populateStaticMulti(el('ptk-trueowner'), data.filter_options.trueowners);
     populateStaticMulti(el('ptk-severity'), data.filter_options.severities);
 
@@ -7197,7 +7233,7 @@ function renderPivot(ft) {
         // shows as selected instead of looking like "0 selected" while
         // actually filtered.
         const bmSel = el('ptk-bookmark');
-        [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); });
+        [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); }); renderBookmarkChips();
       }
       renderRows(data.tickets);
       lastTickets = data.tickets;
@@ -7213,7 +7249,7 @@ function renderPivot(ft) {
 
   el('ptk-reload').addEventListener('click', reload);
   el('ptk-reset-filters').addEventListener('click', () => {
-    ['ptk-aging', 'ptk-bookmark', 'ptk-trueowner', 'ptk-severity', 'ptk-district', 'ptk-group-problem-filter', 'ptk-category'].forEach(id => {
+    ['ptk-aging', 'ptk-bookmark', 'ptk-trueowner', 'ptk-severity', 'ptk-district', 'ptk-group-problem-filter', 'ptk-category', 'ptk-priority'].forEach(id => {
       const sel = el(id);
       [...sel.options].forEach(o => o.selected = false);
     });
@@ -7221,7 +7257,7 @@ function renderPivot(ft) {
     // clearing to "0 selected" - keeps Reset consistent with the same
     // lighter-weight default the tab opens with.
     const bmSel = el('ptk-bookmark');
-    [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); });
+    [...bmSel.options].forEach(o => { o.selected = (o.value === '4.FBB with SA1-4'); }); renderBookmarkChips();
     reload();
   });
   el('ptk-aging').addEventListener('change', reload);
@@ -7231,6 +7267,7 @@ function renderPivot(ft) {
   el('ptk-district').addEventListener('change', reload);
   el('ptk-group-problem-filter').addEventListener('change', reload);
   el('ptk-category').addEventListener('change', reload);
+  el('ptk-priority').addEventListener('change', reload);
 
   el('ptk-export-excel').addEventListener('click', () => {
     const params = buildPendingTicketParams();
