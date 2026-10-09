@@ -971,6 +971,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th style="padding:6px 8px; text-align:left; min-width:220px;">Group Problem</th>
             <th style="padding:6px 8px; text-align:left; min-width:120px;">Action Team</th>
             <th style="padding:6px 8px; text-align:left; min-width:130px;">Site Type</th>
+            <th style="padding:6px 8px; text-align:left; min-width:200px;">Category</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
             <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
             <th style="padding:6px 8px; text-align:left; min-width:140px;">Plan Closed Date</th>
@@ -7008,6 +7009,7 @@ function renderPivot(ft) {
           <select class="ptk-field ptk-action-team" onchange="markDirty('${safeTid}'); this.style.outline=''; this.style.background='';" style="width:100%;">${optionsHtml(actionTeamOptions, t.action_team)}</select>
         </td>
         <td data-label="Site Type" style="padding:6px 8px; white-space:nowrap;">${window.siteTypeHtml ? window.siteTypeHtml(t) : ''}</td>
+        <td data-label="Category" style="padding:6px 8px; color:var(--text2);">${String(t.category || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))}</td>
         <td data-label="รายละเอียด" style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:420px; max-width:560px; max-height:600px; overflow-y:auto; resize:vertical; field-sizing:content; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
         </td>
@@ -7023,7 +7025,7 @@ function renderPivot(ft) {
         <td class="ptk-mobile-hide ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td class="ptk-mobile-hide ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="23" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+    }).join('') || '<tr><td colspan="24" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
   }
 
