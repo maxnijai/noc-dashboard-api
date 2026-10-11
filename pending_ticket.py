@@ -145,7 +145,36 @@ EXPORT_HEADER = [
     "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
     "Region",     # column Z: NOR1 / NOR2
+    "Flag Priority",  # column AA: "Flag" when the Category (column Y) is in FLAG_PRIORITY_CATEGORIES, else blank
 ]
+
+# Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
+FLAG_PRIORITY_CATEGORIES = {c.lower() for c in [
+    "Cell Up/Down Alarm: Fiber_cut",
+    "Cell Up/Down Alarm: Fiber_cut / RRU/CPRI/SFP Issue",
+    "Cell Up/Down Alarm: Frequency Input Power Failure",
+    "Cell Up/Down Alarm: High Temperature",
+    "Cell Up/Down Alarm: PEA/MEA",
+    "Cell Up/Down Alarm: Port Down Issue",
+    "Cell Up/Down Alarm: Power equipment",
+    "Cell Up/Down Alarm: Power Related",
+    "Cell Up/Down Alarm: Power System",
+    "Cell Up/Down Alarm: Radio Down",
+    "Cell Up/Down Alarm: RAN Related",
+    "Cell Up/Down Alarm: RRU/CPRI/SFP Issue",
+    "Cell Up/Down Alarm: Transmission",
+    "Cell Up/Down Alarm: Unspecified",
+    "DWDM/Optical Transport Alarm",
+    "Environmental Alarm (Temperature/Smoke)",
+    "Fan Alarm",
+    "FTTX/OLT Alarm",
+    "HW Partial Fault",
+    "Intrusion Alarm (ความปลอดภัยสถานี)",
+    "Manual Request/Coordination (แจ้งประสานงาน)",
+    "Microwave Link Alarm",
+    "Third-Party/Peering Provider Incident",
+    "Transmission Power Alarm",
+]}
 
 
 # ---------------------------------------------------------------------------
@@ -640,6 +669,11 @@ def _site_type_text(t):
     return st
 
 
+def _flag_priority_text(t):
+    """"Flag" when this ticket's Category (same value as column Y) is in the Priority Flag lookup list."""
+    return "Flag" if _category_text(t).strip().lower() in FLAG_PRIORITY_CATEGORIES else ""
+
+
 def _category_text(t):
     """SUBJECT category (the same _auto_categorize_subject the dashboard uses) for NSA3/NSA4 tickets - the
     only severities the categories were learned on - and "" for every other ticket."""
@@ -663,6 +697,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         _site_type_text(t),
         _category_text(t),
         t.get("Region", ""),
+        _flag_priority_text(t),
     ]
 
 
