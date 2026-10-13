@@ -774,6 +774,10 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zM3 14a5 5 0 0110 0v1H3v-1z"/><circle cx="13" cy="4" r="2"/></svg>
     Oncall Team
   </div>
+  <div class="nav-item" onclick="showPage('fieldfollow')">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5a4 4 0 00-4 4c0 3 4 8.5 4 8.5s4-5.500 4-8.500a4 4 0 00-4-4z" stroke="#3bb7c9" stroke-width="1.3"/><circle cx="8" cy="5.500" r="1.400" fill="#3bb7c9"/></svg>
+    Field Follow-up
+  </div>
   <div class="nav-item" onclick="showPage('generatortest')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1.5L3 9h4l-1 5.5L13 7H9l0-5.5z" stroke="#e0a21e" stroke-width="1.3" stroke-linejoin="round"/></svg>
     Generator Test
@@ -2151,6 +2155,177 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
 
   <!-- GENERATOR TEST -->
+  <div class="page" id="page-fieldfollow">
+    <style>
+      #page-fieldfollow { --ff-ok:var(--green); --ff-ok-bg:var(--green-bg); --ff-warn:var(--amber); --ff-warn-bg:var(--amber-bg); --ff-bad:var(--red); --ff-bad-bg:var(--red-bg); --ff-acc:var(--blue); --ff-acc-bg:var(--blue-bg); --ff-sa2:#d9730d; --ff-nsa:var(--purple); }
+      #page-fieldfollow * { box-sizing:border-box; }
+      #page-fieldfollow .ff-head { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+      #page-fieldfollow .ff-head h2 { font-size:16px; font-weight:700; }
+      #page-fieldfollow .ff-sub { font-size:12px; color:var(--text3); }
+      #page-fieldfollow .ff-me { font-size:12px; color:var(--text2); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      #page-fieldfollow .ff-role { font-weight:700; padding:2px 9px; border-radius:99px; background:var(--ff-acc-bg); color:var(--ff-acc); }
+      #page-fieldfollow .ff-role.ro { background:var(--bg4); color:var(--text2); }
+      #page-fieldfollow .ff-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+      #page-fieldfollow .ff-tabs button { border:0; background:transparent; padding:8px 16px; cursor:pointer; font-weight:600; color:var(--text3); border-bottom:3px solid transparent; margin-bottom:-1px; font-family:inherit; font-size:13px; }
+      #page-fieldfollow .ff-tabs button.on { color:var(--ff-acc); border-bottom-color:var(--ff-acc); }
+      #page-fieldfollow .ff-sum { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
+      @media (max-width:900px){ #page-fieldfollow .ff-sum { grid-template-columns:1fr; } }
+      #page-fieldfollow .ff-card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; min-width:0; }
+      #page-fieldfollow .ff-card h3 { font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); margin:0 0 8px; display:flex; justify-content:space-between; gap:8px; font-weight:700; }
+      #page-fieldfollow .ff-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:8px; }
+      #page-fieldfollow .ff-kpi { background:var(--bg3); border-radius:8px; padding:8px 10px; min-width:0; }
+      #page-fieldfollow .ff-kpi b { display:block; font-size:21px; line-height:1.15; font-variant-numeric:tabular-nums; }
+      #page-fieldfollow .ff-kpi span { font-size:11.5px; color:var(--text3); display:block; line-height:1.25; }
+      #page-fieldfollow .ff-kpi.bad b { color:var(--ff-bad); } #page-fieldfollow .ff-kpi.warn b { color:var(--ff-warn); } #page-fieldfollow .ff-kpi.ok b { color:var(--ff-ok); }
+      #page-fieldfollow .ff-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+      #page-fieldfollow .ff-grow { flex:1; }
+      #page-fieldfollow .ff-btn { border:1px solid var(--border2); background:var(--bg2); color:var(--text); padding:6px 12px; border-radius:7px; cursor:pointer; font-size:12.5px; font-family:inherit; }
+      #page-fieldfollow .ff-btn:hover { border-color:var(--ff-acc); }
+      #page-fieldfollow .ff-btn.pri { background:var(--ff-acc); border-color:var(--ff-acc); color:#fff; font-weight:600; }
+      #page-fieldfollow .ff-btn.warn { background:var(--ff-warn); border-color:var(--ff-warn); color:#fff; font-weight:700; }
+      #page-fieldfollow .ff-btn:disabled { opacity:.45; cursor:not-allowed; }
+      #page-fieldfollow .ff-in { border:1px solid var(--border2); background:var(--bg2); color:var(--text); border-radius:7px; padding:6px 10px; min-width:0; font-family:inherit; font-size:12.5px; }
+      #page-fieldfollow .ff-in:focus { outline:2px solid var(--ff-acc); }
+      #page-fieldfollow .ff-seg { display:inline-flex; border:1px solid var(--border2); border-radius:8px; overflow:hidden; background:var(--bg2); }
+      #page-fieldfollow .ff-seg button { border:0; background:transparent; color:var(--text3); padding:5px 11px; cursor:pointer; font-size:12px; font-family:inherit; }
+      #page-fieldfollow .ff-seg button.on { background:var(--ff-acc-bg); color:var(--ff-acc); font-weight:700; }
+      #page-fieldfollow .ff-newform { display:none; margin-bottom:12px; }
+      #page-fieldfollow .ff-newform.open { display:block; }
+      #page-fieldfollow .ff-fgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+      #page-fieldfollow .ff-fgrid label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--text3); }
+      #page-fieldfollow .ff-fgrid .wide { grid-column:1/-1; }
+      #page-fieldfollow .ff-err { color:var(--ff-bad); font-size:12px; min-height:16px; margin:6px 0; }
+      #page-fieldfollow .ff-msg { font-size:12.5px; margin-bottom:10px; padding:8px 12px; border-radius:7px; background:var(--ff-bad-bg); color:var(--ff-bad); display:none; }
+      #page-fieldfollow .ff-list { display:flex; flex-direction:column; gap:8px; }
+      #page-fieldfollow .ff-tk { background:var(--bg2); border:1px solid var(--border); border-left:5px solid var(--border2); border-radius:9px; overflow:hidden; }
+      #page-fieldfollow .ff-tk.s-ok { border-left-color:var(--ff-ok); } #page-fieldfollow .ff-tk.s-warn { border-left-color:var(--ff-warn); } #page-fieldfollow .ff-tk.s-bad { border-left-color:var(--ff-bad); }
+      #page-fieldfollow .ff-row { display:grid; grid-template-columns:auto auto minmax(0,1.6fr) minmax(0,1fr) auto; gap:8px 14px; align-items:center; padding:9px 12px; cursor:pointer; }
+      @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .c-prog, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
+      #page-fieldfollow .ff-tid { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; }
+      #page-fieldfollow .ff-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
+      #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.NSA1_DN { color:var(--ff-nsa); }
+      #page-fieldfollow .ff-chip.sites { color:var(--text); border-color:var(--border2); background:var(--bg3); font-weight:600; }
+      #page-fieldfollow .ff-prov { display:inline-flex; gap:4px; align-items:center; font-weight:700; font-size:12px; padding:2px 9px; border-radius:99px; background:var(--ff-acc-bg); color:var(--ff-acc); }
+      #page-fieldfollow .ff-subj { min-width:0; }
+      #page-fieldfollow .ff-subj .t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+      #page-fieldfollow .ff-subj .m { font-size:12px; color:var(--text3); display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:2px; }
+      #page-fieldfollow .ff-dots { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+      #page-fieldfollow .ff-dot { width:11px; height:11px; border-radius:50%; background:var(--bg4); border:2px solid var(--border2); }
+      #page-fieldfollow .ff-dot.done { background:var(--ff-ok); border-color:var(--ff-ok); } #page-fieldfollow .ff-dot.late { background:var(--ff-warn); border-color:var(--ff-warn); }
+      #page-fieldfollow .ff-dot.skip { background:transparent; border-style:dashed; border-color:var(--text3); }
+      #page-fieldfollow .ff-dot.now { border-color:var(--ff-acc); box-shadow:0 0 0 3px var(--ff-acc-bg); }
+      #page-fieldfollow .ff-dot.over { border-color:var(--ff-bad); background:var(--ff-bad-bg); }
+      #page-fieldfollow .ff-lv { font-size:11px; font-weight:700; padding:1px 7px; border-radius:6px; background:var(--bg4); color:var(--text3); }
+      #page-fieldfollow .ff-lv.l2 { background:var(--ff-warn-bg); color:var(--ff-warn); } #page-fieldfollow .ff-lv.l3, #page-fieldfollow .ff-lv.l4 { background:var(--ff-bad-bg); color:var(--ff-bad); }
+      #page-fieldfollow .ff-tag { font-size:11px; font-weight:700; padding:1px 7px; border-radius:6px; }
+      #page-fieldfollow .ff-tag.hold { background:var(--ff-warn-bg); color:var(--ff-warn); } #page-fieldfollow .ff-tag.mclosed { background:var(--ff-ok-bg); color:var(--ff-ok); }
+      #page-fieldfollow .ff-next { font-size:12.5px; text-align:right; }
+      #page-fieldfollow .ff-next .timer { font-family:'IBM Plex Mono',monospace; font-weight:700; font-variant-numeric:tabular-nums; }
+      #page-fieldfollow .timer.ok { color:var(--ff-ok); } #page-fieldfollow .timer.warn { color:var(--ff-warn); } #page-fieldfollow .timer.bad { color:var(--ff-bad); }
+      #page-fieldfollow .ff-next .el { display:block; color:var(--text3); font-size:11.5px; }
+      #page-fieldfollow .ff-ocb { border:1px solid var(--border2); background:var(--bg2); color:var(--text); border-radius:7px; padding:4px 10px; font-size:12px; cursor:pointer; white-space:nowrap; font-family:inherit; }
+      #page-fieldfollow .ff-ocb:hover { border-color:var(--ff-ok); } #page-fieldfollow .ff-ocb.on { background:var(--ff-ok-bg); border-color:var(--ff-ok); color:var(--ff-ok); font-weight:700; }
+      #page-fieldfollow .ff-ocp { border-top:1px solid var(--border); background:var(--bg3); padding:12px; }
+      #page-fieldfollow .ff-ocp h4 { margin:10px 0 6px; font-size:12px; letter-spacing:.03em; color:var(--text2); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+      #page-fieldfollow .ff-ocp h4:first-child { margin-top:0; }
+      #page-fieldfollow .ff-ocg { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:8px; }
+      #page-fieldfollow .ff-occ { background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; min-width:0; font-size:12.5px; }
+      #page-fieldfollow .ff-occ.l2 { border-left:4px solid #7c3aed; } #page-fieldfollow .ff-occ.l3 { border-left:4px solid var(--ff-warn); } #page-fieldfollow .ff-occ.l1 { border-left:4px solid var(--ff-acc); }
+      #page-fieldfollow .ff-occ.dim { opacity:.65; }
+      #page-fieldfollow .ff-occ .nm { font-weight:700; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      #page-fieldfollow .ff-occ .kv { font-size:11.5px; color:var(--text2); margin-top:2px; }
+      #page-fieldfollow .ff-occ .kv b { color:var(--text3); font-weight:600; }
+      #page-fieldfollow .ff-occ a { font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--ff-acc); text-decoration:none; font-size:13px; display:inline-block; margin-top:3px; }
+      #page-fieldfollow .ff-tp { font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:99px; }
+      #page-fieldfollow .ff-tp.NOD { background:var(--ff-acc-bg); color:var(--ff-acc); } #page-fieldfollow .ff-tp.OFC { background:var(--ff-warn-bg); color:var(--ff-warn); }
+      #page-fieldfollow .ff-tp.SUP { background:var(--purple-bg); color:var(--purple); } #page-fieldfollow .ff-tp.ENG { background:var(--ff-warn-bg); color:var(--ff-warn); }
+      #page-fieldfollow .ff-note { font-size:12px; color:var(--ff-warn); background:var(--ff-warn-bg); border-radius:6px; padding:5px 9px; margin-bottom:6px; }
+      #page-fieldfollow .ff-detail { display:none; border-top:1px solid var(--border); background:var(--bg3); padding:12px; gap:14px; }
+      #page-fieldfollow .ff-tk.open .ff-detail { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); }
+      @media (max-width:1000px){ #page-fieldfollow .ff-tk.open .ff-detail { grid-template-columns:1fr; } }
+      #page-fieldfollow .ff-detail h5 { margin:0 0 8px; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); font-weight:700; }
+      #page-fieldfollow .ff-step { display:grid; grid-template-columns:26px minmax(0,1fr) auto; gap:8px; align-items:start; padding:7px 8px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; }
+      #page-fieldfollow .ff-step .n { width:24px; height:24px; border-radius:50%; background:var(--bg4); display:grid; place-items:center; font-size:11px; font-weight:700; margin-top:2px; }
+      #page-fieldfollow .ff-step.done .n { background:var(--ff-ok); color:#fff; } #page-fieldfollow .ff-step.late .n { background:var(--ff-warn); color:#fff; }
+      #page-fieldfollow .ff-step.skip { opacity:.65; }
+      #page-fieldfollow .ff-step .tt { font-weight:600; font-size:13px; } #page-fieldfollow .ff-step .hh { font-size:11.5px; color:var(--text3); }
+      #page-fieldfollow .ff-step .st { font-size:11.5px; margin-top:1px; } #page-fieldfollow .st.ok { color:var(--ff-ok); } #page-fieldfollow .st.warn { color:var(--ff-warn); } #page-fieldfollow .st.bad { color:var(--ff-bad); }
+      #page-fieldfollow .ff-step .act { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+      #page-fieldfollow .ff-step.locked .ff-btn { opacity:.4; pointer-events:none; }
+      #page-fieldfollow .ff-rem { width:100%; margin-top:5px; padding:4px 8px; font-size:12px; }
+      #page-fieldfollow .ff-mate { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; margin-bottom:12px; }
+      #page-fieldfollow .ff-mate button { text-align:left; border:1px solid var(--border2); background:var(--bg2); color:var(--text); border-radius:8px; padding:6px 8px; cursor:pointer; font-size:12px; display:flex; flex-direction:column; gap:1px; font-family:inherit; }
+      #page-fieldfollow .ff-mate button.on { border-color:var(--ff-ok); background:var(--ff-ok-bg); }
+      #page-fieldfollow .ff-mate button.hold.on { border-color:var(--ff-warn); background:var(--ff-warn-bg); }
+      #page-fieldfollow .ff-mate button:disabled { opacity:.55; cursor:not-allowed; }
+      #page-fieldfollow .ff-mate small { color:var(--text3); font-family:'IBM Plex Mono',monospace; font-size:11px; }
+      #page-fieldfollow .ff-undo { border:0; background:transparent; color:var(--text3); cursor:pointer; font-size:11px; text-decoration:underline; padding:0 0 4px; font-family:inherit; }
+      #page-fieldfollow .ff-note-row { display:flex; gap:6px; margin:8px 0 12px; flex-wrap:wrap; }
+      #page-fieldfollow .ff-note-row .ff-in { flex:1; min-width:180px; }
+      #page-fieldfollow .ff-log { max-height:180px; overflow:auto; border:1px solid var(--border); background:var(--bg2); border-radius:8px; padding:6px 8px; font-size:12px; }
+      #page-fieldfollow .ff-log div { padding:2px 0; border-bottom:1px dashed var(--border); } #page-fieldfollow .ff-log div:last-child { border:0; }
+      #page-fieldfollow .ff-log time { font-family:'IBM Plex Mono',monospace; color:var(--text3); margin-right:6px; }
+      #page-fieldfollow .ff-closebar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+      #page-fieldfollow .ff-closed-tag { color:var(--ff-ok); font-weight:700; font-size:12px; }
+      #page-fieldfollow .ff-empty { padding:24px; text-align:center; color:var(--text3); background:var(--bg2); border:1px dashed var(--border2); border-radius:9px; }
+      #page-fieldfollow .ff-foot { color:var(--text3); font-size:12px; }
+    </style>
+
+    <div class="ff-head">
+      <div>
+        <h2>Field Follow-up Log</h2>
+        <div class="ff-sub">บันทึกการติดตามทีมหน้างาน ตาม Escalation Flow SA1 / SA2 / NSA1_DN</div>
+      </div>
+      <div class="ff-me" id="ff-me"></div>
+    </div>
+
+    <div class="ff-tabs" id="ff-tabs">
+      <button class="on" data-tab="board">Active Board</button>
+      <button data-tab="hist">History (ค้นประวัติ)</button>
+    </div>
+    <div class="ff-msg" id="ff-msg"></div>
+    <section class="ff-sum" id="ff-sum"></section>
+
+    <div id="ff-tab-board">
+      <div class="ff-bar">
+        <button class="ff-btn pri" id="ff-btn-new">+ เพิ่ม Ticket</button>
+        <div class="ff-seg" id="ff-flt">
+          <button class="on" data-f="all">ทั้งหมด</button><button data-f="over">เกินเวลา</button>
+          <button data-f="SA1">SA1</button><button data-f="SA2">SA2</button><button data-f="NSA1_DN">NSA1_DN</button>
+        </div>
+        <span class="ff-grow"></span>
+        <span class="ff-foot" id="ff-clock"></span>
+        <button class="ff-btn" id="ff-refresh">รีเฟรช</button>
+      </div>
+      <div class="ff-card ff-newform" id="ff-newform">
+        <div class="ff-fgrid">
+          <label>เลข Ticket<input class="ff-in" id="ff-n-id" placeholder="เลข Ticket"></label>
+          <label>SLA<select class="ff-in" id="ff-n-sla"><option>SA1</option><option selected>SA2</option><option>NSA1_DN</option></select></label>
+          <label>จังหวัด (ตรงกับตาราง Oncall)<select class="ff-in" id="ff-n-prov"><option value="">เลือกจังหวัด</option></select></label>
+          <label>จำนวนไซต์ที่กระทบ <span id="ff-n-sitesreq" style="color:var(--ff-bad)">(บังคับเมื่อ SA2)</span><input class="ff-in" id="ff-n-sites" type="number" min="0" placeholder="0"></label>
+          <label>เวลาที่ได้รับ Ticket<input class="ff-in" id="ff-n-recv" type="time"></label>
+          <label class="wide">Subject<input class="ff-in" id="ff-n-subj" placeholder="คัดลอก Subject จาก Ticket"></label>
+        </div>
+        <div class="ff-err" id="ff-n-err"></div>
+        <div class="ff-bar" style="margin:0"><button class="ff-btn pri" id="ff-n-save">บันทึกและเริ่มติดตาม</button><button class="ff-btn" id="ff-n-cancel">ยกเลิก</button></div>
+      </div>
+      <div class="ff-list" id="ff-list"></div>
+    </div>
+
+    <div id="ff-tab-hist" hidden>
+      <div class="ff-bar">
+        <input class="ff-in" id="ff-h-q" placeholder="ค้นหา เลข Ticket / Subject / จังหวัด" style="min-width:260px">
+        <label class="ff-foot">ตั้งแต่ <input class="ff-in" type="date" id="ff-h-from"></label>
+        <label class="ff-foot">ถึง <input class="ff-in" type="date" id="ff-h-to"></label>
+        <select class="ff-in" id="ff-h-sla"><option value="">SLA ทั้งหมด</option><option>SA1</option><option>SA2</option><option>NSA1_DN</option></select>
+        <button class="ff-btn" id="ff-h-xls">📥 Export Excel</button>
+        <span class="ff-foot" id="ff-h-count"></span>
+      </div>
+      <div class="ff-list" id="ff-hist"></div>
+      <div class="ff-foot" style="margin-top:8px">ประวัติเก็บถาวรใน Google Sheet (แท็บ Tickets + Log) ค้นย้อนหลังได้ไม่จำกัด หน้านี้โหลดเฉพาะผลที่ค้นเพื่อให้เบา</div>
+    </div>
+  </div>
+
   <div class="page" id="page-generatortest">
     <style>
       #page-generatortest { --gt-blue:#2563eb; --gt-green:#3f9142; --gt-red:#d64545; --gt-amber:#e08a1e; --gt-gray:#6b7a8d; --gt-purple:#7c3aed; }
@@ -5769,6 +5944,7 @@ function showPage(id) {
   if (id==='sa2risk') { setTimeout(()=>{ if (window.initSa2RiskTab) window.initSa2RiskTab(); },50); }
   if (id==='ofcmonitor') { setTimeout(()=>{ if (window.initOfcMonitorTab) window.initOfcMonitorTab(); },50); }
   if (id==='oncallteam') { setTimeout(()=>{ if (window.initOncallTeamTab) window.initOncallTeamTab(); },50); }
+  if (id==='fieldfollow') { setTimeout(()=>{ if (window.initFieldFollowTab) window.initFieldFollowTab(); },50); }
   if (id==='sitemap') { setTimeout(()=>{ if (window.initSiteMapTab) window.initSiteMapTab(); },50); }
   if (id==='covtest') { setTimeout(()=>{ if (window.initCovTestTab) window.initCovTestTab(); },50); }
   if (id==='generatortest') { setTimeout(()=>{ if (window.initGeneratorTestTab) window.initGeneratorTestTab(); },50); }
@@ -12854,6 +13030,352 @@ loadData();
   window.initOfcMonitorTab = function () {
     if (!hasData) loadData();
   };
+})();
+
+// ── FIELD FOLLOW-UP LOG ──────────────────────────────────────────────────
+(function () {
+  const API = '/api/field-followup';
+  const MIN = 60000, HOUR = 3600000;
+  const STEPS = [
+    { k: 's1', n: '1', t: 'แจ้งช่างรับทราบ', h: 'แจ้งงานใน Line / โทรแจ้งช่าง / ยืนยันการรับทราบงาน', due: 10 },
+    { k: 's2', n: '2', t: 'แจ้ง NOP รับทราบ', h: 'ติดตามการตอบรับจากทีม · ติดต่อช่างไม่ได้ให้แจ้ง NOP', due: 15 },
+    { k: 's3', n: '3', t: 'T+30 นาที ช่างยังไม่กด Depart', h: 'iNOC โทรติดตามอัปเดต · ไม่มีการตอบรับให้แจ้ง NOP', due: 30, skip: 'ช่าง Depart แล้ว ข้าม' },
+    { k: 's4a', n: '4', t: 'T+1 ชม. แจ้ง Supervisor NZ', h: 'หน้างานไม่มีอัปเดต · ให้ช่วยตามต่อ', due: 60, skip: 'มีอัปเดตแล้ว ข้าม' },
+    { k: 's4b', n: '4.2', t: 'ยังไม่มีความคืบหน้า แจ้ง Manager Zone', h: 'Escalate ต่อจาก Supervisor NZ', skip: 'ไม่ต้อง Escalate' },
+    { k: 's4c', n: '4.3', t: 'ยังไม่มีความคืบหน้า แจ้ง Region Manager', h: 'Escalate ระดับสูงสุด', skip: 'ไม่ต้อง Escalate' },
+  ];
+  const MATE = [
+    { k: 'depart', l: '1. Depart' }, { k: 'arrive', l: '2. Arrive' }, { k: 'update', l: '3. Update', rep: true },
+    { k: 'complete', l: '4. Complete' }, { k: 'closed', l: '5. Closed' }, { k: 'hold', l: '6. Hold', hold: true },
+  ];
+  const MATE_LABEL = Object.fromEntries(MATE.map(m => [m.k, m.l]));
+
+  let D = { tickets: [], me: { role: null, email: '' }, provinces: [] };
+  let H = [];
+  let serverOff = 0, filter = 'all', openId = null, ocOpen = null, tab = 'board', loaded = false, confirmClose = null;
+  const ocCache = {};
+
+  const $ = id => document.getElementById(id);
+  const now = () => Date.now() + serverOff;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const TZ = 'Asia/Bangkok';
+  const fmt = t => new Date(t).toLocaleTimeString('th-TH', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+  const fmtD = t => new Date(t).toLocaleDateString('th-TH', { timeZone: TZ, day: '2-digit', month: 'short' }) + ' ' + fmt(t);
+  function mmss(ms) { const s = Math.abs(Math.round(ms / 1000)), m = Math.floor(s / 60), r = s % 60; return (m >= 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : String(m)) + ':' + String(r).padStart(2, '0'); }
+  function dur(ms) { const m = Math.round(ms / MIN); return m >= 60 ? Math.floor(m / 60) + ' ชม. ' + (m % 60) + ' นาที' : m + ' นาที'; }
+  const ro = () => !D.me || !D.me.role;
+  const isAdmin = () => D.me && D.me.role === 'admin';
+  const find = id => D.tickets.find(o => o.id === id) || H.find(o => o.id === id);
+
+  function showMsg(text) { const m = $('ff-msg'); m.textContent = text || ''; m.style.display = text ? 'block' : 'none'; }
+
+  async function api(method, path, body) {
+    const res = await fetch(API + path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* non-JSON error page */ }
+    if (!res.ok) throw new Error((data && data.error) || ('ผิดพลาด ' + res.status));
+    return data;
+  }
+
+  // ----- derived state (pure functions of one ticket) -----
+  function stepInfo(o, s) {
+    const v = o.steps[s.k];
+    if (v) {
+      if (v.skip) return { state: 'skip', v };
+      const el = v.t - o.recv;
+      if (s.due && el > s.due * MIN) return { state: 'late', v, over: el - s.due * MIN };
+      return { state: 'done', v, el };
+    }
+    if (s.k === 's3' && o.mate.depart && o.mate.depart - o.recv <= 30 * MIN) return { state: 'skip', auto: true };
+    return { state: 'todo' };
+  }
+  function nextStep(o) { for (const s of STEPS) { if (stepInfo(o, s).state === 'todo') return s; } return null; }
+  function level(o) { return o.level == null ? -1 : o.level; }
+  function ticketState(o) {
+    if (o.closed) return { cls: 's-ok', over: false };
+    const ns = nextStep(o);
+    if (ns && ns.due) {
+      const left = o.recv + ns.due * MIN - now();
+      return { cls: left < 0 ? 's-bad' : (left < 5 * MIN ? 's-warn' : 's-ok'), over: left < 0, ns, left };
+    }
+    return { cls: ns ? 's-warn' : 's-ok', over: false, ns };
+  }
+  function timelyAll(o) { return stepInfo(o, STEPS[0]).state === 'done' && stepInfo(o, STEPS[1]).state === 'done'; }
+  function timeline(o) {
+    const L = [{ t: o.recv, txt: 'เปิด Ticket · ' + o.sla + ' · ไซต์กระทบ ' + o.sites + (o.created_by ? ' · ' + o.created_by : '') }];
+    STEPS.forEach(s => { const v = o.steps[s.k]; if (v) L.push({ t: v.t, txt: (v.skip ? 'ข้าม ' : 'ทำแล้ว ') + s.t + ' · ' + v.by + (v.note ? ' · “' + v.note + '”' : '') }); });
+    o.upd.forEach(u => L.push({ t: u.t, txt: 'Update ห้องผู้บริหาร · ' + u.by + ' · “' + u.note + '”' }));
+    MATE.forEach(m => { if (m.rep) { o.mate.update.forEach(t => L.push({ t, txt: 'MateLine ' + m.l })); } else if (o.mate[m.k]) L.push({ t: o.mate[m.k], txt: 'MateLine ' + m.l }); });
+    if (o.closed) L.push({ t: o.closed, txt: 'ปิด Ticket (Service Restored)' + (o.closed_by ? ' · ' + o.closed_by : '') });
+    return L.sort((a, b) => a.t - b.t);
+  }
+  const mateDone = o => ['depart', 'arrive', 'complete', 'closed'].filter(k => o.mate[k]).length + (o.mate.update.length ? 1 : 0);
+
+  // ----- summary -----
+  function renderSum() {
+    const n = now();
+    const open = D.tickets.filter(o => !o.closed);
+    const over = open.filter(o => ticketState(o).over).length;
+    const noStart = open.filter(o => !o.steps.s1).length;
+    const esc2 = open.filter(o => level(o) >= 2).length;
+    const sites = open.reduce((a, o) => a + (+o.sites || 0), 0);
+    const sa2 = open.filter(o => o.sla === 'SA2').reduce((a, o) => a + (+o.sites || 0), 0);
+    const w = D.tickets.filter(o => o.recv >= n - 24 * HOUR);
+    const closed = w.filter(o => o.closed).length;
+    const timely = w.filter(timelyAll).length;
+    const avg = k => { const a = w.filter(o => o.steps[k] && !o.steps[k].skip); return a.length ? Math.round(a.reduce((s, o) => s + (o.steps[k].t - o.recv), 0) / a.length / MIN) : null; };
+    const a1 = avg('s1'), a2 = avg('s2');
+    const l2 = w.filter(o => level(o) >= 2).length;
+    const wsa2 = w.filter(o => o.sla === 'SA2').reduce((a, o) => a + (+o.sites || 0), 0);
+    const k = (v, l, c) => `<div class="ff-kpi ${c || ''}"><b>${v}</b><span>${l}</span></div>`;
+    $('ff-sum').innerHTML =
+      `<div class="ff-card"><h3><span>ตอนนี้ (Ticket ที่ยังเปิด)</span><span>${fmt(n)} น.</span></h3><div class="ff-kpis">` +
+      k(open.length, 'Ticket เปิดอยู่') + k(noStart, 'ยังไม่ได้แจ้งช่าง', noStart ? 'warn' : '') + k(over, 'เกินเวลาขั้นปัจจุบัน', over ? 'bad' : 'ok') +
+      k(esc2, 'Escalate ถึง Level 2+', esc2 ? 'warn' : '') + k(sites, 'ไซต์ที่กระทบรวม') + k(sa2, 'ไซต์กระทบ (เฉพาะ SA2)') + '</div></div>' +
+      `<div class="ff-card"><h3><span>ย้อนหลัง 24 ชั่วโมง</span><span>${fmtD(n - 24 * HOUR)} – ${fmtD(n)}</span></h3><div class="ff-kpis">` +
+      k(w.length, 'Ticket ทั้งหมด') + k(closed + '/' + w.length, 'ปิดแล้ว', 'ok') +
+      k(w.length ? Math.round(timely / w.length * 100) + '%' : '-', 'แจ้งช่าง+NOP ทันเวลา', (w.length && timely / w.length < .8) ? 'warn' : 'ok') +
+      k(l2, 'ถึง Level 2 ขึ้นไป', l2 ? 'warn' : '') + k((a1 == null ? '-' : a1) + ' / ' + (a2 == null ? '-' : a2), 'นาทีเฉลี่ย แจ้งช่าง / แจ้ง NOP') + k(wsa2, 'ไซต์กระทบ (SA2)') + '</div></div>';
+  }
+
+  // ----- oncall panel -----
+  function telHref(t) { return 'tel:' + String(t || '').replace(/[^\d+]/g, ''); }
+  function ocHtml(o) {
+    const c = ocCache[o.prov];
+    if (!c) return '<div class="ff-ocp"><div class="ff-foot">กำลังโหลด Oncall วันนี้…</div></div>';
+    if (c.error) return `<div class="ff-ocp"><div class="ff-note">โหลด Oncall ไม่สำเร็จ: ${esc(c.error)}</div></div>`;
+    const d = c.data;
+    const dateLbl = new Date(d.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+    let h = `<div class="ff-ocp"><h4><span>Oncall วันนี้ · ${esc(o.prov)} · ${esc(dateLbl)}</span><span class="ff-foot" style="font-weight:400">ข้อมูลจากแท็บ Oncall Team / Oncall Sup-Eng Zone (เฉพาะคนที่ติ๊ก Oncall วันนี้)</span></h4>`;
+    if (!d.schedule_has_today) h += '<div class="ff-note">ตาราง Oncall ยังไม่มีคอลัมน์ของวันนี้ ให้เพิ่มเดือนในแท็บ Oncall Team ก่อน</div>';
+    h += '<h4>Level 1 · ทีมช่าง</h4>';
+    h += d.level1.length ? '<div class="ff-ocg">' + d.level1.map(t =>
+      `<div class="ff-occ l1"><div class="nm">${esc(t.team_id)} <span class="ff-tp ${esc(t.remark)}">${esc(t.remark || '-')}</span></div>` +
+      `<div class="kv"><b>อำเภอที่ดูแล:</b> ${esc(t.district || '-')}</div>` +
+      (t.note ? `<div class="kv"><b>หมายเหตุ:</b> ${esc(t.note)}</div>` : '') +
+      (t.tel ? `<a href="${telHref(t.tel)}">📞 ${esc(t.tel)}</a>` : '') + '</div>').join('') + '</div>'
+      : '<div class="ff-note">วันนี้ยังไม่มีทีมที่ถูกติ๊ก Oncall ในจังหวัดนี้</div>';
+    const esc2 = (arr, cls, none, title) => {
+      let s = `<h4>${title}</h4>`;
+      if (!arr.length) return s + '<div class="ff-note">ไม่พบรายชื่อในจังหวัดนี้</div>';
+      if (none) s += '<div class="ff-note">ยังไม่มีใครถูกติ๊ก Oncall วันนี้ — แสดงรายชื่อทั้งหมดของจังหวัด</div>';
+      return s + '<div class="ff-ocg">' + arr.map(p =>
+        `<div class="ff-occ ${cls}${p.on_today ? '' : ' dim'}"><div class="nm"><span class="ff-tp ${p.position === 'Eng Zone' ? 'ENG' : 'SUP'}">${esc(p.position)}</span> ${esc(p.name)}</div>` +
+        `<div class="kv"><b>อำเภอที่ดูแล:</b> ${esc(p.name || '-')}${p.type ? ' · ' + esc(p.type) : ''}</div>` +
+        (p.note ? `<div class="kv"><b>หมายเหตุ:</b> ${esc(p.note)}</div>` : '') +
+        (p.tel ? `<a href="${telHref(p.tel)}">📞 ${esc(p.tel)}</a>` : '') + '</div>').join('') + '</div>';
+    };
+    h += esc2(d.level2, 'l2', d.level2_none_on_today, 'Level 2 · Supervisor');
+    h += esc2(d.level3, 'l3', d.level3_none_on_today, 'Level 3 · Eng Zone');
+    return h + '</div>';
+  }
+
+  // ----- rows -----
+  function dotsHtml(o) {
+    const ns = nextStep(o); let h = '';
+    STEPS.forEach(s => {
+      const si = stepInfo(o, s); let c = 'ff-dot';
+      if (si.state === 'done') c += ' done'; else if (si.state === 'late') c += ' late'; else if (si.state === 'skip') c += ' skip';
+      else if (!o.closed && ns && ns.k === s.k) c += ticketState(o).over ? ' over' : ' now';
+      h += `<span class="${c}" title="${esc(s.n + ' ' + s.t)}"></span>`;
+    });
+    return `<div class="ff-dots">${h}<span class="ff-foot" style="margin-left:6px">Update ${o.upd.length} · MateLine ${mateDone(o)}/5</span></div>`;
+  }
+  function rowHtml(o) {
+    const st = ticketState(o), lv = level(o);
+    const lvH = lv < 0 ? '<span class="ff-lv">Level -</span>' : `<span class="ff-lv l${lv}">Level ${lv}</span>`;
+    let tags = '';
+    if (o.mate.hold) tags += ' <span class="ff-tag hold">⏸ Hold</span>';
+    if (o.mate.closed && !o.closed) tags += ' <span class="ff-tag mclosed">ช่างกด Closed แล้ว</span>';
+    let next = '';
+    if (o.closed) next = `<span class="ff-closed-tag">✓ ปิดแล้ว ${fmtD(o.closed)}</span><span class="el">ใช้เวลา ${dur(o.closed - o.recv)}</span>`;
+    else if (st.ns) {
+      const tm = st.ns.due ? `<span class="timer ${st.over ? 'bad' : (st.left < 5 * MIN ? 'warn' : 'ok')}" data-tm="${esc(o.id)}">${st.over ? 'เกิน ' : 'เหลือ '}${mmss(st.left)}</span>` : '<span class="timer warn">รอตัดสินใจ</span>';
+      next = `ถัดไป: ${esc(st.ns.t)}<br>${tm}<span class="el">ผ่านมา ${dur(now() - o.recv)} · รับ ${fmt(o.recv)} น.</span>`;
+    } else next = `<span class="ff-closed-tag">ครบทุกขั้น · รอปิด Ticket</span><span class="el">ผ่านมา ${dur(now() - o.recv)}</span>`;
+    const nTeams = ocCache[o.prov] && ocCache[o.prov].data ? ' (' + ocCache[o.prov].data.level1.length + ' ทีม)' : '';
+    return `<div class="ff-tk ${st.cls}${openId === o.id ? ' open' : ''}" data-id="${esc(o.id)}">
+      <div class="ff-row" data-act="toggle">
+        <span class="ff-tid">${esc(o.id)}</span><span><span class="ff-chip ${esc(o.sla)}">${esc(o.sla)}</span></span>
+        <div class="ff-subj"><div class="t" title="${esc(o.subj)}">${esc(o.subj)}</div><div class="m"><span class="ff-prov">📍 ${esc(o.prov)}</span><span class="ff-chip sites">${o.sites} ไซต์</span>${lvH}${tags}</div></div>
+        <div class="c-prog">${dotsHtml(o)}</div>
+        <div class="c-next ff-next">${next}<span class="el" style="margin-top:4px"><button class="ff-ocb ${ocOpen === o.id ? 'on' : ''}" data-act="oc">👥 Oncall วันนี้${nTeams}</button></span></div>
+      </div>${ocOpen === o.id ? ocHtml(o) : ''}${openId === o.id ? detailHtml(o) : ''}</div>`;
+  }
+  function detailHtml(o) {
+    const lock = ro() || o.closed ? ' disabled' : '';
+    const ns = nextStep(o);
+    let h = '<div class="ff-detail"><div><h5>ขั้นตอนการติดตาม</h5>';
+    STEPS.forEach(s => {
+      const si = stepInfo(o, s); let cls = 'ff-step', stTxt = '', btns = '';
+      if (si.state === 'done') { cls += ' done'; stTxt = `<div class="st ok">✓ ${fmt(si.v.t)} น. · ${esc(si.v.by)} · ทันเวลา (ใช้ ${dur(si.el)})</div>`; }
+      else if (si.state === 'late') { cls += ' late'; stTxt = `<div class="st warn">✓ ${fmt(si.v.t)} น. · ${esc(si.v.by)} · ช้ากว่าเกณฑ์ ${dur(si.over)}</div>`; }
+      else if (si.state === 'skip') { cls += ' skip'; stTxt = `<div class="st">${si.auto ? 'ข้ามอัตโนมัติ (ช่าง Depart ภายใน 30 นาที)' : 'ข้าม · ' + esc(si.v.by) + ' ' + fmt(si.v.t) + ' น.'}</div>`; }
+      else {
+        if (!(ns && ns.k === s.k)) cls += ' locked';
+        if (s.due) { const left = o.recv + s.due * MIN - now(); stTxt = `<div class="st ${left < 0 ? 'bad' : ''}">เกณฑ์ ≤ ${s.due >= 60 ? '1 ชม.' : s.due + ' นาที'} · ${left < 0 ? 'เกินมาแล้ว ' + dur(-left) : 'เหลือ ' + dur(left)}</div>`; }
+        btns = `<button class="ff-btn pri" data-act="step" data-k="${s.k}"${lock}>ทำแล้ว</button>` + (s.skip ? `<button class="ff-btn" data-act="skip" data-k="${s.k}"${lock}>${s.skip}</button>` : '');
+      }
+      const rem = (si.state === 'skip' && si.auto) ? '' : `<input class="ff-in ff-rem" data-rem="${s.k}" data-done="${si.v ? 1 : 0}" value="${esc(si.v ? si.v.note : '')}" maxlength="500" placeholder="Remark ของขั้นนี้ เช่น ติดต่อช่างไม่ได้ แจ้ง NOP คุณ... รับทราบ"${ro() ? ' disabled' : ''}>`;
+      h += `<div class="${cls}"><span class="n">${s.n}</span><div><div class="tt">${esc(s.t)}</div><div class="hh">${esc(s.h)}</div>${stTxt}${rem}</div><div class="act">${btns}</div></div>`;
+    });
+    h += `<h5 style="margin-top:12px">5 · Update ห้องผู้บริหาร (ทุกความเปลี่ยนแปลง) · ${o.upd.length} ครั้ง</h5><div class="ff-note-row"><input class="ff-in" data-upd maxlength="500" placeholder="พิมพ์สถานะล่าสุดแล้วกดบันทึก"${lock}><button class="ff-btn pri" data-act="upd"${lock}>บันทึก Update</button></div>`;
+    if (o.mate.closed && !o.closed) h += '<div class="ff-note">ช่างกด Closed ใน MateLine แล้ว — ตรวจสอบแล้วกดปิด Ticket ได้เลย</div>';
+    h += '<div class="ff-closebar">';
+    if (o.closed) {
+      h += `<span class="ff-closed-tag">ปิดแล้ว ${fmtD(o.closed)}${o.closed_by ? ' · ' + esc(o.closed_by) : ''}</span>` + (isAdmin() ? '<button class="ff-btn" data-act="reopen">เปิด Ticket ใหม่ (admin)</button>' : '');
+    } else if (confirmClose === o.id) {
+      h += '<span style="font-weight:700">ยืนยันปิด Ticket นี้ (Service Restored)?</span><button class="ff-btn warn" data-act="close-yes">ยืนยันปิด</button><button class="ff-btn" data-act="close-no">ยกเลิก</button>';
+    } else h += `<button class="ff-btn ${o.mate.closed ? 'warn' : 'pri'}" data-act="close"${lock}>✓ Service Restored · ปิด Ticket</button>`;
+    h += '</div></div><div><h5>5.1 · MateLine Milestone (แตะเพื่อบันทึกเวลา)</h5><div class="ff-mate">';
+    MATE.forEach(m => {
+      const on = m.rep ? o.mate.update.length > 0 : !!o.mate[m.k];
+      const when = m.rep ? (o.mate.update.length ? 'ล่าสุด ' + fmt(o.mate.update[o.mate.update.length - 1]) + ' น.' : 'ยังไม่ได้บันทึก') : (o.mate[m.k] ? fmt(o.mate[m.k]) + ' น.' : 'ยังไม่ได้บันทึก');
+      h += `<div><button data-act="mate" data-k="${m.k}" class="${on ? 'on' : ''}${m.hold ? ' hold' : ''}"${lock}>${on ? '✓ ' : ''}${m.l}${m.rep && o.mate.update.length ? ' ×' + o.mate.update.length : ''}<small>${when}</small></button>` +
+        (m.rep && o.mate.update.length && !o.closed && !ro() ? '<button class="ff-undo" data-act="mateundo" data-k="update">↶ ยกเลิกครั้งล่าสุด</button>' : '') + '</div>';
+    });
+    h += '</div><h5>ไทม์ไลน์ (เก็บถาวรใน Log)</h5><div class="ff-log">' + timeline(o).map(e => `<div><time>${fmt(e.t)}</time>${esc(e.txt)}</div>`).join('') + '</div></div></div>';
+    return h;
+  }
+
+  function renderBoard() {
+    const n = now();
+    let rows = D.tickets.filter(o => !o.closed || o.closed > n - 2 * HOUR);
+    rows = rows.filter(o => filter === 'all' || (filter === 'over' ? ticketState(o).over : o.sla === filter));
+    rows.sort((a, b) => (ticketState(b).over - ticketState(a).over) || (!!a.closed - !!b.closed) || (a.recv - b.recv));
+    $('ff-list').innerHTML = rows.length ? rows.map(rowHtml).join('') : '<div class="ff-empty">ไม่มี Ticket ในตัวกรองนี้</div>';
+  }
+  function renderHist() {
+    $('ff-hist').innerHTML = H.length ? H.map(rowHtml).join('') : '<div class="ff-empty">ไม่พบข้อมูลตามเงื่อนไข</div>';
+  }
+  function renderMe() {
+    const r = D.me.role;
+    $('ff-me').innerHTML = `<span>${esc(D.me.email || '')}</span><span class="ff-role ${r ? '' : 'ro'}">${r === 'admin' ? 'Admin' : (r === 'editor' ? 'Editor' : 'ดูอย่างเดียว')}</span>`;
+    $('ff-btn-new').disabled = ro();
+    $('ff-btn-new').title = ro() ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไข (ให้ admin เพิ่มอีเมลในแท็บ Editors ของชีต)' : '';
+  }
+  function renderAll() { renderSum(); if (tab === 'board') renderBoard(); else renderHist(); }
+
+  // ----- data -----
+  async function loadBoard(silent) {
+    try {
+      const d = await api('GET', '');
+      D = d; serverOff = d.now - Date.now(); loaded = true;
+      const sel = $('ff-n-prov'), keep = sel.value;
+      sel.innerHTML = '<option value="">เลือกจังหวัด</option>' + d.provinces.map(p => `<option>${esc(p)}</option>`).join('');
+      sel.value = d.provinces.includes(keep) ? keep : '';
+      showMsg(''); renderMe(); renderAll();
+    } catch (e) { if (!silent) showMsg('โหลดข้อมูลไม่สำเร็จ: ' + e.message); }
+  }
+  let histTimer = null;
+  async function loadHist() {
+    const p = new URLSearchParams({ q: $('ff-h-q').value.trim(), from: $('ff-h-from').value, to: $('ff-h-to').value, sla: $('ff-h-sla').value });
+    try {
+      const d = await api('GET', '/history?' + p.toString());
+      H = d.tickets; $('ff-h-count').textContent = `พบ ${d.total} รายการ` + (d.total > H.length ? ` (แสดง ${H.length} รายการแรก — ใช้ Export Excel เพื่อดูทั้งหมด)` : '');
+      showMsg(''); renderHist();
+    } catch (e) { showMsg('ค้นประวัติไม่สำเร็จ: ' + e.message); }
+  }
+  function applyTicket(t) {
+    [D.tickets, H].forEach(arr => { const i = arr.findIndex(x => x.id === t.id); if (i >= 0) arr[i] = t; });
+    if (!D.tickets.some(x => x.id === t.id) && !H.some(x => x.id === t.id)) D.tickets.unshift(t);
+  }
+  async function act(path, body) {
+    try { const t = await api('POST', path, body); applyTicket(t); showMsg(''); renderAll(); return t; }
+    catch (e) { showMsg(e.message); return null; }
+  }
+  async function loadOncall(prov) {
+    if (!prov) return;
+    const c = ocCache[prov];
+    if (c && c.data && Date.now() - c.ts < 60000) return;
+    try { ocCache[prov] = { data: await api('GET', '/oncall?province=' + encodeURIComponent(prov)), ts: Date.now() }; }
+    catch (e) { ocCache[prov] = { error: e.message, ts: Date.now() }; }
+    renderAll();
+  }
+
+  // ----- events -----
+  $('page-fieldfollow').addEventListener('click', async ev => {
+    const tb = ev.target.closest('#ff-tabs button');
+    if (tb) {
+      tab = tb.dataset.tab;
+      document.querySelectorAll('#ff-tabs button').forEach(b => b.classList.toggle('on', b === tb));
+      $('ff-tab-board').hidden = tab !== 'board'; $('ff-tab-hist').hidden = tab !== 'hist';
+      if (tab === 'hist') loadHist(); renderAll(); return;
+    }
+    const fb = ev.target.closest('#ff-flt button');
+    if (fb) { filter = fb.dataset.f; document.querySelectorAll('#ff-flt button').forEach(b => b.classList.toggle('on', b === fb)); renderBoard(); return; }
+    const a = ev.target.closest('[data-act]');
+    if (!a) return;
+    const tk = a.closest('.ff-tk'); if (!tk) return;
+    const o = find(tk.dataset.id); if (!o) return;
+    const act0 = a.dataset.act;
+    if (act0 === 'toggle') { openId = openId === o.id ? null : o.id; confirmClose = null; renderAll(); return; }
+    if (act0 === 'oc') { ev.stopPropagation(); ocOpen = ocOpen === o.id ? null : o.id; renderAll(); if (ocOpen) loadOncall(o.prov); return; }
+    if (a.disabled) return;
+    const k = a.dataset.k;
+    if (act0 === 'step' || act0 === 'skip') {
+      const inp = tk.querySelector(`[data-rem="${k}"]`);
+      await act('/step', { id: o.id, step: k, action: act0 === 'step' ? 'done' : 'skip', note: inp ? inp.value.trim() : '' });
+    } else if (act0 === 'upd') {
+      const inp = tk.querySelector('[data-upd]'); const v = inp.value.trim();
+      if (!v) { inp.focus(); return; }
+      await act('/update', { id: o.id, note: v });
+    } else if (act0 === 'mate') {
+      const m = MATE.find(x => x.k === k);
+      await act('/mate', { id: o.id, key: k, on: m.rep ? true : !o.mate[k] });
+    } else if (act0 === 'mateundo') { await act('/mate', { id: o.id, key: 'update', on: false }); }
+    else if (act0 === 'close') { confirmClose = o.id; renderAll(); }
+    else if (act0 === 'close-no') { confirmClose = null; renderAll(); }
+    else if (act0 === 'close-yes') { confirmClose = null; await act('/close', { id: o.id }); }
+    else if (act0 === 'reopen') { await act('/reopen', { id: o.id }); }
+  });
+  $('page-fieldfollow').addEventListener('change', async ev => {
+    const r = ev.target.closest('[data-rem]');
+    if (!r || r.dataset.done !== '1' || r.disabled) return;   // remark of a not-yet-done step is sent together with its "ทำแล้ว" press
+    const o = find(r.closest('.ff-tk').dataset.id); if (!o) return;
+    await act('/remark', { id: o.id, step: r.dataset.rem, note: r.value.trim() });
+  });
+  $('ff-btn-new').onclick = () => {
+    const f = $('ff-newform'); f.classList.toggle('open');
+    $('ff-n-recv').value = new Date(now()).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+  };
+  $('ff-n-cancel').onclick = () => $('ff-newform').classList.remove('open');
+  $('ff-n-sla').onchange = function () { $('ff-n-sitesreq').style.display = this.value === 'SA2' ? '' : 'none'; };
+  $('ff-n-save').onclick = async () => {
+    const err = $('ff-n-err'); err.textContent = '';
+    const body = { id: $('ff-n-id').value.trim(), sla: $('ff-n-sla').value, subj: $('ff-n-subj').value.trim(), prov: $('ff-n-prov').value, sites: $('ff-n-sites').value, recv: $('ff-n-recv').value };
+    if (!body.id || !body.subj || !body.prov) { err.textContent = 'กรุณากรอกเลข Ticket, Subject และเลือกจังหวัด'; return; }
+    if (body.sla === 'SA2' && !(+body.sites >= 1)) { err.textContent = 'SA2 ต้องระบุจำนวนไซต์ที่กระทบ (อย่างน้อย 1)'; return; }
+    try {
+      const t = await api('POST', '/ticket', body); applyTicket(t);
+      ['ff-n-id', 'ff-n-subj', 'ff-n-sites'].forEach(i => $(i).value = '');
+      $('ff-newform').classList.remove('open'); openId = t.id; showMsg(''); renderAll();
+    } catch (e) { err.textContent = e.message; }
+  };
+  $('ff-refresh').onclick = () => loadBoard();
+  ['ff-h-q', 'ff-h-from', 'ff-h-to', 'ff-h-sla'].forEach(id => $(id).addEventListener('input', () => { clearTimeout(histTimer); histTimer = setTimeout(loadHist, 300); }));
+  $('ff-h-xls').onclick = () => {
+    const p = new URLSearchParams({ q: $('ff-h-q').value.trim(), from: $('ff-h-from').value, to: $('ff-h-to').value, sla: $('ff-h-sla').value });
+    window.location.href = API + '/export-excel?' + p.toString();
+  };
+
+  // timers tick every second without re-rendering (keeps open panels and typed text intact)
+  setInterval(() => {
+    const pg = $('page-fieldfollow'); if (!pg || !pg.classList.contains('active')) return;
+    $('ff-clock').textContent = 'อัปเดต ' + fmt(now()) + ' น.';
+    pg.querySelectorAll('[data-tm]').forEach(el => {
+      const o = find(el.dataset.tm); if (!o) return; const st = ticketState(o); if (!st.ns || !st.ns.due) return;
+      el.textContent = (st.over ? 'เกิน ' : 'เหลือ ') + mmss(st.left); el.className = 'timer ' + (st.over ? 'bad' : (st.left < 5 * MIN ? 'warn' : 'ok'));
+    });
+  }, 1000);
+  // every 60 s re-pull so several NOC users see each other's presses (skipped while someone is typing here)
+  setInterval(() => {
+    const pg = $('page-fieldfollow'); if (!pg || !pg.classList.contains('active') || tab !== 'board') return;
+    const ae = document.activeElement; if (ae && pg.contains(ae) && /INPUT|SELECT|TEXTAREA/.test(ae.tagName)) return;
+    loadBoard(true);
+  }, 60000);
+
+  window.initFieldFollowTab = function () { loadBoard(loaded); };
 })();
 
 // ── ONCALL TEAM ──────────────────────────────────────────────────────────
