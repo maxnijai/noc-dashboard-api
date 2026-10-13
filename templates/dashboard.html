@@ -2203,7 +2203,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .c-prog, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
       #page-fieldfollow .ff-tid { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; }
       #page-fieldfollow .ff-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
-      #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.NSA1_DN { color:var(--ff-nsa); }
+      #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.SA3 { color:var(--ff-warn); } #page-fieldfollow .ff-chip.SA4 { color:var(--ff-acc); }
+      #page-fieldfollow .ff-chip.NSA1, #page-fieldfollow .ff-chip.NSA1_DN { color:var(--ff-nsa); } #page-fieldfollow .ff-chip.NSA2 { color:#9b6bd6; } #page-fieldfollow .ff-chip.NSA3 { color:#3b8fa6; } #page-fieldfollow .ff-chip.NSA4 { color:var(--text3); }
       #page-fieldfollow .ff-chip.sites { color:var(--text); border-color:var(--border2); background:var(--bg3); font-weight:600; }
       #page-fieldfollow .ff-prov { display:inline-flex; gap:4px; align-items:center; font-weight:700; font-size:12px; padding:2px 9px; border-radius:99px; background:var(--ff-acc-bg); color:var(--ff-acc); }
       #page-fieldfollow .ff-subj { min-width:0; }
@@ -2274,7 +2275,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <div class="ff-head">
       <div>
         <h2>Field Follow-up Log</h2>
-        <div class="ff-sub">บันทึกการติดตามทีมหน้างาน ตาม Escalation Flow SA1 / SA2 / NSA1_DN</div>
+        <div class="ff-sub">บันทึกการติดตามทีมหน้างาน ตาม Escalation Flow (SA1-4 / NSA1-4)</div>
       </div>
       <div class="ff-me" id="ff-me"></div>
     </div>
@@ -2291,7 +2292,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button class="ff-btn pri" id="ff-btn-new">+ เพิ่ม Ticket</button>
         <div class="ff-seg" id="ff-flt">
           <button class="on" data-f="all">ทั้งหมด</button><button data-f="over">เกินเวลา</button>
-          <button data-f="SA1">SA1</button><button data-f="SA2">SA2</button><button data-f="NSA1_DN">NSA1_DN</button>
+          <button data-f="NSA1">NSA1</button><button data-f="NSA2">NSA2</button><button data-f="NSA3">NSA3</button><button data-f="NSA4">NSA4</button><button data-f="SA1">SA1</button><button data-f="SA2">SA2</button><button data-f="SA3">SA3</button><button data-f="SA4">SA4</button>
         </div>
         <span class="ff-grow"></span>
         <span class="ff-foot" id="ff-clock"></span>
@@ -2300,7 +2301,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="ff-card ff-newform" id="ff-newform">
         <div class="ff-fgrid">
           <label>เลข Ticket<input class="ff-in" id="ff-n-id" placeholder="เลข Ticket"></label>
-          <label>SLA<select class="ff-in" id="ff-n-sla"><option>SA1</option><option selected>SA2</option><option>NSA1_DN</option></select></label>
+          <label>SLA<select class="ff-in" id="ff-n-sla"><option>NSA1</option><option>NSA2</option><option>NSA3</option><option>NSA4</option><option>SA1</option><option selected>SA2</option><option>SA3</option><option>SA4</option></select></label>
           <label>จังหวัด (ตรงกับตาราง Oncall)<select class="ff-in" id="ff-n-prov"><option value="">เลือกจังหวัด</option></select></label>
           <label>จำนวนไซต์ที่กระทบ <span id="ff-n-sitesreq" style="color:var(--ff-bad)">(บังคับเมื่อ SA2)</span><input class="ff-in" id="ff-n-sites" type="number" min="0" placeholder="0"></label>
           <label>เวลาที่ได้รับ Ticket<input class="ff-in" id="ff-n-recv" type="time"></label>
@@ -2317,7 +2318,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <input class="ff-in" id="ff-h-q" placeholder="ค้นหา เลข Ticket / Subject / จังหวัด" style="min-width:260px">
         <label class="ff-foot">ตั้งแต่ <input class="ff-in" type="date" id="ff-h-from"></label>
         <label class="ff-foot">ถึง <input class="ff-in" type="date" id="ff-h-to"></label>
-        <select class="ff-in" id="ff-h-sla"><option value="">SLA ทั้งหมด</option><option>SA1</option><option>SA2</option><option>NSA1_DN</option></select>
+        <select class="ff-in" id="ff-h-sla"><option value="">SLA ทั้งหมด</option><option>NSA1</option><option>NSA2</option><option>NSA3</option><option>NSA4</option><option>SA1</option><option>SA2</option><option>SA3</option><option>SA4</option></select>
+        <label class="ff-foot" id="ff-h-delwrap" style="display:none"><input type="checkbox" id="ff-h-del"> แสดงที่ลบแล้ว (admin)</label>
         <button class="ff-btn" id="ff-h-xls">📥 Export Excel</button>
         <span class="ff-foot" id="ff-h-count"></span>
       </div>
@@ -13052,7 +13054,7 @@ loadData();
 
   let D = { tickets: [], me: { role: null, email: '' }, provinces: [] };
   let H = [];
-  let serverOff = 0, filter = 'all', openId = null, ocOpen = null, tab = 'board', loaded = false, confirmClose = null;
+  let serverOff = 0, filter = 'all', openId = null, ocOpen = null, tab = 'board', loaded = false, confirmClose = null, confirmDelete = null, showDeleted = false;
   const ocCache = {};
 
   const $ = id => document.getElementById(id);
@@ -13092,6 +13094,7 @@ loadData();
   function nextStep(o) { for (const s of STEPS) { if (stepInfo(o, s).state === 'todo') return s; } return null; }
   function level(o) { return o.level == null ? -1 : o.level; }
   function ticketState(o) {
+    if (o.status === 'Deleted') return { cls: '', over: false };
     if (o.closed) return { cls: 's-ok', over: false };
     const ns = nextStep(o);
     if (ns && ns.due) {
@@ -13188,13 +13191,14 @@ loadData();
     if (o.mate.hold) tags += ' <span class="ff-tag hold">⏸ Hold</span>';
     if (o.mate.closed && !o.closed) tags += ' <span class="ff-tag mclosed">ช่างกด Closed แล้ว</span>';
     let next = '';
-    if (o.closed) next = `<span class="ff-closed-tag">✓ ปิดแล้ว ${fmtD(o.closed)}</span><span class="el">ใช้เวลา ${dur(o.closed - o.recv)}</span>`;
+    if (o.status === 'Deleted') next = `<span class="ff-tag hold">🗑 ลบแล้ว ${fmtD(o.deleted)}</span><span class="el">${esc(o.deleted_by || '')}${o.delete_reason ? ' · ' + esc(o.delete_reason) : ''}</span>`;
+    else if (o.closed) next = `<span class="ff-closed-tag">✓ ปิดแล้ว ${fmtD(o.closed)}</span><span class="el">ใช้เวลา ${dur(o.closed - o.recv)}</span>`;
     else if (st.ns) {
       const tm = st.ns.due ? `<span class="timer ${st.over ? 'bad' : (st.left < 5 * MIN ? 'warn' : 'ok')}" data-tm="${esc(o.id)}">${st.over ? 'เกิน ' : 'เหลือ '}${mmss(st.left)}</span>` : '<span class="timer warn">รอตัดสินใจ</span>';
       next = `ถัดไป: ${esc(st.ns.t)}<br>${tm}<span class="el">ผ่านมา ${dur(now() - o.recv)} · รับ ${fmt(o.recv)} น.</span>`;
     } else next = `<span class="ff-closed-tag">ครบทุกขั้น · รอปิด Ticket</span><span class="el">ผ่านมา ${dur(now() - o.recv)}</span>`;
     const nTeams = ocCache[o.prov] && ocCache[o.prov].data ? ' (' + ocCache[o.prov].data.level1.length + ' ทีม)' : '';
-    return `<div class="ff-tk ${st.cls}${openId === o.id ? ' open' : ''}" data-id="${esc(o.id)}">
+    return `<div class="ff-tk ${st.cls}${openId === o.id ? ' open' : ''}" data-id="${esc(o.id)}"${o.status === 'Deleted' ? ' style="opacity:.6"' : ''}>
       <div class="ff-row" data-act="toggle">
         <span class="ff-tid">${esc(o.id)}</span><span><span class="ff-chip ${esc(o.sla)}">${esc(o.sla)}</span></span>
         <div class="ff-subj"><div class="t" title="${esc(o.subj)}">${esc(o.subj)}</div><div class="m"><span class="ff-prov">📍 ${esc(o.prov)}</span><span class="ff-chip sites">${o.sites} ไซต์</span>${lvH}${tags}</div></div>
@@ -13203,7 +13207,7 @@ loadData();
       </div>${ocOpen === o.id ? ocHtml(o) : ''}${openId === o.id ? detailHtml(o) : ''}</div>`;
   }
   function detailHtml(o) {
-    const lock = ro() || o.closed ? ' disabled' : '';
+    const lock = ro() || o.closed || o.status === 'Deleted' ? ' disabled' : '';
     const ns = nextStep(o);
     let h = '<div class="ff-detail"><div><h5>ขั้นตอนการติดตาม</h5>';
     STEPS.forEach(s => {
@@ -13227,6 +13231,14 @@ loadData();
     } else if (confirmClose === o.id) {
       h += '<span style="font-weight:700">ยืนยันปิด Ticket นี้ (Service Restored)?</span><button class="ff-btn warn" data-act="close-yes">ยืนยันปิด</button><button class="ff-btn" data-act="close-no">ยกเลิก</button>';
     } else h += `<button class="ff-btn ${o.mate.closed ? 'warn' : 'pri'}" data-act="close"${lock}>✓ Service Restored · ปิด Ticket</button>`;
+    if (o.status === 'Deleted') {
+      h += `<span class="ff-tag hold">🗑 ลบแล้ว ${fmtD(o.deleted)} · ${esc(o.deleted_by || '')}</span>` + (isAdmin() ? '<button class="ff-btn" data-act="restore">กู้คืน Ticket (admin)</button>' : '');
+    } else if (confirmDelete === o.id) {
+      h += '<span style="font-weight:700;color:var(--ff-bad)">ลบ Ticket นี้ (เปิดผิด)? ข้อมูลยังเก็บในชีตและกู้คืนได้โดย admin</span>' +
+        '<input class="ff-in" data-delreason maxlength="200" placeholder="เหตุผล (ไม่บังคับ) เช่น เลข Ticket ผิด" style="min-width:220px"><button class="ff-btn warn" data-act="delete-yes">ยืนยันลบ</button><button class="ff-btn" data-act="delete-no">ยกเลิก</button>';
+    } else if (!ro() && (!o.closed || isAdmin())) {
+      h += '<button class="ff-btn" data-act="delete" style="margin-left:auto;color:var(--ff-bad)">🗑 ลบ Ticket (เปิดผิด)</button>';
+    }
     h += '</div></div><div><h5>5.1 · MateLine Milestone (แตะเพื่อบันทึกเวลา)</h5><div class="ff-mate">';
     MATE.forEach(m => {
       const on = m.rep ? o.mate.update.length > 0 : !!o.mate[m.k];
@@ -13251,6 +13263,7 @@ loadData();
   function renderMe() {
     const r = D.me.role;
     $('ff-me').innerHTML = `<span>${esc(D.me.email || '')}</span><span class="ff-role ${r ? '' : 'ro'}">${r === 'admin' ? 'Admin' : (r === 'editor' ? 'Editor' : 'ดูอย่างเดียว')}</span>`;
+    $('ff-h-delwrap').style.display = isAdmin() ? '' : 'none';
     $('ff-btn-new').disabled = ro();
     $('ff-btn-new').title = ro() ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไข (ให้ admin เพิ่มอีเมลในแท็บ Editors ของชีต)' : '';
   }
@@ -13270,6 +13283,7 @@ loadData();
   let histTimer = null;
   async function loadHist() {
     const p = new URLSearchParams({ q: $('ff-h-q').value.trim(), from: $('ff-h-from').value, to: $('ff-h-to').value, sla: $('ff-h-sla').value });
+    if (showDeleted && isAdmin()) p.set('deleted', '1');
     try {
       const d = await api('GET', '/history?' + p.toString());
       H = d.tickets; $('ff-h-count').textContent = `พบ ${d.total} รายการ` + (d.total > H.length ? ` (แสดง ${H.length} รายการแรก — ใช้ Export Excel เพื่อดูทั้งหมด)` : '');
@@ -13277,8 +13291,11 @@ loadData();
     } catch (e) { showMsg('ค้นประวัติไม่สำเร็จ: ' + e.message); }
   }
   function applyTicket(t) {
-    [D.tickets, H].forEach(arr => { const i = arr.findIndex(x => x.id === t.id); if (i >= 0) arr[i] = t; });
-    if (!D.tickets.some(x => x.id === t.id) && !H.some(x => x.id === t.id)) D.tickets.unshift(t);
+    const gone = t.status === 'Deleted';
+    D.tickets = D.tickets.filter(x => x.id !== t.id || !gone).map(x => x.id === t.id ? t : x);
+    if (gone && !showDeleted) H = H.filter(x => x.id !== t.id); else H = H.map(x => x.id === t.id ? t : x);
+    if (!gone && !D.tickets.some(x => x.id === t.id) && !H.some(x => x.id === t.id)) D.tickets.unshift(t);
+    if (!gone && t.status !== 'Deleted' && D.tickets.every(x => x.id !== t.id) && H.some(x => x.id === t.id)) { /* restored from history: refresh board on next pull */ setTimeout(() => loadBoard(true), 300); }
   }
   async function act(path, body) {
     try { const t = await api('POST', path, body); applyTicket(t); showMsg(''); renderAll(); return t; }
@@ -13328,6 +13345,12 @@ loadData();
     else if (act0 === 'close-no') { confirmClose = null; renderAll(); }
     else if (act0 === 'close-yes') { confirmClose = null; await act('/close', { id: o.id }); }
     else if (act0 === 'reopen') { await act('/reopen', { id: o.id }); }
+    else if (act0 === 'delete') { confirmDelete = o.id; confirmClose = null; renderAll(); }
+    else if (act0 === 'delete-no') { confirmDelete = null; renderAll(); }
+    else if (act0 === 'delete-yes') {
+      const inp = tk.querySelector('[data-delreason]'); confirmDelete = null;
+      await act('/delete', { id: o.id, reason: inp ? inp.value.trim() : '' }); openId = null;
+    } else if (act0 === 'restore') { await act('/restore', { id: o.id }); }
   });
   $('page-fieldfollow').addEventListener('change', async ev => {
     const r = ev.target.closest('[data-rem]');
@@ -13353,6 +13376,7 @@ loadData();
     } catch (e) { err.textContent = e.message; }
   };
   $('ff-refresh').onclick = () => loadBoard();
+  $('ff-h-del').onchange = function () { showDeleted = this.checked; loadHist(); };
   ['ff-h-q', 'ff-h-from', 'ff-h-to', 'ff-h-sla'].forEach(id => $(id).addEventListener('input', () => { clearTimeout(histTimer); histTimer = setTimeout(loadHist, 300); }));
   $('ff-h-xls').onclick = () => {
     const p = new URLSearchParams({ q: $('ff-h-q').value.trim(), from: $('ff-h-from').value, to: $('ff-h-to').value, sla: $('ff-h-sla').value });
