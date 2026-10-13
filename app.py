@@ -25,6 +25,7 @@ from pending_ticket import (
 )
 import oncall
 import oncall_escalation
+import field_followup
 import flood_nan
 import weather_layers
 import team_planner
@@ -3824,6 +3825,91 @@ def start():
         log.info("pending auto-fill scheduled - next run at %s", _job.next_run_time if _job else "NOT REGISTERED")
     except Exception:
         log.exception("could not read the pending auto-fill schedule")
+
+
+# ---------------------------------------------------------------------------
+# Field Follow-up Log: NOC tracking of field teams for SA1/SA2/NSA1_DN tickets.
+# Data lives in its own Google Sheet (FIELD_FOLLOW_SHEET_ID); who may edit is
+# the "Editors" tab of that sheet. Every write checks the role server-side.
+# ---------------------------------------------------------------------------
+def _ff_user():
+    return {'email': (session.get('user_email') or '').strip().lower(), 'name': session.get('user_name') or ''}
+
+def _ff_call(fn, *args, **kwargs):
+    """Runs a field_followup call and maps its errors to JSON: 403 no permission, 400 bad input, 500 anything else."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(fn(gs_client, _ff_user(), *args, **kwargs))
+    except PermissionError as e:
+        return jsonify({'error': str(e)}), 403
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("field-followup %s failed", getattr(fn, '__name__', 'call'))
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/field-followup')
+def api_field_followup_board():
+    return _ff_call(field_followup.board)
+
+@app.route('/api/field-followup/history')
+def api_field_followup_history():
+    a = request.args
+    return _ff_call(field_followup.history, a.get('q', ''), a.get('from', ''), a.get('to', ''), a.get('sla', ''))
+
+@app.route('/api/field-followup/oncall')
+def api_field_followup_oncall():
+    return _ff_call(field_followup.oncall_for_province, request.args.get('province', ''))
+
+@app.route('/api/field-followup/export-excel')
+def api_field_followup_export_excel():
+    a = request.args
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        bio = field_followup.export_xlsx(gs_client, _ff_user(), a.get('q', ''), a.get('from', ''), a.get('to', ''), a.get('sla', ''))
+        filename = f"field-followup-{bangkok_now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+        return Response(bio.getvalue(),
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+    except Exception as e:
+        log.exception("field-followup export failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/field-followup/ticket', methods=['POST'])
+def api_field_followup_create():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.create_ticket, p.get('id'), p.get('sla'), p.get('subj'), p.get('prov'),
+                    p.get('sites'), p.get('recv', ''))
+
+@app.route('/api/field-followup/step', methods=['POST'])
+def api_field_followup_step():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.step_action, p.get('id'), p.get('step'), p.get('action'), p.get('note', ''))
+
+@app.route('/api/field-followup/remark', methods=['POST'])
+def api_field_followup_remark():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.set_remark, p.get('id'), p.get('step'), p.get('note', ''))
+
+@app.route('/api/field-followup/update', methods=['POST'])
+def api_field_followup_update():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.add_exec_update, p.get('id'), p.get('note', ''))
+
+@app.route('/api/field-followup/mate', methods=['POST'])
+def api_field_followup_mate():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.mate_toggle, p.get('id'), p.get('key'), bool(p.get('on')))
+
+@app.route('/api/field-followup/close', methods=['POST'])
+def api_field_followup_close():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.close_ticket, p.get('id'))
+
+@app.route('/api/field-followup/reopen', methods=['POST'])
+def api_field_followup_reopen():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.reopen_ticket, p.get('id'))
 
 start()
 if __name__ == '__main__':
