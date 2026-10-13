@@ -3855,7 +3855,7 @@ def api_field_followup_board():
 @app.route('/api/field-followup/history')
 def api_field_followup_history():
     a = request.args
-    return _ff_call(field_followup.history, a.get('q', ''), a.get('from', ''), a.get('to', ''), a.get('sla', ''))
+    return _ff_call(field_followup.history, a.get('q', ''), a.get('from', ''), a.get('to', ''), a.get('sla', ''), 200, a.get('deleted') == '1')
 
 @app.route('/api/field-followup/oncall')
 def api_field_followup_oncall():
@@ -3905,6 +3905,16 @@ def api_field_followup_mate():
 def api_field_followup_close():
     p = request.get_json(silent=True) or {}
     return _ff_call(field_followup.close_ticket, p.get('id'))
+
+@app.route('/api/field-followup/delete', methods=['POST'])
+def api_field_followup_delete():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.delete_ticket, p.get('id'), p.get('reason', ''))
+
+@app.route('/api/field-followup/restore', methods=['POST'])
+def api_field_followup_restore():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.restore_ticket, p.get('id'))
 
 @app.route('/api/field-followup/reopen', methods=['POST'])
 def api_field_followup_reopen():

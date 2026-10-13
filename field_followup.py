@@ -41,7 +41,7 @@ TICKETS_SHEET = "Tickets"
 LOG_SHEET = "Log"
 EDITORS_SHEET = "Editors"
 
-SLA_VALUES = ("SA1", "SA2", "NSA1_DN")
+SLA_VALUES = ("NSA1", "NSA2", "NSA3", "NSA4", "SA1", "SA2", "SA3", "SA4")
 
 # step key -> (column prefix, escalation level reached when done, due minutes after receipt or None)
 STEPS = {
@@ -66,7 +66,8 @@ TICKET_HEADER = (
     + [f"{STEPS[k][0]}_{suffix}" for k in STEP_ORDER for suffix in ("At", "By", "Note", "Skip")]
     + ["Exec_Updates", "Mate_Depart_At", "Mate_Arrive_At", "Mate_Update_Count", "Mate_Update_Times",
        "Mate_Complete_At", "Mate_Closed_At", "Mate_Hold_At", "Max_Level",
-       "Closed_At", "Closed_By", "Created_By", "Updated_At", "Updated_By"]
+       "Closed_At", "Closed_By", "Created_By", "Updated_At", "Updated_By",
+       "Deleted_At", "Deleted_By", "Delete_Reason"]
 )
 LOG_HEADER = ["Time", "Ticket_ID", "Step", "Action", "By", "Note"]
 EDITORS_HEADER = ["Email", "Name", "Role"]
@@ -270,6 +271,7 @@ def _row_to_ticket(header, row):
         "recv": g("Received_At"), "status": g("Status") or "Open", "steps": steps, "upd": upd, "mate": mate,
         "max_level": g("Max_Level"), "closed_at": g("Closed_At"), "closed_by": g("Closed_By"),
         "created_by": g("Created_By"), "updated_at": g("Updated_At"), "updated_by": g("Updated_By"),
+        "deleted_at": g("Deleted_At"), "deleted_by": g("Deleted_By"), "delete_reason": g("Delete_Reason"),
     }
 
 
@@ -305,6 +307,7 @@ def _ticket_to_row(header, t, base=None):
     s("Max_Level", "" if lvl < 0 else lvl)
     s("Closed_At", t["closed_at"]); s("Closed_By", t["closed_by"]); s("Created_By", t["created_by"])
     s("Updated_At", t["updated_at"]); s("Updated_By", t["updated_by"])
+    s("Deleted_At", t.get("deleted_at", "")); s("Deleted_By", t.get("deleted_by", "")); s("Delete_Reason", t.get("delete_reason", ""))
     return ["" if v is None else str(v) for v in row]  # strings only, exactly what a sheet read returns
 
 
@@ -323,6 +326,8 @@ def _public(t):
         "upd": [{"t": _to_ms(u.get("at")), "by": u.get("by", ""), "note": u.get("note", "")} for u in t["upd"]],
         "closed": _to_ms(t["closed_at"]) if t["status"] == "Closed" else None,
         "closed_by": t["closed_by"], "created_by": t["created_by"],
+        "deleted": _to_ms(t.get("deleted_at")) if t["status"] == "Deleted" else None,
+        "deleted_by": t.get("deleted_by", ""), "delete_reason": t.get("delete_reason", ""),
         "level": _max_level(t),
     }
 
@@ -381,7 +386,7 @@ def board(gs, user):
     with _lock:
         for row in _state["raw"]:
             t = _row_to_ticket(_state["header"], row)
-            if not t["id"]:
+            if not t["id"] or t["status"] == "Deleted":
                 continue
             ms = _to_ms(t["recv"])
             if t["status"] != "Closed" or (ms and ms >= cutoff.timestamp() * 1000):
@@ -394,14 +399,17 @@ def board(gs, user):
     }
 
 
-def history(gs, user, q="", date_from="", date_to="", sla="", limit=200):
+def history(gs, user, q="", date_from="", date_to="", sla="", limit=200, show_deleted=False):
     _load(gs)
+    show_deleted = bool(show_deleted) and get_role(gs, user["email"]) == "admin"  # only admins can see deleted tickets
     q = (q or "").strip().lower()
     res = []
     with _lock:
         for row in _state["raw"]:
             t = _row_to_ticket(_state["header"], row)
             if not t["id"]:
+                continue
+            if t["status"] == "Deleted" and not show_deleted:
                 continue
             if sla and t["sla"] != sla:
                 continue
@@ -452,7 +460,7 @@ def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm=""):
     if not tid or not subj or not prov:
         raise ValueError("กรุณากรอกเลข Ticket, Subject และจังหวัด")
     if sla not in SLA_VALUES:
-        raise ValueError("SLA ต้องเป็น SA1 / SA2 / NSA1_DN")
+        raise ValueError("SLA ต้องเป็น NSA1-4 หรือ SA1-4")
     try:
         sites = int(sites or 0)
     except (TypeError, ValueError):
@@ -474,7 +482,8 @@ def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm=""):
     with _lock:
         _load(gs, force=True)
         if tid in _state["index"]:
-            raise ValueError("มี Ticket นี้ในระบบแล้ว")
+            old = _row_to_ticket(_state["header"], _state["raw"][_state["index"][tid]])
+            raise ValueError("เลข Ticket นี้เคยถูกลบไปแล้ว (admin กู้คืนได้ที่ History)" if old["status"] == "Deleted" else "มี Ticket นี้ในระบบแล้ว")
         t = {"id": tid, "sla": sla, "subj": subj, "prov": prov, "sites": sites, "recv": _fmt(recv),
              "status": "Open", "steps": {}, "upd": [], "mate": {k: "" for k in _MATE_COL} | {"update": []},
              "max_level": "", "closed_at": "", "closed_by": "", "created_by": user["email"],
@@ -570,6 +579,43 @@ def close_ticket(gs, user, tid):
 
     res = _mutate(gs, user, tid, fn)
     _log(gs, tid, "close", "CLOSE", user["email"])
+    return res
+
+
+def delete_ticket(gs, user, tid, reason=""):
+    """Soft delete for tickets opened by mistake: the row STAYS in the sheet (Status = Deleted, who/when/why recorded,
+    Log keeps the audit entry) but disappears from the board, summary and normal history. Editors can delete open
+    tickets; closed tickets can only be deleted by an admin. Admin can restore."""
+    role = _require_editor(gs, user)
+    reason = _clean(reason, 200)
+
+    def fn(t):
+        if t["status"] == "Deleted":
+            raise ValueError("Ticket นี้ถูกลบไปแล้ว")
+        if t["status"] == "Closed" and role != "admin":
+            raise PermissionError("Ticket ที่ปิดแล้ว ลบได้เฉพาะ admin")
+        t["status"] = "Deleted"
+        t["deleted_at"] = _now_str()
+        t["deleted_by"] = user["email"]
+        t["delete_reason"] = reason
+
+    res = _mutate(gs, user, tid, fn, allow_closed=True)
+    _log(gs, tid, "delete", "DELETE", user["email"], reason)
+    return res
+
+
+def restore_ticket(gs, user, tid):
+    if get_role(gs, user["email"]) != "admin":
+        raise PermissionError("เฉพาะ admin เท่านั้นที่กู้คืน Ticket ได้")
+
+    def fn(t):
+        if t["status"] != "Deleted":
+            raise ValueError("Ticket นี้ไม่ได้ถูกลบ")
+        t["status"] = "Closed" if t["closed_at"] else "Open"
+        t["deleted_at"] = t["deleted_by"] = t["delete_reason"] = ""
+
+    res = _mutate(gs, user, tid, fn, allow_closed=True)
+    _log(gs, tid, "delete", "RESTORE", user["email"])
     return res
 
 
