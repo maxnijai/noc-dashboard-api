@@ -21,6 +21,7 @@ from pending_ticket import (
     build_p0_snapshot_comparison,
     build_p0_daily_trend,
     build_p0_drilldown,
+    build_nsa34_flag_breakdown,
     build_pending_ticket_xlsx,
 )
 import oncall
@@ -3369,6 +3370,18 @@ def api_p0_drilldown():
         return jsonify(build_p0_drilldown(gs_client))
     except Exception as e:
         log.exception("p0-drilldown API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-nsa34-flag')
+def api_p0_nsa34_flag():
+    """NSA3/NSA4 Total Pending split by Flag Priority (Category / Province /
+    Aging_Flag_Group + 7-day @01:15 trend) for the card's Flag Priority button.
+    Read-only; loaded only when the button is pressed."""
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        return jsonify(build_nsa34_flag_breakdown(gs_client, drive_service, days=7))
+    except Exception as e:
+        log.exception("p0-nsa34-flag API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-daily-trend')

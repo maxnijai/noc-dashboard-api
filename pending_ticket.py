@@ -149,7 +149,7 @@ EXPORT_HEADER = [
 ]
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
-FLAG_PRIORITY_CATEGORIES = {c.lower() for c in [
+FLAG_PRIORITY_CATEGORY_LIST = [
     "Cell Up/Down Alarm: Fiber_cut",
     "Cell Up/Down Alarm: Fiber_cut / RRU/CPRI/SFP Issue",
     "Cell Up/Down Alarm: Frequency Input Power Failure",
@@ -174,7 +174,8 @@ FLAG_PRIORITY_CATEGORIES = {c.lower() for c in [
     "Microwave Link Alarm",
     "Third-Party/Peering Provider Incident",
     "Transmission Power Alarm",
-]}
+]
+FLAG_PRIORITY_CATEGORIES = {c.lower() for c in FLAG_PRIORITY_CATEGORY_LIST}
 
 
 # ---------------------------------------------------------------------------
@@ -1918,6 +1919,133 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
         "overall_top_p0": overall_top_p0,          # sum of the 4 groups, per province (matches how the big cards are defined)
         "overall_top_total": overall_top_total,
         "site_type_mb": site_type_mb,  # additive: {"types", "total", "provinces"} for the 7.MB card's Site Type button, or None
+    }
+
+
+# ── NSA3/NSA4 Flag Priority breakdown (button on the Total Pending NSA3/NSA4 card) ──
+# Read-only and additive: its own endpoint (/api/p0-nsa34-flag) loaded when the
+# button is pressed, so no existing response or number changes. Scope, CORP
+# filter and group matching are exactly _count_total_by_group's, so
+# flag + non-flag always equals the NSA3 / NSA4 card number (checked + logged).
+_nsa34_day_cache = {}
+_nsa34_day_lock = threading.Lock()
+
+
+def _nsa34_scan(rows, reference_dt):
+    """One pass over `rows` -> NSA3/4 Total Pending split by Flag Priority:
+    {"flag", "non", "cats" {lower-cat: n}, "p0cats" {lower-cat: n}, "prov" {prov: flag n},
+     "aging" {aging_key: flag n}, "nonflag" {cat: n}}."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
+    out = {"flag": 0, "non": 0, "cats": {}, "p0cats": {}, "prov": {}, "aging": {}, "nonflag": {}}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "NSA34"):
+            continue
+        cat = _category_text(r).strip()
+        key = cat.lower()
+        if key in FLAG_PRIORITY_CATEGORIES:
+            out["flag"] += 1
+            out["cats"][key] = out["cats"].get(key, 0) + 1
+            if _classify_priority_at(r.get("TARGETFINISH"), reference_dt) == "P0":
+                out["p0cats"][key] = out["p0cats"].get(key, 0) + 1
+            prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+            out["prov"][prov] = out["prov"].get(prov, 0) + 1
+            ag = str(r.get("Aging_Flag_Group", "")).strip()
+            if ag:
+                out["aging"][ag] = out["aging"].get(ag, 0) + 1
+        else:
+            out["non"] += 1
+            name = cat or "(ไม่ระบุ Category)"
+            out["nonflag"][name] = out["nonflag"].get(name, 0) + 1
+    return out
+
+
+def _nsa34_day_scan(drive_service, day, today):
+    """Snapshot (~01:15 file) scan for one day, or None when no file. Past
+    days are cached forever (a finished day's file never changes); today is
+    never cached - same rule as build_p0_daily_trend."""
+    date_str = day.strftime("%Y-%m-%d")
+    is_today = day == today
+    if not is_today:
+        with _nsa34_day_lock:
+            if date_str in _nsa34_day_cache:
+                return _nsa34_day_cache[date_str]
+    rows, _info = _get_rows_for_day(drive_service, day, today)
+    res = None
+    if rows is not None:
+        try:
+            res = _nsa34_scan(rows, datetime.combine(day, _dtime(1, 15)))
+        except Exception:
+            log.exception("nsa34 flag: snapshot scan failed for %s", date_str)
+            res = None
+    if not is_today and res is not None:
+        with _nsa34_day_lock:
+            _nsa34_day_cache[date_str] = res
+    return res
+
+
+def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
+    now_dt = bangkok_now()
+    today = now_dt.date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]
+    scans = [_nsa34_day_scan(drive_service, d, today) for d in all_days]
+    snap_idx = next((i for i in range(len(scans) - 1, -1, -1) if scans[i] is not None), None)
+    snap = scans[snap_idx] if snap_idx is not None else None
+
+    live_rows = fetch_live_rows(gs_client)
+    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    cur = _nsa34_scan(live_rows, ref)
+    try:
+        expect = _count_total_by_group(live_rows).get("NSA34")
+        if expect != cur["flag"] + cur["non"]:
+            log.warning("nsa34 flag: flag+non (%s) != NSA3/4 card (%s)", cur["flag"] + cur["non"], expect)
+    except Exception:
+        log.exception("nsa34 flag: card-total cross-check failed")
+
+    def series(fn):
+        return [fn(s) if s is not None else None for s in scans]
+
+    cats = []
+    for name in FLAG_PRIORITY_CATEGORY_LIST:
+        k = name.lower()
+        cats.append({
+            "name": name, "now": cur["cats"].get(k, 0),
+            "snap": snap["cats"].get(k, 0) if snap else None,
+            "p0": cur["p0cats"].get(k, 0),
+            "trend": series(lambda s, k=k: s["cats"].get(k, 0)),
+        })
+    provs = set(cur["prov"])
+    for s in scans:
+        if s:
+            provs |= set(s["prov"])
+    prov_rows = [{
+        "code": p, "now": cur["prov"].get(p, 0),
+        "snap": snap["prov"].get(p, 0) if snap else None,
+        "trend": series(lambda s, p=p: s["prov"].get(p, 0)),
+    } for p in provs]
+    prov_rows.sort(key=lambda r: (-r["now"], r["code"]))
+
+    non_top = sorted(cur["nonflag"].items(), key=lambda kv: (-kv[1], kv[0]))
+    return {
+        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "snapshot_date": all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None,
+        "dates": [d.strftime("%Y-%m-%d") for d in all_days],
+        "flag_now": cur["flag"], "non_now": cur["non"],
+        "flag_snap": snap["flag"] if snap else None, "non_snap": snap["non"] if snap else None,
+        "flag_p0": sum(cur["p0cats"].values()),
+        "series": {"flag": series(lambda s: s["flag"]), "non": series(lambda s: s["non"])},
+        "categories": cats,
+        "provinces": prov_rows,
+        "aging": {"order": list(AGING_ORDER), "colors": AGING_COLORS,
+                  "counts": {k: cur["aging"].get(k, 0) for k in AGING_ORDER}},
+        "nonflag_top": [[n, c] for n, c in non_top[:8]],
+        "nonflag_other": sum(c for _n, c in non_top[8:]),
     }
 
 
