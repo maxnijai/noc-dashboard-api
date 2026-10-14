@@ -3879,7 +3879,19 @@ def api_field_followup_export_excel():
 def api_field_followup_create():
     p = request.get_json(silent=True) or {}
     return _ff_call(field_followup.create_ticket, p.get('id'), p.get('sla'), p.get('subj'), p.get('prov'),
-                    p.get('sites'), p.get('recv', ''))
+                    p.get('sites'), p.get('recv', ''), p.get('inoc', ''), p.get('create', ''),
+                    p.get('topo', ''), p.get('ch', ''))
+
+@app.route('/api/field-followup/sa2', methods=['POST'])
+def api_field_followup_sa2():
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.set_sa2_fields, p.get('id'), p.get('inoc', ''), p.get('topo', ''), p.get('ch', ''))
+
+@app.route('/api/field-followup/import-sa2-risk', methods=['POST'])
+def api_field_followup_import_sa2_risk():
+    # admin only (checked in field_followup). {"dry_run": true} only counts; safe to press repeatedly (idempotent).
+    p = request.get_json(silent=True) or {}
+    return _ff_call(field_followup.import_sa2_risk, bool(p.get('dry_run')))
 
 @app.route('/api/field-followup/step', methods=['POST'])
 def api_field_followup_step():

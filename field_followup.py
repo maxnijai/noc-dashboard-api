@@ -1,5 +1,5 @@
-"""Field Follow-up Log - NOC tracking of field teams for SA1 / SA2 / NSA1_DN
-tickets, following the Escalation & Tracking Flow (notify technician <=10 min,
+"""SA2 Risk / Field Follow-up Log (one merged page) - NOC tracking of field teams for
+NSA1-4 / SA1-4 tickets (SA2 rows carry extra Risk fields), following the Escalation & Tracking Flow (notify technician <=10 min,
 notify NOP <=15 min, chase Depart at T+30, escalate Supervisor NZ -> Manager
 Zone -> Region Manager from T+1 h, executive-room updates, MateLine milestones,
 close).
@@ -32,6 +32,8 @@ from datetime import datetime, timedelta
 from io import BytesIO
 
 import pytz
+
+import sa2_risk  # option lists (INOC names, Topo Ring, channel) + the old SA2 Risk sheet for the one-time import
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +69,9 @@ TICKET_HEADER = (
     + ["Exec_Updates", "Mate_Depart_At", "Mate_Arrive_At", "Mate_Update_Count", "Mate_Update_Times",
        "Mate_Complete_At", "Mate_Closed_At", "Mate_Hold_At", "Max_Level",
        "Closed_At", "Closed_By", "Created_By", "Updated_At", "Updated_By",
-       "Deleted_At", "Deleted_By", "Delete_Reason"]
+       "Deleted_At", "Deleted_By", "Delete_Reason",
+       # SA2 Risk fields (only filled on SLA = SA2 rows) + Import_Key (set only on rows brought in from the old SA2_Risk sheet)
+       "INOC_Name", "Ticket_Create_At", "Topo_Ring", "Channel", "Import_Key"]
 )
 LOG_HEADER = ["Time", "Ticket_ID", "Step", "Action", "By", "Note"]
 EDITORS_HEADER = ["Email", "Name", "Role"]
@@ -272,6 +276,8 @@ def _row_to_ticket(header, row):
         "max_level": g("Max_Level"), "closed_at": g("Closed_At"), "closed_by": g("Closed_By"),
         "created_by": g("Created_By"), "updated_at": g("Updated_At"), "updated_by": g("Updated_By"),
         "deleted_at": g("Deleted_At"), "deleted_by": g("Deleted_By"), "delete_reason": g("Delete_Reason"),
+        "inoc": g("INOC_Name"), "create": g("Ticket_Create_At"), "topo": g("Topo_Ring"), "ch": g("Channel"),
+        "import_key": g("Import_Key"),
     }
 
 
@@ -308,6 +314,8 @@ def _ticket_to_row(header, t, base=None):
     s("Closed_At", t["closed_at"]); s("Closed_By", t["closed_by"]); s("Created_By", t["created_by"])
     s("Updated_At", t["updated_at"]); s("Updated_By", t["updated_by"])
     s("Deleted_At", t.get("deleted_at", "")); s("Deleted_By", t.get("deleted_by", "")); s("Delete_Reason", t.get("delete_reason", ""))
+    s("INOC_Name", t.get("inoc", "")); s("Ticket_Create_At", t.get("create", "")); s("Topo_Ring", t.get("topo", ""))
+    s("Channel", t.get("ch", "")); s("Import_Key", t.get("import_key", ""))
     return ["" if v is None else str(v) for v in row]  # strings only, exactly what a sheet read returns
 
 
@@ -329,6 +337,9 @@ def _public(t):
         "deleted": _to_ms(t.get("deleted_at")) if t["status"] == "Deleted" else None,
         "deleted_by": t.get("deleted_by", ""), "delete_reason": t.get("delete_reason", ""),
         "level": _max_level(t),
+        "inoc": t.get("inoc", ""), "topo": t.get("topo", "") or ("Send done" if t["sla"] == "SA2" else ""),
+        "ch": t.get("ch", ""), "create": _to_ms(t.get("create")) or _to_ms(t["recv"]),
+        "imported": bool(t.get("import_key")),
     }
 
 
@@ -381,21 +392,27 @@ def _open_ticket(tid):
 # ---------------------------------------------------------------- reads
 def board(gs, user):
     _load(gs)
-    cutoff = _now() - timedelta(hours=48)
-    out = []
+    cutoff_ms = (_now() - timedelta(hours=24)).timestamp() * 1000
+    out, closed_recent = [], []
     with _lock:
         for row in _state["raw"]:
             t = _row_to_ticket(_state["header"], row)
             if not t["id"] or t["status"] == "Deleted":
                 continue
-            ms = _to_ms(t["recv"])
-            if t["status"] != "Closed" or (ms and ms >= cutoff.timestamp() * 1000):
-                out.append(_public(t))
+            if t["status"] != "Closed":
+                out.append(_public(t))          # the board shows OPEN tickets only; closed ones live in History
+            else:
+                ms = _to_ms(t["recv"])
+                if ms and ms >= cutoff_ms:       # kept only so the "last 24 h" summary card can count them
+                    closed_recent.append(_public(t))
     return {
         "me": {"email": user["email"], "name": user.get("name") or "", "role": get_role(gs, user["email"])},
         "now": int(_now().timestamp() * 1000),
         "tickets": out,
+        "closed_recent": closed_recent,
         "provinces": _provinces(gs),
+        "options": {"inoc": list(sa2_risk.INOC_NAMES), "topo": list(sa2_risk.TOPO_RING_OPTIONS),
+                    "channel": list(sa2_risk.CHANNEL_OPTIONS)},
     }
 
 
@@ -454,7 +471,28 @@ def export_xlsx(gs, user, q="", date_from="", date_to="", sla=""):
 
 
 # ---------------------------------------------------------------- writes
-def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm=""):
+def _hhmm_to_dt(hhmm, now):
+    m = re.match(r"^(\d{1,2}):(\d{2})$", (hhmm or "").strip())
+    if not m:
+        return None
+    cand = now.replace(hour=int(m.group(1)) % 24, minute=int(m.group(2)), second=0, microsecond=0)
+    if cand > now + timedelta(minutes=5):  # typed a time "later today" -> it was yesterday
+        cand -= timedelta(days=1)
+    return cand
+
+
+def _check_sa2_fields(inoc, topo, ch):
+    inoc, topo, ch = _clean(inoc, 60), _clean(topo, 30), _clean(ch, 30)
+    if not inoc:
+        raise ValueError("SA2 ต้องเลือก INOC Name")
+    if topo not in sa2_risk.TOPO_RING_OPTIONS:
+        raise ValueError("Topo Ring ไม่ถูกต้อง")
+    if ch not in sa2_risk.CHANNEL_OPTIONS:
+        raise ValueError("ช่องทางแจ้งทีมไม่ถูกต้อง")
+    return inoc, topo, ch
+
+
+def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm="", inoc="", create_hhmm="", topo="", ch=""):
     _require_editor(gs, user)
     tid, subj, prov = _clean(tid, 60), _clean(subj, 400), _clean(prov, 80)
     if not tid or not subj or not prov:
@@ -471,13 +509,14 @@ def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm=""):
         raise ValueError("SA2 ต้องระบุจำนวนไซต์ที่กระทบ (อย่างน้อย 1)")
 
     now = _now()
-    recv = now
-    m = re.match(r"^(\d{1,2}):(\d{2})$", (recv_hhmm or "").strip())
-    if m:
-        cand = now.replace(hour=int(m.group(1)) % 24, minute=int(m.group(2)), second=0, microsecond=0)
-        if cand > now + timedelta(minutes=5):  # typed a time "later today" -> it was yesterday
-            cand -= timedelta(days=1)
-        recv = cand
+    recv = _hhmm_to_dt(recv_hhmm, now) or now
+    created = recv
+    if sla == "SA2":
+        inoc, topo, ch = _check_sa2_fields(inoc, topo or "Send done", ch or "Tel")
+        created = _hhmm_to_dt(create_hhmm, now) or recv
+    else:
+        inoc = topo = ch = ""
+        created = None
 
     with _lock:
         _load(gs, force=True)
@@ -487,10 +526,12 @@ def create_ticket(gs, user, tid, sla, subj, prov, sites, recv_hhmm=""):
         t = {"id": tid, "sla": sla, "subj": subj, "prov": prov, "sites": sites, "recv": _fmt(recv),
              "status": "Open", "steps": {}, "upd": [], "mate": {k: "" for k in _MATE_COL} | {"update": []},
              "max_level": "", "closed_at": "", "closed_by": "", "created_by": user["email"],
-             "updated_at": "", "updated_by": ""}
+             "updated_at": "", "updated_by": "", "inoc": inoc, "topo": topo, "ch": ch,
+             "create": _fmt(created) if created else "", "import_key": ""}
         _touch(t, user)
         _save(gs, t)
-    _log(gs, tid, "-", "CREATE", user["email"], f"{sla} · {prov} · {sites} sites · {subj}")
+    _log(gs, tid, "-", "CREATE", user["email"],
+         f"{sla} · {prov} · {sites} sites · {subj}" + (f" · {inoc} · Topo {topo} · {ch}" if sla == "SA2" else ""))
     return _public(t)
 
 
@@ -537,6 +578,19 @@ def set_remark(gs, user, tid, key, note):
 
     res = _mutate(gs, user, tid, fn, allow_closed=True)
     _log(gs, tid, key, "REMARK", user["email"], note)
+    return res
+
+
+def set_sa2_fields(gs, user, tid, inoc, topo, ch):
+    inoc, topo, ch = _check_sa2_fields(inoc, topo, ch)
+
+    def fn(t):
+        if t["sla"] != "SA2":
+            raise ValueError("ช่อง SA2 Risk ใช้ได้เฉพาะ Ticket ที่ SLA = SA2")
+        t["inoc"], t["topo"], t["ch"] = inoc, topo, ch
+
+    res = _mutate(gs, user, tid, fn)
+    _log(gs, tid, "sa2", "SA2_FIELDS", user["email"], f"{inoc} · Topo {topo} · {ch}")
     return res
 
 
@@ -696,3 +750,142 @@ def oncall_for_province(gs, user, province):
         "level2": sup_on or sup_all, "level2_none_on_today": bool(sup_all) and not sup_on,
         "level3": eng_on or eng_all, "level3_none_on_today": bool(eng_all) and not eng_on,
     }
+
+
+# ---------------------------------------------------------------- one-time import from the old "SA2 Risk" tab
+# The old tab keeps its own sheet (sa2_risk.SA2_RISK_SHEET_ID / "SA2_Risk"). It is only READ here - never changed.
+# Every imported row is stamped Import_Key = "SA2R:<old row id>", so pressing the button again can never create a
+# second copy: rows whose key is already present are skipped, and so is any ticket number that already exists.
+_NOP_TO_PROVINCE = {
+    "CMI": "เชียงใหม่", "CRI": "เชียงราย", "LPG": "ลำปาง", "LPN": "ลำพูน", "MHS": "แม่ฮ่องสอน", "NAN": "น่าน",
+    "PHE": "แพร่", "PYO": "พะเยา", "KPP": "กำแพงเพชร", "PCB": "เพชรบูรณ์", "PCT": "พิจิตร", "PSN": "พิษณุโลก",
+    "SKT": "สุโขทัย", "TAK": "ตาก", "UTR": "อุตรดิตถ์",
+}
+_DT_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+               "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M")
+IMPORT_NOTE = "นำเข้าจาก SA2 Risk เดิม (ไม่มีเวลาบันทึกของขั้นนี้)"
+IMPORT_BY = "นำเข้า SA2 Risk"
+
+
+def _parse_dt(s, server_clock=False):
+    """Old-tab date text -> Bangkok datetime, or None. Times a person picked in the form are Bangkok local time;
+    updated_at / closed_dt were stamped by the server's clock (UTC on Railway), hence server_clock=True."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    for f in _DT_FORMATS:
+        try:
+            d = datetime.strptime(s, f)
+        except ValueError:
+            continue
+        return pytz.utc.localize(d).astimezone(TZ) if server_clock else TZ.localize(d)
+    return None
+
+
+def _province_from(text):
+    text = (text or "").strip()
+    m = re.search(r"-([A-Z]{3})-NOP", text)
+    if m and m.group(1) in _NOP_TO_PROVINCE:
+        return _NOP_TO_PROVINCE[m.group(1)]
+    return text or "ไม่ระบุ"
+
+
+def _import_ticket(r, key, now, user):
+    p = lambda k: (r.get(k) or "").strip()
+    recv = _parse_dt(p("inoc_open_dt")) or _parse_dt(p("create_dt")) or _parse_dt(p("updated_at"), True) or now
+    recv = min(recv, now)
+    created = min(_parse_dt(p("create_dt")) or recv, now)
+    closed = p("status") == "Closed"
+    closed_at = ""
+    if closed:
+        c = _parse_dt(p("closed_dt"), True) or _parse_dt(p("updated_at"), True) or now
+        closed_at = _fmt(max(min(c, now), recv))
+    # no per-step times exist in the old tab: mark every step "skipped (imported)" so a pending imported ticket
+    # shows "all steps done - waiting to close" instead of a bogus red overdue clock
+    steps = {k: {"at": _fmt(recv), "by": IMPORT_BY, "note": IMPORT_NOTE, "skip": True} for k in STEP_ORDER}
+    ack = _parse_dt(p("sup_ack_dt"))
+    if ack:
+        steps["s2"] = {"at": _fmt(ack), "by": p("sup_name") or IMPORT_BY, "skip": False,
+                       "note": "นำเข้า: Sup/NOP รับทราบ" + (f" · {p('sup_name')}" if p("sup_name") else "")}
+    try:
+        sites = max(0, int(float(p("risk_sites") or 0)))
+    except ValueError:
+        sites = 0
+    subj = p("subject") or "(ไม่มี Subject)"
+    if p("site_name") and p("site_name") not in subj:
+        subj += f" [{p('site_name')}]"
+    return {
+        "id": p("ticket_id"), "sla": "SA2", "subj": subj[:400], "prov": _province_from(p("province")),
+        "sites": sites, "recv": _fmt(recv), "status": "Closed" if closed else "Open", "steps": steps, "upd": [],
+        "mate": {k: "" for k in _MATE_COL} | {"update": []}, "max_level": "",
+        "closed_at": closed_at, "closed_by": (p("updated_by") or user["email"]) if closed else "",
+        "created_by": p("updated_by") or user["email"], "updated_at": _fmt(now), "updated_by": user["email"],
+        "inoc": p("inoc_name"), "create": _fmt(created),
+        "topo": p("topo_ring") if p("topo_ring") in sa2_risk.TOPO_RING_OPTIONS else "Send done",
+        "ch": p("channel") if p("channel") in sa2_risk.CHANNEL_OPTIONS else "",
+        "import_key": key,
+    }
+
+
+def import_sa2_risk(gs, user, dry_run=False):
+    """Admin only. dry_run=True only counts (nothing is written) so the button can show what WILL happen first."""
+    if get_role(gs, user["email"]) != "admin":
+        raise PermissionError("เฉพาะ admin เท่านั้นที่นำเข้าข้อมูลจาก SA2 Risk เดิมได้")
+    try:
+        src = sa2_risk.get_all_rows(gs, use_cache=False)
+    except sa2_risk.SA2RiskError as e:
+        raise ValueError(str(e))
+    now = _now()
+    st = {"total": len(src), "new_open": 0, "new_closed": 0, "merged": 0, "already": 0, "dup_in_source": 0,
+          "invalid": 0, "dry_run": bool(dry_run)}
+    with _lock:
+        _load(gs, force=True)
+        header = _state["header"]
+        kcol = header.index("Import_Key") if "Import_Key" in header else None
+        keys = {(row[kcol] or "").strip() for row in _state["raw"] if kcol is not None and kcol < len(row)} - {""}
+        seen, new, merges = set(), [], []
+        for r in src:
+            tid, rid = (r.get("ticket_id") or "").strip(), (r.get("id") or "").strip()
+            if not tid or not rid:
+                st["invalid"] += 1
+                continue
+            if tid in seen:
+                st["dup_in_source"] += 1   # same ticket typed twice in the old tab: the first row wins
+                continue
+            seen.add(tid)
+            key = "SA2R:" + rid
+            if key in keys:
+                st["already"] += 1
+                continue
+            pos = _state["index"].get(tid)
+            if pos is not None:            # ticket already in the new page: never overwrite, only fill empty SA2 fields
+                t = _row_to_ticket(header, _state["raw"][pos])
+                if t["status"] != "Deleted" and t["sla"] == "SA2" and not t["inoc"] and (r.get("inoc_name") or "").strip():
+                    n = _import_ticket(r, key, now, user)
+                    t.update(inoc=n["inoc"], topo=n["topo"], ch=n["ch"], create=n["create"], import_key=key)
+                    merges.append((pos, t))
+                    st["merged"] += 1
+                else:
+                    st["already"] += 1
+                continue
+            t = _import_ticket(r, key, now, user)
+            new.append(t)
+            st["new_closed" if t["status"] == "Closed" else "new_open"] += 1
+        if not dry_run and (new or merges):
+            if new:
+                _state["ws"].append_rows([_ticket_to_row(header, t) for t in new],
+                                         value_input_option="RAW", table_range="A1")
+            for pos, t in merges:
+                _touch(t, user)
+                _save(gs, t, pos)
+            try:
+                lws = _spreadsheet(gs).worksheet(LOG_SHEET)
+                stamp = _fmt(now)
+                lws.append_rows(
+                    [[stamp, t["id"], "import", "IMPORT_SA2_RISK", user["email"], t["import_key"]] for t in new]
+                    + [[stamp, t["id"], "import", "IMPORT_SA2_RISK_MERGE", user["email"], t["import_key"]] for _, t in merges],
+                    value_input_option="RAW", table_range="A1")
+            except Exception:
+                log.exception("field-followup import log append failed")
+            _load(gs, force=True)
+    return st
