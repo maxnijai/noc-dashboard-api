@@ -3056,6 +3056,7 @@ async function loadP0DailyTrendSparklines(accents, groups) {
   } catch (e) {
     console.error('P0 daily trend sparklines failed', e);
   }
+  setTimeout(() => { try { window.p0PrefetchFlag && window.p0PrefetchFlag(); } catch (e) { /* prefetch is best-effort */ } }, 300);
   try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
 }
 
@@ -3141,7 +3142,7 @@ window.p0RenderSiteType = function () {
 // Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
 // /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
 // else on the page is touched.
-const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: false, P1: false } };
+const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true } };
 (function () {
   const st = document.createElement('style');
   st.textContent = '#p0fl-overlay .fl-box{border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0}#p0fl-overlay .fl-box h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}#p0fl-overlay .fl-grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}@media(max-width:760px){ #p0fl-overlay .fl-grid2{grid-template-columns:1fr}}#p0fl-overlay .fl-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}#p0fl-overlay .fl-seg button{font:inherit;font-size:11px;padding:2px 8px;border:0;background:none;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0}#p0fl-overlay .fl-seg button.on{background:var(--bg3);color:var(--text);font-weight:700}#p0fl-overlay table{border-collapse:collapse;width:100%;font-size:12.5px}#p0fl-overlay th{background:var(--bg3);padding:6px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text2);white-space:nowrap;position:sticky;top:0}#p0fl-overlay th:first-child,#p0fl-overlay td:first-child{text-align:left}#p0fl-overlay td{padding:5px 8px;text-align:right;border-top:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}#p0fl-overlay td:first-child{white-space:normal;min-width:200px}#p0fl-overlay tr.fl-cat,#p0fl-overlay tr.fl-prov{cursor:pointer}#p0fl-overlay tr.fl-cat:hover td,#p0fl-overlay tr.fl-prov:hover td{background:var(--bg3)}#p0fl-overlay tr.fl-sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .fl-chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);text-transform:none;letter-spacing:0;font-weight:400}';
@@ -3166,26 +3167,42 @@ window.p0OpenFlag = async function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
     document.body.appendChild(ov);
   }
-  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: false, P1: false };
+  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true };
   ov.style.display = 'flex';
-  const fresh = P0FL.data && (Date.now() - P0FL.ts) < 60000;
-  if (fresh) { window.p0RenderFlag(); return; }
-  ov.innerHTML = '<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (ครั้งแรกอาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ Snapshot ย้อนหลัง)</div>';
-  try {
-    const res = await fetch('/api/p0-nsa34-flag');
-    if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
-    P0FL.data = await res.json(); P0FL.ts = Date.now();
+  // Stale-while-revalidate: show whatever we already have instantly, refresh in the background when older than 60s.
+  if (P0FL.data) {
     window.p0RenderFlag();
-  } catch (e) {
-    ov.innerHTML = `<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:22px 28px;font-size:13px;max-width:420px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">${p0T5Esc(e.message || e)}</div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`;
+    if ((Date.now() - P0FL.ts) >= 60000) window.p0LoadFlag(true).then(ok => { if (ok && ov.style.display === 'flex') window.p0RenderFlag(); });
+    return;
   }
+  ov.innerHTML = '<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (ครั้งแรกหลังเปิดระบบอาจใช้เวลาสักครู่)</div>';
+  const ok = await window.p0LoadFlag(false);
+  if (ok) { if (ov.style.display === 'flex') window.p0RenderFlag(); }
+  else ov.innerHTML = `<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:22px 28px;font-size:13px;max-width:420px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">${p0T5Esc(P0FL.err || '')}</div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`;
 };
+// One shared in-flight request (prefetch and button press never double-fetch).
+window.p0LoadFlag = function (quiet) {
+  if (P0FL.inflight) return P0FL.inflight;
+  P0FL.inflight = (async () => {
+    try {
+      const res = await fetch('/api/p0-nsa34-flag');
+      if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+      P0FL.data = await res.json(); P0FL.ts = Date.now(); P0FL.err = '';
+      return true;
+    } catch (e) { P0FL.err = e.message || String(e); if (!quiet) console.error('Flag Priority load failed', e); return false; }
+    finally { P0FL.inflight = null; }
+  })();
+  return P0FL.inflight;
+};
+// Called quietly once the card row is on screen, so the data is usually ready before anyone presses the button.
+window.p0PrefetchFlag = function () { if (!P0FL.data && !P0FL.inflight) window.p0LoadFlag(true); };
 window.p0RenderFlag = function () {
   const full = P0FL.data, ov = document.getElementById('p0fl-overlay');
   if (!full || !ov) return;
   // Priority filter (P0 / P1 only): none ticked = every ticket, otherwise the matching pre-computed view.
   const pk = (P0FL.prio.P0 && P0FL.prio.P1) ? 'P0P1' : (P0FL.prio.P0 ? 'P0' : (P0FL.prio.P1 ? 'P1' : ''));
-  const d = (pk && full.views && full.views[pk]) ? Object.assign({}, full, full.views[pk]) : full;
+  const viewOk = !pk || !!(full.views && full.views[pk]);
+  const d = (pk && viewOk) ? Object.assign({}, full, full.views[pk]) : full;
   const esc = p0T5Esc, FLAG = '#d97706', NON = '#64748b', CYAN = '#0891b2';
   const days = d.dates.map(x => x.slice(5).replace('-', '/'));
   const dtx = n => n == null ? '' : `<span style="color:${n > 0 ? '#B23A3A' : (n < 0 ? '#639922' : 'var(--text3)')};font-weight:700;white-space:nowrap;">${n > 0 ? '▲ +' + n : (n < 0 ? '▼ ' + n : '–')}</span>`;
@@ -3199,13 +3216,8 @@ window.p0RenderFlag = function () {
   };
   // ----- trend chart (7 days @01:15)
   const chart = () => {
-    let series = [];
-    if (P0FL.cat !== null) { const c = d.categories[P0FL.cat]; series = [{ n: c.name, v: c.trend, c: FLAG }]; }
-    else {
-      if (P0FL.mode !== 'non') series.push({ n: 'Flag', v: d.series.flag, c: FLAG });
-      if (P0FL.mode !== 'flag') series.push({ n: 'ไม่ Flag', v: d.series.non, c: NON });
-      if (P0FL.mode === 'both') series.push({ n: 'รวม NSA3/4', v: d.series.flag.map((x, i) => (x == null || d.series.non[i] == null) ? null : x + d.series.non[i]), c: CYAN, dash: 1 });
-    }
+    // One line only: Flag tickets of the current Priority view (default P0 + P1), or the selected Category.
+    const series = [P0FL.cat !== null ? { n: d.categories[P0FL.cat].name, v: d.categories[P0FL.cat].trend, c: FLAG } : { n: 'Flag · ' + (pk ? pk.replace('P0P1', 'P0 + P1') : 'ทุก Priority'), v: d.series.flag, c: FLAG }];
     const all = series.flatMap(s => s.v).filter(x => x != null);
     if (!all.length) return '<div style="color:var(--text3);font-size:12px;padding:20px 0;">ยังไม่มีไฟล์ Snapshot ย้อนหลัง</div>';
     const W = 560, H = 190, L = 34, R = 12, T = 14, B = 24, mx = Math.max(...all), step = mx > 60 ? 20 : 5, top = Math.ceil(mx * 1.1 / step) * step || 5;
@@ -3246,12 +3258,14 @@ window.p0RenderFlag = function () {
   const tile = (c, v, extra, label) => `<div style="border:1px solid var(--border);border-top:3px solid ${c};border-radius:6px;padding:8px 10px;"><b style="display:block;font-size:24px;line-height:1.1;">${v}${extra ? `<span style="font-size:11.5px;margin-left:6px;">${extra}</span>` : ''}</b><span style="font-size:11.5px;color:var(--text3);">${label}</span></div>`;
   const nCat = d.categories.filter(c => c.now > 0).length;
   const selChip = P0FL.cat !== null ? `<span class="fl-chip">${esc(d.categories[P0FL.cat].name.replace('Cell Up/Down Alarm: ', 'Cell: '))} <a href="#" data-fl-clear style="color:var(--blue)">ล้าง ✕</a></span>` : '';
-  const modeSeg = P0FL.cat === null ? `<span class="fl-seg">${[['both', 'ทั้งหมด'], ['flag', 'Flag'], ['non', 'ไม่ Flag']].map(a => `<button data-fl-mode="${a[0]}" class="${P0FL.mode === a[0] ? 'on' : ''}">${a[1]}</button>`).join('')}</span>` : '';
+  const modeSeg = '';
   const prioChips = ['P0', 'P1'].map(p => `<button type="button" data-fl-prio="${p}" style="font:inherit;font-size:12px;font-weight:700;padding:3px 12px;border-radius:14px;cursor:pointer;border:1px solid ${P0FL.prio[p] ? (p === 'P0' ? '#E24B4A' : '#EF9F27') : 'var(--border2)'};background:${P0FL.prio[p] ? (p === 'P0' ? '#E24B4A22' : '#EF9F2722') : 'none'};color:${P0FL.prio[p] ? 'var(--text)' : 'var(--text2)'};">${p}</button>`).join('');
-  const snapTxt = d.snapshot_date ? `Snapshot 01:15 (${d.snapshot_date}) = ${totSnap} ใบ` : 'ยังไม่พบไฟล์ Snapshot';
+  const fullTot = full.flag_now + full.non_now, fullSnap = full.flag_snap == null ? null : full.flag_snap + full.non_snap;
+  const snapTxt = d.snapshot_date ? `Snapshot 01:15 (${d.snapshot_date}) = ${fullSnap} ใบ` : 'ยังไม่พบไฟล์ Snapshot';
   ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending ปัจจุบัน ${tot} ใบ · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3);"><span style="font-weight:600;">Priority:</span>${prioChips}<span>${pk ? 'แสดงเฉพาะตั๋ว ' + pk.replace('P0P1', 'P0 + P1').replace(/^P(\d)$/, 'P$1') + ' (ทุกตัวเลขใน panel นี้) · กดซ้ำเพื่อยกเลิก' : 'ไม่เลือก = ทุก Priority (รวม P2)'}</span></div>
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending NSA3/4 ปัจจุบัน ${fullTot} ใบ${pk ? ' · ในหน้านี้นับเฉพาะ ' + pk.replace('P0P1', 'P0 + P1') + ' = ' + tot + ' ใบ' : ''} · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+    ${viewOk ? '' : '<div style="border:1px solid #B23A3A;background:#B23A3A18;border-radius:6px;padding:8px 12px;font-size:12.5px;">⚠️ ข้อมูลจาก Server ยังไม่มีการกรอง Priority (ต้อง Deploy pending_ticket.py ตัวใหม่) — ตัวเลขด้านล่างจึงเป็นทุก Priority</div>'}
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3);"><span style="font-weight:600;">Priority:</span>${prioChips}<span>${pk ? 'แสดงเฉพาะตั๋ว ' + pk.replace('P0P1', 'P0 + P1').replace(/^P(\d)$/, 'P$1') + ' (ทุกตัวเลขใน panel นี้) · กดซ้ำเพื่อยกเลิก' : 'ไม่เลือกทั้งคู่ = ทุก Priority (รวม P2)'}</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
       ${tile(FLAG, d.flag_now, dtx(sub(d.flag_now, d.flag_snap)), `Flag Priority · ${tot ? Math.round(d.flag_now / tot * 100) : 0}% ของ NSA3/4`)}
       ${tile(NON, d.non_now, dtx(sub(d.non_now, d.non_snap)), `ไม่ Flag · ${tot ? Math.round(d.non_now / tot * 100) : 0}%`)}
@@ -3270,7 +3284,7 @@ window.p0RenderFlag = function () {
       <div class="fl-box"><h3><span>Top 8 จังหวัด (เฉพาะ Flag)</span><span class="fl-chip">คลิก = เปิดแผนที่ Drill-down</span></h3>${top8Html}</div>
       <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
     </div>
-    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag = ${tot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag ทุก Priority = ${fullTot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
   </div>`;
 };
 // ===== P0 SITE TYPE PANEL (end) =====
