@@ -829,10 +829,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       #page-realtimemonitor .rm-chip.active { background:color-mix(in srgb, var(--accent, #2563eb) 12%, transparent); border-color:var(--accent, #2563eb); color:var(--accent, #2563eb); font-weight:700; }
       #page-realtimemonitor .rm-msel { position:relative; }
       #page-realtimemonitor .rm-msel-btn { padding:6px 10px; border:1px solid var(--border2); border-radius:6px; background:var(--bg2); font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-width:150px; justify-content:space-between; color:var(--text); }
-      #page-realtimemonitor .rm-msel-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; background:var(--bg2); border:1px solid var(--border2); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:8px; width:260px; max-height:260px; overflow-y:auto; }
+      #page-realtimemonitor .rm-msel-panel { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; background:var(--bg2); border:1px solid var(--border2); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:8px; width:320px; max-height:300px; overflow-y:auto; }
       #page-realtimemonitor .rm-msel.open .rm-msel-panel { display:block; }
       #page-realtimemonitor .rm-msel-row { display:flex; align-items:center; gap:7px; padding:4px 6px; border-radius:5px; font-size:12px; cursor:pointer; }
       #page-realtimemonitor .rm-msel-row:hover { background:var(--bg3); }
+      #page-realtimemonitor .rm-msel-name { flex:1; min-width:0; overflow-wrap:anywhere; }
+      #page-realtimemonitor .rm-msel-n { font-variant-numeric:tabular-nums; font-weight:700; font-size:11px; min-width:26px; text-align:center; padding:1px 7px; border-radius:99px; background:var(--bg4); color:var(--text2); }
+      #page-realtimemonitor .rm-msel-row.zero { opacity:.45; } #page-realtimemonitor .rm-msel-row.zero .rm-msel-n { font-weight:500; }
       #page-realtimemonitor .rm-msel-actions { display:flex; justify-content:space-between; font-size:11px; padding:4px 6px 8px; border-bottom:1px dashed var(--border); margin-bottom:4px; }
       #page-realtimemonitor .rm-msel-actions a { color:#2563eb; cursor:pointer; text-decoration:none; }
     </style>
@@ -6775,7 +6778,7 @@ function renderPivot(ft) {
     const selSet = rmMultiSel[key];
     panel.innerHTML = `
       <div class="rm-msel-actions"><a data-msel-all="${key}">เลือกทั้งหมด</a><a data-msel-clear="${key}">ล้าง</a></div>
-      ${values.map(v => `<label class="rm-msel-row"><input type="checkbox" data-msel-val="${rmEsc(v)}"> ${rmEsc(v)}</label>`).join('')}`;
+      ${values.map(v => `<label class="rm-msel-row"><input type="checkbox" data-msel-val="${rmEsc(v)}"> <span class="rm-msel-name">${rmEsc(v)}</span><span class="rm-msel-n" data-msel-n>-</span></label>`).join('')}`;
     panel.querySelectorAll('[data-msel-val]').forEach(cb => {
       cb.checked = selSet.has(cb.dataset.mselVal);
       cb.addEventListener('change', () => {
@@ -6798,6 +6801,17 @@ function renderPivot(ft) {
     });
     panel.dataset.populated = '1';
     updateMultiSelectLabel(key, label, values.length);
+  }
+  // Ticket count next to every option (backend "filter_counts"). The rows are built once per view,
+  // so counts are refreshed in place on every data load without rebuilding the panel.
+  function updateMultiSelectCounts(key, counts) {
+    const panel = document.getElementById(`rm-${key}-panel`);
+    if (!panel || !counts) return;
+    panel.querySelectorAll('.rm-msel-row').forEach(row => {
+      const v = row.querySelector('[data-msel-val]').dataset.mselVal, n = counts[v] || 0;
+      row.querySelector('[data-msel-n]').textContent = n;
+      row.classList.toggle('zero', n === 0);
+    });
   }
   function updateMultiSelectLabel(key, labelEl, total) {
     const n = rmMultiSel[key].size;
@@ -7044,6 +7058,7 @@ function renderPivot(ft) {
     populateMultiSelectOnce('trueowner', data.filter_options.trueowners);
     populateMultiSelectOnce('district', data.filter_options.districts);
     populateMultiSelectOnce('aging', data.aging_order);
+    ['trueowner', 'district', 'aging'].forEach(k => updateMultiSelectCounts(k, (data.filter_counts || {})[k]));
 
     buildBarChart('rm-chart-region', data.breakdown_region, data.aging_order, data.aging_colors);
     buildSlaDonut('rm-chart-sla-donut', data.sla_breakdown, data.aging_order, data.aging_colors);
