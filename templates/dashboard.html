@@ -3141,7 +3141,7 @@ window.p0RenderSiteType = function () {
 // Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
 // /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
 // else on the page is touched.
-const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false };
+const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: false, P1: false } };
 (function () {
   const st = document.createElement('style');
   st.textContent = '#p0fl-overlay .fl-box{border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0}#p0fl-overlay .fl-box h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}#p0fl-overlay .fl-grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}@media(max-width:760px){ #p0fl-overlay .fl-grid2{grid-template-columns:1fr}}#p0fl-overlay .fl-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}#p0fl-overlay .fl-seg button{font:inherit;font-size:11px;padding:2px 8px;border:0;background:none;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0}#p0fl-overlay .fl-seg button.on{background:var(--bg3);color:var(--text);font-weight:700}#p0fl-overlay table{border-collapse:collapse;width:100%;font-size:12.5px}#p0fl-overlay th{background:var(--bg3);padding:6px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text2);white-space:nowrap;position:sticky;top:0}#p0fl-overlay th:first-child,#p0fl-overlay td:first-child{text-align:left}#p0fl-overlay td{padding:5px 8px;text-align:right;border-top:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}#p0fl-overlay td:first-child{white-space:normal;min-width:200px}#p0fl-overlay tr.fl-cat,#p0fl-overlay tr.fl-prov{cursor:pointer}#p0fl-overlay tr.fl-cat:hover td,#p0fl-overlay tr.fl-prov:hover td{background:var(--bg3)}#p0fl-overlay tr.fl-sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .fl-chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);text-transform:none;letter-spacing:0;font-weight:400}';
@@ -3155,6 +3155,7 @@ window.p0OpenFlag = async function () {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,22,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:12px;';
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fl-close]')) { ov.style.display = 'none'; return; }
+      const pb = e.target.closest('[data-fl-prio]'); if (pb) { P0FL.prio[pb.dataset.flPrio] = !P0FL.prio[pb.dataset.flPrio]; window.p0RenderFlag(); return; }
       const m = e.target.closest('[data-fl-mode]'); if (m) { P0FL.mode = m.dataset.flMode; window.p0RenderFlag(); return; }
       const so = e.target.closest('[data-fl-sort]'); if (so) { P0FL.sort = so.dataset.flSort; window.p0RenderFlag(); return; }
       if (e.target.closest('[data-fl-clear]')) { e.preventDefault(); P0FL.cat = null; window.p0RenderFlag(); return; }
@@ -3165,7 +3166,7 @@ window.p0OpenFlag = async function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
     document.body.appendChild(ov);
   }
-  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now';
+  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: false, P1: false };
   ov.style.display = 'flex';
   const fresh = P0FL.data && (Date.now() - P0FL.ts) < 60000;
   if (fresh) { window.p0RenderFlag(); return; }
@@ -3180,8 +3181,11 @@ window.p0OpenFlag = async function () {
   }
 };
 window.p0RenderFlag = function () {
-  const d = P0FL.data, ov = document.getElementById('p0fl-overlay');
-  if (!d || !ov) return;
+  const full = P0FL.data, ov = document.getElementById('p0fl-overlay');
+  if (!full || !ov) return;
+  // Priority filter (P0 / P1 only): none ticked = every ticket, otherwise the matching pre-computed view.
+  const pk = (P0FL.prio.P0 && P0FL.prio.P1) ? 'P0P1' : (P0FL.prio.P0 ? 'P0' : (P0FL.prio.P1 ? 'P1' : ''));
+  const d = (pk && full.views && full.views[pk]) ? Object.assign({}, full, full.views[pk]) : full;
   const esc = p0T5Esc, FLAG = '#d97706', NON = '#64748b', CYAN = '#0891b2';
   const days = d.dates.map(x => x.slice(5).replace('-', '/'));
   const dtx = n => n == null ? '' : `<span style="color:${n > 0 ? '#B23A3A' : (n < 0 ? '#639922' : 'var(--text3)')};font-weight:700;white-space:nowrap;">${n > 0 ? '▲ +' + n : (n < 0 ? '▼ ' + n : '–')}</span>`;
@@ -3243,9 +3247,11 @@ window.p0RenderFlag = function () {
   const nCat = d.categories.filter(c => c.now > 0).length;
   const selChip = P0FL.cat !== null ? `<span class="fl-chip">${esc(d.categories[P0FL.cat].name.replace('Cell Up/Down Alarm: ', 'Cell: '))} <a href="#" data-fl-clear style="color:var(--blue)">ล้าง ✕</a></span>` : '';
   const modeSeg = P0FL.cat === null ? `<span class="fl-seg">${[['both', 'ทั้งหมด'], ['flag', 'Flag'], ['non', 'ไม่ Flag']].map(a => `<button data-fl-mode="${a[0]}" class="${P0FL.mode === a[0] ? 'on' : ''}">${a[1]}</button>`).join('')}</span>` : '';
+  const prioChips = ['P0', 'P1'].map(p => `<button type="button" data-fl-prio="${p}" style="font:inherit;font-size:12px;font-weight:700;padding:3px 12px;border-radius:14px;cursor:pointer;border:1px solid ${P0FL.prio[p] ? (p === 'P0' ? '#E24B4A' : '#EF9F27') : 'var(--border2)'};background:${P0FL.prio[p] ? (p === 'P0' ? '#E24B4A22' : '#EF9F2722') : 'none'};color:${P0FL.prio[p] ? 'var(--text)' : 'var(--text2)'};">${p}</button>`).join('');
   const snapTxt = d.snapshot_date ? `Snapshot 01:15 (${d.snapshot_date}) = ${totSnap} ใบ` : 'ยังไม่พบไฟล์ Snapshot';
   ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
     <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending ปัจจุบัน ${tot} ใบ · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3);"><span style="font-weight:600;">Priority:</span>${prioChips}<span>${pk ? 'แสดงเฉพาะตั๋ว ' + pk.replace('P0P1', 'P0 + P1').replace(/^P(\d)$/, 'P$1') + ' (ทุกตัวเลขใน panel นี้) · กดซ้ำเพื่อยกเลิก' : 'ไม่เลือก = ทุก Priority (รวม P2)'}</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
       ${tile(FLAG, d.flag_now, dtx(sub(d.flag_now, d.flag_snap)), `Flag Priority · ${tot ? Math.round(d.flag_now / tot * 100) : 0}% ของ NSA3/4`)}
       ${tile(NON, d.non_now, dtx(sub(d.non_now, d.non_snap)), `ไม่ Flag · ${tot ? Math.round(d.non_now / tot * 100) : 0}%`)}
