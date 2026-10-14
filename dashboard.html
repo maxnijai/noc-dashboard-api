@@ -3056,6 +3056,7 @@ async function loadP0DailyTrendSparklines(accents, groups) {
   } catch (e) {
     console.error('P0 daily trend sparklines failed', e);
   }
+  setTimeout(() => { try { window.p0PrefetchFlag && window.p0PrefetchFlag(); } catch (e) { /* prefetch is best-effort */ } }, 300);
   try { renderTotalPendingSparklines(); } catch (e) { console.error('Total Pending sparklines failed', e); }
 }
 
@@ -3141,18 +3142,25 @@ window.p0RenderSiteType = function () {
 // Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
 // /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
 // else on the page is touched.
-const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true } };
+const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true }, hist: null, histInflight: null,
+  // Month Forecast baseline: Flag P0+P1 @01:15 on the start date, straight line down to the target by month end.
+  fc: { startDate: '2026-10-11', startValue: 157, endDate: '2026-10-31', target: 0 } };
 (function () {
   const st = document.createElement('style');
   st.textContent = '#p0fl-overlay .fl-box{border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0}#p0fl-overlay .fl-box h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}#p0fl-overlay .fl-grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}@media(max-width:760px){ #p0fl-overlay .fl-grid2{grid-template-columns:1fr}}#p0fl-overlay .fl-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}#p0fl-overlay .fl-seg button{font:inherit;font-size:11px;padding:2px 8px;border:0;background:none;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0}#p0fl-overlay .fl-seg button.on{background:var(--bg3);color:var(--text);font-weight:700}#p0fl-overlay table{border-collapse:collapse;width:100%;font-size:12.5px}#p0fl-overlay th{background:var(--bg3);padding:6px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text2);white-space:nowrap;position:sticky;top:0}#p0fl-overlay th:first-child,#p0fl-overlay td:first-child{text-align:left}#p0fl-overlay td{padding:5px 8px;text-align:right;border-top:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}#p0fl-overlay td:first-child{white-space:normal;min-width:200px}#p0fl-overlay tr.fl-cat,#p0fl-overlay tr.fl-prov{cursor:pointer}#p0fl-overlay tr.fl-cat:hover td,#p0fl-overlay tr.fl-prov:hover td{background:var(--bg3)}#p0fl-overlay tr.fl-sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .fl-chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);text-transform:none;letter-spacing:0;font-weight:400}';
   document.head.appendChild(st);
 })();
+try { const t = parseInt(localStorage.getItem('p0fl-target'), 10); if (!isNaN(t) && t >= 0) P0FL.fc.target = t; } catch (e) { /* storage blocked - keep default */ }
 window.p0OpenFlag = async function () {
   let ov = document.getElementById('p0fl-overlay');
   if (!ov) {
     ov = document.createElement('div');
     ov.id = 'p0fl-overlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,22,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:12px;';
+    ov.addEventListener('change', e => {
+      const ti = e.target.closest('[data-fl-tgt]');
+      if (ti) { const v = Math.max(0, parseInt(ti.value, 10) || 0); P0FL.fc.target = v; try { localStorage.setItem('p0fl-target', String(v)); } catch (err) { /* ignore */ } window.p0RenderFlag(); }
+    });
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fl-close]')) { ov.style.display = 'none'; return; }
       const pb = e.target.closest('[data-fl-prio]'); if (pb) { P0FL.prio[pb.dataset.flPrio] = !P0FL.prio[pb.dataset.flPrio]; window.p0RenderFlag(); return; }
@@ -3168,24 +3176,51 @@ window.p0OpenFlag = async function () {
   }
   P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true };
   ov.style.display = 'flex';
-  const fresh = P0FL.data && (Date.now() - P0FL.ts) < 60000;
-  if (fresh) { window.p0RenderFlag(); return; }
-  ov.innerHTML = '<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (ครั้งแรกอาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ Snapshot ย้อนหลัง)</div>';
-  try {
-    const res = await fetch('/api/p0-nsa34-flag');
-    if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
-    P0FL.data = await res.json(); P0FL.ts = Date.now();
+  // Stale-while-revalidate: show whatever we already have instantly, refresh in the background when older than 60s.
+  if (P0FL.data) {
     window.p0RenderFlag();
-  } catch (e) {
-    ov.innerHTML = `<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:22px 28px;font-size:13px;max-width:420px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">${p0T5Esc(e.message || e)}</div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`;
+    if ((Date.now() - P0FL.ts) >= 60000) window.p0LoadFlag(true).then(ok => { if (ok && ov.style.display === 'flex') window.p0RenderFlag(); });
+    return;
   }
+  ov.innerHTML = '<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (ครั้งแรกหลังเปิดระบบอาจใช้เวลาสักครู่)</div>';
+  const ok = await window.p0LoadFlag(false);
+  if (ok) { if (ov.style.display === 'flex') window.p0RenderFlag(); }
+  else ov.innerHTML = `<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:22px 28px;font-size:13px;max-width:420px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">${p0T5Esc(P0FL.err || '')}</div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`;
 };
+// One shared in-flight request (prefetch and button press never double-fetch).
+window.p0LoadFlag = function (quiet) {
+  if (P0FL.inflight) return P0FL.inflight;
+  P0FL.inflight = (async () => {
+    try {
+      const res = await fetch('/api/p0-nsa34-flag');
+      if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+      P0FL.data = await res.json(); P0FL.ts = Date.now(); P0FL.err = '';
+      window.p0LoadFlagHistory();
+      return true;
+    } catch (e) { P0FL.err = e.message || String(e); if (!quiet) console.error('Flag Priority load failed', e); return false; }
+    finally { P0FL.inflight = null; }
+  })();
+  return P0FL.inflight;
+};
+// Days older than the 7-day window (only needed once the month moves past it) - loaded in the background, best-effort.
+window.p0LoadFlagHistory = function () {
+  const d = P0FL.data; if (!d || P0FL.hist || P0FL.histInflight || !d.dates || !d.dates.length) return;
+  if (d.dates[0] <= P0FL.fc.startDate) return;   // the window already reaches the start date
+  P0FL.histInflight = fetch('/api/p0-nsa34-flag-history?from=' + P0FL.fc.startDate)
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if (j && j.series) { P0FL.hist = j; const ov = document.getElementById('p0fl-overlay'); if (ov && ov.style.display === 'flex') window.p0RenderFlag(); } })
+    .catch(e => console.error('Flag history load failed', e))
+    .finally(() => { P0FL.histInflight = null; });
+};
+// Called quietly once the card row is on screen, so the data is usually ready before anyone presses the button.
+window.p0PrefetchFlag = function () { if (!P0FL.data && !P0FL.inflight) window.p0LoadFlag(true); };
 window.p0RenderFlag = function () {
   const full = P0FL.data, ov = document.getElementById('p0fl-overlay');
   if (!full || !ov) return;
   // Priority filter (P0 / P1 only): none ticked = every ticket, otherwise the matching pre-computed view.
   const pk = (P0FL.prio.P0 && P0FL.prio.P1) ? 'P0P1' : (P0FL.prio.P0 ? 'P0' : (P0FL.prio.P1 ? 'P1' : ''));
-  const d = (pk && full.views && full.views[pk]) ? Object.assign({}, full, full.views[pk]) : full;
+  const viewOk = !pk || !!(full.views && full.views[pk]);
+  const d = (pk && viewOk) ? Object.assign({}, full, full.views[pk]) : full;
   const esc = p0T5Esc, FLAG = '#d97706', NON = '#64748b', CYAN = '#0891b2';
   const days = d.dates.map(x => x.slice(5).replace('-', '/'));
   const dtx = n => n == null ? '' : `<span style="color:${n > 0 ? '#B23A3A' : (n < 0 ? '#639922' : 'var(--text3)')};font-weight:700;white-space:nowrap;">${n > 0 ? '▲ +' + n : (n < 0 ? '▼ ' + n : '–')}</span>`;
@@ -3197,25 +3232,49 @@ window.p0RenderFlag = function () {
     const w = 64, h = 18, vs = pts.map(p => p[1]), mx = Math.max(...vs, 1), mn = Math.min(...vs), n = v.length - 1;
     return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:inline-block;vertical-align:middle"><polyline fill="none" stroke="${FLAG}" stroke-width="1.6" points="${pts.map(p => (p[0] * w / n) + ',' + (h - 2 - (h - 4) * ((p[1] - mn) / ((mx - mn) || 1)))).join(' ')}"/></svg>`;
   };
-  // ----- trend chart (7 days @01:15)
+  // ----- Forecast chart: straight plan line vs Actual @01:15 (Flag · P0 + P1) -----
+  const FC = P0FL.fc, DAY = 86400000;
+  const utc = s => { const p = s.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); };
+  const fcStart = utc(FC.startDate), fcEnd = utc(FC.endDate);
+  const dayIdx = s => Math.round((utc(s) - fcStart) / DAY), nDays = Math.round((fcEnd - fcStart) / DAY);
+  const mdLabel = i => { const dt = new Date(fcStart + i * DAY); return String(dt.getUTCDate()); };
   const chart = () => {
-    // One line only: Flag tickets of the current Priority view (default P0 + P1), or the selected Category.
-    const series = [P0FL.cat !== null ? { n: d.categories[P0FL.cat].name, v: d.categories[P0FL.cat].trend, c: FLAG } : { n: 'Flag · ' + (pk ? pk.replace('P0P1', 'P0 + P1') : 'ทุก Priority'), v: d.series.flag, c: FLAG }];
-    const all = series.flatMap(s => s.v).filter(x => x != null);
-    if (!all.length) return '<div style="color:var(--text3);font-size:12px;padding:20px 0;">ยังไม่มีไฟล์ Snapshot ย้อนหลัง</div>';
-    const W = 560, H = 190, L = 34, R = 12, T = 14, B = 24, mx = Math.max(...all), step = mx > 60 ? 20 : 5, top = Math.ceil(mx * 1.1 / step) * step || 5;
-    const x = i => L + i * (W - L - R) / (days.length - 1), y = v => T + (H - T - B) * (1 - v / top);
+    const isPlan = P0FL.cat === null && pk === 'P0P1';
+    // Actual: the 7-day window from the main response + older days from the history endpoint.
+    const act = {};
+    const fromSeries = (dates, vals) => dates.forEach((dt, i) => { if (vals[i] != null) act[dt] = vals[i]; });
+    if (P0FL.cat !== null) fromSeries(d.dates, d.categories[P0FL.cat].trend);
+    else { if (P0FL.hist && P0FL.hist.series[pk || 'all']) fromSeries(P0FL.hist.dates, P0FL.hist.series[pk || 'all']); fromSeries(d.dates, d.series.flag); }
+    const pts = Object.keys(act).map(k => [dayIdx(k), act[k]]).filter(p => p[0] >= 0 && p[0] <= nDays).sort((a, b) => a[0] - b[0]);
+    const todayIdx = pts.length ? pts[pts.length - 1][0] : 0;
+    const W = 760, H = 280, L = 40, R = 16, T = 18, B = 30;
+    const mx = Math.max(FC.startValue, ...pts.map(p => p[1]), 1), top = Math.ceil(mx * 1.1 / 20) * 20 || 20;
+    const x = i => L + i * (W - L - R) / nDays, y = v => T + (H - T - B) * (1 - v / top);
     let g = '';
-    for (let k = 0; k <= 4; k++) { const v = top * k / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${k ? 3 : 0}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10.5" fill="var(--text3)">${Math.round(v)}</text>`; }
-    days.forEach((t, i) => g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--text3)">${t}</text>`);
-    series.forEach(s => {
-      const p = s.v.map((v, i) => v == null ? null : [i, v]).filter(Boolean);
-      g += `<polyline fill="none" stroke="${s.c}" stroke-width="2.2" ${s.dash ? 'stroke-dasharray="5 4"' : ''} points="${p.map(q => x(q[0]) + ',' + y(q[1])).join(' ')}"/>`;
-      p.forEach((q, j) => { g += `<circle cx="${x(q[0])}" cy="${y(q[1])}" r="${j === p.length - 1 ? 4 : 2.6}" fill="${s.c}"><title>${esc(s.n)} ${days[q[0]]}: ${q[1]}</title></circle>`; });
-      if (p.length) { const q = p[p.length - 1]; g += `<text x="${x(q[0])}" y="${y(q[1]) - 8}" text-anchor="end" font-size="11" font-weight="700" fill="${s.c}">${q[1]}</text>`; }
-    });
-    const lg = series.map(s => `<span style="margin-right:12px"><span style="color:${s.c}">●</span> ${esc(s.n)}</span>`).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trend 7 วันที่ Snapshot 01:15" style="display:block;width:100%;height:auto">${g}</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px">${lg}</div>`;
+    for (let k = 0; k <= 4; k++) { const v = top * k / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${k ? 3 : 0}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text3)">${Math.round(v)}</text>`; }
+    for (let i = 0; i <= nDays; i++) if (i % 2 === 0 || i === nDays || i === todayIdx) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${i === todayIdx ? 'var(--text)' : 'var(--text3)'}" font-weight="${i === todayIdx ? 700 : 400}">${mdLabel(i)}</text>`;
+    if (pts.length) g += `<line x1="${x(todayIdx)}" x2="${x(todayIdx)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/><text x="${x(todayIdx) + 4}" y="${T + 10}" font-size="10.5" fill="var(--text3)">วันนี้</text>`;
+    g += `<line x1="${x(nDays)}" x2="${x(nDays)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/>`;
+    let kpi = '';
+    if (isPlan) {
+      const perDay = (FC.startValue - FC.target) / nDays;
+      g += `<line x1="${x(0)}" y1="${y(FC.startValue)}" x2="${x(nDays)}" y2="${y(FC.target)}" stroke="#2563eb" stroke-width="2.2" stroke-dasharray="6 5"/><text x="${x(nDays) - 4}" y="${y(FC.target) - 8}" text-anchor="end" font-size="11" font-weight="700" fill="#2563eb">${FC.target}</text>`;
+      if (pts.length) {
+        const nowV = pts[pts.length - 1][1], planNow = Math.max(FC.target, FC.startValue - perDay * todayIdx), gap = nowV - planNow, left = nDays - todayIdx;
+        const catchRate = left > 0 ? Math.max(0, (nowV - FC.target) / left) : 0, f1 = n => Math.round(n * 10) / 10, behind = gap > 0.5;
+        kpi = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="border:1px solid var(--border);border-top:3px solid #2563eb;border-radius:6px;padding:6px 10px;"><b style="font-size:18px;">${f1(perDay)}</b> <span style="font-size:11px;color:var(--text3);">/วัน ต้องลดตามแผน (${FC.startValue} → ${FC.target})</span></div>
+          <div style="border:1px solid var(--border);border-top:3px solid #B23A3A;border-radius:6px;padding:6px 10px;"><b style="font-size:18px;">${f1(catchRate)}</b> <span style="font-size:11px;color:var(--text3);">/วัน ต้องลดจากวันนี้ (เหลือ ${left} วัน)</span></div>
+          <div style="border:1px solid var(--border);border-top:3px solid ${behind ? '#B23A3A' : '#639922'};border-radius:6px;padding:6px 10px;"><b style="font-size:18px;color:${behind ? '#B23A3A' : '#639922'};">${behind ? '▲ +' : '▼ '}${f1(Math.abs(gap))}</b> <span style="font-size:11px;color:var(--text3);">${behind ? 'ช้ากว่าแผน' : 'เร็วกว่าแผน'}</span></div></div>`;
+      }
+    }
+    if (!pts.length) return '<div style="color:var(--text3);font-size:12px;padding:20px 0;">ยังไม่มีไฟล์ Snapshot ย้อนหลัง</div>';
+    g += `<polyline fill="none" stroke="${FLAG}" stroke-width="2.6" points="${pts.map(p => x(p[0]) + ',' + y(p[1])).join(' ')}"/>`;
+    pts.forEach((p, j) => { g += `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="${j === pts.length - 1 ? 5 : 3.2}" fill="${FLAG}"><title>${mdLabel(p[0])}: ${p[1]}</title></circle><text x="${x(p[0])}" y="${y(p[1]) - 9}" text-anchor="middle" font-size="11" font-weight="700" fill="${FLAG}">${p[1]}</text>`; });
+    const lgPlan = isPlan ? `<span style="margin-left:14px"><span style="color:#2563eb">╌╌</span> แผน (เส้นตรงจาก ${FC.startDate.slice(5).replace('-', '/')} = ${FC.startValue})</span>` : '';
+    const note = (!isPlan && P0FL.cat === null) ? '<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">เส้นแผนแสดงเฉพาะเมื่อเลือก P0 + P1 ทั้งคู่</div>' : '';
+    const tg = isPlan ? `<label style="font-size:12px;color:var(--text2);margin-left:auto;">เป้าหมายคงเหลือ <input type="number" min="0" value="${FC.target}" data-fl-tgt style="width:56px;font:inherit;font-size:12px;padding:1px 5px;border:1px solid var(--border2);border-radius:5px;background:var(--bg3);color:var(--text);"> ใบ ภายใน ${mdLabel(nDays)}</label>` : '';
+    return `${kpi}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual เทียบแผนลด Flag ถึงสิ้นเดือน" style="display:block;width:100%;height:auto">${g}</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span><span style="color:${FLAG}">●</span> Actual @01:15</span>${lgPlan}${tg}</div>${note}`;
   };
   // ----- category table
   const maxN = Math.max(...d.categories.map(c => c.now), 1);
@@ -3246,7 +3305,8 @@ window.p0RenderFlag = function () {
   const fullTot = full.flag_now + full.non_now, fullSnap = full.flag_snap == null ? null : full.flag_snap + full.non_snap;
   const snapTxt = d.snapshot_date ? `Snapshot 01:15 (${d.snapshot_date}) = ${fullSnap} ใบ` : 'ยังไม่พบไฟล์ Snapshot';
   ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending NSA3/4 ปัจจุบัน ${fullTot} ใบ${pk ? ' · ในหน้านี้นับเฉพาะ ' + pk.replace('P0P1', 'P0 + P1') + ' = ' + tot + ' ใบ' : ''} · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="display:inline-block;margin-top:4px;font-size:12px;border:1px solid var(--border2);border-radius:12px;padding:1px 10px;color:var(--text2);" title="insert_time = เวลาที่ระบบต้นทางอัปเดตข้อมูลรอบนี้ (เหมือนหน้า Pending Ticket)">🕒 รอบข้อมูลปัจจุบัน (insert_time): <b>${esc(full.insert_time || '-')}</b></div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending NSA3/4 ปัจจุบัน ${fullTot} ใบ${pk ? ' · ในหน้านี้นับเฉพาะ ' + pk.replace('P0P1', 'P0 + P1') + ' = ' + tot + ' ใบ' : ''} · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+    ${viewOk ? '' : '<div style="border:1px solid #B23A3A;background:#B23A3A18;border-radius:6px;padding:8px 12px;font-size:12.5px;">⚠️ ข้อมูลจาก Server ยังไม่มีการกรอง Priority (ต้อง Deploy pending_ticket.py ตัวใหม่) — ตัวเลขด้านล่างจึงเป็นทุก Priority</div>'}
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3);"><span style="font-weight:600;">Priority:</span>${prioChips}<span>${pk ? 'แสดงเฉพาะตั๋ว ' + pk.replace('P0P1', 'P0 + P1').replace(/^P(\d)$/, 'P$1') + ' (ทุกตัวเลขใน panel นี้) · กดซ้ำเพื่อยกเลิก' : 'ไม่เลือกทั้งคู่ = ทุก Priority (รวม P2)'}</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
       ${tile(FLAG, d.flag_now, dtx(sub(d.flag_now, d.flag_snap)), `Flag Priority · ${tot ? Math.round(d.flag_now / tot * 100) : 0}% ของ NSA3/4`)}
@@ -3254,18 +3314,17 @@ window.p0RenderFlag = function () {
       ${tile('#B23A3A', d.flag_p0, '', 'Flag ที่เป็น P0 (Over SLA &gt; 1 วัน)')}
       ${tile('#2563eb', nCat + '<span style="font-size:13px;color:var(--text3)"> / ' + d.categories.length + '</span>', '', 'Category ที่มีตั๋วค้างอยู่')}
     </div>
+    <div class="fl-box"><h3><span>Trend @01:15 · Actual vs Forecast ${selChip}</span>${modeSeg}</h3>${chart()}</div>
     <div class="fl-grid2">
-      <div class="fl-box"><h3><span>Trend @01:15 (7 วัน) ${selChip}</span>${modeSeg}</h3>${chart()}</div>
       <div class="fl-box"><h3><span>Aging_Flag_Group (เฉพาะ Flag)</span></h3>${agHtml}<div style="font-size:11.5px;color:var(--text3);margin-top:6px">Over SLA รวม <b style="color:#B45309">${overN} ใบ</b> (${Math.round(overN / agTot * 100)}% ของ Flag)</div></div>
+      <div class="fl-box"><h3><span>Top 8 จังหวัด (เฉพาะ Flag)</span><span class="fl-chip">คลิก = เปิดแผนที่ Drill-down</span></h3>${top8Html}</div>
     </div>
     <div class="fl-box"><h3><span>Flag แยกตาม Category (${d.categories.length} รายการ) <span class="fl-chip">คลิกแถวเพื่อดู Trend ของ Category นั้น</span></span><span class="fl-seg"><button data-fl-sort="now" class="${P0FL.sort === 'now' ? 'on' : ''}">เรียงตามจำนวน</button><button data-fl-sort="diff" class="${P0FL.sort === 'diff' ? 'on' : ''}">เรียงตามที่เพิ่มขึ้น</button></span></h3>
       <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:620px"><thead><tr><th>Category</th><th>ตอนนี้</th><th>@01:15</th><th>เทียบ</th><th>P0</th><th>% ของ Flag</th><th>7 วัน</th></tr></thead><tbody>${catRows}${catTotRow}</tbody></table></div></div>
     <div class="fl-box"><h3><span>Trend by Province @01:15 (Flag) <span class="fl-chip">สีเข้ม = ค้างมาก · คลิกแถว = เปิดแผนที่ Drill-down</span></span></h3>
       <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
-    <div class="fl-grid2">
-      <div class="fl-box"><h3><span>Top 8 จังหวัด (เฉพาะ Flag)</span><span class="fl-chip">คลิก = เปิดแผนที่ Drill-down</span></h3>${top8Html}</div>
-      <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
-    </div>
+    <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
+
     <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag ทุก Priority = ${fullTot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
   </div>`;
 };
