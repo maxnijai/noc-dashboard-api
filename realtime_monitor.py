@@ -240,6 +240,30 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
         "districts": sorted({str(r.get("DISTRICT", "")).strip() for r in view_only if r.get("DISTRICT")}),
     }
 
+    # Per-option ticket counts shown next to each checkbox in the three dropdowns (explicit request).
+    # Faceted: a dropdown's counts apply every OTHER active filter (view, region, and the other two
+    # dropdowns) but not its own selection - so each number is "how many tickets you would see if you
+    # ticked just this option", and ticking several options of one dropdown still adds up sensibly.
+    def _facet(key, skip):
+        counts = {}
+        for r in view_only:
+            if not _row_matches_filters(
+                r, region_filter,
+                None if skip == "trueowner" else trueowner_filter,
+                None if skip == "aging" else aging_filter,
+                None if skip == "district" else district_filter,
+            ):
+                continue
+            v = str(r.get(key, "")).strip()
+            if v:
+                counts[v] = counts.get(v, 0) + 1
+        return counts
+    filter_counts = {
+        "trueowner": _facet("TRUEOWNERGROUP", "trueowner"),
+        "aging": _facet("Aging_Flag_Group", "aging"),
+        "district": _facet("DISTRICT", "district"),
+    }
+
     map_points = []
     detail_rows = []
     for r in matched:
@@ -274,6 +298,7 @@ def build_realtime_response(gs_client=None, view_key="FBB", region_filter=None,
         "insert_time": all_rows[0].get("insert_time") if all_rows else None,
         "total": len(matched),
         "filter_options": filter_options,
+        "filter_counts": filter_counts,
         "aging_order": AGING_ORDER,
         "aging_colors": AGING_COLORS,
         "priority_colors": PRIORITY_COLORS,
