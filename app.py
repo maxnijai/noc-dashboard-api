@@ -22,6 +22,7 @@ from pending_ticket import (
     build_p0_daily_trend,
     build_p0_drilldown,
     build_nsa34_flag_breakdown,
+    build_nsa34_flag_history,
     build_pending_ticket_xlsx,
 )
 import oncall
@@ -3382,6 +3383,20 @@ def api_p0_nsa34_flag():
         return jsonify(build_nsa34_flag_breakdown(gs_client, drive_service, days=7))
     except Exception as e:
         log.exception("p0-nsa34-flag API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-nsa34-flag-history')
+def api_p0_nsa34_flag_history():
+    """Flag totals @01:15 for days older than the 7-day window (month Forecast chart). ?from=YYYY-MM-DD"""
+    try:
+        from datetime import datetime as _dt
+        start = _dt.strptime(request.args.get('from', ''), '%Y-%m-%d').date()
+        drive_service, _gs = get_drive_and_sheets_clients()
+        return jsonify(build_nsa34_flag_history(drive_service, start))
+    except ValueError:
+        return jsonify({'error': 'from=YYYY-MM-DD required'}), 400
+    except Exception as e:
+        log.exception("p0-nsa34-flag-history API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-daily-trend')

@@ -1989,7 +1989,7 @@ def _nsa34_scan(rows, reference_dt):
     return by
 
 
-def _nsa34_day_scan(drive_service, day, today):
+def _nsa34_day_scan(drive_service, day, today, keep_rows=True):
     """Snapshot (~01:15 file) scan for one day, or None when no file. Past
     days are cached forever (a finished day's file never changes); today is
     never cached - same rule as build_p0_daily_trend."""
@@ -2006,7 +2006,13 @@ def _nsa34_day_scan(drive_service, day, today):
             hit = _nsa34_today_cache.get(date_str)
         if hit and (time.monotonic() - hit[0]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
             return hit[1]
-    rows, _info = _get_rows_for_day(drive_service, day, today)
+    if keep_rows:
+        rows, _info = _get_rows_for_day(drive_service, day, today)
+    else:
+        # Older-than-window history: download, count, discard - never park ~5MB of raw rows per day in memory.
+        from pending_trend import find_nightly_file, download_xlsx_as_rows
+        fi = find_nightly_file(drive_service, day)
+        rows = download_xlsx_as_rows(drive_service, fi[0]) if fi else None
     res = None
     if rows is not None:
         try:
@@ -2094,6 +2100,25 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
     out["dates"] = [d.strftime("%Y-%m-%d") for d in all_days]
     out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v) for v in ("P0", "P1", "P0P1")}
     return out
+
+
+def build_nsa34_flag_history(drive_service, start_date, window_days=7):
+    """Flag totals @01:15 per day for the days BEFORE the 7-day window of
+    build_nsa34_flag_breakdown (start_date .. today-7), for the month Forecast chart.
+    {"dates": [...], "series": {"all"|"P0"|"P1"|"P0P1": [flag count or None]}}. Past days cached forever."""
+    today = bangkok_now().date()
+    last = today - _timedelta(days=window_days)
+    dates, days_list = [], []
+    d = start_date
+    while d <= last:
+        days_list.append(d)
+        d += _timedelta(days=1)
+    scans = [_nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in days_list]
+    series = {v: [] for v in _NSA34_VIEWS}
+    for sc in scans:
+        for v, keys in _NSA34_VIEWS.items():
+            series[v].append(None if sc is None else sum(sc[k]["flag"] for k in keys))
+    return {"dates": [d.strftime("%Y-%m-%d") for d in days_list], "series": series}
 
 
 # ── Online SA1-4 SLA Monitoring ─────────────────────────────────────────
