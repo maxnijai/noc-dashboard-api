@@ -2096,6 +2096,9 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
 
     out = _nsa34_view(scans, cur_by, snap_idx, all_days, "all")
     out["generated_at"] = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    # insert_time = stamped by the source system on every row of the current batch ("รอบข้อมูลปัจจุบัน"),
+    # same field Pending Ticket / P0 Only show.
+    out["insert_time"] = live_rows[0].get("insert_time") if live_rows else None
     out["snapshot_date"] = all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None
     out["dates"] = [d.strftime("%Y-%m-%d") for d in all_days]
     out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v) for v in ("P0", "P1", "P0P1")}
