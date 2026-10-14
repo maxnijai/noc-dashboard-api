@@ -3137,6 +3137,136 @@ window.p0RenderSiteType = function () {
     <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Coverage P0 = ไซต์ Coverage และ Severity SA1-3 · Coverage P1 = ไซต์ Coverage และ Severity SA4 · Capacity = สัญญาณไปถึงไซต์อื่น (โมเดล RSRP + ภูเขา) · ไม่พบไซต์ = CINAME/Subject ไม่ตรงกับ LOCATION ID</div>
   </div>`;
 };
+// ===== NSA3/NSA4 FLAG PRIORITY PANEL =====
+// Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
+// /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
+// else on the page is touched.
+const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false };
+(function () {
+  const st = document.createElement('style');
+  st.textContent = '#p0fl-overlay .fl-box{border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-width:0}#p0fl-overlay .fl-box h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}#p0fl-overlay .fl-grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px}@media(max-width:760px){#p0fl-overlay .fl-grid2{grid-template-columns:1fr}}#p0fl-overlay .fl-seg{display:inline-flex;border:1px solid var(--border2);border-radius:6px;overflow:hidden}#p0fl-overlay .fl-seg button{font:inherit;font-size:11px;padding:2px 8px;border:0;background:none;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:0}#p0fl-overlay .fl-seg button.on{background:var(--bg3);color:var(--text);font-weight:700}#p0fl-overlay table{border-collapse:collapse;width:100%;font-size:12.5px}#p0fl-overlay th{background:var(--bg3);padding:6px 8px;text-align:right;font-size:10.5px;text-transform:uppercase;color:var(--text2);white-space:nowrap;position:sticky;top:0}#p0fl-overlay th:first-child,#p0fl-overlay td:first-child{text-align:left}#p0fl-overlay td{padding:5px 8px;text-align:right;border-top:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}#p0fl-overlay td:first-child{white-space:normal;min-width:200px}#p0fl-overlay tr.fl-cat,#p0fl-overlay tr.fl-prov{cursor:pointer}#p0fl-overlay tr.fl-cat:hover td,#p0fl-overlay tr.fl-prov:hover td{background:var(--bg3)}#p0fl-overlay tr.fl-sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .fl-chip{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);text-transform:none;letter-spacing:0;font-weight:400}';
+  document.head.appendChild(st);
+})();
+window.p0OpenFlag = async function () {
+  let ov = document.getElementById('p0fl-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'p0fl-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,16,22,.55);z-index:100000;display:none;align-items:center;justify-content:center;padding:12px;';
+    ov.addEventListener('click', e => {
+      if (e.target === ov || e.target.closest('[data-fl-close]')) { ov.style.display = 'none'; return; }
+      const m = e.target.closest('[data-fl-mode]'); if (m) { P0FL.mode = m.dataset.flMode; window.p0RenderFlag(); return; }
+      const so = e.target.closest('[data-fl-sort]'); if (so) { P0FL.sort = so.dataset.flSort; window.p0RenderFlag(); return; }
+      if (e.target.closest('[data-fl-clear]')) { e.preventDefault(); P0FL.cat = null; window.p0RenderFlag(); return; }
+      const r = e.target.closest('tr.fl-cat'); if (r) { const i = +r.dataset.i; P0FL.cat = P0FL.cat === i ? null : i; window.p0RenderFlag(); return; }
+      const pr = e.target.closest('[data-fl-prov]');
+      if (pr) { ov.style.display = 'none'; try { p0OpenDrilldown('total', 'NSA34', pr.dataset.flProv); } catch (err) { console.error(err); } }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+    document.body.appendChild(ov);
+  }
+  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now';
+  ov.style.display = 'flex';
+  const fresh = P0FL.data && (Date.now() - P0FL.ts) < 60000;
+  if (fresh) { window.p0RenderFlag(); return; }
+  ov.innerHTML = '<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (ครั้งแรกอาจใช้เวลาสักครู่ ถ้าต้องดึงไฟล์ Snapshot ย้อนหลัง)</div>';
+  try {
+    const res = await fetch('/api/p0-nsa34-flag');
+    if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+    P0FL.data = await res.json(); P0FL.ts = Date.now();
+    window.p0RenderFlag();
+  } catch (e) {
+    ov.innerHTML = `<div style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:22px 28px;font-size:13px;max-width:420px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">${p0T5Esc(e.message || e)}</div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`;
+  }
+};
+window.p0RenderFlag = function () {
+  const d = P0FL.data, ov = document.getElementById('p0fl-overlay');
+  if (!d || !ov) return;
+  const esc = p0T5Esc, FLAG = '#d97706', NON = '#64748b', CYAN = '#0891b2';
+  const days = d.dates.map(x => x.slice(5).replace('-', '/'));
+  const dtx = n => n == null ? '' : `<span style="color:${n > 0 ? '#B23A3A' : (n < 0 ? '#639922' : 'var(--text3)')};font-weight:700;white-space:nowrap;">${n > 0 ? '▲ +' + n : (n < 0 ? '▼ ' + n : '–')}</span>`;
+  const sub = (a, b) => (a == null || b == null) ? null : a - b;
+  const tot = d.flag_now + d.non_now, totSnap = (d.flag_snap == null) ? null : d.flag_snap + d.non_snap;
+  const spark = v => {
+    const pts = v.map((a, i) => a == null ? null : [i, a]).filter(Boolean);
+    if (pts.length < 2) return '';
+    const w = 64, h = 18, vs = pts.map(p => p[1]), mx = Math.max(...vs, 1), mn = Math.min(...vs), n = v.length - 1;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:inline-block;vertical-align:middle"><polyline fill="none" stroke="${FLAG}" stroke-width="1.6" points="${pts.map(p => (p[0] * w / n) + ',' + (h - 2 - (h - 4) * ((p[1] - mn) / ((mx - mn) || 1)))).join(' ')}"/></svg>`;
+  };
+  // ----- trend chart (7 days @01:15)
+  const chart = () => {
+    let series = [];
+    if (P0FL.cat !== null) { const c = d.categories[P0FL.cat]; series = [{ n: c.name, v: c.trend, c: FLAG }]; }
+    else {
+      if (P0FL.mode !== 'non') series.push({ n: 'Flag', v: d.series.flag, c: FLAG });
+      if (P0FL.mode !== 'flag') series.push({ n: 'ไม่ Flag', v: d.series.non, c: NON });
+      if (P0FL.mode === 'both') series.push({ n: 'รวม NSA3/4', v: d.series.flag.map((x, i) => (x == null || d.series.non[i] == null) ? null : x + d.series.non[i]), c: CYAN, dash: 1 });
+    }
+    const all = series.flatMap(s => s.v).filter(x => x != null);
+    if (!all.length) return '<div style="color:var(--text3);font-size:12px;padding:20px 0;">ยังไม่มีไฟล์ Snapshot ย้อนหลัง</div>';
+    const W = 560, H = 190, L = 34, R = 12, T = 14, B = 24, mx = Math.max(...all), step = mx > 60 ? 20 : 5, top = Math.ceil(mx * 1.1 / step) * step || 5;
+    const x = i => L + i * (W - L - R) / (days.length - 1), y = v => T + (H - T - B) * (1 - v / top);
+    let g = '';
+    for (let k = 0; k <= 4; k++) { const v = top * k / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${k ? 3 : 0}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10.5" fill="var(--text3)">${Math.round(v)}</text>`; }
+    days.forEach((t, i) => g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" font-size="10.5" fill="var(--text3)">${t}</text>`);
+    series.forEach(s => {
+      const p = s.v.map((v, i) => v == null ? null : [i, v]).filter(Boolean);
+      g += `<polyline fill="none" stroke="${s.c}" stroke-width="2.2" ${s.dash ? 'stroke-dasharray="5 4"' : ''} points="${p.map(q => x(q[0]) + ',' + y(q[1])).join(' ')}"/>`;
+      p.forEach((q, j) => { g += `<circle cx="${x(q[0])}" cy="${y(q[1])}" r="${j === p.length - 1 ? 4 : 2.6}" fill="${s.c}"><title>${esc(s.n)} ${days[q[0]]}: ${q[1]}</title></circle>`; });
+      if (p.length) { const q = p[p.length - 1]; g += `<text x="${x(q[0])}" y="${y(q[1]) - 8}" text-anchor="end" font-size="11" font-weight="700" fill="${s.c}">${q[1]}</text>`; }
+    });
+    const lg = series.map(s => `<span style="margin-right:12px"><span style="color:${s.c}">●</span> ${esc(s.n)}</span>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Trend 7 วันที่ Snapshot 01:15" style="display:block;width:100%;height:auto">${g}</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px">${lg}</div>`;
+  };
+  // ----- category table
+  const maxN = Math.max(...d.categories.map(c => c.now), 1);
+  const cats = d.categories.map((c, i) => Object.assign({ i }, c)).sort((a, b) => P0FL.sort === 'diff' ? (sub(b.now, b.snap) || 0) - (sub(a.now, a.snap) || 0) || b.now - a.now : b.now - a.now || a.i - b.i);
+  const catRows = cats.map(c => `<tr class="fl-cat ${P0FL.cat === c.i ? 'fl-sel' : ''}" data-i="${c.i}" ${c.now === 0 ? 'style="opacity:.45"' : ''}><td>${esc(c.name)}</td><td><span style="display:inline-block;width:70px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:6px"><i style="display:block;height:100%;width:${c.now / maxN * 100}%;background:${FLAG}"></i></span><b>${c.now}</b></td><td>${c.snap == null ? '–' : c.snap}</td><td>${dtx(sub(c.now, c.snap))}</td><td>${c.p0 ? `<b style="color:#B45309">${c.p0}</b>` : '–'}</td><td>${d.flag_now ? Math.round(c.now / d.flag_now * 100) : 0}%</td><td>${spark(c.trend)}</td></tr>`).join('');
+  const catTotRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม Flag</td><td>${d.flag_now}</td><td>${d.flag_snap == null ? '–' : d.flag_snap}</td><td>${dtx(sub(d.flag_now, d.flag_snap))}</td><td>${d.flag_p0}</td><td>100%</td><td></td></tr>`;
+  // ----- province trend table
+  const pmax = Math.max(1, ...d.provinces.flatMap(p => p.trend.concat([p.now]).filter(x => x != null)));
+  const provName = c => String(c).startsWith('(') ? c : provinceEnLabel(c);
+  const provRows = d.provinces.map(p => {
+    const clickable = !String(p.code).startsWith('(');
+    return `<tr class="fl-prov" ${clickable ? `data-fl-prov="${esc(p.code)}"` : 'style="cursor:default"'}><td>${esc(provName(p.code))}</td>${p.trend.map(x => `<td style="background:color-mix(in srgb,${FLAG} ${Math.round((x || 0) / pmax * 55)}%,transparent)">${x == null ? '·' : (x || '–')}</td>`).join('')}<td style="font-weight:700;background:color-mix(in srgb,${FLAG} ${Math.round(p.now / pmax * 55)}%,transparent)">${p.now || '–'}</td><td>${dtx(sub(p.now, p.snap))}</td><td>${dtx(sub(p.now, p.trend[0]))}</td><td>${spark(p.trend)}</td></tr>`;
+  }).join('');
+  const provTot = d.dates.map((_, i) => d.series.flag[i]);
+  const provTotRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม Flag</td>${provTot.map(x => `<td>${x == null ? '·' : x}</td>`).join('')}<td>${d.flag_now}</td><td>${dtx(sub(d.flag_now, d.flag_snap))}</td><td>${dtx(sub(d.flag_now, provTot[0]))}</td><td></td></tr>`;
+  const top8 = d.provinces.slice(0, 8), t8max = Math.max(1, ...top8.map(p => p.now));
+  const top8Html = top8.map((p, i) => { const click = !String(p.code).startsWith('('); return `<div ${click ? `data-fl-prov="${esc(p.code)}" style="cursor:pointer;` : 'style="'}display:grid;grid-template-columns:18px 1fr 90px 28px;gap:6px;align-items:center;font-size:12px;padding:2px 0"><span style="color:var(--text3);font-size:10px;text-align:right">${i + 1}</span><span>${esc(provName(p.code))}</span><span style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden"><i style="display:block;height:100%;width:${p.now / t8max * 100}%;background:${FLAG}"></i></span><b style="text-align:right">${p.now}</b></div>`; }).join('');
+  // ----- Aging_Flag_Group
+  const ag = d.aging, agTot = ag.order.reduce((s, k) => s + (ag.counts[k] || 0), 0) || 1, agMax = Math.max(1, ...ag.order.map(k => ag.counts[k] || 0));
+  const overN = ag.order.filter(k => /OverSLA/i.test(k)).reduce((s, k) => s + (ag.counts[k] || 0), 0);
+  const agHtml = ag.order.map(k => `<div style="display:grid;grid-template-columns:150px 1fr 30px 36px;gap:8px;align-items:center;font-size:12px;padding:2px 0"><span style="white-space:nowrap">${esc(k)}</span><span style="height:10px;background:var(--bg3);border-radius:3px;overflow:hidden"><i style="display:block;height:100%;width:${(ag.counts[k] || 0) / agMax * 100}%;background:${ag.colors[k] || '#8b949e'}"></i></span><b style="text-align:right">${ag.counts[k] || 0}</b><span style="color:var(--text3);text-align:right">${Math.round((ag.counts[k] || 0) / agTot * 100)}%</span></div>`).join('');
+  const nonHtml = d.nonflag_top.map(n => `<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--border);padding:2px 0"><span>${esc(n[0])}</span><b>${n[1]}</b></div>`).join('') + (d.nonflag_other ? `<div style="display:flex;justify-content:space-between;color:var(--text3);padding:2px 0"><span>อื่นๆ</span><b>${d.nonflag_other}</b></div>` : '');
+  const tile = (c, v, extra, label) => `<div style="border:1px solid var(--border);border-top:3px solid ${c};border-radius:6px;padding:8px 10px;"><b style="display:block;font-size:24px;line-height:1.1;">${v}${extra ? `<span style="font-size:11.5px;margin-left:6px;">${extra}</span>` : ''}</b><span style="font-size:11.5px;color:var(--text3);">${label}</span></div>`;
+  const nCat = d.categories.filter(c => c.now > 0).length;
+  const selChip = P0FL.cat !== null ? `<span class="fl-chip">${esc(d.categories[P0FL.cat].name.replace('Cell Up/Down Alarm: ', 'Cell: '))} <a href="#" data-fl-clear style="color:var(--blue)">ล้าง ✕</a></span>` : '';
+  const modeSeg = P0FL.cat === null ? `<span class="fl-seg">${[['both', 'ทั้งหมด'], ['flag', 'Flag'], ['non', 'ไม่ Flag']].map(a => `<button data-fl-mode="${a[0]}" class="${P0FL.mode === a[0] ? 'on' : ''}">${a[1]}</button>`).join('')}</span>` : '';
+  const snapTxt = d.snapshot_date ? `Snapshot 01:15 (${d.snapshot_date}) = ${totSnap} ใบ` : 'ยังไม่พบไฟล์ Snapshot';
+  ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="font-size:12px;color:var(--text3);margin-top:2px;">Total Pending ปัจจุบัน ${tot} ใบ · ${snapTxt} · กรอง CORP ออกแล้ว</div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+      ${tile(FLAG, d.flag_now, dtx(sub(d.flag_now, d.flag_snap)), `Flag Priority · ${tot ? Math.round(d.flag_now / tot * 100) : 0}% ของ NSA3/4`)}
+      ${tile(NON, d.non_now, dtx(sub(d.non_now, d.non_snap)), `ไม่ Flag · ${tot ? Math.round(d.non_now / tot * 100) : 0}%`)}
+      ${tile('#B23A3A', d.flag_p0, '', 'Flag ที่เป็น P0 (Over SLA &gt; 1 วัน)')}
+      ${tile('#2563eb', nCat + '<span style="font-size:13px;color:var(--text3)"> / ' + d.categories.length + '</span>', '', 'Category ที่มีตั๋วค้างอยู่')}
+    </div>
+    <div class="fl-grid2">
+      <div class="fl-box"><h3><span>Trend @01:15 (7 วัน) ${selChip}</span>${modeSeg}</h3>${chart()}</div>
+      <div class="fl-box"><h3><span>Aging_Flag_Group (เฉพาะ Flag)</span></h3>${agHtml}<div style="font-size:11.5px;color:var(--text3);margin-top:6px">Over SLA รวม <b style="color:#B45309">${overN} ใบ</b> (${Math.round(overN / agTot * 100)}% ของ Flag)</div></div>
+    </div>
+    <div class="fl-box"><h3><span>Flag แยกตาม Category (${d.categories.length} รายการ) <span class="fl-chip">คลิกแถวเพื่อดู Trend ของ Category นั้น</span></span><span class="fl-seg"><button data-fl-sort="now" class="${P0FL.sort === 'now' ? 'on' : ''}">เรียงตามจำนวน</button><button data-fl-sort="diff" class="${P0FL.sort === 'diff' ? 'on' : ''}">เรียงตามที่เพิ่มขึ้น</button></span></h3>
+      <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:620px"><thead><tr><th>Category</th><th>ตอนนี้</th><th>@01:15</th><th>เทียบ</th><th>P0</th><th>% ของ Flag</th><th>7 วัน</th></tr></thead><tbody>${catRows}${catTotRow}</tbody></table></div></div>
+    <div class="fl-box"><h3><span>Trend by Province @01:15 (Flag) <span class="fl-chip">สีเข้ม = ค้างมาก · คลิกแถว = เปิดแผนที่ Drill-down</span></span></h3>
+      <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
+    <div class="fl-grid2">
+      <div class="fl-box"><h3><span>Top 8 จังหวัด (เฉพาะ Flag)</span><span class="fl-chip">คลิก = เปิดแผนที่ Drill-down</span></h3>${top8Html}</div>
+      <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag = ${tot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
+  </div>`;
+};
 // ===== P0 SITE TYPE PANEL (end) =====
 function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function p0Top5Html(list, base, accent, scope, groupKey) {
@@ -3463,7 +3593,8 @@ function renderTotalPendingRow(prefix, data) {
   const cards = groups.map((g, i) => {
     const accent = TP_ACCENTS[i % TP_ACCENTS.length];
     return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px;">
+      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
