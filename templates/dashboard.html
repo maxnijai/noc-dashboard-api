@@ -764,7 +764,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
   <div class="nav-item" onclick="showPage('sa2risk')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5L14.5 13.5H1.5L8 1.5Z" stroke="#d1453d" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3" stroke="#d1453d" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.2" r="0.9" fill="#d1453d"/></svg>
-    SA2 Risk
+    SA2 Risk (เดิม)
   </div>
   <div class="nav-item" onclick="showPage('ofcmonitor')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="9" width="3" height="5.5" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/><rect x="6.5" y="5.5" width="3" height="9" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/><rect x="11.5" y="2" width="3" height="13" rx=".5" stroke="#3bb7c9" stroke-width="1.3"/></svg>
@@ -776,7 +776,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   </div>
   <div class="nav-item" onclick="showPage('fieldfollow')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.5a4 4 0 00-4 4c0 3 4 8.5 4 8.5s4-5.500 4-8.500a4 4 0 00-4-4z" stroke="#3bb7c9" stroke-width="1.3"/><circle cx="8" cy="5.500" r="1.400" fill="#3bb7c9"/></svg>
-    Field Follow-up
+    SA2 Risk
   </div>
   <div class="nav-item" onclick="showPage('generatortest')">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 1.5L3 9h4l-1 5.5L13 7H9l0-5.5z" stroke="#e0a21e" stroke-width="1.3" stroke-linejoin="round"/></svg>
@@ -2199,8 +2199,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       #page-fieldfollow .ff-list { display:flex; flex-direction:column; gap:8px; }
       #page-fieldfollow .ff-tk { background:var(--bg2); border:1px solid var(--border); border-left:5px solid var(--border2); border-radius:9px; overflow:hidden; }
       #page-fieldfollow .ff-tk.s-ok { border-left-color:var(--ff-ok); } #page-fieldfollow .ff-tk.s-warn { border-left-color:var(--ff-warn); } #page-fieldfollow .ff-tk.s-bad { border-left-color:var(--ff-bad); }
-      #page-fieldfollow .ff-row { display:grid; grid-template-columns:auto auto minmax(0,1.6fr) minmax(0,1fr) auto; gap:8px 14px; align-items:center; padding:9px 12px; cursor:pointer; }
-      @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .c-prog, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
+      #page-fieldfollow .ff-row { display:grid; grid-template-columns:auto auto minmax(0,1fr) auto; gap:8px 14px; align-items:center; padding:9px 12px; cursor:pointer; }
+      @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .ff-subj, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
       #page-fieldfollow .ff-tid { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; }
       #page-fieldfollow .ff-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
       #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.SA3 { color:var(--ff-warn); } #page-fieldfollow .ff-chip.SA4 { color:var(--ff-acc); }
@@ -2270,18 +2270,47 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       #page-fieldfollow .ff-closed-tag { color:var(--ff-ok); font-weight:700; font-size:12px; }
       #page-fieldfollow .ff-empty { padding:24px; text-align:center; color:var(--text3); background:var(--bg2); border:1px dashed var(--border2); border-radius:9px; }
       #page-fieldfollow .ff-foot { color:var(--text3); font-size:12px; }
+      #page-fieldfollow .ff-prog { display:inline-flex; gap:2px; width:78px; vertical-align:middle; }
+      #page-fieldfollow .ff-prog i { flex:1; height:6px; border-radius:3px; background:var(--border2); }
+      #page-fieldfollow .ff-prog i.done { background:var(--ff-ok); } #page-fieldfollow .ff-prog i.late { background:var(--ff-warn); } #page-fieldfollow .ff-prog i.skip { background:var(--text3); opacity:.4; }
+      #page-fieldfollow .ff-prog i.now { background:var(--ff-acc); } #page-fieldfollow .ff-prog i.over { background:var(--ff-bad); }
+      #page-fieldfollow .ff-sa2b { border:1px dashed var(--ff-sa2); border-radius:9px; padding:10px; margin-bottom:12px; background:var(--bg2); }
+      #page-fieldfollow .ff-sa2b h5 { color:var(--ff-sa2); margin:0 0 8px; }
+      #page-fieldfollow .ff-sa2b .ack { font-size:12px; color:var(--text3); margin-top:8px; }
+      #page-fieldfollow #ff-sa2box { display:none; margin-top:10px; } #page-fieldfollow #ff-sa2box.on { display:block; }
+      #page-fieldfollow .ff-dash { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:12px; margin-top:12px; }
+      #page-fieldfollow .ff-bh { display:grid; grid-template-columns:minmax(84px,auto) minmax(0,1fr) 24px; gap:8px; align-items:center; font-size:12.5px; margin:6px 0; }
+      #page-fieldfollow .ff-bh .tr { height:12px; background:var(--bg4); border-radius:6px; overflow:hidden; } #page-fieldfollow .ff-bh .fl { height:100%; background:var(--ff-sa2); border-radius:6px; }
+      #page-fieldfollow .ff-bh b { text-align:right; font-variant-numeric:tabular-nums; }
+      #page-fieldfollow .ff-toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:var(--text); color:var(--bg2); padding:9px 16px; border-radius:9px; z-index:9999; font-size:13px; display:none; max-width:90vw; }
+      #page-fieldfollow .ff-toast.on { display:block; }
+      #page-fieldfollow .ff-delbtn.arm { background:var(--ff-bad); border-color:var(--ff-bad); color:#fff; }
+      #page-fieldfollow .ff-import { border:1px solid var(--ff-acc); background:var(--ff-acc-bg); border-radius:10px; padding:12px 14px; margin-bottom:12px; display:none; font-size:12.5px; line-height:1.7; }
+      #page-fieldfollow .ff-import b { font-variant-numeric:tabular-nums; }
+      #page-fieldfollow.ff-war {
+        --bg: #05070b; --bg2: #131a24; --bg3: #0e141d; --bg4: #1a2330; --border: #23303f; --border2: #2e3f52;
+        --text: #e8eef6; --text2: #9fb0c3; --text3: #6c7f94; --green-bg: #10301c; --amber-bg: #3a2c0a; --red-bg: #3a1613; --blue-bg: #10223e;
+        background:#05070b; padding:18px; border-radius:10px; font-size:15px;
+      }
+      #page-fieldfollow.ff-war .ff-kpi b { font-size:30px; } #page-fieldfollow.ff-war .ff-kpi span { font-size:13px; } #page-fieldfollow.ff-war .ff-tid { font-size:15px; }
     </style>
 
     <div class="ff-head">
       <div>
-        <h2>Field Follow-up Log</h2>
-        <div class="ff-sub">บันทึกการติดตามทีมหน้างาน ตาม Escalation Flow (SA1-4 / NSA1-4)</div>
+        <h2>SA2 Risk</h2>
+        <div class="ff-sub">ติดตามทีมหน้างานตาม Escalation Flow (NSA1-4 / SA1-4) · Ticket SA2 มีช่อง Risk เพิ่ม (INOC / Topo Ring / ช่องทางแจ้งทีม)</div>
       </div>
       <div class="ff-me" id="ff-me"></div>
+      <div class="ff-bar" style="margin:0">
+        <button class="ff-btn" id="ff-import-btn" style="display:none" title="ดึงข้อมูลที่เคยกรอกไว้ในเมนู SA2 Risk (เดิม) เข้ามาหน้านี้ กดซ้ำได้ ไม่เกิดแถวซ้ำ">⬇ นำเข้าข้อมูลจาก SA2 Risk เดิม</button>
+        <button class="ff-btn" id="ff-war">🖥️ War Room</button>
+      </div>
     </div>
+    <div class="ff-import" id="ff-import-panel"></div>
 
     <div class="ff-tabs" id="ff-tabs">
       <button class="on" data-tab="board">Active Board</button>
+      <button data-tab="dash">Dashboard</button>
       <button data-tab="hist">History (ค้นประวัติ)</button>
     </div>
     <div class="ff-msg" id="ff-msg"></div>
@@ -2307,11 +2336,24 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <label>เวลาที่ได้รับ Ticket<input class="ff-in" id="ff-n-recv" type="time"></label>
           <label class="wide">Subject<input class="ff-in" id="ff-n-subj" placeholder="คัดลอก Subject จาก Ticket"></label>
         </div>
+        <div class="ff-sa2b" id="ff-sa2box">
+          <h5>ช่อง SA2 Risk (ขึ้นเฉพาะ SLA = SA2)</h5>
+          <div class="ff-fgrid">
+            <label>INOC Name<select class="ff-in" id="ff-n-inoc"></select></label>
+            <label>Ticket Create (เวลาที่ Ticket ถูกสร้าง)<input class="ff-in" id="ff-n-create" type="time"></label>
+            <label>Capture Topo Ring ส่งไลน์ทีมหรือยัง<select class="ff-in" id="ff-n-topo"></select></label>
+            <label>แจ้งทีมผ่านช่องทางไหน<select class="ff-in" id="ff-n-ch"></select></label>
+          </div>
+          <div class="ack">“Sup/NOP รับทราบ” ไม่ต้องกรอกซ้ำ — ระบบใช้เวลาจากขั้นที่ 2 (แจ้ง NOP รับทราบ) ให้อัตโนมัติ</div>
+        </div>
         <div class="ff-err" id="ff-n-err"></div>
         <div class="ff-bar" style="margin:0"><button class="ff-btn pri" id="ff-n-save">บันทึกและเริ่มติดตาม</button><button class="ff-btn" id="ff-n-cancel">ยกเลิก</button></div>
       </div>
       <div class="ff-list" id="ff-list"></div>
+      <div class="ff-foot" style="margin-top:8px">กด “ปิด Ticket” แล้ว Ticket จะหายจากบอร์ดและย้ายไปแท็บ History (ข้อมูลยังอยู่ครบใน Google Sheet)</div>
     </div>
+
+    <div id="ff-tab-dash" hidden></div>
 
     <div id="ff-tab-hist" hidden>
       <div class="ff-bar">
@@ -2326,6 +2368,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div class="ff-list" id="ff-hist"></div>
       <div class="ff-foot" style="margin-top:8px">ประวัติเก็บถาวรใน Google Sheet (แท็บ Tickets + Log) ค้นย้อนหลังได้ไม่จำกัด หน้านี้โหลดเฉพาะผลที่ค้นเพื่อให้เบา</div>
     </div>
+    <div class="ff-toast" id="ff-toast"></div>
   </div>
 
   <div class="page" id="page-generatortest">
@@ -13052,7 +13095,7 @@ loadData();
   ];
   const MATE_LABEL = Object.fromEntries(MATE.map(m => [m.k, m.l]));
 
-  let D = { tickets: [], me: { role: null, email: '' }, provinces: [] };
+  let D = { tickets: [], closed_recent: [], options: { inoc: [], topo: [], channel: [] }, me: { role: null, email: '' }, provinces: [] };
   let H = [];
   let serverOff = 0, filter = 'all', openId = null, ocOpen = null, tab = 'board', loaded = false, confirmClose = null, confirmDelete = null, showDeleted = false;
   const ocCache = {};
@@ -13067,7 +13110,8 @@ loadData();
   function dur(ms) { const m = Math.round(ms / MIN); return m >= 60 ? Math.floor(m / 60) + ' ชม. ' + (m % 60) + ' นาที' : m + ' นาที'; }
   const ro = () => !D.me || !D.me.role;
   const isAdmin = () => D.me && D.me.role === 'admin';
-  const find = id => D.tickets.find(o => o.id === id) || H.find(o => o.id === id);
+  const find = id => D.tickets.find(o => o.id === id) || (D.closed_recent || []).find(o => o.id === id) || H.find(o => o.id === id);
+  function toast(m) { const t = $('ff-toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 3200); }
 
   function showMsg(text) { const m = $('ff-msg'); m.textContent = text || ''; m.style.display = text ? 'block' : 'none'; }
 
@@ -13117,28 +13161,24 @@ loadData();
   // ----- summary -----
   function renderSum() {
     const n = now();
-    const open = D.tickets.filter(o => !o.closed);
+    const open = D.tickets;
     const over = open.filter(o => ticketState(o).over).length;
-    const noStart = open.filter(o => !o.steps.s1).length;
     const esc2 = open.filter(o => level(o) >= 2).length;
-    const sites = open.reduce((a, o) => a + (+o.sites || 0), 0);
     const sa2 = open.filter(o => o.sla === 'SA2').reduce((a, o) => a + (+o.sites || 0), 0);
-    const w = D.tickets.filter(o => o.recv >= n - 24 * HOUR);
+    const w = open.concat(D.closed_recent || []).filter(o => o.recv >= n - 24 * HOUR);
     const closed = w.filter(o => o.closed).length;
-    const timely = w.filter(timelyAll).length;
-    const avg = k => { const a = w.filter(o => o.steps[k] && !o.steps[k].skip); return a.length ? Math.round(a.reduce((s, o) => s + (o.steps[k].t - o.recv), 0) / a.length / MIN) : null; };
-    const a1 = avg('s1'), a2 = avg('s2');
-    const l2 = w.filter(o => level(o) >= 2).length;
-    const wsa2 = w.filter(o => o.sla === 'SA2').reduce((a, o) => a + (+o.sites || 0), 0);
+    const live = w.filter(o => !o.imported);                 // rows imported from the old tab have no step times -> not counted as on time / late
+    const timely = live.filter(timelyAll).length;
+    const s1 = live.filter(o => o.steps.s1 && !o.steps.s1.skip);
+    const a1 = s1.length ? Math.round(s1.reduce((x, o) => x + (o.steps.s1.t - o.recv), 0) / s1.length / MIN) : '-';
     const k = (v, l, c) => `<div class="ff-kpi ${c || ''}"><b>${v}</b><span>${l}</span></div>`;
     $('ff-sum').innerHTML =
-      `<div class="ff-card"><h3><span>ตอนนี้ (Ticket ที่ยังเปิด)</span><span>${fmt(n)} น.</span></h3><div class="ff-kpis">` +
-      k(open.length, 'Ticket เปิดอยู่') + k(noStart, 'ยังไม่ได้แจ้งช่าง', noStart ? 'warn' : '') + k(over, 'เกินเวลาขั้นปัจจุบัน', over ? 'bad' : 'ok') +
-      k(esc2, 'Escalate ถึง Level 2+', esc2 ? 'warn' : '') + k(sites, 'ไซต์ที่กระทบรวม') + k(sa2, 'ไซต์กระทบ (เฉพาะ SA2)') + '</div></div>' +
+      `<div class="ff-card"><h3><span>ตอนนี้</span><span>${fmt(n)} น.</span></h3><div class="ff-kpis">` +
+      k(open.length, 'Ticket เปิดอยู่') + k(over, 'เกินเวลาขั้นปัจจุบัน', over ? 'bad' : 'ok') + k(esc2, 'Escalate ถึง Level 2+', esc2 ? 'warn' : '') + k(sa2, 'ไซต์เสี่ยง (SA2)', sa2 ? 'warn' : '') + '</div></div>' +
       `<div class="ff-card"><h3><span>ย้อนหลัง 24 ชั่วโมง</span><span>${fmtD(n - 24 * HOUR)} – ${fmtD(n)}</span></h3><div class="ff-kpis">` +
       k(w.length, 'Ticket ทั้งหมด') + k(closed + '/' + w.length, 'ปิดแล้ว', 'ok') +
-      k(w.length ? Math.round(timely / w.length * 100) + '%' : '-', 'แจ้งช่าง+NOP ทันเวลา', (w.length && timely / w.length < .8) ? 'warn' : 'ok') +
-      k(l2, 'ถึง Level 2 ขึ้นไป', l2 ? 'warn' : '') + k((a1 == null ? '-' : a1) + ' / ' + (a2 == null ? '-' : a2), 'นาทีเฉลี่ย แจ้งช่าง / แจ้ง NOP') + k(wsa2, 'ไซต์กระทบ (SA2)') + '</div></div>';
+      k(live.length ? Math.round(timely / live.length * 100) + '%' : '-', 'แจ้งช่าง+NOP ทันเวลา', (live.length && timely / live.length < .8) ? 'warn' : 'ok') +
+      k(a1, 'นาทีเฉลี่ย แจ้งช่าง') + '</div></div>';
   }
 
   // ----- oncall panel -----
@@ -13174,42 +13214,45 @@ loadData();
   }
 
   // ----- rows -----
-  function dotsHtml(o) {
+  function progHtml(o) {
     const ns = nextStep(o); let h = '';
     STEPS.forEach(s => {
-      const si = stepInfo(o, s); let c = 'ff-dot';
-      if (si.state === 'done') c += ' done'; else if (si.state === 'late') c += ' late'; else if (si.state === 'skip') c += ' skip';
-      else if (!o.closed && ns && ns.k === s.k) c += ticketState(o).over ? ' over' : ' now';
-      h += `<span class="${c}" title="${esc(s.n + ' ' + s.t)}"></span>`;
+      const si = stepInfo(o, s); let c = '';
+      if (si.state === 'done') c = 'done'; else if (si.state === 'late') c = 'late'; else if (si.state === 'skip') c = 'skip';
+      else if (!o.closed && ns && ns.k === s.k) c = ticketState(o).over ? 'over' : 'now';
+      h += `<i class="${c}" title="${esc(s.n + ' ' + s.t)}"></i>`;
     });
-    return `<div class="ff-dots">${h}<span class="ff-foot" style="margin-left:6px">Update ${o.upd.length} · MateLine ${mateDone(o)}/5</span></div>`;
+    return `<span class="ff-prog">${h}</span>`;
   }
   function rowHtml(o) {
     const st = ticketState(o), lv = level(o);
-    const lvH = lv < 0 ? '<span class="ff-lv">Level -</span>' : `<span class="ff-lv l${lv}">Level ${lv}</span>`;
+    const lvH = lv < 0 ? '' : `<span class="ff-lv l${lv}">Level ${lv}</span>`;
     let tags = '';
     if (o.mate.hold) tags += ' <span class="ff-tag hold">⏸ Hold</span>';
     if (o.mate.closed && !o.closed) tags += ' <span class="ff-tag mclosed">ช่างกด Closed แล้ว</span>';
+    if (o.sla === 'SA2') {
+      if (o.inoc) tags += ` <span class="ff-chip sites">${esc(o.inoc)}</span>`;
+      if (o.topo && o.topo !== 'Send done') tags += ' <span class="ff-lv l2" title="ยังไม่ได้ส่ง Topo Ring เข้าไลน์ทีม">Topo ยังไม่ส่ง</span>';
+    }
     let next = '';
     if (o.status === 'Deleted') next = `<span class="ff-tag hold">🗑 ลบแล้ว ${fmtD(o.deleted)}</span><span class="el">${esc(o.deleted_by || '')}${o.delete_reason ? ' · ' + esc(o.delete_reason) : ''}</span>`;
     else if (o.closed) next = `<span class="ff-closed-tag">✓ ปิดแล้ว ${fmtD(o.closed)}</span><span class="el">ใช้เวลา ${dur(o.closed - o.recv)}</span>`;
     else if (st.ns) {
       const tm = st.ns.due ? `<span class="timer ${st.over ? 'bad' : (st.left < 5 * MIN ? 'warn' : 'ok')}" data-tm="${esc(o.id)}">${st.over ? 'เกิน ' : 'เหลือ '}${mmss(st.left)}</span>` : '<span class="timer warn">รอตัดสินใจ</span>';
-      next = `ถัดไป: ${esc(st.ns.t)}<br>${tm}<span class="el">ผ่านมา ${dur(now() - o.recv)} · รับ ${fmt(o.recv)} น.</span>`;
+      next = `ถัดไป: ${esc(st.ns.t)}<br>${tm}<span class="el">ผ่านมา ${dur(now() - o.recv)}</span>`;
     } else next = `<span class="ff-closed-tag">ครบทุกขั้น · รอปิด Ticket</span><span class="el">ผ่านมา ${dur(now() - o.recv)}</span>`;
-    const nTeams = ocCache[o.prov] && ocCache[o.prov].data ? ' (' + ocCache[o.prov].data.level1.length + ' ทีม)' : '';
     return `<div class="ff-tk ${st.cls}${openId === o.id ? ' open' : ''}" data-id="${esc(o.id)}"${o.status === 'Deleted' ? ' style="opacity:.6"' : ''}>
       <div class="ff-row" data-act="toggle">
         <span class="ff-tid">${esc(o.id)}</span><span><span class="ff-chip ${esc(o.sla)}">${esc(o.sla)}</span></span>
-        <div class="ff-subj"><div class="t" title="${esc(o.subj)}">${esc(o.subj)}</div><div class="m"><span class="ff-prov">📍 ${esc(o.prov)}</span><span class="ff-chip sites">${o.sites} ไซต์</span>${lvH}${tags}</div></div>
-        <div class="c-prog">${dotsHtml(o)}</div>
-        <div class="c-next ff-next">${next}<span class="el" style="margin-top:4px"><button class="ff-ocb ${ocOpen === o.id ? 'on' : ''}" data-act="oc">👥 Oncall วันนี้${nTeams}</button></span></div>
-      </div>${ocOpen === o.id ? ocHtml(o) : ''}${openId === o.id ? detailHtml(o) : ''}</div>`;
+        <div class="ff-subj"><div class="t" title="${esc(o.subj)}">${esc(o.subj)}</div><div class="m"><span class="ff-prov">📍 ${esc(o.prov)}</span><span class="ff-chip sites">${o.sites} ไซต์</span>${tags} ${lvH} ${progHtml(o)}</div></div>
+        <div class="c-next ff-next">${next}</div>
+      </div>${openId === o.id ? detailHtml(o) : ''}</div>`;
   }
   function detailHtml(o) {
     const lock = ro() || o.closed || o.status === 'Deleted' ? ' disabled' : '';
     const ns = nextStep(o);
-    let h = '<div class="ff-detail"><div><h5>ขั้นตอนการติดตาม</h5>';
+    const nTeams = ocCache[o.prov] && ocCache[o.prov].data ? ' (' + ocCache[o.prov].data.level1.length + ' ทีม)' : '';
+    let h = `<div class="ff-detail"><div style="grid-column:1/-1"><button class="ff-ocb ${ocOpen === o.id ? 'on' : ''}" data-act="oc">👥 Oncall วันนี้${nTeams}</button></div>${ocOpen === o.id ? '<div style="grid-column:1/-1;border:1px solid var(--border);border-radius:9px;overflow:hidden">' + ocHtml(o) + '</div>' : ''}<div><h5>ขั้นตอนการติดตาม</h5>`;
     STEPS.forEach(s => {
       const si = stepInfo(o, s); let cls = 'ff-step', stTxt = '', btns = '';
       if (si.state === 'done') { cls += ' done'; stTxt = `<div class="st ok">✓ ${fmt(si.v.t)} น. · ${esc(si.v.by)} · ทันเวลา (ใช้ ${dur(si.el)})</div>`; }
@@ -13239,7 +13282,20 @@ loadData();
     } else if (!ro() && (!o.closed || isAdmin())) {
       h += '<button class="ff-btn" data-act="delete" style="margin-left:auto;color:var(--ff-bad)">🗑 ลบ Ticket (เปิดผิด)</button>';
     }
-    h += '</div></div><div><h5>5.1 · MateLine Milestone (แตะเพื่อบันทึกเวลา)</h5><div class="ff-mate">';
+    h += '</div></div><div>';
+    if (o.sla === 'SA2') {
+      const s2 = o.steps.s2, ack = s2 && !s2.skip ? fmt(s2.t) + ' น. (จากขั้น 2)' : 'ยังไม่รับทราบ (รอขั้น 2)';
+      const opt = (arr, cur) => arr.map(x => `<option${x === cur ? ' selected' : ''}>${esc(x)}</option>`).join('');
+      const opts = D.options || {}, inocs = (opts.inoc || []).includes(o.inoc) || !o.inoc ? (opts.inoc || []) : [o.inoc].concat(opts.inoc || []);
+      const chs = (opts.channel || []).concat(o.ch && !(opts.channel || []).includes(o.ch) ? [o.ch] : []);
+      h += `<div class="ff-sa2b"><h5>ข้อมูล SA2 Risk</h5><div class="ff-fgrid">` +
+        `<label>INOC Name<select class="ff-in" data-sa2="inoc"${lock}>${o.inoc ? '' : '<option value="">เลือก INOC</option>'}${opt(inocs, o.inoc)}</select></label>` +
+        `<label>Capture Topo Ring ส่งไลน์ทีม<select class="ff-in" data-sa2="topo"${lock}>${opt(opts.topo || [], o.topo)}</select></label>` +
+        `<label>ช่องทางแจ้งทีม<select class="ff-in" data-sa2="ch"${lock}>${o.ch ? '' : '<option value="">เลือกช่องทาง</option>'}${opt(chs, o.ch)}</select></label>` +
+        `<label>Ticket Create<input class="ff-in" value="${fmt(o.create)} น." disabled></label></div>` +
+        `<div class="ack">Sup/NOP รับทราบ: <b>${ack}</b> · ไซต์เสี่ยง: <b>${o.sites}</b>${o.imported ? ' · นำเข้าจาก SA2 Risk เดิม' : ''}</div></div>`;
+    }
+    h += '<h5>5.1 · MateLine Milestone (แตะเพื่อบันทึกเวลา)</h5><div class="ff-mate">';
     MATE.forEach(m => {
       const on = m.rep ? o.mate.update.length > 0 : !!o.mate[m.k];
       const when = m.rep ? (o.mate.update.length ? 'ล่าสุด ' + fmt(o.mate.update[o.mate.update.length - 1]) + ' น.' : 'ยังไม่ได้บันทึก') : (o.mate[m.k] ? fmt(o.mate[m.k]) + ' น.' : 'ยังไม่ได้บันทึก');
@@ -13251,11 +13307,26 @@ loadData();
   }
 
   function renderBoard() {
-    const n = now();
-    let rows = D.tickets.filter(o => !o.closed || o.closed > n - 2 * HOUR);
+    let rows = D.tickets.slice();                       // the board shows OPEN tickets only; closed ones live in History
     rows = rows.filter(o => filter === 'all' || (filter === 'over' ? ticketState(o).over : o.sla === filter));
-    rows.sort((a, b) => (ticketState(b).over - ticketState(a).over) || (!!a.closed - !!b.closed) || (a.recv - b.recv));
-    $('ff-list').innerHTML = rows.length ? rows.map(rowHtml).join('') : '<div class="ff-empty">ไม่มี Ticket ในตัวกรองนี้</div>';
+    rows.sort((a, b) => (ticketState(b).over - ticketState(a).over) || (a.recv - b.recv));
+    $('ff-list').innerHTML = rows.length ? rows.map(rowHtml).join('') : '<div class="ff-empty">ไม่มี Ticket ที่เปิดอยู่ในตัวกรองนี้</div>';
+  }
+  function bars(title, map) {
+    const keys = Object.keys(map).sort((a, b) => map[b] - map[a]), mx = Math.max(1, ...keys.map(k => map[k]));
+    return `<div class="ff-card"><h3><span>${title}</span></h3>` + (keys.length ? keys.map(k => `<div class="ff-bh"><span>${esc(k)}</span><div class="tr"><div class="fl" style="width:${map[k] / mx * 100}%"></div></div><b>${map[k]}</b></div>`).join('') : '<div class="ff-foot">ไม่มี SA2 ที่เปิดอยู่</div>') + '</div>';
+  }
+  function renderDash() {
+    const sa = D.tickets.filter(o => o.sla === 'SA2');
+    const cnt = f => { const m = {}; sa.forEach(o => { const k = f(o); m[k] = (m[k] || 0) + 1; }); return m; };
+    const sites = sa.reduce((a, o) => a + (+o.sites || 0), 0), noTopo = sa.filter(o => o.topo !== 'Send done').length;
+    const age = sa.length ? Math.round(sa.reduce((a, o) => a + (now() - o.recv), 0) / sa.length / MIN) : 0;
+    const k = (v, l, c) => `<div class="ff-kpi ${c || ''}"><b>${v}</b><span>${l}</span></div>`;
+    $('ff-tab-dash').innerHTML =
+      `<div class="ff-card"><h3><span>SA2 ที่ยังเปิดอยู่ (Pending)</span><span>${fmt(now())} น.</span></h3><div class="ff-kpis">` +
+      k(sa.length, 'Ticket SA2 Pending', sa.length ? 'warn' : 'ok') + k(sites, 'ไซต์เสี่ยงรวม', sites ? 'bad' : 'ok') + k(noTopo, 'ยังไม่ส่ง Topo Ring', noTopo ? 'warn' : 'ok') + k(dur(age * MIN), 'อายุเฉลี่ย') + '</div></div>' +
+      '<div class="ff-dash">' + bars('📍 Pending ตามจังหวัด', cnt(o => o.prov)) + bars('👤 ภาระงานตาม INOC', cnt(o => o.inoc || '-')) + bars('📞 ช่องทางแจ้งทีม', cnt(o => o.ch || '-')) + '</div>' +
+      '<div class="ff-foot" style="margin-top:8px">คำนวณจาก Ticket SA2 ที่เปิดอยู่เท่านั้น · กดปุ่ม War Room มุมขวาบนเพื่อขยายตัวอักษรและเปลี่ยนเป็นโหมดมืดสำหรับขึ้นจอใหญ่</div>';
   }
   function renderHist() {
     $('ff-hist').innerHTML = H.length ? H.map(rowHtml).join('') : '<div class="ff-empty">ไม่พบข้อมูลตามเงื่อนไข</div>';
@@ -13266,19 +13337,26 @@ loadData();
     $('ff-h-delwrap').style.display = isAdmin() ? '' : 'none';
     $('ff-btn-new').disabled = ro();
     $('ff-btn-new').title = ro() ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไข (ให้ admin เพิ่มอีเมลในแท็บ Editors ของชีต)' : '';
+    $('ff-import-btn').style.display = isAdmin() ? '' : 'none';
   }
-  function renderAll() { renderSum(); if (tab === 'board') renderBoard(); else renderHist(); }
+  function renderAll() { $('ff-sum').hidden = tab !== 'board'; if (tab === 'board') { renderSum(); renderBoard(); } else if (tab === 'dash') renderDash(); else renderHist(); }
 
   // ----- data -----
   async function loadBoard(silent) {
     try {
       const d = await api('GET', '');
-      D = d; serverOff = d.now - Date.now(); loaded = true;
+      D = d; D.closed_recent = D.closed_recent || []; D.options = D.options || { inoc: [], topo: [], channel: [] };
+      serverOff = d.now - Date.now(); loaded = true;
+      fillSa2Options();
       const sel = $('ff-n-prov'), keep = sel.value;
       sel.innerHTML = '<option value="">เลือกจังหวัด</option>' + d.provinces.map(p => `<option>${esc(p)}</option>`).join('');
       sel.value = d.provinces.includes(keep) ? keep : '';
       showMsg(''); renderMe(); renderAll();
     } catch (e) { if (!silent) showMsg('โหลดข้อมูลไม่สำเร็จ: ' + e.message); }
+  }
+  function fillSa2Options() {
+    const o = D.options, fill = (id, arr, ph) => { const el = $(id), keep = el.value; el.innerHTML = (ph ? `<option value="">${ph}</option>` : '') + arr.map(x => `<option>${esc(x)}</option>`).join(''); if (arr.includes(keep)) el.value = keep; };
+    fill('ff-n-inoc', o.inoc || [], 'เลือก INOC'); fill('ff-n-topo', o.topo || []); fill('ff-n-ch', o.channel || []);
   }
   let histTimer = null;
   async function loadHist() {
@@ -13291,11 +13369,14 @@ loadData();
     } catch (e) { showMsg('ค้นประวัติไม่สำเร็จ: ' + e.message); }
   }
   function applyTicket(t) {
-    const gone = t.status === 'Deleted';
-    D.tickets = D.tickets.filter(x => x.id !== t.id || !gone).map(x => x.id === t.id ? t : x);
+    const gone = t.status === 'Deleted', closed = t.status === 'Closed';
+    D.closed_recent = (D.closed_recent || []).filter(x => x.id !== t.id);
+    if (gone || closed) {                       // leaves the board immediately; closed ones stay findable in History
+      D.tickets = D.tickets.filter(x => x.id !== t.id);
+      if (closed && t.recv >= now() - 24 * HOUR) D.closed_recent.push(t);   // only so the 24 h summary card still counts it
+    } else if (D.tickets.some(x => x.id === t.id)) D.tickets = D.tickets.map(x => x.id === t.id ? t : x);
+    else D.tickets.unshift(t);
     if (gone && !showDeleted) H = H.filter(x => x.id !== t.id); else H = H.map(x => x.id === t.id ? t : x);
-    if (!gone && !D.tickets.some(x => x.id === t.id) && !H.some(x => x.id === t.id)) D.tickets.unshift(t);
-    if (!gone && t.status !== 'Deleted' && D.tickets.every(x => x.id !== t.id) && H.some(x => x.id === t.id)) { /* restored from history: refresh board on next pull */ setTimeout(() => loadBoard(true), 300); }
   }
   async function act(path, body) {
     try { const t = await api('POST', path, body); applyTicket(t); showMsg(''); renderAll(); return t; }
@@ -13316,7 +13397,7 @@ loadData();
     if (tb) {
       tab = tb.dataset.tab;
       document.querySelectorAll('#ff-tabs button').forEach(b => b.classList.toggle('on', b === tb));
-      $('ff-tab-board').hidden = tab !== 'board'; $('ff-tab-hist').hidden = tab !== 'hist';
+      $('ff-tab-board').hidden = tab !== 'board'; $('ff-tab-dash').hidden = tab !== 'dash'; $('ff-tab-hist').hidden = tab !== 'hist';
       if (tab === 'hist') loadHist(); renderAll(); return;
     }
     const fb = ev.target.closest('#ff-flt button');
@@ -13343,16 +13424,22 @@ loadData();
     } else if (act0 === 'mateundo') { await act('/mate', { id: o.id, key: 'update', on: false }); }
     else if (act0 === 'close') { confirmClose = o.id; renderAll(); }
     else if (act0 === 'close-no') { confirmClose = null; renderAll(); }
-    else if (act0 === 'close-yes') { confirmClose = null; await act('/close', { id: o.id }); }
+    else if (act0 === 'close-yes') { confirmClose = null; const t = await act('/close', { id: o.id }); if (t) { openId = null; renderAll(); toast('ปิด ' + o.id + ' แล้ว · ย้ายไปแท็บ History'); } }
     else if (act0 === 'reopen') { await act('/reopen', { id: o.id }); }
     else if (act0 === 'delete') { confirmDelete = o.id; confirmClose = null; renderAll(); }
     else if (act0 === 'delete-no') { confirmDelete = null; renderAll(); }
     else if (act0 === 'delete-yes') {
       const inp = tk.querySelector('[data-delreason]'); confirmDelete = null;
-      await act('/delete', { id: o.id, reason: inp ? inp.value.trim() : '' }); openId = null;
+      const t = await act('/delete', { id: o.id, reason: inp ? inp.value.trim() : '' }); openId = null; if (t) { renderAll(); toast('ลบ ' + o.id + ' แล้ว (เก็บเป็น Deleted ในชีต admin กู้คืนได้)'); }
     } else if (act0 === 'restore') { await act('/restore', { id: o.id }); }
   });
   $('page-fieldfollow').addEventListener('change', async ev => {
+    const sf = ev.target.closest('[data-sa2]');
+    if (sf) {
+      const tk = sf.closest('.ff-tk'), o = tk && find(tk.dataset.id); if (!o) return;
+      const g = k => (tk.querySelector(`[data-sa2="${k}"]`) || {}).value || '';
+      await act('/sa2', { id: o.id, inoc: g('inoc'), topo: g('topo'), ch: g('ch') }); return;
+    }
     const r = ev.target.closest('[data-rem]');
     if (!r || r.dataset.done !== '1' || r.disabled) return;   // remark of a not-yet-done step is sent together with its "ทำแล้ว" press
     const o = find(r.closest('.ff-tk').dataset.id); if (!o) return;
@@ -13360,15 +13447,19 @@ loadData();
   });
   $('ff-btn-new').onclick = () => {
     const f = $('ff-newform'); f.classList.toggle('open');
-    $('ff-n-recv').value = new Date(now()).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+    const hm = new Date(now()).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+    $('ff-n-recv').value = hm; $('ff-n-create').value = hm; syncSa2Box();
   };
+  function syncSa2Box() { const is = $('ff-n-sla').value === 'SA2'; $('ff-sa2box').classList.toggle('on', is); $('ff-n-sitesreq').style.display = is ? '' : 'none'; }
   $('ff-n-cancel').onclick = () => $('ff-newform').classList.remove('open');
-  $('ff-n-sla').onchange = function () { $('ff-n-sitesreq').style.display = this.value === 'SA2' ? '' : 'none'; };
+  $('ff-n-sla').onchange = syncSa2Box;
   $('ff-n-save').onclick = async () => {
     const err = $('ff-n-err'); err.textContent = '';
-    const body = { id: $('ff-n-id').value.trim(), sla: $('ff-n-sla').value, subj: $('ff-n-subj').value.trim(), prov: $('ff-n-prov').value, sites: $('ff-n-sites').value, recv: $('ff-n-recv').value };
+    const body = { id: $('ff-n-id').value.trim(), sla: $('ff-n-sla').value, subj: $('ff-n-subj').value.trim(), prov: $('ff-n-prov').value, sites: $('ff-n-sites').value, recv: $('ff-n-recv').value,
+      inoc: $('ff-n-inoc').value, create: $('ff-n-create').value, topo: $('ff-n-topo').value, ch: $('ff-n-ch').value };
     if (!body.id || !body.subj || !body.prov) { err.textContent = 'กรุณากรอกเลข Ticket, Subject และเลือกจังหวัด'; return; }
     if (body.sla === 'SA2' && !(+body.sites >= 1)) { err.textContent = 'SA2 ต้องระบุจำนวนไซต์ที่กระทบ (อย่างน้อย 1)'; return; }
+    if (body.sla === 'SA2' && !body.inoc) { err.textContent = 'SA2 ต้องเลือก INOC Name'; return; }
     try {
       const t = await api('POST', '/ticket', body); applyTicket(t);
       ['ff-n-id', 'ff-n-subj', 'ff-n-sites'].forEach(i => $(i).value = '');
@@ -13376,6 +13467,35 @@ loadData();
     } catch (e) { err.textContent = e.message; }
   };
   $('ff-refresh').onclick = () => loadBoard();
+  $('ff-war').onclick = () => {
+    const pg = $('page-fieldfollow'), on = pg.classList.toggle('ff-war');
+    try { if (on && pg.requestFullscreen) pg.requestFullscreen(); else if (!on && document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* optional */ }
+  };
+  // one-time import from the old SA2 Risk tab: preview first (nothing written), then confirm. Safe to repeat - never makes duplicates.
+  const impPanel = () => $('ff-import-panel');
+  function impShow(html) { const p = impPanel(); p.innerHTML = html; p.style.display = html ? 'block' : 'none'; }
+  $('ff-import-btn').onclick = async () => {
+    impShow('กำลังตรวจข้อมูลในหน้า SA2 Risk เดิม…');
+    try {
+      const r = await api('POST', '/import-sa2-risk', { dry_run: true });
+      const will = r.new_open + r.new_closed + r.merged;
+      impShow(`<b>พบข้อมูลเดิม ${r.total} แถว</b><br>` +
+        `จะนำเข้าใหม่ <b>${r.new_open + r.new_closed}</b> แถว (ยังเปิดอยู่ ${r.new_open} · ปิดแล้ว ${r.new_closed}) · เติมช่อง SA2 ให้ Ticket ที่มีอยู่แล้ว <b>${r.merged}</b> · ข้าม (นำเข้าไปแล้ว/มีอยู่แล้ว) <b>${r.already}</b>` +
+        (r.dup_in_source ? ` · เลข Ticket ซ้ำในหน้าเดิม ${r.dup_in_source}` : '') + (r.invalid ? ` · ข้อมูลไม่ครบ ${r.invalid}` : '') +
+        `<br><span class="ff-foot">ข้อมูลเดิมไม่ถูกแก้ไขหรือลบ · แถวที่นำเข้าจะไม่มีเวลาของแต่ละขั้นตอน จึงแสดงเป็น “ข้าม (นำเข้า)” · จังหวัดแปลงจากรหัส NOP เป็นชื่อไทยให้อัตโนมัติ</span><br>` +
+        (will ? '<button class="ff-btn pri" id="ff-imp-go">ยืนยันนำเข้า</button> ' : '<span class="ff-closed-tag">ไม่มีอะไรต้องนำเข้าเพิ่ม</span> ') + '<button class="ff-btn" id="ff-imp-x">ปิด</button>');
+      const go = $('ff-imp-go'); if (go) go.onclick = async () => {
+        go.disabled = true; go.textContent = 'กำลังนำเข้า…';
+        try {
+          const d = await api('POST', '/import-sa2-risk', {});
+          impShow(`<span class="ff-closed-tag">✓ นำเข้าเสร็จ</span> ใหม่ <b>${d.new_open + d.new_closed}</b> แถว (เปิดอยู่ ${d.new_open} · ปิดแล้ว ${d.new_closed}) · เติมช่อง SA2 <b>${d.merged}</b> · ข้าม <b>${d.already}</b> — กดปุ่มนำเข้าซ้ำได้ ไม่เกิดแถวซ้ำ <button class="ff-btn" id="ff-imp-x">ปิด</button>`);
+          $('ff-imp-x').onclick = () => impShow('');
+          loadBoard(); if (tab === 'hist') loadHist();
+        } catch (e) { impShow('<span style="color:var(--ff-bad)">นำเข้าไม่สำเร็จ: ' + esc(e.message) + '</span> <button class="ff-btn" id="ff-imp-x">ปิด</button>'); $('ff-imp-x').onclick = () => impShow(''); }
+      };
+      $('ff-imp-x').onclick = () => impShow('');
+    } catch (e) { impShow('<span style="color:var(--ff-bad)">ตรวจข้อมูลเดิมไม่สำเร็จ: ' + esc(e.message) + '</span> <button class="ff-btn" id="ff-imp-x">ปิด</button>'); $('ff-imp-x').onclick = () => impShow(''); }
+  };
   $('ff-h-del').onchange = function () { showDeleted = this.checked; loadHist(); };
   ['ff-h-q', 'ff-h-from', 'ff-h-to', 'ff-h-sla'].forEach(id => $(id).addEventListener('input', () => { clearTimeout(histTimer); histTimer = setTimeout(loadHist, 300); }));
   $('ff-h-xls').onclick = () => {
