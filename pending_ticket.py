@@ -1931,13 +1931,33 @@ _nsa34_day_cache = {}
 _nsa34_day_lock = threading.Lock()
 
 
+def _nsa34_blank():
+    return {"flag": 0, "non": 0, "cats": {}, "p0cats": {}, "prov": {}, "aging": {}, "nonflag": {}}
+
+
+def _nsa34_merge(parts):
+    """Sum several _nsa34_blank()-shaped dicts (used to build the P0+P1 / all views)."""
+    out = _nsa34_blank()
+    for p in parts:
+        out["flag"] += p["flag"]
+        out["non"] += p["non"]
+        for key in ("cats", "p0cats", "prov", "aging", "nonflag"):
+            for k, v in p[key].items():
+                out[key][k] = out[key].get(k, 0) + v
+    return out
+
+
+_NSA34_VIEWS = {"all": ("P0", "P1", "OTHER"), "P0": ("P0",), "P1": ("P1",), "P0P1": ("P0", "P1")}
+
+
 def _nsa34_scan(rows, reference_dt):
-    """One pass over `rows` -> NSA3/4 Total Pending split by Flag Priority:
-    {"flag", "non", "cats" {lower-cat: n}, "p0cats" {lower-cat: n}, "prov" {prov: flag n},
-     "aging" {aging_key: flag n}, "nonflag" {cat: n}}."""
+    """One pass over `rows` -> NSA3/4 Total Pending split by Flag Priority AND by
+    ticket Priority: {"P0": blank, "P1": blank, "OTHER": blank} where each blank is
+    {"flag", "non", "cats" {lower-cat: n}, "p0cats", "prov" {prov: flag n},
+     "aging" {aging_key: flag n}, "nonflag" {cat: n}}. OTHER = P2 / unparsable date."""
     from ticket_views import row_matches_view
     apply_tog = _rows_have_owner_group(rows)
-    out = {"flag": 0, "non": 0, "cats": {}, "p0cats": {}, "prov": {}, "aging": {}, "nonflag": {}}
+    by = {"P0": _nsa34_blank(), "P1": _nsa34_blank(), "OTHER": _nsa34_blank()}
     for r in rows:
         if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
             continue
@@ -1947,12 +1967,14 @@ def _nsa34_scan(rows, reference_dt):
             continue
         if not row_matches_view(r, "NSA34"):
             continue
+        pr = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        out = by[pr if pr in ("P0", "P1") else "OTHER"]
         cat = _category_text(r).strip()
         key = cat.lower()
         if key in FLAG_PRIORITY_CATEGORIES:
             out["flag"] += 1
             out["cats"][key] = out["cats"].get(key, 0) + 1
-            if _classify_priority_at(r.get("TARGETFINISH"), reference_dt) == "P0":
+            if pr == "P0":
                 out["p0cats"][key] = out["p0cats"].get(key, 0) + 1
             prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
             out["prov"][prov] = out["prov"].get(prov, 0) + 1
@@ -1963,7 +1985,7 @@ def _nsa34_scan(rows, reference_dt):
             out["non"] += 1
             name = cat or "(ไม่ระบุ Category)"
             out["nonflag"][name] = out["nonflag"].get(name, 0) + 1
-    return out
+    return by
 
 
 def _nsa34_day_scan(drive_service, day, today):
@@ -1990,26 +2012,16 @@ def _nsa34_day_scan(drive_service, day, today):
     return res
 
 
-def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
-    now_dt = bangkok_now()
-    today = now_dt.date()
-    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]
-    scans = [_nsa34_day_scan(drive_service, d, today) for d in all_days]
-    snap_idx = next((i for i in range(len(scans) - 1, -1, -1) if scans[i] is not None), None)
-    snap = scans[snap_idx] if snap_idx is not None else None
-
-    live_rows = fetch_live_rows(gs_client)
-    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
-    cur = _nsa34_scan(live_rows, ref)
-    try:
-        expect = _count_total_by_group(live_rows).get("NSA34")
-        if expect != cur["flag"] + cur["non"]:
-            log.warning("nsa34 flag: flag+non (%s) != NSA3/4 card (%s)", cur["flag"] + cur["non"], expect)
-    except Exception:
-        log.exception("nsa34 flag: card-total cross-check failed")
+def _nsa34_view(scans, cur_by, snap_idx, all_days, view):
+    """Response body for one Priority view ("all", "P0", "P1", "P0P1")."""
+    keys = _NSA34_VIEWS[view]
+    pick = lambda by: _nsa34_merge([by[k] for k in keys])
+    cur = pick(cur_by)
+    day = [pick(s) if s is not None else None for s in scans]
+    snap = day[snap_idx] if snap_idx is not None else None
 
     def series(fn):
-        return [fn(s) if s is not None else None for s in scans]
+        return [fn(s) if s is not None else None for s in day]
 
     cats = []
     for name in FLAG_PRIORITY_CATEGORY_LIST:
@@ -2021,7 +2033,7 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
             "trend": series(lambda s, k=k: s["cats"].get(k, 0)),
         })
     provs = set(cur["prov"])
-    for s in scans:
+    for s in day:
         if s:
             provs |= set(s["prov"])
     prov_rows = [{
@@ -2030,12 +2042,8 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
         "trend": series(lambda s, p=p: s["prov"].get(p, 0)),
     } for p in provs]
     prov_rows.sort(key=lambda r: (-r["now"], r["code"]))
-
     non_top = sorted(cur["nonflag"].items(), key=lambda kv: (-kv[1], kv[0]))
     return {
-        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
-        "snapshot_date": all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None,
-        "dates": [d.strftime("%Y-%m-%d") for d in all_days],
         "flag_now": cur["flag"], "non_now": cur["non"],
         "flag_snap": snap["flag"] if snap else None, "non_snap": snap["non"] if snap else None,
         "flag_p0": sum(cur["p0cats"].values()),
@@ -2047,6 +2055,34 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
         "nonflag_top": [[n, c] for n, c in non_top[:8]],
         "nonflag_other": sum(c for _n, c in non_top[8:]),
     }
+
+
+def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
+    """Top level = the unfiltered ("all") view, exactly as before; "views" adds the
+    Priority-filtered versions {"P0", "P1", "P0P1"} with the same shape."""
+    now_dt = bangkok_now()
+    today = now_dt.date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]
+    scans = [_nsa34_day_scan(drive_service, d, today) for d in all_days]
+    snap_idx = next((i for i in range(len(scans) - 1, -1, -1) if scans[i] is not None), None)
+
+    live_rows = fetch_live_rows(gs_client)
+    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    cur_by = _nsa34_scan(live_rows, ref)
+    try:
+        expect = _count_total_by_group(live_rows).get("NSA34")
+        got = sum(v["flag"] + v["non"] for v in cur_by.values())
+        if expect != got:
+            log.warning("nsa34 flag: flag+non (%s) != NSA3/4 card (%s)", got, expect)
+    except Exception:
+        log.exception("nsa34 flag: card-total cross-check failed")
+
+    out = _nsa34_view(scans, cur_by, snap_idx, all_days, "all")
+    out["generated_at"] = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    out["snapshot_date"] = all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None
+    out["dates"] = [d.strftime("%Y-%m-%d") for d in all_days]
+    out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v) for v in ("P0", "P1", "P0P1")}
+    return out
 
 
 # ── Online SA1-4 SLA Monitoring ─────────────────────────────────────────
