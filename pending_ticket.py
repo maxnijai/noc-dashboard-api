@@ -1928,6 +1928,7 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
 # filter and group matching are exactly _count_total_by_group's, so
 # flag + non-flag always equals the NSA3 / NSA4 card number (checked + logged).
 _nsa34_day_cache = {}
+_nsa34_today_cache = {}  # {date_str: (monotonic_ts, scan)}
 _nsa34_day_lock = threading.Lock()
 
 
@@ -1998,6 +1999,13 @@ def _nsa34_day_scan(drive_service, day, today):
         with _nsa34_day_lock:
             if date_str in _nsa34_day_cache:
                 return _nsa34_day_cache[date_str]
+    else:
+        # Today's file is re-downloaded (~5MB) on every call otherwise; the card's own
+        # snapshot half is cached 15 min for the same reason, so do the same here.
+        with _nsa34_day_lock:
+            hit = _nsa34_today_cache.get(date_str)
+        if hit and (time.monotonic() - hit[0]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
+            return hit[1]
     rows, _info = _get_rows_for_day(drive_service, day, today)
     res = None
     if rows is not None:
@@ -2006,9 +2014,12 @@ def _nsa34_day_scan(drive_service, day, today):
         except Exception:
             log.exception("nsa34 flag: snapshot scan failed for %s", date_str)
             res = None
-    if not is_today and res is not None:
+    if res is not None:
         with _nsa34_day_lock:
-            _nsa34_day_cache[date_str] = res
+            if is_today:
+                _nsa34_today_cache[date_str] = (time.monotonic(), res)
+            else:
+                _nsa34_day_cache[date_str] = res
     return res
 
 
