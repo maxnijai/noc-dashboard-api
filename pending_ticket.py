@@ -508,7 +508,18 @@ AUTO_FILL_VALUES = {
     "image_link": "",   # deliberately left empty
 }
 AUTO_FILL_UPDATED_BY = "System automatic"
+# Bookmark "Other" (= NSA3/NSA4, the catch-all shown as "NSA3-4") is handled by NODE teams,
+# so untouched tickets there get NODE instead of the default OFC.
+AUTO_FILL_ACTION_TEAM_NSA34 = "NODE"
 _auto_fill_run_lock = threading.Lock()
+
+
+def _auto_fill_action_team(entry):
+    """NODE for the catch-all "Other"/NSA3-4 bookmark (anything outside the 3 named bookmarks),
+    OFC (the default) for every other ticket. Uses the same bucket rule as Exclusive Pending."""
+    if _exclusive_bookmark_label(entry.get("Bookmark")) == "NSA3-4":
+        return AUTO_FILL_ACTION_TEAM_NSA34
+    return AUTO_FILL_VALUES["action_team"]
 
 
 def _norm_aging(v):
@@ -542,7 +553,7 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
         return {"skipped": "another auto-fill run is already in progress"}
     try:
         from datetime import timedelta as _td
-        if AUTO_FILL_VALUES["group_problem"] not in GROUP_PROBLEM_OPTIONS or AUTO_FILL_VALUES["action_team"] not in ACTION_TEAM_OPTIONS:
+        if AUTO_FILL_VALUES["group_problem"] not in GROUP_PROBLEM_OPTIONS or AUTO_FILL_VALUES["action_team"] not in ACTION_TEAM_OPTIONS or AUTO_FILL_ACTION_TEAM_NSA34 not in ACTION_TEAM_OPTIONS:
             raise RuntimeError("auto-fill defaults are not valid dropdown options - refusing to write")
 
         now_dt = bangkok_now()
@@ -565,7 +576,7 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
             "dry_run": bool(dry_run), "plan_closed_date": plan_date,
             "tickets_in_scope": len(entries), "in_aging_buckets": 0,
             "skipped_already_has_data": 0, "to_update_existing_rows": 0, "to_append_new_rows": 0,
-            "written": 0, "to_fill_by_bucket": {g: 0 for g in AUTO_FILL_AGING_GROUPS}, "sample_ticket_ids": [],
+            "written": 0, "to_fill_by_action_team": {}, "to_fill_by_bucket": {g: 0 for g in AUTO_FILL_AGING_GROUPS}, "sample_ticket_ids": [],
         }
         target = str(explain_ticket_id or "").strip()
         explain = None
@@ -596,11 +607,13 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
                            "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
                            "reason": "eligible: over-SLA bucket and all 5 fields empty" + ("" if not dry_run else " (dry run - nothing written)")}
             values = [
-                tid, AUTO_FILL_VALUES["group_problem"], AUTO_FILL_VALUES["action_team"],
+                tid, AUTO_FILL_VALUES["group_problem"], _auto_fill_action_team(e),
                 f"{now_dt.strftime('%d/%m')} {AUTO_FILL_VALUES['detail']}",   # dated, so it reads as the first line of the day-by-day detail
                 AUTO_FILL_VALUES["image_link"],
                 plan_date, now_str, AUTO_FILL_UPDATED_BY,
             ]
+            _at = _auto_fill_action_team(e)
+            summary["to_fill_by_action_team"][_at] = summary["to_fill_by_action_team"].get(_at, 0) + 1
             summary["to_fill_by_bucket"][_AUTO_FILL_AGING_CANON[_norm_aging(e.get("Aging_Flag_Group"))]] += 1
             if row_no is not None:
                 updates.append((row_no, values))
