@@ -3247,12 +3247,31 @@ window.p0RenderFlag = function () {
     else { if (P0FL.hist && P0FL.hist.series[pk || 'all']) fromSeries(P0FL.hist.dates, P0FL.hist.series[pk || 'all']); fromSeries(d.dates, d.series.flag); }
     const pts = Object.keys(act).map(k => [dayIdx(k), act[k]]).filter(p => p[0] >= 0 && p[0] <= nDays).sort((a, b) => a[0] - b[0]);
     const todayIdx = pts.length ? pts[pts.length - 1][0] : 0;
-    const W = 760, H = 280, L = 40, R = 16, T = 18, B = 30;
+    const W = 760, L = isPlan ? 62 : 40, R = isPlan ? 22 : 16, T = 18, H = isPlan ? 370 : 280, B = isPlan ? 108 : 30;
     const mx = Math.max(FC.startValue, ...pts.map(p => p[1]), 1), top = Math.ceil(mx * 1.1 / 20) * 20 || 20;
     const x = i => L + i * (W - L - R) / nDays, y = v => T + (H - T - B) * (1 - v / top);
     let g = '';
     for (let k = 0; k <= 4; k++) { const v = top * k / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${k ? 3 : 0}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text3)">${Math.round(v)}</text>`; }
-    for (let i = 0; i <= nDays; i++) if (i % 2 === 0 || i === nDays || i === todayIdx) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${i === todayIdx ? 'var(--text)' : 'var(--text3)'}" font-weight="${i === todayIdx ? 700 : 400}">${mdLabel(i)}</text>`;
+    if (!isPlan) {
+      for (let i = 0; i <= nDays; i++) if (i % 2 === 0 || i === nDays || i === todayIdx) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${i === todayIdx ? 'var(--text)' : 'var(--text3)'}" font-weight="${i === todayIdx ? 700 : 400}">${mdLabel(i)}</text>`;
+    } else {
+      // Target / Actual / Diff table under the chart - one column per day, aligned with the x axis.
+      const perDayT = (FC.startValue - FC.target) / nDays, planAt = i => Math.max(FC.target, FC.startValue - perDayT * i);
+      const actAt = {}; pts.forEach(p => { actAt[p[0]] = p[1]; });
+      const cw = (W - L - R) / nDays, rowY = [H - B + 30, H - B + 50, H - B + 70], labs = ['Target', 'Actual', 'Diff'];
+      const labCol = ['#2563eb', FLAG, 'var(--text2)'];
+      rowY.forEach((ry, k) => { if (k % 2 === 0) g += `<rect x="${L - cw / 2}" y="${ry - 13}" width="${W - L - R + cw}" height="19" fill="var(--bg3)" opacity=".7"/>`; });
+      if (pts.length) g += `<rect x="${x(todayIdx) - cw / 2}" y="${H - B + 3}" width="${cw}" height="${rowY[2] - (H - B) + 8}" fill="${FLAG}" opacity=".13" rx="3"/>`;
+      rowY.forEach((ry, k) => { g += `<text x="${L - cw / 2 - 6}" y="${ry + 1}" text-anchor="end" font-size="10.5" font-weight="700" fill="${labCol[k]}">${labs[k]}</text>`; });
+      for (let i = 0; i <= nDays; i++) {
+        const tg = Math.round(planAt(i)), isT = pts.length && i === todayIdx, av = actAt[i], diff = av != null ? av - tg : null;
+        g += `<line x1="${x(i)}" x2="${x(i)}" y1="${H - B}" y2="${H - B + 5}" stroke="var(--border2)"/>`;
+        g += `<text x="${x(i)}" y="${H - B + 18}" text-anchor="middle" font-size="10.5" fill="${isT ? 'var(--text)' : 'var(--text3)'}" font-weight="${isT ? 800 : 500}">${mdLabel(i)}</text>`;
+        g += `<text x="${x(i)}" y="${rowY[0] + 1}" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="${isT ? 800 : 600}">${tg}</text>`;
+        g += `<text x="${x(i)}" y="${rowY[1] + 1}" text-anchor="middle" font-size="10" fill="${av != null ? FLAG : 'var(--text3)'}" font-weight="${av != null ? 700 : 400}">${av != null ? av : '·'}</text>`;
+        if (diff != null) g += `<text x="${x(i)}" y="${rowY[2] + 1}" text-anchor="middle" font-size="10" font-weight="700" fill="${diff > 0 ? '#B23A3A' : (diff < 0 ? '#639922' : 'var(--text3)')}">${diff > 0 ? '+' : ''}${diff}</text>`;
+      }
+    }
     if (pts.length) g += `<line x1="${x(todayIdx)}" x2="${x(todayIdx)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/><text x="${x(todayIdx) + 4}" y="${T + 10}" font-size="10.5" fill="var(--text3)">วันนี้</text>`;
     g += `<line x1="${x(nDays)}" x2="${x(nDays)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/>`;
     let kpi = '';
@@ -3274,7 +3293,7 @@ window.p0RenderFlag = function () {
     const lgPlan = isPlan ? `<span style="margin-left:14px"><span style="color:#2563eb">╌╌</span> แผน (เส้นตรงจาก ${FC.startDate.slice(5).replace('-', '/')} = ${FC.startValue})</span>` : '';
     const note = (!isPlan && P0FL.cat === null) ? '<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">เส้นแผนแสดงเฉพาะเมื่อเลือก P0 + P1 ทั้งคู่</div>' : '';
     const tg = isPlan ? `<label style="font-size:12px;color:var(--text2);margin-left:auto;">เป้าหมายคงเหลือ <input type="number" min="0" value="${FC.target}" data-fl-tgt style="width:56px;font:inherit;font-size:12px;padding:1px 5px;border:1px solid var(--border2);border-radius:5px;background:var(--bg3);color:var(--text);"> ใบ ภายใน ${mdLabel(nDays)}</label>` : '';
-    return `${kpi}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual เทียบแผนลด Flag ถึงสิ้นเดือน" style="display:block;width:100%;height:auto">${g}</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span><span style="color:${FLAG}">●</span> Actual @01:15</span>${lgPlan}${tg}</div>${note}`;
+    return `${kpi}<div style="overflow-x:auto;"><div style="min-width:${isPlan ? 660 : 0}px;"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual เทียบแผนลด Flag ถึงสิ้นเดือน" style="display:block;width:100%;height:auto">${g}</svg></div></div><div style="font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span><span style="color:${FLAG}">●</span> Actual @01:15</span>${lgPlan}${tg}</div>${note}`;
   };
   // ----- category table
   const maxN = Math.max(...d.categories.map(c => c.now), 1);
