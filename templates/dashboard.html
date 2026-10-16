@@ -2191,6 +2191,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       #page-fieldfollow .ff-row { display:grid; grid-template-columns:auto auto minmax(0,1fr) auto; gap:8px 14px; align-items:center; padding:9px 12px; cursor:pointer; }
       @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .ff-subj, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
       #page-fieldfollow .ff-tid { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; }
+      #page-fieldfollow .ff-tid { cursor:copy; } #page-fieldfollow .ff-tid:hover { text-decoration:underline dotted; } #page-fieldfollow .ff-tid.ff-copied { color:#16a34a; }
       #page-fieldfollow .ff-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
       #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.SA3 { color:var(--ff-warn); } #page-fieldfollow .ff-chip.SA4 { color:var(--ff-acc); }
       #page-fieldfollow .ff-chip.NSA1, #page-fieldfollow .ff-chip.NSA1_DN { color:var(--ff-nsa); } #page-fieldfollow .ff-chip.NSA2 { color:#9b6bd6; } #page-fieldfollow .ff-chip.NSA3 { color:#3b8fa6; } #page-fieldfollow .ff-chip.NSA4 { color:var(--text3); }
@@ -13545,6 +13546,15 @@ loadData();
       document.querySelectorAll('#ff-tabs button').forEach(b => b.classList.toggle('on', b === tb));
       $('ff-tab-board').hidden = tab !== 'board'; $('ff-tab-dash').hidden = tab !== 'dash'; $('ff-tab-hist').hidden = tab !== 'hist';
       if (tab === 'hist') loadHist(); renderAll(); return;
+    }
+    const tidEl = ev.target.closest('.ff-tid');
+    if (tidEl && tidEl.closest('.ff-tk')) {
+      ev.stopPropagation();
+      const id = tidEl.closest('.ff-tk').dataset.id, old = tidEl.textContent;
+      const done = () => { tidEl.textContent = '✓ คัดลอกแล้ว'; tidEl.classList.add('ff-copied'); setTimeout(() => { tidEl.textContent = old; tidEl.classList.remove('ff-copied'); }, 1100); };
+      const fallback = () => { try { const ta = document.createElement('textarea'); ta.value = id; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } catch (e) {} };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, fallback); else fallback();
+      return;
     }
     const fb = ev.target.closest('#ff-flt button');
     if (fb) { filter = fb.dataset.f; document.querySelectorAll('#ff-flt button').forEach(b => b.classList.toggle('on', b === fb)); renderBoard(); return; }
