@@ -3392,7 +3392,7 @@ def api_p0_nsa34_flag_history():
         from datetime import datetime as _dt
         start = _dt.strptime(request.args.get('from', ''), '%Y-%m-%d').date()
         drive_service, _gs = get_drive_and_sheets_clients()
-        return jsonify(build_nsa34_flag_history(drive_service, start))
+        return jsonify(build_nsa34_flag_history(drive_service, start, gs_client=_gs))
     except ValueError:
         return jsonify({'error': 'from=YYYY-MM-DD required'}), 400
     except Exception as e:
@@ -3816,6 +3816,26 @@ def run_pending_auto_fill():
             pass
 
 
+def run_flag_daily_record():
+    """06:00 Bangkok nightly job: keep the Flag @01:15 Actual (Forecast chart) in the FlagDailyActual tab."""
+    import tempfile
+    import pending_ticket as _pt
+    lock_path = os.path.join(tempfile.gettempdir(), f"flag_daily_record_{bangkok_now().strftime('%Y%m%d')}.lock")
+    try:
+        os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        return
+    try:
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        log.info("flag daily record: stored %s", _pt.record_flag_daily_snapshots(drive_service, gs_client))
+    except Exception:
+        log.exception("flag daily record failed")
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
+
+
 @app.route('/api/pending-ticket/auto-fill', methods=['POST'])
 def api_pending_auto_fill():
     """Manual check/run of the nightly auto-fill. DRY RUN unless the body is
@@ -3840,6 +3860,8 @@ def start():
     # 21:30 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=21 would fire at 04:00 Bangkok.
     s.add_job(run_pending_auto_fill, 'cron', hour=21, minute=30, timezone='Asia/Bangkok',
               id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
+    s.add_job(run_flag_daily_record, 'cron', hour=6, minute=0, timezone='Asia/Bangkok',
+              id='flag_daily_record', max_instances=1, coalesce=True, misfire_grace_time=7200, replace_existing=True)
     s.start()
     try:
         # Preload the site sheet in the background so the first page view already has Site Type.

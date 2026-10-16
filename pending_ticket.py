@@ -2042,7 +2042,123 @@ def _nsa34_day_scan(drive_service, day, today, keep_rows=True):
     return res
 
 
-def _nsa34_view(scans, cur_by, snap_idx, all_days, view):
+# ── Persistent daily Actual (Flag @01:15) ─────────────────────────────────
+# The nightly Drive files only live ~5 days, so the month Forecast's Actual line
+# lost its older days. Every finished day's Flag count is therefore written ONCE
+# to its own sheet tab and then kept: a stored value is never overwritten and wins
+# over a re-count (so the line does not move if the counting rules change later).
+FLAG_DAILY_SHEET = "FlagDailyActual"
+FLAG_DAILY_HEADER = ["Date", "All", "P0", "P1", "P0+P1", "Recorded at", "Source"]
+FLAG_DAILY_VIEWS = ("all", "P0", "P1", "P0P1")
+# Known values supplied by MAX: Flag P0+P1 @01:15 on 11 Oct = 157 (start of the month plan), 12 Oct = 145.
+FLAG_DAILY_SEED = {"2026-10-11": {"P0P1": 157}, "2026-10-12": {"P0P1": 145}}
+_flag_daily = {"data": None, "ts": 0.0}
+_flag_daily_lock = threading.Lock()
+_FLAG_DAILY_TTL = 1800
+
+
+def _flag_daily_ws(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    try:
+        return sh.worksheet(FLAG_DAILY_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=FLAG_DAILY_SHEET, rows=500, cols=len(FLAG_DAILY_HEADER))
+        ws.append_row(FLAG_DAILY_HEADER)
+        return ws
+
+
+def _flag_daily_int(v):
+    try:
+        return int(str(v).strip()) if str(v).strip() != "" else None
+    except ValueError:
+        return None
+
+
+def _flag_daily_load(gs_client, force=False):
+    """{date_str: {"all","P0","P1","P0P1": int|None}} from the sheet (cached 30 min, best-effort)."""
+    with _flag_daily_lock:
+        if not force and _flag_daily["data"] is not None and (time.monotonic() - _flag_daily["ts"]) < _FLAG_DAILY_TTL:
+            return _flag_daily["data"]
+    if gs_client is None:
+        return _flag_daily["data"] or {}
+    try:
+        ws = _flag_daily_ws(gs_client)
+        data = {}
+        for row in ws.get_all_values()[1:]:
+            if row and row[0].strip():
+                pad = row + [""] * (len(FLAG_DAILY_HEADER) - len(row))
+                data[pad[0].strip()] = {v: _flag_daily_int(pad[1 + i]) for i, v in enumerate(FLAG_DAILY_VIEWS)}
+        seed_rows = []
+        for ds, vals in FLAG_DAILY_SEED.items():
+            if ds not in data:
+                full = {v: vals.get(v) for v in FLAG_DAILY_VIEWS}
+                data[ds] = full
+                seed_rows.append([ds] + ["" if full[v] is None else full[v] for v in FLAG_DAILY_VIEWS]
+                                 + [bangkok_now().strftime("%Y-%m-%d %H:%M:%S"), "seed (provided by MAX)"])
+        if seed_rows:
+            ws.append_rows(seed_rows, value_input_option="RAW")
+        with _flag_daily_lock:
+            _flag_daily["data"], _flag_daily["ts"] = data, time.monotonic()
+        return data
+    except Exception:
+        log.exception("flag daily store: load failed")
+        return _flag_daily["data"] or {}
+
+
+def _flag_daily_record(gs_client, day_totals):
+    """day_totals = {date_str: {"all","P0","P1","P0P1": int}} for finished days. Appends only dates not stored yet."""
+    if gs_client is None or not day_totals:
+        return
+    try:
+        store = _flag_daily_load(gs_client)
+        new = {ds: t for ds, t in day_totals.items() if ds not in store}
+        if not new:
+            return
+        ws = _flag_daily_ws(gs_client)
+        stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        ws.append_rows([[ds] + [t[v] for v in FLAG_DAILY_VIEWS] + [stamp, "nightly 01:15 file"] for ds, t in sorted(new.items())],
+                       value_input_option="RAW")
+        with _flag_daily_lock:
+            for ds, t in new.items():
+                store[ds] = dict(t)
+        log.info("flag daily store: recorded %s", sorted(new))
+    except Exception:
+        log.exception("flag daily store: record failed")
+
+
+def _scan_day_totals(sc):
+    return {v: sum(sc[k]["flag"] for k in keys) for v, keys in _NSA34_VIEWS.items()}
+
+
+def _flag_daily_merge(days, scans, store):
+    """Per day: the stored value if there is one, else the live count. Returns
+    ({date_str: {view: int|None}}, {date_str: totals to record})."""
+    merged, to_record = {}, {}
+    for d, sc in zip(days, scans):
+        ds = d.strftime("%Y-%m-%d")
+        st = store.get(ds)
+        counted = _scan_day_totals(sc) if sc is not None else None
+        merged[ds] = {v: (st[v] if st and st.get(v) is not None else (counted[v] if counted else None)) for v in FLAG_DAILY_VIEWS}
+        if counted is not None and not st:
+            to_record[ds] = counted
+    return merged, to_record
+
+
+def record_flag_daily_snapshots(drive_service, gs_client, back_days=4):
+    """Nightly job (06:00 Bangkok, app.py): stores today's 01:15 Flag count and catches up on the last
+    `back_days` days that are not stored yet - so Actual is kept even if nobody opens the panel before
+    the Drive file is deleted. Returns the dates written."""
+    today = bangkok_now().date()
+    days = [today - _timedelta(days=i) for i in range(back_days, -1, -1)]
+    store = _flag_daily_load(gs_client, force=True)
+    todo = [d for d in days if not store.get(d.strftime("%Y-%m-%d")) or any(store[d.strftime("%Y-%m-%d")].get(v) is None for v in FLAG_DAILY_VIEWS)]
+    scans = [_nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in todo]
+    rec = {d.strftime("%Y-%m-%d"): _scan_day_totals(sc) for d, sc in zip(todo, scans) if sc is not None and not store.get(d.strftime("%Y-%m-%d"))}
+    _flag_daily_record(gs_client, rec)
+    return sorted(rec)
+
+
+def _nsa34_view(scans, cur_by, snap_idx, all_days, view, merged=None):
     """Response body for one Priority view ("all", "P0", "P1", "P0P1")."""
     keys = _NSA34_VIEWS[view]
     pick = lambda by: _nsa34_merge([by[k] for k in keys])
@@ -2077,7 +2193,10 @@ def _nsa34_view(scans, cur_by, snap_idx, all_days, view):
         "flag_now": cur["flag"], "non_now": cur["non"],
         "flag_snap": snap["flag"] if snap else None, "non_snap": snap["non"] if snap else None,
         "flag_p0": sum(cur["p0cats"].values()),
-        "series": {"flag": series(lambda s: s["flag"]), "non": series(lambda s: s["non"])},
+        "series": {"flag": [(merged.get(d.strftime("%Y-%m-%d"), {}).get(view) if merged else None)
+                            if (merged and merged.get(d.strftime("%Y-%m-%d"), {}).get(view) is not None) else v
+                            for d, v in zip(all_days, series(lambda s: s["flag"]))],
+                   "non": series(lambda s: s["non"])},
         "categories": cats,
         "provinces": prov_rows,
         "aging": {"order": list(AGING_ORDER), "colors": AGING_COLORS,
@@ -2095,6 +2214,9 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
     all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]
     scans = [_nsa34_day_scan(drive_service, d, today) for d in all_days]
     snap_idx = next((i for i in range(len(scans) - 1, -1, -1) if scans[i] is not None), None)
+    # Finished days are kept in the sheet (see "Persistent daily Actual"); today's count stays live.
+    merged, to_record = _flag_daily_merge(all_days, scans, _flag_daily_load(gs_client))
+    _flag_daily_record(gs_client, {k: v for k, v in to_record.items() if k != today.strftime("%Y-%m-%d")})
 
     live_rows = fetch_live_rows(gs_client)
     ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
@@ -2107,33 +2229,35 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
     except Exception:
         log.exception("nsa34 flag: card-total cross-check failed")
 
-    out = _nsa34_view(scans, cur_by, snap_idx, all_days, "all")
+    out = _nsa34_view(scans, cur_by, snap_idx, all_days, "all", merged)
     out["generated_at"] = now_dt.strftime("%Y-%m-%d %H:%M:%S")
     # insert_time = stamped by the source system on every row of the current batch ("รอบข้อมูลปัจจุบัน"),
     # same field Pending Ticket / P0 Only show.
     out["insert_time"] = live_rows[0].get("insert_time") if live_rows else None
     out["snapshot_date"] = all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None
     out["dates"] = [d.strftime("%Y-%m-%d") for d in all_days]
-    out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v) for v in ("P0", "P1", "P0P1")}
+    out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v, merged) for v in ("P0", "P1", "P0P1")}
     return out
 
 
-def build_nsa34_flag_history(drive_service, start_date, window_days=7):
+def build_nsa34_flag_history(drive_service, start_date, window_days=7, gs_client=None):
     """Flag totals @01:15 per day for the days BEFORE the 7-day window of
     build_nsa34_flag_breakdown (start_date .. today-7), for the month Forecast chart.
-    {"dates": [...], "series": {"all"|"P0"|"P1"|"P0P1": [flag count or None]}}. Past days cached forever."""
+    {"dates": [...], "series": {"all"|"P0"|"P1"|"P0P1": [flag count or None]}}.
+    Stored values (sheet tab FlagDailyActual) win; a day only needs its Drive file when it is not stored yet."""
     today = bangkok_now().date()
     last = today - _timedelta(days=window_days)
-    dates, days_list = [], []
+    days_list = []
     d = start_date
     while d <= last:
         days_list.append(d)
         d += _timedelta(days=1)
-    scans = [_nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in days_list]
-    series = {v: [] for v in _NSA34_VIEWS}
-    for sc in scans:
-        for v, keys in _NSA34_VIEWS.items():
-            series[v].append(None if sc is None else sum(sc[k]["flag"] for k in keys))
+    store = _flag_daily_load(gs_client)
+    scans = [None if (d.strftime("%Y-%m-%d") in store and all(store[d.strftime("%Y-%m-%d")].get(v) is not None for v in FLAG_DAILY_VIEWS))
+             else _nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in days_list]
+    merged, to_record = _flag_daily_merge(days_list, scans, store)
+    _flag_daily_record(gs_client, to_record)
+    series = {v: [merged[d.strftime("%Y-%m-%d")][v] for d in days_list] for v in FLAG_DAILY_VIEWS}
     return {"dates": [d.strftime("%Y-%m-%d") for d in days_list], "series": series}
 
 
