@@ -1084,6 +1084,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
     <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
       <div id="p0-total-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
+      <div id="p0-total-aging-legend" style="display:none; flex-wrap:wrap; gap:4px 14px; padding:8px 14px; background:var(--bg1); border-bottom:1px solid var(--border); font-size:11px; color:var(--text2);"></div>
       <div class="p0eq-grid">
       <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
@@ -3677,6 +3678,7 @@ function renderTotalPendingRow(prefix, data) {
         </div>
         <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-TOTAL"></canvas></div>
       </div>
+      <div class="tp-aging" id="tp-aging-TOTAL" style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);"></div>
     </div>`;
 
   const cards = groups.map((g, i) => {
@@ -3698,6 +3700,7 @@ function renderTotalPendingRow(prefix, data) {
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-${g.key}"></canvas></div>
         </div>
+        <div class="tp-aging" id="tp-aging-${g.key}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);"></div>
       </div>`;
   }).join('');
   cmpEl.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
@@ -3726,6 +3729,82 @@ function renderTotalPendingSparklines() {
     return sum;
   });
   renderP0Sparkline('TOTAL', TP_NAVY, labels, totalSeries, 'tp-trend');
+  try { renderTotalPendingAging(data, totalSeries); } catch (e) { console.error('Total Pending aging stack failed', e); }
+}
+
+// Aging stack under each Total Pending card's trend line: one bar per day (@01:15), segments = Aging_Flag_Group,
+// total on top and a dashed line through the totals. Extra API field aging_total - when it is missing or empty the
+// sections simply stay hidden and the cards look exactly as before.
+const TP_AGING_FALLBACK = ['#d94452', '#ef7f4a', '#f3b66f', '#f1e07a', '#86ef86', '#3a9d54'];
+function tpAgingFg(c) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(c || '').trim());
+  if (!m) return 'var(--text)';
+  const n = parseInt(m[1], 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum < 0.6 ? '#fff' : '#1c2a3a';
+}
+function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals) {
+  const W = 240, H = 150, L = 2, R = 2, T = 16, B = 16, n = dates.length, slot = (W - L - R) / n, bw = slot * 0.72;
+  const segSum = d => order.reduce((a, k) => a + (bySeg[k][d] || 0), 0);
+  const tops = dates.map((_, d) => { const t = totals[d]; return t != null ? Math.max(t, segSum(d)) : (bySeg[order[0]][d] == null ? null : segSum(d)); });
+  const vals = tops.filter(v => v != null);
+  if (!vals.length) return '';
+  const mx = Math.max(...vals, 1), y = v => T + (H - T - B) * (1 - v / mx), x = d => L + slot * d + slot / 2;
+  let s = '';
+  dates.forEach((dt, d) => {
+    if (tops[d] == null) return;
+    let acc = 0;
+    const seg = (name, v, col) => {
+      if (!v) return;
+      const y1 = y(acc + v), y0 = y(acc), h = y0 - y1; acc += v;
+      s += `<rect x="${x(d) - bw / 2}" y="${y1}" width="${bw}" height="${h}" fill="${col}"><title>${dt.slice(5).replace('-', '/')} · ${p0T5Esc(name)}: ${v}</title></rect>`;
+      if (h >= 10) s += `<text x="${x(d)}" y="${y1 + h / 2 + 3}" text-anchor="middle" font-size="8" style="fill:${tpAgingFg(col)}" pointer-events="none">${v}</text>`;
+    };
+    order.forEach(k => seg(k, bySeg[k][d] || 0, colorOf(k)));
+    const other = (totals[d] != null ? totals[d] : 0) - segSum(d);
+    if (other > 0) seg('อื่นๆ / ไม่ระบุ', other, '#9aa7b4');
+    s += `<text x="${x(d)}" y="${y(tops[d]) - 4}" text-anchor="middle" font-size="8.5" font-weight="600" style="fill:var(--text)">${tops[d]}</text>`;
+    s += `<text x="${x(d)}" y="${H - 4}" text-anchor="middle" font-size="8" style="fill:var(--text3)">${dt.slice(8)}</text>`;
+  });
+  const lp = dates.map((_, d) => tops[d] == null ? null : `${x(d)},${y(tops[d]) - 1}`).filter(Boolean);
+  if (lp.length > 1) s += `<polyline points="${lp.join(' ')}" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.3" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block; overflow:visible; color:var(--text);" role="img" aria-label="Aging stack ${n} วัน">${s}</svg>`;
+}
+function renderTotalPendingAging(data, totalSeries) {
+  const ag = data && data.aging_total;
+  const legend = document.getElementById('p0-total-aging-legend');
+  const hideAll = () => { document.querySelectorAll('.tp-aging').forEach(e => { e.style.display = 'none'; }); if (legend) legend.style.display = 'none'; };
+  if (!ag || !ag.series || !ag.order || !ag.order.length) { hideAll(); return; }
+  const order = ag.order, colorOf = k => (ag.colors && ag.colors[k]) || TP_AGING_FALLBACK[order.indexOf(k) % TP_AGING_FALLBACK.length];
+  const n = data.dates.length, any = [];
+  const bySegFor = key => {
+    const out = {};
+    order.forEach(k => {
+      out[k] = data.dates.map((_, d) => {
+        if (key !== 'TOTAL') { const v = ((ag.series[key] || {})[k] || [])[d]; return v == null ? null : v; }
+        let sum = null;
+        tpGroupKeys.forEach(g => { const v = ((ag.series[g] || {})[k] || [])[d]; if (v != null) sum = (sum || 0) + v; });
+        return sum;
+      });
+    });
+    return out;
+  };
+  const keys = tpGroupKeys.concat(['TOTAL']);
+  keys.forEach(key => {
+    const box = document.getElementById('tp-aging-' + key);
+    if (!box) return;
+    const totals = key === 'TOTAL' ? totalSeries : (data.series_total[key] || []);
+    const svg = tpAgingBarsSvg(data.dates, bySegFor(key), order, colorOf, totals);
+    if (!svg) { box.style.display = 'none'; return; }
+    any.push(key);
+    box.innerHTML = `<div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${n} วัน)</span></div>${svg}`;
+    box.style.display = 'block';
+  });
+  if (legend) {
+    if (any.length) {
+      legend.innerHTML = order.map(k => `<span style="display:flex; align-items:center; gap:5px; white-space:nowrap;"><i style="width:10px; height:10px; border-radius:2px; background:${colorOf(k)}; display:inline-block;"></i>${p0T5Esc(k)}</span>`).join('');
+      legend.style.display = 'flex';
+    } else legend.style.display = 'none';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
