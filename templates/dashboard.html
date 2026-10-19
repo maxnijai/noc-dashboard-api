@@ -1011,6 +1011,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
     <style>
       .p0-hide-top5 .p0-top5 { display: none; }
+      /* Equal-size cards (explicit request): 5 equal columns in both rows, equal heights, Top 5 slot reserved, Trend pinned to the bottom. */
+      .p0eq-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 12px; background: var(--bg1); align-items: stretch; }
+      .p0eq-grid > div[id$="kpi-summary"], .p0eq-grid > div[id$="snapshot-compare"], .p0eq-grid > div[id$="snapshot-compare"] > div { display: contents !important; }
+      .p0eq-grid .p0eq-card { display: flex !important; flex-direction: column; min-width: 0 !important; flex: none !important; height: auto !important; align-self: stretch; background: var(--bg2); border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--r); box-sizing: border-box; position: relative; }
+      .p0eq-grid .p0eq-card .p0-top5 { min-height: 135px; }
+      .p0eq-grid .p0eq-card > div:last-child { margin-top: auto !important; }
+      @media (max-width: 1100px) { .p0eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 700px) { .p0eq-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       .p0-t5r { display: grid; grid-template-columns: 14px minmax(0,1fr) 46px 30px; align-items: center; gap: 6px; font-size: 11.5px; padding: 2.5px 3px; border-radius: 4px; cursor: pointer; }
       .p0-t5r:hover { background: var(--bg3); }
       .p0-t5r.p0-t5-static { cursor: default; }
@@ -1067,7 +1075,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
          with the pieces as borderless children inside it, divided by a vertical rule. -->
     <div style="margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
       <div id="p0-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
-      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      <div class="p0eq-grid">
         <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
         <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
@@ -1076,7 +1084,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
     <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
       <div id="p0-total-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
-      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      <div class="p0eq-grid">
       <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
@@ -2954,7 +2962,7 @@ async function loadP0SnapshotComparison(prefix) {
       const diffArrow = diffUp ? '▲' : (diffDown ? '▼' : '–');
       const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
       return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+      <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
@@ -3654,7 +3662,7 @@ function renderTotalPendingRow(prefix, data) {
   // never quite lined up with the compact "@01:15: X ▲+Y" line the
   // Bookmark cards use.
   kpiEl.innerHTML = `
-    <div style="height:100%; box-shadow:inset 3px 0 0 ${TP_NAVY}; padding:14px 16px;">
+    <div class="p0eq-card" style="height:100%; border-left:3px solid ${TP_NAVY}; padding:12px 14px;">
       <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
       <div class="p0dd-click" data-dd-row="total" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalNow}</div>
       <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -3674,7 +3682,7 @@ function renderTotalPendingRow(prefix, data) {
   const cards = groups.map((g, i) => {
     const accent = TP_ACCENTS[i % TP_ACCENTS.length];
     return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+      <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
@@ -8335,7 +8343,7 @@ function renderPivot(ft) {
     // number, compact compare line, Top5, Trend, all at the identical
     // font-sizes those cards use (explicit request: match Bookmark exactly).
     const totalCard = `
-      <div style="height:100%; box-shadow:inset 3px 0 0 #B23A3A; padding:14px 16px;">
+      <div class="p0eq-card" style="height:100%; border-left:3px solid #B23A3A; padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalP0}</div>
         <div id="p0-total-p0-compare">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
