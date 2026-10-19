@@ -1450,6 +1450,7 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
     dates = []
     series = {k: [] for k in P0_COMPARISON_GROUPS}
     series_total = {k: [] for k in P0_COMPARISON_GROUPS}  # Total Pending per day @01:15 - additive, never mixed into "series"
+    aging_series = {k: {a: [] for a in AGING_ORDER} for k in P0_COMPARISON_GROUPS}  # Total Pending split by Aging_Flag_Group per day - additive
     debug_today = None
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
@@ -1458,11 +1459,19 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
 
         rows, file_info = _get_rows_for_day(drive_service, day, today)
         total_counts = {k: None for k in P0_COMPARISON_GROUPS}
+        aging_counts = None
         if rows is not None:
             try:
                 total_counts = _count_total_by_group(rows)
             except Exception:
                 log.exception("build_p0_daily_trend: total-pending count failed for %s - P0 series unaffected", date_str)
+            try:
+                aging_counts = _count_total_aging_by_group(rows)
+            except Exception:
+                log.exception("build_p0_daily_trend: aging split failed for %s - other series unaffected", date_str)
+        for k in P0_COMPARISON_GROUPS:
+            for a in AGING_ORDER:
+                aging_series[k][a].append(aging_counts[k][a] if aging_counts else None)
         if rows is None:
             counts = {k: None for k in P0_COMPARISON_GROUPS}
         else:
@@ -1478,7 +1487,8 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
             series[k].append(counts.get(k))
             series_total[k].append(total_counts.get(k))
 
-    return {"dates": dates, "series": series, "series_total": series_total, "debug_today": debug_today}
+    return {"dates": dates, "series": series, "series_total": series_total, "debug_today": debug_today,
+            "aging_total": {"order": list(AGING_ORDER), "colors": AGING_COLORS, "series": aging_series}}
 
 
 
@@ -1543,6 +1553,33 @@ def _count_total_by_group(rows):
             if row_matches_view(r, key):
                 counts[key] += 1
     return counts
+
+
+def _count_total_aging_by_group(rows):
+    """{group: {aging_key: n}} - Total Pending per group split by Aging_Flag_Group, with exactly the
+    scope/CORP filter/group matching of _count_total_by_group (so each group's split adds back up to
+    that group's Total, apart from tickets whose Aging_Flag_Group is blank/unknown, which are left out).
+    None when the rowset has no Aging_Flag_Group column at all (a day is then a gap, never zeros)."""
+    from ticket_views import row_matches_view
+    if not rows or "Aging_Flag_Group" not in rows[0]:
+        return None
+    canon = {_norm_aging(k): k for k in AGING_ORDER}
+    apply_tog = _rows_have_owner_group(rows)
+    out = {k: {a: 0 for a in AGING_ORDER} for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        ag = canon.get(_norm_aging(r.get("Aging_Flag_Group")))
+        if ag is None:
+            continue
+        for key in P0_COMPARISON_GROUPS:
+            if row_matches_view(r, key):
+                out[key][ag] += 1
+    return out
 
 
 def _province_breakdown_by_group(rows, reference_dt):
