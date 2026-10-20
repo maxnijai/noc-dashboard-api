@@ -2965,6 +2965,7 @@ async function loadP0SnapshotComparison(prefix) {
       return `
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
+        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -3351,7 +3352,7 @@ window.p0RenderFlag = function () {
     <div class="fl-box"><h3><span>Flag แยกตาม Category (${d.categories.length} รายการ) <span class="fl-chip">คลิกแถวเพื่อดู Trend ของ Category นั้น</span></span><span class="fl-seg"><button data-fl-sort="now" class="${P0FL.sort === 'now' ? 'on' : ''}">เรียงตามจำนวน</button><button data-fl-sort="diff" class="${P0FL.sort === 'diff' ? 'on' : ''}">เรียงตามที่เพิ่มขึ้น</button></span></h3>
       <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:620px"><thead><tr><th>Category</th><th>ตอนนี้</th><th>@01:15</th><th>เทียบ</th><th>P0</th><th>% ของ Flag</th><th>7 วัน</th></tr></thead><tbody>${catRows}${catTotRow}</tbody></table></div></div>
     <div class="fl-box"><h3><span>Trend by Province @01:15 (Flag) <span class="fl-chip">สีเข้ม = ค้างมาก · คลิกแถว = เปิดแผนที่ Drill-down</span></span></h3>
-      <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
     <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
 
     <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag ทุก Priority = ${fullTot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
@@ -3685,7 +3686,6 @@ function renderTotalPendingRow(prefix, data) {
     const accent = TP_ACCENTS[i % TP_ACCENTS.length];
     return `
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
-        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
