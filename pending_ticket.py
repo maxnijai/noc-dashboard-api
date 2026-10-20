@@ -110,7 +110,7 @@ GROUP_PROBLEM_OPTIONS = [
     "Fiber optic \u2013 Accident/Constuction",
     "Fiber optic - PEA/MEA Maintenance transmission line",
     "Fiber optic - High loss/Degrade/Animal",
-    "Workload - Assigning team access site",
+    "In progress - Priority TT management/ Interrupted by urgency TT",
     "Solar Cell - Off Grid",
     # NSA3/NSA4 specific values (highlighted in the Pending Ticket dropdown by their "N3/4-" prefix)
     "N3/4-Workload",
@@ -502,7 +502,7 @@ AUTO_FILL_AGING_GROUPS = (
     "6) Within SLA",           # added on request - same rule: only still-untouched tickets get the default plan
 )
 AUTO_FILL_VALUES = {
-    "group_problem": "Workload - Assigning team access site",
+    "group_problem": "In progress - Priority TT management/ Interrupted by urgency TT",
     "action_team": "OFC",
     "detail": "Team on progress fixing/wait update from team",
     "image_link": "",   # deliberately left empty
