@@ -1393,39 +1393,182 @@ _p0_snapshot_lock = threading.Lock()
 
 P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
 
-_day_rows_cache = {}
-_day_rows_lock = threading.Lock()
+# ── Per-day computed snapshot cache (COUNTS ONLY - raw rows are never kept) ──
+# A day's ~01:15 Drive file is ~7k rows / ~5MB. Parking those rows in memory for every
+# past day (the old _day_rows_cache) made Railway memory climb all week. Now each file is
+# downloaded ONCE, both consumers' numbers (Focus P0 trend + NSA3/4 Flag scan) are computed
+# in the same pass, the rows are dropped immediately, and only the small result dicts stay.
+_DAY_CALC = {}          # date_str -> {"trend", "nsa34", "ts", "missing"}
+_DAY_CALC_LOCK = threading.Lock()
+_DAY_DL_LOCK = threading.Lock()   # one Drive download at a time -> no parallel ~5MB spikes
+_DAY_TODAY_TTL = 900    # today's file is rewritten hourly; same 15-min TTL the other cards use
+_DAY_MISSING_TTL = 1800  # "no file found" is retried after 30 min instead of being locked in
+_DAY_CALC_KEEP_DAYS = 45
 
 
-def _get_rows_for_day(drive_service, day, today):
-    """Cached raw-row fetch for a single day's ~01:15 backup file, used by
-    build_p0_daily_trend. Returns (rows_or_None, file_info_or_None) - rows
-    is None if no file was found. Caches PAST days forever (a completed
-    day's backup file is fixed); NEVER caches today (its file is
-    rewritten hourly by the external job and may not exist yet at the
-    time of an early call - see build_p0_daily_trend's own docstring for
-    the fuller reasoning)."""
+def _release_memory():
+    """Hand freed memory back to the OS (Python/glibc keep it otherwise, and Railway bills what the process holds)."""
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
+
+def _compute_trend_part(rows, day, is_today, file_info):
+    """Focus P0 numbers for one day's rows: {"counts","total","aging","debug"} (debug = today only)."""
+    total_counts = {k: None for k in P0_COMPARISON_GROUPS}
+    aging_counts = None
+    try:
+        total_counts = _count_total_by_group(rows)
+    except Exception:
+        log.exception("build_p0_daily_trend: total-pending count failed for %s - P0 series unaffected", day)
+    try:
+        aging_counts = _count_total_aging_by_group(rows)
+    except Exception:
+        log.exception("build_p0_daily_trend: aging split failed for %s - other series unaffected", day)
+    reference_dt = datetime.combine(day, _dtime(1, 15))
+    debug = None
+    if is_today:
+        counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
+        _, matched_dt, filename = file_info
+        debug = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows),
+                 "counts": counts, "stage_counts": stage_counts}
+    else:
+        counts = _count_p0_by_group(rows, reference_dt)
+    return {"counts": counts, "total": total_counts, "aging": aging_counts, "debug": debug}
+
+
+def _day_calc(drive_service, day, today, need):
+    """Computed snapshot for one day: {"trend": ..|None, "nsa34": ..|None, ...} or None when no file.
+    `need` is "trend" or "nsa34" - the part the caller needs. Past days are cached for good (a finished
+    day's file never changes); today is cached 15 min."""
     from pending_trend import find_nightly_file, download_xlsx_as_rows
-    date_str = day.strftime("%Y-%m-%d")
+    ds = day.strftime("%Y-%m-%d")
     is_today = day == today
 
-    if not is_today:
-        with _day_rows_lock:
-            cached = _day_rows_cache.get(date_str)
-        if cached is not None:
-            return cached
+    def usable(e):
+        if e is None:
+            return False
+        age = time.monotonic() - e["ts"]
+        if is_today and age >= _DAY_TODAY_TTL:
+            return False
+        if e.get("missing"):
+            return age < _DAY_MISSING_TTL
+        return e.get(need) is not None
 
-    file_info = find_nightly_file(drive_service, day)
-    if file_info is None:
-        result = (None, None)
-    else:
-        rows = download_xlsx_as_rows(drive_service, file_info[0])
-        result = (rows, file_info)
+    with _DAY_CALC_LOCK:
+        e = _DAY_CALC.get(ds)
+    if usable(e):
+        return e
+    with _DAY_DL_LOCK:
+        with _DAY_CALC_LOCK:
+            e = _DAY_CALC.get(ds)
+        if usable(e):
+            return e
+        file_info = find_nightly_file(drive_service, day)
+        if file_info is None:
+            new = {"trend": None, "nsa34": None, "ts": time.monotonic(), "missing": True}
+        else:
+            rows = download_xlsx_as_rows(drive_service, file_info[0])
+            new = {"trend": None, "nsa34": None, "ts": time.monotonic(), "missing": False}
+            if rows is not None:
+                try:
+                    new["trend"] = _compute_trend_part(rows, day, is_today, file_info)
+                except Exception:
+                    log.exception("day calc: trend part failed for %s", ds)
+                try:
+                    new["nsa34"] = _nsa34_scan(rows, datetime.combine(day, _dtime(1, 15)))
+                except Exception:
+                    log.exception("nsa34 flag: snapshot scan failed for %s", ds)
+            else:
+                new["missing"] = True
+            del rows
+            _release_memory()
+        with _DAY_CALC_LOCK:
+            _DAY_CALC[ds] = new
+            cutoff = (today - _timedelta(days=_DAY_CALC_KEEP_DAYS)).strftime("%Y-%m-%d")
+            for k in [k for k in _DAY_CALC if k < cutoff]:
+                del _DAY_CALC[k]
+    return new
 
-    if not is_today:
-        with _day_rows_lock:
-            _day_rows_cache[date_str] = result
-    return result
+
+# ── Persistent daily Focus P0 numbers (so the 7-day trend survives Drive's ~5-day retention) ──
+# Same rule as FlagDailyActual: a finished day is written ONCE to its own sheet tab and the
+# stored value wins from then on. Only small count dicts are stored (never rows).
+TREND_DAILY_SHEET = "TrendDailySnapshot"
+TREND_DAILY_HEADER = ["Date", "Data (JSON)", "Recorded at"]
+_trend_store = {"data": None, "ts": 0.0}
+_trend_store_lock = threading.Lock()
+_TREND_STORE_TTL = 1800
+
+
+def _trend_store_ws(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    try:
+        return sh.worksheet(TREND_DAILY_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=TREND_DAILY_SHEET, rows=500, cols=len(TREND_DAILY_HEADER))
+        ws.append_row(TREND_DAILY_HEADER)
+        return ws
+
+
+def _trend_store_load(gs_client, force=False):
+    """{date_str: {"counts","total","aging"}} (cached 30 min, best-effort)."""
+    import json
+    with _trend_store_lock:
+        if not force and _trend_store["data"] is not None and (time.monotonic() - _trend_store["ts"]) < _TREND_STORE_TTL:
+            return _trend_store["data"]
+    if gs_client is None:
+        return _trend_store["data"] or {}
+    try:
+        ws = _trend_store_ws(gs_client)
+        data = {}
+        for row in ws.get_all_values()[1:]:
+            if len(row) >= 2 and row[0].strip():
+                try:
+                    v = json.loads(row[1])
+                    if isinstance(v, dict) and isinstance(v.get("counts"), dict):
+                        data[row[0].strip()] = v
+                except ValueError:
+                    continue
+        with _trend_store_lock:
+            _trend_store["data"], _trend_store["ts"] = data, time.monotonic()
+        return data
+    except Exception:
+        log.exception("trend daily store: load failed")
+        return _trend_store["data"] or {}
+
+
+def _trend_store_record(gs_client, new):
+    """new = {date_str: trend part} for finished days. Appends only dates not stored yet."""
+    import json
+    if gs_client is None or not new:
+        return
+    try:
+        store = _trend_store_load(gs_client)
+        new = {ds: t for ds, t in new.items() if ds not in store}
+        if not new:
+            return
+        ws = _trend_store_ws(gs_client)
+        stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        slim = {ds: {"counts": t["counts"], "total": t["total"], "aging": t["aging"]} for ds, t in new.items()}
+        ws.append_rows([[ds, json.dumps(v, ensure_ascii=False, separators=(",", ":")), stamp] for ds, v in sorted(slim.items())],
+                       value_input_option="RAW")
+        with _trend_store_lock:
+            store.update(slim)
+        log.info("trend daily store: recorded %s", sorted(slim))
+    except Exception:
+        log.exception("trend daily store: record failed")
+
+
+def _trend_recordable(t):
+    return t is not None and any(v is not None for v in (t.get("counts") or {}).values())
 
 
 def build_p0_daily_trend(gs_client, drive_service, days=7):
@@ -1452,41 +1595,34 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
     series_total = {k: [] for k in P0_COMPARISON_GROUPS}  # Total Pending per day @01:15 - additive, never mixed into "series"
     aging_series = {k: {a: [] for a in AGING_ORDER} for k in P0_COMPARISON_GROUPS}  # Total Pending split by Aging_Flag_Group per day - additive
     debug_today = None
+    store = _trend_store_load(gs_client)
+    to_record = {}
+    none_counts = {k: None for k in P0_COMPARISON_GROUPS}
     for day in all_days:
         date_str = day.strftime("%Y-%m-%d")
         dates.append(date_str)
         is_today = day == today
 
-        rows, file_info = _get_rows_for_day(drive_service, day, today)
-        total_counts = {k: None for k in P0_COMPARISON_GROUPS}
-        aging_counts = None
-        if rows is not None:
-            try:
-                total_counts = _count_total_by_group(rows)
-            except Exception:
-                log.exception("build_p0_daily_trend: total-pending count failed for %s - P0 series unaffected", date_str)
-            try:
-                aging_counts = _count_total_aging_by_group(rows)
-            except Exception:
-                log.exception("build_p0_daily_trend: aging split failed for %s - other series unaffected", date_str)
+        t = None
+        if not is_today and date_str in store:
+            t = store[date_str]  # finished day already stored: no Drive download needed
+        else:
+            e = _day_calc(drive_service, day, today, "trend")
+            t = e.get("trend") if e else None
+            if t is not None and not is_today and _trend_recordable(t):
+                to_record[date_str] = t
+        counts = (t or {}).get("counts") or none_counts
+        total_counts = (t or {}).get("total") or none_counts
+        aging_counts = (t or {}).get("aging")
+        if is_today and t and t.get("debug"):
+            debug_today = t["debug"]
         for k in P0_COMPARISON_GROUPS:
             for a in AGING_ORDER:
                 aging_series[k][a].append(aging_counts[k][a] if aging_counts else None)
-        if rows is None:
-            counts = {k: None for k in P0_COMPARISON_GROUPS}
-        else:
-            reference_dt = datetime.combine(day, _dtime(1, 15))
-            if is_today:
-                counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
-                _, matched_dt, filename = file_info
-                debug_today = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows), "counts": counts, "stage_counts": stage_counts}
-            else:
-                counts = _count_p0_by_group(rows, reference_dt)
-
-        for k in P0_COMPARISON_GROUPS:
             series[k].append(counts.get(k))
             series_total[k].append(total_counts.get(k))
 
+    _trend_store_record(gs_client, to_record)
     return {"dates": dates, "series": series, "series_total": series_total, "debug_today": debug_today,
             "aging_total": {"order": list(AGING_ORDER), "colors": AGING_COLORS, "series": aging_series}}
 
@@ -1977,11 +2113,6 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
 # button is pressed, so no existing response or number changes. Scope, CORP
 # filter and group matching are exactly _count_total_by_group's, so
 # flag + non-flag always equals the NSA3 / NSA4 card number (checked + logged).
-_nsa34_day_cache = {}
-_nsa34_today_cache = {}  # {date_str: (monotonic_ts, scan)}
-_nsa34_day_lock = threading.Lock()
-
-
 def _nsa34_blank():
     return {"flag": 0, "non": 0, "cats": {}, "p0cats": {}, "prov": {}, "aging": {}, "nonflag": {}}
 
@@ -2040,43 +2171,11 @@ def _nsa34_scan(rows, reference_dt):
 
 
 def _nsa34_day_scan(drive_service, day, today, keep_rows=True):
-    """Snapshot (~01:15 file) scan for one day, or None when no file. Past
-    days are cached forever (a finished day's file never changes); today is
-    never cached - same rule as build_p0_daily_trend."""
-    date_str = day.strftime("%Y-%m-%d")
-    is_today = day == today
-    if not is_today:
-        with _nsa34_day_lock:
-            if date_str in _nsa34_day_cache:
-                return _nsa34_day_cache[date_str]
-    else:
-        # Today's file is re-downloaded (~5MB) on every call otherwise; the card's own
-        # snapshot half is cached 15 min for the same reason, so do the same here.
-        with _nsa34_day_lock:
-            hit = _nsa34_today_cache.get(date_str)
-        if hit and (time.monotonic() - hit[0]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
-            return hit[1]
-    if keep_rows:
-        rows, _info = _get_rows_for_day(drive_service, day, today)
-    else:
-        # Older-than-window history: download, count, discard - never park ~5MB of raw rows per day in memory.
-        from pending_trend import find_nightly_file, download_xlsx_as_rows
-        fi = find_nightly_file(drive_service, day)
-        rows = download_xlsx_as_rows(drive_service, fi[0]) if fi else None
-    res = None
-    if rows is not None:
-        try:
-            res = _nsa34_scan(rows, datetime.combine(day, _dtime(1, 15)))
-        except Exception:
-            log.exception("nsa34 flag: snapshot scan failed for %s", date_str)
-            res = None
-    if res is not None:
-        with _nsa34_day_lock:
-            if is_today:
-                _nsa34_today_cache[date_str] = (time.monotonic(), res)
-            else:
-                _nsa34_day_cache[date_str] = res
-    return res
+    """Snapshot (~01:15 file) scan for one day, or None when no file. Comes from the shared
+    counts-only day cache (_day_calc): a past day is downloaded once for ALL consumers and its
+    raw rows are never kept; today is cached 15 min. `keep_rows` is ignored (kept for callers)."""
+    e = _day_calc(drive_service, day, today, "nsa34")
+    return e.get("nsa34") if e else None
 
 
 # ── Persistent daily Actual (Flag @01:15) ─────────────────────────────────
@@ -2192,6 +2291,21 @@ def record_flag_daily_snapshots(drive_service, gs_client, back_days=4):
     scans = [_nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in todo]
     rec = {d.strftime("%Y-%m-%d"): _scan_day_totals(sc) for d, sc in zip(todo, scans) if sc is not None and not store.get(d.strftime("%Y-%m-%d"))}
     _flag_daily_record(gs_client, rec)
+    # Same nightly pass also stores the Focus P0 trend numbers of finished days (tab TrendDailySnapshot).
+    try:
+        tstore = _trend_store_load(gs_client, force=True)
+        trec = {}
+        for d in days:
+            ds = d.strftime("%Y-%m-%d")
+            if d == today or ds in tstore:
+                continue
+            e = _day_calc(drive_service, d, today, "trend")
+            t = e.get("trend") if e else None
+            if _trend_recordable(t):
+                trec[ds] = t
+        _trend_store_record(gs_client, trec)
+    except Exception:
+        log.exception("trend daily store: nightly record failed")
     return sorted(rec)
 
 
