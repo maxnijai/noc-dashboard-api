@@ -3007,6 +3007,9 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix) {
   const numEl = document.getElementById(idPrefix + '-num-' + key);
   const chartKey = idPrefix + '|' + key;
   if (!canvas) return false;
+  // Days with no data yet at the start (Drive keeps few days) are dropped so the line fills the whole card width.
+  const firstIdx = series.findIndex(v => v != null);
+  if (firstIdx > 0) { labels = labels.slice(firstIdx); series = series.slice(firstIdx); }
   const lastVal = [...series].reverse().find(v => v != null);
   if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
   if (p0TrendCharts[chartKey]) p0TrendCharts[chartKey].destroy();
@@ -3743,6 +3746,9 @@ function tpAgingFg(c) {
   return lum < 0.6 ? '#fff' : '#1c2a3a';
 }
 function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals) {
+  // Leading days with no data are dropped so the bars fill the whole card width.
+  const st0 = dates.findIndex((_, d) => totals[d] != null || bySeg[order[0]][d] != null);
+  if (st0 > 0) { dates = dates.slice(st0); totals = totals.slice(st0); order.forEach(k => { bySeg[k] = bySeg[k].slice(st0); }); }
   const W = 240, H = 150, L = 2, R = 2, T = 16, B = 16, n = dates.length, slot = (W - L - R) / n, bw = slot * 0.72;
   const segSum = d => order.reduce((a, k) => a + (bySeg[k][d] || 0), 0);
   const tops = dates.map((_, d) => { const t = totals[d]; return t != null ? Math.max(t, segSum(d)) : (bySeg[order[0]][d] == null ? null : segSum(d)); });
@@ -3796,7 +3802,7 @@ function renderTotalPendingAging(data, totalSeries) {
     const svg = tpAgingBarsSvg(data.dates, bySegFor(key), order, colorOf, totals);
     if (!svg) { box.style.display = 'none'; return; }
     any.push(key);
-    box.innerHTML = `<div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${n} วัน)</span></div>${svg}`;
+    box.innerHTML = `<div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${(data.dates.length - Math.max(0, data.dates.findIndex((_, d) => totalSeries[d] != null)))} วัน)</span></div>${svg}`;
     box.style.display = 'block';
   });
   if (legend) {
