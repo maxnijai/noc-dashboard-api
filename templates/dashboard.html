@@ -2975,7 +2975,7 @@ async function loadP0SnapshotComparison(prefix) {
         ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
@@ -3028,7 +3028,7 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix) {
       layout: { padding: { top: 20 } },
       plugins: { legend: { display: false },
         datalabels: {
-          display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null && (ctx.dataset.data.length <= 9 || (ctx.dataset.data.length - 1 - ctx.dataIndex) % 2 === 0), // long ranges: every 2nd label so numbers do not overlap
           align: 'top', anchor: 'end', offset: 4, font: { size: 9, weight: '600' }, color: accent,
           formatter: (value) => value,
         },
@@ -3677,7 +3677,7 @@ function renderTotalPendingRow(prefix, data) {
       ${p0Top5Html(data.overall_top_total, totalNow, TP_NAVY, 'total', '')}
       <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
         <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span>
           <span id="tp-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:${TP_NAVY}; white-space:nowrap;">…</span>
         </div>
         <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-TOTAL"></canvas></div>
@@ -3698,7 +3698,7 @@ function renderTotalPendingRow(prefix, data) {
         ${p0Top5Html(g.top_total, g.current_total, accent, 'total', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="tp-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-${g.key}"></canvas></div>
@@ -3763,12 +3763,12 @@ function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals) {
       if (!v) return;
       const y1 = y(acc + v), y0 = y(acc), h = y0 - y1; acc += v;
       s += `<rect x="${x(d) - bw / 2}" y="${y1}" width="${bw}" height="${h}" fill="${col}"><title>${dt.slice(5).replace('-', '/')} · ${p0T5Esc(name)}: ${v}</title></rect>`;
-      if (h >= 10) s += `<text x="${x(d)}" y="${y1 + h / 2 + 3}" text-anchor="middle" font-size="8" style="fill:${tpAgingFg(col)}" pointer-events="none">${v}</text>`;
+      if (h >= 10 && bw >= 13) s += `<text x="${x(d)}" y="${y1 + h / 2 + 3}" text-anchor="middle" font-size="8" style="fill:${tpAgingFg(col)}" pointer-events="none">${v}</text>`;
     };
     order.forEach(k => seg(k, bySeg[k][d] || 0, colorOf(k)));
     const other = (totals[d] != null ? totals[d] : 0) - segSum(d);
     if (other > 0) seg('อื่นๆ / ไม่ระบุ', other, '#9aa7b4');
-    s += `<text x="${x(d)}" y="${y(tops[d]) - 4}" text-anchor="middle" font-size="8.5" font-weight="600" style="fill:var(--text)">${tops[d]}</text>`;
+    if (n <= 9 || (n - 1 - d) % 2 === 0) s += `<text x="${x(d)}" y="${y(tops[d]) - 4}" text-anchor="middle" font-size="${n > 9 ? 7.5 : 8.5}" font-weight="600" style="fill:var(--text)">${tops[d]}</text>`;
     s += `<text x="${x(d)}" y="${H - 4}" text-anchor="middle" font-size="8" style="fill:var(--text3)">${dt.slice(8)}</text>`;
   });
   const lp = dates.map((_, d) => tops[d] == null ? null : `${x(d)},${y(tops[d]) - 1}`).filter(Boolean);
@@ -8438,7 +8438,7 @@ function renderPivot(ft) {
         <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span>
             <span id="p0-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:#B23A3A; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-TOTAL"></canvas></div>
