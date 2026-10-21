@@ -3401,14 +3401,14 @@ def api_p0_nsa34_flag_history():
 
 @app.route('/api/p0-daily-trend')
 def api_p0_daily_trend():
-    """7-day 'Over SLA at ~01:15' trend per group, for the small sparkline
+    """15-day 'Over SLA at ~01:15' trend per group, for the small sparkline
     under each snapshot comparison card. Can be slow on a cold cache (up
     to 7 backup file downloads); each PAST day is cached forever once
     computed, today is always re-fetched fresh (see build_p0_daily_trend's
     own docstring for why)."""
     try:
         drive_service, gs_client = get_drive_and_sheets_clients()
-        data = build_p0_daily_trend(gs_client, drive_service, days=7)
+        data = build_p0_daily_trend(gs_client, drive_service, days=15)
         return jsonify(data)
     except Exception as e:
         log.exception("p0-daily-trend API failed")
