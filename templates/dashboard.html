@@ -14176,7 +14176,7 @@ loadData();
     scrollToToday();
   }
 
-  // Auto-scrolls the date grid so today's column sits right after the
+  // Auto-scrolls the date grid so today's column sits in the middle of the
   // frozen columns - people don't have to hunt for today's column on load,
   // but scrolling left for earlier days and right for later ones still
   // works exactly as normal since this only sets the starting scroll
@@ -14198,7 +14198,18 @@ loadData();
     // them - reading immediately after innerHTML assignment can otherwise
     // catch layout mid-flight in some browsers with sticky positioning.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      container.scrollLeft = Math.max(0, todayTh.offsetLeft - stickyWidth);
+      // Put today's column in the MIDDLE of the visible date area (not stuck against the
+      // frozen columns), so the days just before and just after it are both in view.
+      // Late in the month there is not enough table to the right to scroll that far, so a
+      // little trailing space is added to the scroll area for those days only.
+      container.style.paddingRight = '0px';
+      const dateArea = Math.max(0, container.clientWidth - stickyWidth);
+      const want = Math.max(0, todayTh.offsetLeft - stickyWidth - Math.max(0, (dateArea - todayTh.offsetWidth) / 2));
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (want > maxScroll) {
+        container.style.paddingRight = Math.ceil(want - maxScroll) + 'px';
+      }
+      container.scrollLeft = want;
     }));
   }
 
