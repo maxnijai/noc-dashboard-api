@@ -3609,6 +3609,24 @@ def api_oncall_escalation_duplicate_province():
         log.exception("oncall-escalation duplicate-province failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/oncall-escalation/import-roster', methods=['POST'])
+def api_oncall_escalation_import_roster():
+    """Admin-only: matches the Oct/Nov roster (oncall_roster.py) against the
+    live OncallEscalation tab. POST {apply: false} (default) returns the plan
+    only (keep / rename / copy / new + untouched rows); {apply: true} writes it."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        import oncall_roster
+        _, gs_client = get_drive_and_sheets_clients()
+        res = oncall_escalation.import_roster(gs_client, oncall_roster.ROSTER, apply=bool(payload.get('apply')),
+                                              updated_by=session.get('user_name') or 'import')
+        return jsonify(res)
+    except Exception as e:
+        log.exception("oncall-escalation import-roster failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall-schedule/note', methods=['POST'])
 def api_oncall_schedule_note():
     payload = request.get_json(silent=True) or {}

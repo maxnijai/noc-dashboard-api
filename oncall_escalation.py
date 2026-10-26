@@ -183,7 +183,7 @@ def load_escalation_contacts(gs_client, use_cache=True):
         province, position, name, tel, typ, last_by, last_at, note = padded[:IDENTITY_COLS]
         days = {dates[i]: (padded[IDENTITY_COLS + i] or "blank") for i in range(len(dates))}
         by_province.setdefault(province, []).append({
-            "position": position, "name": name, "tel": tel, "type": typ,
+            "province": province, "position": position, "name": name, "tel": tel, "type": typ,
             "row_key": _row_key(province, position, name),
             "last_updated_by": last_by, "last_updated_at": last_at, "note": note,
             "days": days,
@@ -458,3 +458,133 @@ def repair_column_alignment(gs_client):
     _invalidate_cache()
     _invalidate_layout_cache()
     return len(new_rows)
+
+
+def _base_province(name):
+    """"เชียงใหม่1"/"เชียงใหม่2" -> "เชียงใหม่" (the Thai province name the
+    team rows use); every other province is returned unchanged."""
+    n = (name or "").strip()
+    return n[:-1] if n[-1:] in ("1", "2") else n
+
+
+def _norm_name(s):
+    return " ".join(str(s or "").split())
+
+
+def import_roster(gs_client, roster, apply=False, updated_by=None):
+    """Matches `roster` (list of {province, position, name, dates:[YYYY-MM-DD]})
+    against the live OncallEscalation tab and returns a plan; with
+    apply=True it also writes it.
+
+    Per roster entry:
+      keep    - same province+position+name already exists (its Tel is kept)
+      rename  - the person exists under the un-numbered province (e.g.
+                "เชียงใหม่") and is moved to the numbered one ("เชียงใหม่1")
+      copy    - person already exists under another province -> a new row
+                is added with that row's Tel
+      new     - nobody by that name+position -> new row, Tel left blank
+    Existing rows that are not in the roster are never touched.
+    Day cells: only blank cells are set to "on"; an existing "on"/"off" is kept.
+    """
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    all_dates = sorted({d for e in roster for d in e.get("dates", [])})
+    values = ws.get_all_values()
+    header = values[0] if values else []
+    missing_months = sorted({d[:7] for d in all_dates if d not in set(header[IDENTITY_COLS:])})
+    if apply:
+        for ym in missing_months:
+            with _month_lock:
+                add_month_columns(gs_client, ym)
+        if missing_months:
+            values = ws.get_all_values()
+            header = values[0]
+    date_col = {d: IDENTITY_COLS + i for i, d in enumerate(header[IDENTITY_COLS:])}  # 0-based
+    missing_dates = [d for d in all_dates if d not in date_col]
+
+    # existing rows
+    existing = []   # dicts with row (1-based), province, position, name, tel
+    for i, line in enumerate(values[1:], start=2):
+        if not line or not line[0]:
+            continue
+        p = line + [""] * (len(header) - len(line))
+        existing.append({"row": i, "province": p[0], "position": p[1], "name": _norm_name(p[2]),
+                         "tel": p[3], "type": p[4], "cells": p})
+    by_exact = {(e["province"], e["position"], e["name"]): e for e in existing}
+    claimed = set()
+    plan = []
+    for ent in roster:
+        prov, pos, name = ent["province"], ent["position"], _norm_name(ent["name"])
+        dates = [d for d in ent.get("dates", []) if d in date_col]
+        item = {"province": prov, "position": pos, "name": name, "days_on": len(dates), "dates": dates}
+        ex = by_exact.get((prov, pos, name))
+        if ex:
+            item.update(action="keep", tel=ex["tel"], row=ex["row"])
+            claimed.add(ex["row"])
+        else:
+            base = _base_province(prov)
+            renamable = next((e for e in existing if e["position"] == pos and e["name"] == name
+                              and e["row"] not in claimed and e["province"] == base and base != prov), None)
+            if renamable:
+                item.update(action="rename", from_province=renamable["province"], tel=renamable["tel"], row=renamable["row"])
+                claimed.add(renamable["row"])
+            else:
+                src = next((e for e in existing if e["position"] == pos and e["name"] == name and e["tel"]), None) \
+                    or next((e for e in existing if e["position"] == pos and e["name"] == name), None)
+                if src:
+                    item.update(action="copy", from_province=src["province"], tel=src["tel"], type=src["type"])
+                else:
+                    item.update(action="new", tel="")
+        plan.append(item)
+
+    untouched = [{"province": e["province"], "position": e["position"], "name": e["name"]}
+                 for e in existing if e["row"] not in claimed]
+    summary = {a: sum(1 for x in plan if x["action"] == a) for a in ("keep", "rename", "copy", "new")}
+    result = {"applied": False, "summary": summary, "missing_months": missing_months,
+              "missing_dates": missing_dates, "plan": plan, "existing_not_in_roster": untouched}
+    if not apply:
+        return result
+
+    from gspread.utils import rowcol_to_a1
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    updates, new_rows = [], []
+    for item in plan:
+        if item["action"] in ("keep", "rename"):
+            r = item["row"]
+            cells = next(e["cells"] for e in existing if e["row"] == r)
+            if item["action"] == "rename":
+                updates.append({"range": rowcol_to_a1(r, 1), "values": [[item["province"]]]})
+            changed = False
+            for d in item["dates"]:
+                c = date_col[d]
+                if (cells[c] or "blank") == "blank":
+                    updates.append({"range": rowcol_to_a1(r, c + 1), "values": [["on"]]})
+                    changed = True
+            if changed or item["action"] == "rename":
+                updates.append({"range": f"{rowcol_to_a1(r, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(r, _LAST_UPDATED_AT_COL)}",
+                                "values": [[updated_by or "import", now_str]]})
+        else:
+            line = [""] * len(header)
+            line[0], line[1], line[2] = item["province"], item["position"], item["name"]
+            line[3] = item.get("tel", "")
+            line[4] = item.get("type", "")
+            line[IDENTITY_HEADER.index("LastUpdatedBy")] = updated_by or "import"
+            line[IDENTITY_HEADER.index("LastUpdatedAt")] = now_str
+            for c in range(IDENTITY_COLS, len(header)):
+                line[c] = "blank"
+            for d in item["dates"]:
+                line[date_col[d]] = "on"
+            new_rows.append(line)
+    for k in range(0, len(updates), 400):
+        ws.batch_update(updates[k:k + 400], value_input_option="RAW")
+    if new_rows:
+        ensure_grid(ws, len(values) + len(new_rows) + 1, len(header))
+        ws.append_rows(new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    result["applied"] = True
+    result["written"] = {"cell_updates": len(updates), "rows_added": len(new_rows)}
+    return result
