@@ -2469,6 +2469,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-add-note-column" class="btn-secondary" title="เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว)">+ คอลัมน์หมายเหตุ (ครั้งเดียว)</button>
         <button id="oc-repair-columns" class="btn-secondary" title="ซ่อมแนวคอลัมน์ที่เลื่อนผิดตำแหน่ง">🔧 ซ่อมแนวคอลัมน์</button>
         <button id="oc-import-roster" class="btn-secondary" title="เทียบรายชื่อ Sup/Eng Zone (ต.ค.–พ.ย.) กับข้อมูลในระบบ แล้วดูแผนก่อนกดนำเข้า">📥 นำเข้ารายชื่อ Sup/Eng (ต.ค.–พ.ย.)</button>
+        <button id="oc-dedupe-names" class="btn-secondary" title="ลบแถว Sup/Eng ที่ชื่อซ้ำกับแถวที่ไม่มีคำนำหน้า (นาย/นาง/นางสาว) โดยย้ายเบอร์โทรมาให้ก่อน">🧹 ลบชื่อซ้ำที่มี "นาย"</button>
         <button id="oc-dup-shared-supeng" class="btn-secondary" title="คัดลอก Sup/Eng Zone: พิษณุโลก→อุตรดิตถ์, สุโขทัย→กำแพงเพชร, เพชรบูรณ์→พิจิตร">👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด</button>
         <button id="oc-add-user" class="btn-secondary" title="เพิ่มบัญชี login ใหม่ (ไม่ต้องใช้ token)">➕ เพิ่ม User</button>
         {% endif %}
@@ -14525,6 +14526,44 @@ loadData();
     btn.textContent = '🔧 ซ่อมแนวคอลัมน์';
   }
 
+  async function dedupeTitledNames() {
+    const btn = el('oc-dedupe-names');
+    const label = btn.textContent;
+    const call = async apply => {
+      const res = await fetch('/api/oncall-escalation/dedupe-names', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apply }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    };
+    btn.disabled = true;
+    btn.textContent = 'กำลังตรวจ...';
+    try {
+      const plan = await call(false);
+      if (!plan.to_delete) { alert('ไม่พบชื่อซ้ำที่มีคำนำหน้า'); }
+      else {
+        const lines = [`จะลบ ${plan.to_delete} แถว (เบอร์/หมายเหตุที่ว่างในแถวที่เหลือจะถูกเติมให้ก่อน):`, ''];
+        plan.plan.slice(0, 40).forEach(x => {
+          lines.push(`• ${x.province} | ${x.position} | ${x.name}`);
+          lines.push(`    คงไว้: ${x.kept_as.join(' ; ')}` + (x.day_cells_dropped ? `  (ช่องวันที่ไม่ถูกย้าย ${x.day_cells_dropped})` : ''));
+        });
+        if (plan.plan.length > 40) lines.push(`… และอีก ${plan.plan.length - 40} แถว`);
+        if (confirm(lines.join('\n') + '\n\nกด OK เพื่อลบจริง')) {
+          btn.textContent = 'กำลังลบ...';
+          const done = await call(true);
+          alert(`ลบแล้ว ${done.to_delete} แถว`);
+          await reload();
+        }
+      }
+    } catch (e) {
+      console.error('Dedupe names failed', e);
+      alert('ไม่สำเร็จ: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
   async function importRosterSupEng() {
     const btn = el('oc-import-roster');
     const label = btn.textContent;
@@ -14544,8 +14583,10 @@ loadData();
       const lines = [];
       lines.push(`มีอยู่แล้ว (เก็บเบอร์เดิม): ${sm.keep || 0}`);
       lines.push(`เปลี่ยนจังหวัดเป็น เชียงใหม่1/2: ${sm.rename || 0}`);
-      lines.push(`เพิ่มโดยคัดลอกจากคนที่มีอยู่ (ใช้เบอร์เดิม): ${sm.copy || 0}`);
-      lines.push(`เพิ่มใหม่ (เบอร์ว่าง): ${sm.new || 0}`);
+      lines.push(`เพิ่มโดยคัดลอกจากคนที่มีอยู่: ${sm.copy || 0}`);
+      lines.push(`เพิ่มใหม่: ${sm.new || 0}`);
+      lines.push(`อัปเดตเบอร์โทรตามไฟล์ Excel: ${sm.tel_updated || 0}`);
+      lines.push(`ลบคนที่ลาออก: ${sm.removed || 0}`);
       const show = (act, title) => {
         const items = plan.plan.filter(x => x.action === act);
         if (!items.length) return;
@@ -14557,6 +14598,11 @@ loadData();
       show('rename', 'เปลี่ยนจังหวัด:');
       show('copy', 'เพิ่มโดยคัดลอก:');
       show('new', 'เพิ่มใหม่:');
+      if ((plan.to_remove || []).length) {
+        lines.push('');
+        lines.push('ลบ (ลาออก):');
+        plan.to_remove.forEach(x => lines.push(`  • ${x.province} | ${x.position} | ${x.name}`));
+      }
       if ((plan.existing_not_in_roster || []).length) {
         lines.push('');
         lines.push(`แถวเดิมที่ไม่อยู่ในรายชื่อ (ไม่แตะต้อง): ${plan.existing_not_in_roster.length}`);
@@ -14566,7 +14612,7 @@ loadData();
       }
       btn.textContent = 'กำลังนำเข้า...';
       const done = await call(true);
-      alert(`นำเข้าแล้ว: เพิ่ม ${done.written.rows_added} แถว, อัปเดต ${done.written.cell_updates} ช่อง`);
+      alert(`นำเข้าแล้ว: เพิ่ม ${done.written.rows_added} แถว, ลบ ${done.written.rows_removed || 0} แถว, อัปเดต ${done.written.cell_updates} ช่อง`);
       await reload();
     } catch (e) {
       console.error('Import roster failed', e);
@@ -14684,8 +14730,10 @@ loadData();
     const byProvince = {};
     scheduleData.rows.forEach(r => {
       const p = r.province_th || '(ไม่ระบุจังหวัด)';
-      const bucket = byProvince[p] || (byProvince[p] = { totalTeams: 0, nod: 0, ofc: 0 });
+      const bucket = byProvince[p] || (byProvince[p] = { totalTeams: 0, nod: 0, ofc: 0, nodTeams: 0, ofcTeams: 0 });
       bucket.totalTeams++;
+      if (r.remark === 'NOD') bucket.nodTeams++;
+      else if (r.remark === 'OFC') bucket.ofcTeams++;
       const status = r.days[today] || 'blank';
       if (status === 'on' || status === 'always') {
         if (r.remark === 'NOD') bucket.nod++;
@@ -14720,6 +14768,17 @@ loadData();
       lines.push('⚠️ จังหวัดที่ยังไม่มี Oncall วันนี้เลย:');
       noOncall.forEach(p => lines.push(`• ${p}`));
     }
+    // Per team type: provinces where nobody of that type is Oncall today.
+    [['NOD', 'nod', 'nodTeams'], ['OFC', 'ofc', 'ofcTeams']].forEach(([label, onKey, teamKey]) => {
+      const zero = provinces.filter(p => byProvince[p][onKey] === 0);
+      if (!zero.length) return;
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`⚠️ ${label} เป็น 0 วันนี้ (${zero.length} จังหวัด):`);
+      zero.forEach(p => {
+        const n = byProvince[p][teamKey];
+        lines.push(n ? `• ${p} — มีทีม ${label} ${n} ทีม แต่ไม่มีใคร Oncall` : `• ${p} — ไม่มีทีม ${label} ในระบบ`);
+      });
+    });
     lines.push('━━━━━━━━━━━━━━');
     lines.push(`รวมทั้งภาคเหนือ — NOD ${totalNod} ทีม / OFC ${totalOfc} ทีม`);
     return lines.join('\n');
@@ -14772,6 +14831,7 @@ loadData();
   if (el('oc-repair-columns')) el('oc-repair-columns').addEventListener('click', repairColumns);
   if (el('oc-dup-shared-supeng')) el('oc-dup-shared-supeng').addEventListener('click', duplicateSharedSupEng);
   if (el('oc-import-roster')) el('oc-import-roster').addEventListener('click', importRosterSupEng);
+  if (el('oc-dedupe-names')) el('oc-dedupe-names').addEventListener('click', dedupeTitledNames);
   if (el('oc-add-user')) el('oc-add-user').addEventListener('click', addUserPrompt);
   el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
