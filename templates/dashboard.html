@@ -94,9 +94,11 @@ tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .oc-sticky-4 { position:sticky; left:402px; width:150px; min-width:150px; z-index:3; }
 .oc-sticky-5 { position:sticky; left:552px; width:70px; min-width:70px; z-index:3; }
 .oc-sticky-6 { position:sticky; left:622px; width:170px; min-width:170px; z-index:3; }
-thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5, thead .oc-sticky-6 { z-index:4; background:var(--bg3); }
-tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5, tbody .oc-sticky-6 { background:var(--bg2); }
-tbody .oc-sticky-6 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-sticky-7 { position:sticky; left:792px; width:150px; min-width:150px; z-index:3; }
+thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5, thead .oc-sticky-6, thead .oc-sticky-7 { z-index:4; background:var(--bg3); }
+tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5, tbody .oc-sticky-6, tbody .oc-sticky-7 { background:var(--bg2); }
+tbody .oc-sticky-7 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-tel-input { width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px; }
 .oe-sticky-0 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
 .oe-sticky-1 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
 .oe-sticky-2 { position:sticky; left:250px; width:180px; min-width:180px; z-index:3; }
@@ -14087,7 +14089,9 @@ loadData();
           <td class="oc-sticky-6" style="padding:2px 4px; background:${style.stickyBg};">
             <input type="text" class="oc-note-input" data-note-key="${escapeHtml(c.row_key)}" data-note-kind="escalation" value="${escapeHtml(c.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
-          <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
+          <td class="oc-sticky-7" style="padding:2px 4px; background:${style.stickyBg};">
+            <input type="text" class="oc-tel-input" data-tel-key="${escapeHtml(c.row_key)}" data-tel-kind="escalation" value="${escapeHtml(c.tel).replace(/"/g, '&quot;')}" placeholder="เบอร์โทร" title="แก้ไขเบอร์โทรได้ (Enter เพื่อบันทึก)" onblur="saveOncallTel(this)" onkeydown="if(event.key==='Enter'){this.blur();}">
+          </td>
           <td class="oe-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_by) || '-'}</td>
           <td class="oe-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_at) || '-'}</td>
           ${cells}
@@ -14120,7 +14124,9 @@ loadData();
           <td class="oc-sticky-6" style="padding:2px 4px;">
             <input type="text" class="oc-note-input" data-note-key="${escapeHtml(r.team_id1)}" data-note-kind="team" value="${escapeHtml(r.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
-          <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
+          <td class="oc-sticky-7" style="padding:2px 4px;">
+            <input type="text" class="oc-tel-input" data-tel-key="${escapeHtml(r.team_id1)}" data-tel-kind="team" value="${escapeHtml(r.tel).replace(/"/g, '&quot;')}" placeholder="เบอร์โทร" title="แก้ไขเบอร์โทรได้ (Enter เพื่อบันทึก)" onblur="saveOncallTel(this)" onkeydown="if(event.key==='Enter'){this.blur();}">
+          </td>
           <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
           <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
           ${cells}
@@ -14142,7 +14148,7 @@ loadData();
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th class="oc-sticky-6" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">หมายเหตุ</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
+              <th class="oc-sticky-7" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
               ${dayRow}
@@ -14169,7 +14175,7 @@ loadData();
     const todayTh = container.querySelector('th[data-date-header="' + todayStr() + '"]');
     if (!todayTh) return;
     let stickyWidth = 0;
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i <= 7; i++) {
       const cell = container.querySelector('.oc-sticky-' + i);
       if (cell) stickyWidth += cell.offsetWidth;
     }
@@ -14180,6 +14186,21 @@ loadData();
     requestAnimationFrame(() => requestAnimationFrame(() => {
       container.scrollLeft = Math.max(0, todayTh.offsetLeft - stickyWidth);
     }));
+  }
+
+  // Shows why a click did not save (it used to snap back silently).
+  let ocFlashTimer = null;
+  function ocFlash(msg) {
+    const st = el('oc-status');
+    if (!st) return;
+    if (ocFlashTimer === null) st.dataset.prev = st.textContent;
+    st.textContent = '⚠ ' + msg; st.style.color = '#E24B4A';
+    clearTimeout(ocFlashTimer);
+    ocFlashTimer = setTimeout(() => { st.textContent = st.dataset.prev || ''; st.style.color = ''; ocFlashTimer = null; }, 8000);
+  }
+  async function ocApiError(res) {
+    const er = await res.json().catch(() => ({}));
+    return er.error || ('HTTP ' + res.status);
   }
 
   window.toggleOncallCell = async function (teamId1, dateStr, td) {
@@ -14205,7 +14226,7 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ team_id1: teamId1, date: dateStr, status: next }),
       });
-      if (!res.ok) throw new Error('toggle failed');
+      if (!res.ok) throw new Error(await ocApiError(res));
       const data = await res.json();
       row.last_updated_by = data.updated_by;
       row.last_updated_at = data.updated_at;
@@ -14224,6 +14245,7 @@ loadData();
       badge.style.border = revertStyle.border || 'none';
       badge.textContent = revertStyle.label;
       console.error('Oncall toggle failed', e);
+      ocFlash('บันทึกไม่สำเร็จ: ' + e.message);
     }
   };
 
@@ -14250,7 +14272,7 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row_key: rowKey, date: dateStr, status: next }),
       });
-      if (!res.ok) throw new Error('toggle failed');
+      if (!res.ok) throw new Error(await ocApiError(res));
       const data = await res.json();
       contact.last_updated_by = data.updated_by;
       contact.last_updated_at = data.updated_at;
@@ -14266,7 +14288,46 @@ loadData();
       badge.style.color = revertStyle.fg;
       badge.textContent = revertStyle.label;
       console.error('Escalation toggle failed', e);
+      ocFlash('บันทึกไม่สำเร็จ: ' + e.message);
     }
+  };
+
+  window.saveOncallTel = async function (input) {
+    const key = input.dataset.telKey;
+    const kind = input.dataset.telKind; // "team" or "escalation"
+    const tel = input.value.trim();
+    if (tel === input.defaultValue.trim()) { input.value = input.defaultValue; return; } // unchanged
+    input.style.opacity = '0.6';
+    const url = kind === 'escalation' ? '/api/oncall-escalation/tel' : '/api/oncall-schedule/tel';
+    const body = kind === 'escalation' ? { row_key: key, tel } : { team_id1: key, tel };
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(await ocApiError(res));
+      const data = await res.json();
+      input.value = data.tel; input.defaultValue = data.tel;
+      input.style.borderColor = '#639922';
+      setTimeout(() => { input.style.borderColor = ''; }, 1200);
+      if (kind === 'escalation') {
+        for (const p of (escalationData && escalationData.provinces || [])) {
+          const c = p.contacts.find(c => c.row_key === key);
+          if (c) { c.tel = data.tel; c.last_updated_by = data.updated_by; c.last_updated_at = data.updated_at; break; }
+        }
+        const tr = document.querySelector(`tr[data-row-key="${CSS.escape(key)}"]`);
+        if (tr) { tr.querySelector('.oe-updated-by').textContent = data.updated_by || '-'; tr.querySelector('.oe-updated-at').textContent = data.updated_at || '-'; }
+      } else {
+        const row = scheduleData && scheduleData.rows.find(r => r.team_id1 === key);
+        if (row) { row.tel = data.tel; row.last_updated_by = data.updated_by; row.last_updated_at = data.updated_at; }
+        const tr = document.querySelector(`tr[data-row-team="${CSS.escape(key)}"]`);
+        if (tr) { tr.querySelector('.oc-updated-by').textContent = data.updated_by || '-'; tr.querySelector('.oc-updated-at').textContent = data.updated_at || '-'; }
+      }
+    } catch (e) {
+      console.error('Save tel failed', e);
+      input.value = input.defaultValue; // put the old number back so the screen never shows an unsaved value
+      input.style.borderColor = '#E24B4A';
+      setTimeout(() => { input.style.borderColor = ''; }, 2000);
+      ocFlash('บันทึกเบอร์โทรไม่สำเร็จ: ' + e.message);
+    }
+    input.style.opacity = '1';
   };
 
   window.saveOncallNote = async function (input) {
