@@ -1,0 +1,559 @@
+"""Oncall Team tab - Northern-region field-team roster with a clickable
+Day Off / Oncall grid per date, one column per day. Persisted in its own
+"OncallSchedule" tab in the same spreadsheet the rest of the app already
+uses (REALTIME_SHEET_ID), so no new spreadsheet/credentials to manage.
+
+Storage shape (one row per team member, one column per date):
+    TeamType | Region | Province | ProvinceTH | Type | TeamID | Remark |
+    No | TeamID1 | Name | Tel | FMOffice | TypeCM | LastUpdatedBy |
+    LastUpdatedAt | <date1> | <date2> | ...
+
+LastUpdatedBy/LastUpdatedAt track the most recent toggle on ANY date for
+that person (not per-cell - one row's most recent edit), stamped from the
+session the same way Pending Ticket's work log does. Dates always start
+right after these two fixed columns and new months are appended at the
+true end of the sheet, so the tracking columns never need to move.
+
+Cell values in the date columns: "" or "blank" (unset - nobody has picked
+this person as Oncall for that day; the default, not counted anywhere),
+"on" (explicitly marked Oncall - counted), "off" (Day Off - not counted),
+or "always" (7*24 - always oncall, not meant to be toggled; carried over
+from the seed data as-is, counted).
+"""
+
+import threading
+import time
+
+from realtime_monitor import REALTIME_SHEET_ID
+from pending_trend import bangkok_now
+
+ONCALL_SHEET = "OncallSchedule"
+IDENTITY_HEADER = [
+    "TeamType", "Region", "Province", "ProvinceTH", "Type", "TeamID",
+    "Remark", "District", "No", "TeamID1", "Name", "Tel", "FMOffice", "TypeCM",
+    "LastUpdatedBy", "LastUpdatedAt", "Note",
+]
+IDENTITY_COLS = len(IDENTITY_HEADER)  # date columns start right after this
+_LAST_UPDATED_BY_COL = IDENTITY_HEADER.index("LastUpdatedBy") + 1  # 1-based
+_LAST_UPDATED_AT_COL = IDENTITY_HEADER.index("LastUpdatedAt") + 1  # 1-based
+
+_CACHE_TTL_SECONDS = 7200  # 2h - safe because every write in this file goes
+                            # through our own app (toggle/seed/add-month/reset)
+                            # and explicitly calls _invalidate_cache(), so a
+                            # stale read only happens if the sheet is edited
+                            # by hand outside the app. Gunicorn runs a single
+                            # worker process (see Procfile) so this in-memory
+                            # cache is shared by every request - do not raise
+                            # the worker count without moving this to a
+                            # cross-process store, or edits from one request
+                            # could stay invisible to others for the full TTL.
+_cache = {"data": None, "ts": 0}
+_cache_lock = threading.Lock()
+
+
+def _get_spreadsheet(gs_client):
+    return gs_client.open_by_key(REALTIME_SHEET_ID)
+
+
+def _get_oncall_ws(spreadsheet):
+    try:
+        return spreadsheet.worksheet(ONCALL_SHEET)
+    except Exception:
+        return None
+
+
+def _invalidate_cache():
+    with _cache_lock:
+        _cache["data"] = None
+        _cache["ts"] = 0
+
+
+def ensure_grid(ws, min_rows=None, min_cols=None, headroom_cols=20, headroom_rows=20):
+    """Google Sheets rejects any write outside the tab's grid ("Range ... exceeds
+    grid limits. Max columns: N") and never grows the grid by itself. Every writer
+    that appends columns/rows calls this first; it only adds when the grid is too
+    small, with some headroom so it is not needed again on the next write."""
+    if min_cols and ws.col_count < min_cols:
+        ws.add_cols(min_cols - ws.col_count + headroom_cols)
+    if min_rows and ws.row_count < min_rows:
+        ws.add_rows(min_rows - ws.row_count + headroom_rows)
+
+
+def seed_oncall_schedule(gs_client, dates, rows):
+    """One-time bootstrap: creates the OncallSchedule tab (or replaces its
+    content if it already exists) from `dates` (list of "YYYY-MM-DD"
+    strings, one per column) and `rows` (list of dicts with the identity
+    fields plus a "days" dict of {date: "on"/"off"/"always"}). Writes the
+    header + every row in ONE batched call."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    header = IDENTITY_HEADER + dates
+    if ws is None:
+        ws = sh.add_worksheet(title=ONCALL_SHEET, rows=len(rows) + 10, cols=len(header) + 5)
+    else:
+        ws.clear()
+
+    body = []
+    for r in rows:
+        line = [
+            r.get("team_type", ""), r.get("region", ""), r.get("province", ""),
+            r.get("province_th", ""), r.get("type", ""), r.get("team_id", ""),
+            r.get("remark", ""), r.get("district", ""), r.get("no", ""), r.get("team_id1", ""),
+            r.get("name", ""), r.get("tel", ""), r.get("fm_office", ""), r.get("type_cm", ""),
+            "", "",  # LastUpdatedBy, LastUpdatedAt - blank until first toggle
+        ]
+        days = r.get("days", {})
+        for d in dates:
+            line.append(days.get(d, "blank"))
+        body.append(line)
+
+    ensure_grid(ws, len(body) + 1, len(header))
+    ws.update("A1", [header] + body, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(body)
+
+
+def load_oncall_schedule(gs_client, use_cache=True):
+    """Returns {"dates": [...], "rows": [ {...identity, "last_updated_by",
+    "last_updated_at", "days": {date: status}} ]} or None if the tab hasn't
+    been seeded yet."""
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _cache["data"] is not None and (now - _cache["ts"]) < _CACHE_TTL_SECONDS:
+                return _cache["data"]
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        return None
+    values = ws.get_all_values()
+    if not values:
+        return None
+    header = values[0]
+    dates = header[IDENTITY_COLS:]
+
+    rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(header) - len(line))
+        days = {dates[i]: (padded[IDENTITY_COLS + i] or "blank") for i in range(len(dates))}
+        rows.append({
+            "team_type": padded[0], "region": padded[1], "province": padded[2],
+            "province_th": padded[3], "type": padded[4], "team_id": padded[5],
+            "remark": padded[6], "district": padded[7], "no": padded[8], "team_id1": padded[9],
+            "name": padded[10], "tel": padded[11], "fm_office": padded[12], "type_cm": padded[13],
+            "last_updated_by": padded[14], "last_updated_at": padded[15], "note": padded[16],
+            "days": days,
+        })
+
+    result = {"dates": dates, "rows": rows}
+    if use_cache:
+        with _cache_lock:
+            _cache["data"] = result
+            _cache["ts"] = now
+    return result
+
+
+# Layout cache (header/dates + team_id1 -> row index) - separate from and
+# much longer-lived than the data cache above, since the SHAPE of the
+# sheet (who's in it, which columns exist) changes only on seed/add-month,
+# not on every toggle. Without this, every single click was doing a full
+# ws.get_all_values() read (1 API call) plus two separate writes (2 more) -
+# fine occasionally, but once Oncall became something people click for
+# every person on every day instead of a pre-filled default, dozens of
+# rapid clicks were blowing through the Sheets API per-minute quota and
+# the UI would stall waiting on 429s. Caching the layout cuts a toggle
+# down to a single batched write call after the first hit.
+_LAYOUT_CACHE_TTL_SECONDS = 300
+_layout_cache = {"dates": None, "team_row": None, "ts": 0}
+
+
+def _invalidate_layout_cache():
+    with _cache_lock:
+        _layout_cache["dates"] = None
+        _layout_cache["team_row"] = None
+        _layout_cache["ts"] = 0
+
+
+def _get_layout(ws):
+    now = time.monotonic()
+    with _cache_lock:
+        if _layout_cache["dates"] is not None and (now - _layout_cache["ts"]) < _LAYOUT_CACHE_TTL_SECONDS:
+            return _layout_cache["dates"], _layout_cache["team_row"]
+
+    values = ws.get_all_values()
+    header = values[0]
+    dates = header[IDENTITY_COLS:]
+    team_id1_idx = IDENTITY_HEADER.index("TeamID1")
+    team_row = {}
+    for i, line in enumerate(values[1:], start=2):
+        if line and len(line) > team_id1_idx and line[team_id1_idx]:
+            team_row[line[team_id1_idx]] = i
+
+    with _cache_lock:
+        _layout_cache["dates"] = dates
+        _layout_cache["team_row"] = team_row
+        _layout_cache["ts"] = now
+    return dates, team_row
+
+
+def toggle_oncall_cell(gs_client, team_id1, date_str, new_status, updated_by=None):
+    """Sets one person's status for one date, and stamps that row's
+    LastUpdatedBy/LastUpdatedAt (whoever last touched ANY of that person's
+    dates, not per-cell). new_status must be "on", "off", or "blank" (the
+    three clickable states - "blank" means nobody's picked this person as
+    Oncall for that day, "off" means Day Off. Legacy "always"/7*24 rows
+    from old data are treated like any other cell now)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    dates, team_row = _get_layout(ws)
+    if date_str not in dates:
+        raise ValueError(f"date {date_str} is not a column in OncallSchedule")
+    col_idx = IDENTITY_COLS + dates.index(date_str) + 1  # 1-based
+
+    row_idx = team_row.get(team_id1)
+    if row_idx is None:
+        # Cache might be stale (e.g. a row was added after it was built) -
+        # refresh once before giving up.
+        _invalidate_layout_cache()
+        dates, team_row = _get_layout(ws)
+        row_idx = team_row.get(team_id1)
+    if row_idx is None:
+        raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
+
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    cell_a1 = rowcol_to_a1(row_idx, col_idx)
+    tracking_range = f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}"
+    ws.batch_update([
+        {"range": cell_a1, "values": [[new_status]]},
+        {"range": tracking_range, "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"team_id1": team_id1, "date": date_str, "status": new_status, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def add_month_columns(gs_client, year_month):
+    """Appends one column per day of `year_month` ("YYYY-MM") to the end of
+    the sheet. Each new date is defaulted from that person's existing
+    schedule on the SAME DAY OF WEEK (Mon-Sun) - e.g. if someone is
+    consistently off on Fridays in the existing data, every Friday in the
+    new month defaults to off too - using the most common status seen for
+    that weekday (so one-off exceptions don't skew the pattern). People can
+    still click to adjust individual days after. Dates that already exist
+    as columns are skipped. Returns how many columns were actually added."""
+    import calendar
+    from collections import Counter
+    from datetime import datetime
+    from gspread.utils import rowcol_to_a1
+
+    year, month = (int(x) for x in year_month.split("-"))
+    _, days_in_month = calendar.monthrange(year, month)
+    month_dates = [f"{year:04d}-{month:02d}-{d:02d}" for d in range(1, days_in_month + 1)]
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    header = values[0]
+    existing_dates = header[IDENTITY_COLS:]
+    existing_dates_set = set(existing_dates)
+    dates_to_add = [d for d in month_dates if d not in existing_dates_set]
+    if not dates_to_add:
+        return 0
+
+    existing_weekdays = [datetime.strptime(d, "%Y-%m-%d").weekday() for d in existing_dates]  # Mon=0..Sun=6
+    new_weekdays = [datetime.strptime(d, "%Y-%m-%d").weekday() for d in dates_to_add]
+
+    start_col = len(header) + 1  # 1-based, right after the current last column
+    end_col = start_col + len(dates_to_add) - 1
+    ensure_grid(ws, len(values), end_col)  # the tab may already be at its column limit
+
+    header_range = f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(1, end_col)}"
+    ws.update(header_range, [dates_to_add], value_input_option="RAW")
+
+    n_data_rows = len(values) - 1
+    if n_data_rows > 0:
+        fill_rows = []
+        for line in values[1:1 + n_data_rows]:
+            padded = line + [""] * (len(header) - len(line))
+            day_statuses = padded[IDENTITY_COLS:]
+            weekday_pattern = {}
+            for wd in range(7):
+                statuses = [
+                    (day_statuses[i] or "blank") for i, w in enumerate(existing_weekdays)
+                    if w == wd and i < len(day_statuses)
+                ]
+                weekday_pattern[wd] = Counter(statuses).most_common(1)[0][0] if statuses else "blank"
+            fill_rows.append([weekday_pattern.get(wd, "blank") for wd in new_weekdays])
+        body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
+        ws.update(body_range, fill_rows, value_input_option="RAW")
+
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(dates_to_add)
+
+
+def reset_default_on_to_blank(gs_client):
+    """One-time cleanup: the original Excel seed marked every non-day-off
+    cell as "on" (and a couple of fixed roles as "always"/7*24), which made
+    the today-summary count people as Oncall by default - not useful once
+    Oncall is meant to be an explicit pick per person per day, with no
+    locked/fixed roles either. This finds every date cell still holding
+    "on" or "always" and clears it to "blank" in ONE batched write. Returns
+    how many cells were cleared."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    header = values[0]
+    n_dates = len(header) - IDENTITY_COLS
+    if n_dates <= 0 or len(values) <= 1:
+        return 0
+
+    n_data_rows = len(values) - 1
+    new_grid = []
+    cleared = 0
+    for line in values[1:1 + n_data_rows]:
+        padded = line + [""] * (len(header) - len(line))
+        day_statuses = padded[IDENTITY_COLS:IDENTITY_COLS + n_dates]
+        new_row = []
+        for s in day_statuses:
+            if s in ("on", "always"):
+                new_row.append("blank")
+                cleared += 1
+            else:
+                new_row.append(s)
+        new_grid.append(new_row)
+
+    if cleared:
+        from gspread.utils import rowcol_to_a1
+        start_col = IDENTITY_COLS + 1
+        end_col = IDENTITY_COLS + n_dates
+        body_range = f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(1 + n_data_rows, end_col)}"
+        ws.update(body_range, new_grid, value_input_option="RAW")
+        _invalidate_cache()
+
+    return cleared
+
+
+def add_district_column(gs_client, team_district_map):
+    """One-time migration: inserts the "District" identity column into the
+    LIVE sheet (which was seeded before this column existed) WITHOUT
+    touching any date-cell data - every existing Oncall/Day Off pick people
+    have already clicked is read back unchanged and rewritten as-is, just
+    with one new value inserted per row. `team_district_map` is
+    {team_id1: "comma, separated, districts"}. Returns how many rows got a
+    district value filled in (rows whose team_id1 wasn't found in the map
+    get an empty District, not skipped)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    if "District" in old_header:
+        raise ValueError("District column already exists - nothing to migrate")
+
+    remark_idx = old_header.index("Remark") if "Remark" in old_header else 6
+    team_id1_idx = old_header.index("TeamID1") if "TeamID1" in old_header else 8
+    insert_at = remark_idx + 1  # right after Remark
+
+    new_header = old_header[:insert_at] + ["District"] + old_header[insert_at:]
+    filled = 0
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(old_header) - len(line))
+        team_id1 = padded[team_id1_idx] if team_id1_idx < len(padded) else ""
+        district = team_district_map.get(team_id1, "")
+        if district:
+            filled += 1
+        new_row = padded[:insert_at] + [district] + padded[insert_at:]
+        new_rows.append(new_row)
+
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return filled
+
+
+def add_note_column(gs_client):
+    """One-time migration: appends the "Note" identity column to the end of
+    the CURRENT identity block (right after LastUpdatedAt, before the date
+    columns) on the LIVE sheet, WITHOUT touching any date-cell data - every
+    existing Oncall/Day Off pick is read back unchanged and rewritten
+    as-is. New rows get an empty Note. Returns the number of data rows
+    rewritten (not how many have a note - this just adds the column)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    if "Note" in old_header:
+        raise ValueError("Note column already exists - nothing to migrate")
+
+    # Insert right after LastUpdatedAt (or at the position IDENTITY_COLS-1
+    # expects if that column is missing for some reason).
+    if "LastUpdatedAt" in old_header:
+        insert_at = old_header.index("LastUpdatedAt") + 1
+    else:
+        insert_at = min(IDENTITY_COLS - 1, len(old_header))
+
+    new_header = old_header[:insert_at] + ["Note"] + old_header[insert_at:]
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (len(old_header) - len(line))
+        new_row = padded[:insert_at] + [""] + padded[insert_at:]
+        new_rows.append(new_row)
+
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)
+
+
+def update_note(gs_client, team_id1, note_text, updated_by=None):
+    """Sets the freeform Note for one person (e.g. an announcement a
+    Supervisor/Eng Zone wants everyone to see), and stamps
+    LastUpdatedBy/LastUpdatedAt the same way a date-cell toggle does."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
+
+    note_col = IDENTITY_HEADER.index("Note") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, note_col), "values": [[note_text]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"team_id1": team_id1, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def clean_tel(tel):
+    """Normalised phone text, or ValueError. Digits plus + - ( ) , / space (several numbers allowed)."""
+    import re
+    t = " ".join(str(tel or "").split())
+    if len(t) > 60:
+        raise ValueError("Tel is too long (max 60 characters)")
+    if t and not re.match(r"^[0-9+\-(),/ .]+$", t):
+        raise ValueError("Tel may only contain digits and + - ( ) , / .")
+    return t
+
+
+def update_tel(gs_client, team_id1, tel, updated_by=None):
+    """Sets one person's Tel and stamps LastUpdatedBy/LastUpdatedAt like a toggle does.
+    Written as RAW text so a leading 0 is kept."""
+    tel = clean_tel(tel)
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
+
+    tel_col = IDENTITY_HEADER.index("Tel") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, tel_col), "values": [[tel]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"team_id1": team_id1, "tel": tel, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def repair_column_alignment(gs_client):
+    """Self-healing repair: rebuilds every row of OncallSchedule by matching
+    values to their column NAME in the current header, instead of trusting
+    positional offsets (which is what earlier migrations assumed and what
+    drifted out of sync, causing date-status values like "on"/"off" to show
+    up in the wrong column). Date columns are found by pattern (YYYY-MM-DD)
+    rather than a fixed starting index, so this works regardless of how the
+    misalignment happened. Identity columns not found in the header are
+    filled blank; the resulting header always matches IDENTITY_HEADER
+    followed by every date column found, sorted chronologically. Safe to
+    run repeatedly. Returns the number of data rows rewritten."""
+    import re
+    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallSchedule tab is empty")
+    old_header = values[0]
+
+    identity_pos = {name: (old_header.index(name) if name in old_header else None) for name in IDENTITY_HEADER}
+    date_cols = sorted({h for h in old_header if date_re.match(h)})
+    date_pos = {d: old_header.index(d) for d in date_cols}
+
+    new_header = list(IDENTITY_HEADER) + date_cols
+    new_rows = []
+    for line in values[1:]:
+        if not line or not line[0]:
+            continue
+        padded = line + [""] * (max(0, len(old_header) - len(line)))
+        new_row = []
+        for name in IDENTITY_HEADER:
+            idx = identity_pos.get(name)
+            new_row.append(padded[idx] if idx is not None and idx < len(padded) else "")
+        for d in date_cols:
+            idx = date_pos[d]
+            val = padded[idx] if idx < len(padded) else "blank"
+            new_row.append(val if val in ("on", "off", "always") else "blank")
+        new_rows.append(new_row)
+
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
+    ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    return len(new_rows)
