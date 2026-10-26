@@ -20,7 +20,7 @@ Click cycle: blank -> on -> off -> blank, same as OncallSchedule.
 import threading
 import time
 
-from oncall import _get_spreadsheet
+from oncall import _get_spreadsheet, ensure_grid, clean_tel
 from pending_trend import bangkok_now
 
 ESCALATION_SHEET = "OncallEscalation"
@@ -146,6 +146,7 @@ def seed_escalation_contacts(gs_client, rows, dates):
         line.extend(["blank"] * len(dates))
         body.append(line)
 
+    ensure_grid(ws, len(body) + 1, len(header))
     ws.update("A1", [header] + body, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
@@ -222,6 +223,19 @@ def _get_layout(ws):
     return dates, row_index
 
 
+_month_lock = threading.Lock()
+
+
+def _ensure_month_columns(gs_client, date_str):
+    """Adds the missing day columns of date_str's month. Idempotent (add_month_columns skips
+    dates that exist) and serialised, so simultaneous clicks cannot add the same columns twice."""
+    import re
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(date_str)) or not (2024 <= int(date_str[:4]) <= 2100) or not (1 <= int(date_str[5:7]) <= 12):
+        raise ValueError(f"invalid date {date_str}")
+    with _month_lock:
+        add_month_columns(gs_client, date_str[:7])
+
+
 def toggle_escalation_cell(gs_client, row_key, date_str, new_status, updated_by=None):
     """Sets one contact's status for one date. new_status must be "on",
     "off", or "blank" - same 3-way cycle as OncallSchedule."""
@@ -231,6 +245,13 @@ def toggle_escalation_cell(gs_client, row_key, date_str, new_status, updated_by=
         raise ValueError("OncallEscalation tab has not been seeded yet")
 
     dates, row_index = _get_layout(ws)
+    if date_str not in dates:
+        # The month was never added to this tab (the "+ วางแผนเดือนถัดไป" button used to extend
+        # only OncallSchedule). Add that month's missing day columns now (blank) and carry on,
+        # instead of failing every click on those days.
+        _ensure_month_columns(gs_client, date_str)
+        ws = _get_escalation_ws(sh)
+        dates, row_index = _get_layout(ws)
     if date_str not in dates:
         raise ValueError(f"date {date_str} is not a column in OncallEscalation")
     col_idx = IDENTITY_COLS + dates.index(date_str) + 1  # 1-based
@@ -280,6 +301,7 @@ def add_month_columns(gs_client, year_month):
 
     start_col = len(header) + 1
     end_col = start_col + len(dates_to_add) - 1
+    ensure_grid(ws, len(values), end_col)  # the tab may already be at its column limit
     header_range = f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(1, end_col)}"
     ws.update(header_range, [dates_to_add], value_input_option="RAW")
 
@@ -326,6 +348,7 @@ def add_note_column(gs_client):
         new_row = padded[:insert_at] + [""] + padded[insert_at:]
         new_rows.append(new_row)
 
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
     ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
@@ -359,6 +382,36 @@ def update_note(gs_client, row_key, note_text, updated_by=None):
     ], value_input_option="RAW")
     _invalidate_cache()
     return {"row_key": row_key, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def update_tel(gs_client, row_key, tel, updated_by=None):
+    """Sets one escalation contact's Tel (that one row only) and stamps LastUpdatedBy/At.
+    Written as RAW text so a leading 0 is kept. row_key does not contain the Tel, so it stays valid."""
+    tel = clean_tel(tel)
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(row_key)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(row_key)
+    if row_idx is None:
+        raise ValueError(f"contact {row_key} not found in OncallEscalation")
+
+    tel_col = IDENTITY_HEADER.index("Tel") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, tel_col), "values": [[tel]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"row_key": row_key, "tel": tel, "updated_by": updated_by or "unknown", "updated_at": now_str}
 
 
 def repair_column_alignment(gs_client):
@@ -400,6 +453,7 @@ def repair_column_alignment(gs_client):
             new_row.append(val if val == "on" or val == "off" else "blank")
         new_rows.append(new_row)
 
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
     ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()

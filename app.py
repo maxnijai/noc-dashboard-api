@@ -3488,7 +3488,16 @@ def api_oncall_schedule_add_month():
     try:
         _, gs_client = get_drive_and_sheets_clients()
         added = oncall.add_month_columns(gs_client, year_month)
-        return jsonify({'added_dates': added})
+        # Keep the Sup/Eng Zone tab in step: it needs the same month's columns (it never got
+        # them from this button before, so its cells failed with "not a column"). Best-effort:
+        # a problem there must not undo/hide the schedule result.
+        esc_added, esc_error = None, None
+        try:
+            esc_added = oncall_escalation.add_month_columns(gs_client, year_month)
+        except Exception as ee:
+            log.exception("oncall-schedule add-month: escalation tab sync failed")
+            esc_error = str(ee)
+        return jsonify({'added_dates': added, 'escalation_added_dates': esc_added, 'escalation_error': esc_error})
     except Exception as e:
         log.exception("oncall-schedule add-month failed")
         return jsonify({'error': str(e)}), 500
@@ -3614,6 +3623,38 @@ def api_oncall_schedule_note():
         return jsonify(result)
     except Exception as e:
         log.exception("oncall-schedule note update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-schedule/tel', methods=['POST'])
+def api_oncall_schedule_tel():
+    payload = request.get_json(silent=True) or {}
+    team_id1 = payload.get('team_id1')
+    if not team_id1:
+        return jsonify({'error': 'team_id1 is required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(oncall.update_tel(gs_client, team_id1, payload.get('tel', ''), updated_by=updated_by))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("oncall-schedule tel update failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/tel', methods=['POST'])
+def api_oncall_escalation_tel():
+    payload = request.get_json(silent=True) or {}
+    row_key = payload.get('row_key')
+    if not row_key:
+        return jsonify({'error': 'row_key is required'}), 400
+    updated_by = session.get('user_name') or 'unknown'
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(oncall_escalation.update_tel(gs_client, row_key, payload.get('tel', ''), updated_by=updated_by))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("oncall-escalation tel update failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-escalation/note', methods=['POST'])

@@ -68,6 +68,17 @@ def _invalidate_cache():
         _cache["ts"] = 0
 
 
+def ensure_grid(ws, min_rows=None, min_cols=None, headroom_cols=20, headroom_rows=20):
+    """Google Sheets rejects any write outside the tab's grid ("Range ... exceeds
+    grid limits. Max columns: N") and never grows the grid by itself. Every writer
+    that appends columns/rows calls this first; it only adds when the grid is too
+    small, with some headroom so it is not needed again on the next write."""
+    if min_cols and ws.col_count < min_cols:
+        ws.add_cols(min_cols - ws.col_count + headroom_cols)
+    if min_rows and ws.row_count < min_rows:
+        ws.add_rows(min_rows - ws.row_count + headroom_rows)
+
+
 def seed_oncall_schedule(gs_client, dates, rows):
     """One-time bootstrap: creates the OncallSchedule tab (or replaces its
     content if it already exists) from `dates` (list of "YYYY-MM-DD"
@@ -96,6 +107,7 @@ def seed_oncall_schedule(gs_client, dates, rows):
             line.append(days.get(d, "blank"))
         body.append(line)
 
+    ensure_grid(ws, len(body) + 1, len(header))
     ws.update("A1", [header] + body, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
@@ -263,6 +275,7 @@ def add_month_columns(gs_client, year_month):
 
     start_col = len(header) + 1  # 1-based, right after the current last column
     end_col = start_col + len(dates_to_add) - 1
+    ensure_grid(ws, len(values), end_col)  # the tab may already be at its column limit
 
     header_range = f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(1, end_col)}"
     ws.update(header_range, [dates_to_add], value_input_option="RAW")
@@ -374,6 +387,7 @@ def add_district_column(gs_client, team_district_map):
         new_row = padded[:insert_at] + [district] + padded[insert_at:]
         new_rows.append(new_row)
 
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
     ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
@@ -416,6 +430,7 @@ def add_note_column(gs_client):
         new_row = padded[:insert_at] + [""] + padded[insert_at:]
         new_rows.append(new_row)
 
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
     ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
@@ -450,6 +465,47 @@ def update_note(gs_client, team_id1, note_text, updated_by=None):
     ], value_input_option="RAW")
     _invalidate_cache()
     return {"team_id1": team_id1, "note": note_text, "updated_by": updated_by or "unknown", "updated_at": now_str}
+
+
+def clean_tel(tel):
+    """Normalised phone text, or ValueError. Digits plus + - ( ) , / space (several numbers allowed)."""
+    import re
+    t = " ".join(str(tel or "").split())
+    if len(t) > 60:
+        raise ValueError("Tel is too long (max 60 characters)")
+    if t and not re.match(r"^[0-9+\-(),/ .]+$", t):
+        raise ValueError("Tel may only contain digits and + - ( ) , / .")
+    return t
+
+
+def update_tel(gs_client, team_id1, tel, updated_by=None):
+    """Sets one person's Tel and stamps LastUpdatedBy/LastUpdatedAt like a toggle does.
+    Written as RAW text so a leading 0 is kept."""
+    tel = clean_tel(tel)
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_oncall_ws(sh)
+    if ws is None:
+        raise ValueError("OncallSchedule tab has not been seeded yet")
+
+    dates, row_index = _get_layout(ws)
+    row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        _invalidate_layout_cache()
+        dates, row_index = _get_layout(ws)
+        row_idx = row_index.get(team_id1)
+    if row_idx is None:
+        raise ValueError(f"team_id1 {team_id1} not found in OncallSchedule")
+
+    tel_col = IDENTITY_HEADER.index("Tel") + 1  # 1-based
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    from gspread.utils import rowcol_to_a1
+    ws.batch_update([
+        {"range": rowcol_to_a1(row_idx, tel_col), "values": [[tel]]},
+        {"range": f"{rowcol_to_a1(row_idx, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(row_idx, _LAST_UPDATED_AT_COL)}",
+         "values": [[updated_by or "unknown", now_str]]},
+    ], value_input_option="RAW")
+    _invalidate_cache()
+    return {"team_id1": team_id1, "tel": tel, "updated_by": updated_by or "unknown", "updated_at": now_str}
 
 
 def repair_column_alignment(gs_client):
@@ -496,6 +552,7 @@ def repair_column_alignment(gs_client):
             new_row.append(val if val in ("on", "off", "always") else "blank")
         new_rows.append(new_row)
 
+    ensure_grid(ws, len(new_rows) + 1, len(new_header))
     ws.update("A1", [new_header] + new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
