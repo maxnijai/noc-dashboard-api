@@ -14060,7 +14060,9 @@ loadData();
       const rankOf = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2 };
       Object.keys(escByProvince).forEach(b => {
         escByProvince[b] = escByProvince[b].map((c, i) => [c, i])
-          .sort((x, y) => ((rankOf[x[0].position] ?? 99) - (rankOf[y[0].position] ?? 99)) || (x[1] - y[1]))
+          .sort((x, y) => ((rankOf[x[0].position] ?? 99) - (rankOf[y[0].position] ?? 99))
+            || String(x[0].province || '').localeCompare(String(y[0].province || ''), 'th')
+            || (x[1] - y[1]))
           .map(x => x[0]);
       });
     }
