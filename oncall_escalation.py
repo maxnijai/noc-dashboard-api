@@ -467,11 +467,24 @@ def _base_province(name):
     return n[:-1] if n[-1:] in ("1", "2") else n
 
 
+_TITLES = ("นางสาว", "น.ส.", "นส.", "นาง", "นาย", "คุณ")
+
+
+def _strip_title(s):
+    """Name without a leading title ("นายจตุพล จันทร์ทอง" -> "จตุพล จันทร์ทอง")."""
+    n = " ".join(str(s or "").split())
+    for t in _TITLES:
+        if n.startswith(t):
+            return n[len(t):].strip()
+    return n
+
+
 def _norm_name(s):
-    return " ".join(str(s or "").split())
+    """Whitespace-normalised name with any leading title removed - used for matching."""
+    return _strip_title(s)
 
 
-def import_roster(gs_client, roster, apply=False, updated_by=None):
+def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=()):
     """Matches `roster` (list of {province, position, name, dates:[YYYY-MM-DD]})
     against the live OncallEscalation tab and returns a plan; with
     apply=True it also writes it.
@@ -483,7 +496,11 @@ def import_roster(gs_client, roster, apply=False, updated_by=None):
       copy    - person already exists under another province -> a new row
                 is added with that row's Tel
       new     - nobody by that name+position -> new row, Tel left blank
-    Existing rows that are not in the roster are never touched.
+    A roster entry's "tel" (when given) is authoritative: it replaces the
+    stored Tel on keep/rename rows and fills copy/new rows.
+    `remove_names` (position-less, title-insensitive) lists people who have
+    left: every row of theirs is deleted.
+    Other existing rows that are not in the roster are never touched.
     Day cells: only blank cells are set to "on"; an existing "on"/"off" is kept.
     """
     sh = _get_spreadsheet(gs_client)
@@ -511,40 +528,53 @@ def import_roster(gs_client, roster, apply=False, updated_by=None):
         if not line or not line[0]:
             continue
         p = line + [""] * (len(header) - len(line))
-        existing.append({"row": i, "province": p[0], "position": p[1], "name": _norm_name(p[2]),
+        existing.append({"row": i, "province": p[0], "position": p[1], "name": _norm_name(p[2]), "raw_name": p[2],
                          "tel": p[3], "type": p[4], "cells": p})
-    by_exact = {(e["province"], e["position"], e["name"]): e for e in existing}
+    by_exact = {}
+    for e in existing:   # a title-less row wins over a "นาย..." twin
+        k = (e["province"], e["position"], e["name"])
+        if k not in by_exact or _strip_title(e["raw_name"]) == " ".join(e["raw_name"].split()):
+            by_exact[k] = e
     claimed = set()
     plan = []
     for ent in roster:
         prov, pos, name = ent["province"], ent["position"], _norm_name(ent["name"])
         dates = [d for d in ent.get("dates", []) if d in date_col]
         item = {"province": prov, "position": pos, "name": name, "days_on": len(dates), "dates": dates}
+        new_tel = ent.get("tel") or ""
         ex = by_exact.get((prov, pos, name))
         if ex:
-            item.update(action="keep", tel=ex["tel"], row=ex["row"])
+            item.update(action="keep", tel=new_tel or ex["tel"], row=ex["row"], tel_update=bool(new_tel and new_tel != ex["tel"]))
             claimed.add(ex["row"])
         else:
             base = _base_province(prov)
             renamable = next((e for e in existing if e["position"] == pos and e["name"] == name
                               and e["row"] not in claimed and e["province"] == base and base != prov), None)
             if renamable:
-                item.update(action="rename", from_province=renamable["province"], tel=renamable["tel"], row=renamable["row"])
+                item.update(action="rename", from_province=renamable["province"], tel=new_tel or renamable["tel"], row=renamable["row"],
+                            tel_update=bool(new_tel and new_tel != renamable["tel"]))
                 claimed.add(renamable["row"])
             else:
                 src = next((e for e in existing if e["position"] == pos and e["name"] == name and e["tel"]), None) \
                     or next((e for e in existing if e["position"] == pos and e["name"] == name), None)
                 if src:
-                    item.update(action="copy", from_province=src["province"], tel=src["tel"], type=src["type"])
+                    item.update(action="copy", from_province=src["province"], tel=new_tel or src["tel"], type=src["type"])
                 else:
-                    item.update(action="new", tel="")
+                    item.update(action="new", tel=new_tel)
         plan.append(item)
 
+    gone = {_norm_name(n) for n in remove_names}
+    to_remove = [{"row": e["row"], "province": e["province"], "position": e["position"], "name": e["name"]}
+                 for e in existing if _norm_name(e["name"]) in gone]
+    removed_rows = {x["row"] for x in to_remove}
     untouched = [{"province": e["province"], "position": e["position"], "name": e["name"]}
-                 for e in existing if e["row"] not in claimed]
+                 for e in existing if e["row"] not in claimed and e["row"] not in removed_rows]
     summary = {a: sum(1 for x in plan if x["action"] == a) for a in ("keep", "rename", "copy", "new")}
+    summary["tel_updated"] = sum(1 for x in plan if x.get("tel_update"))
+    summary["removed"] = len(to_remove)
     result = {"applied": False, "summary": summary, "missing_months": missing_months,
-              "missing_dates": missing_dates, "plan": plan, "existing_not_in_roster": untouched}
+              "missing_dates": missing_dates, "plan": plan, "existing_not_in_roster": untouched,
+              "to_remove": to_remove}
     if not apply:
         return result
 
@@ -558,6 +588,9 @@ def import_roster(gs_client, roster, apply=False, updated_by=None):
             if item["action"] == "rename":
                 updates.append({"range": rowcol_to_a1(r, 1), "values": [[item["province"]]]})
             changed = False
+            if item.get("tel_update"):
+                updates.append({"range": rowcol_to_a1(r, 4), "values": [[item["tel"]]]})
+                changed = True
             for d in item["dates"]:
                 c = date_col[d]
                 if (cells[c] or "blank") == "blank":
@@ -585,6 +618,93 @@ def import_roster(gs_client, roster, apply=False, updated_by=None):
         ws.append_rows(new_rows, value_input_option="RAW")
     _invalidate_cache()
     _invalidate_layout_cache()
+    for r in sorted(removed_rows, reverse=True):   # bottom first so row numbers stay valid
+        ws.delete_rows(r)
+    _invalidate_cache()
+    _invalidate_layout_cache()
     result["applied"] = True
-    result["written"] = {"cell_updates": len(updates), "rows_added": len(new_rows)}
+    result["written"] = {"cell_updates": len(updates), "rows_added": len(new_rows), "rows_removed": len(removed_rows)}
+    return result
+
+
+def dedupe_titled_names(gs_client, apply=False, updated_by=None):
+    """Removes Sup/Eng Zone rows whose name only differs by a leading title
+    ("นายจตุพล ..." vs "จตุพล ...") when the title-less duplicate exists under
+    the same position and province (numbered CMI1/CMI2 count as the same
+    province). A titled row with no title-less twin is left alone.
+
+    Before a titled row is deleted, whatever it holds that the surviving rows
+    lack is carried over: Tel / Type / Note (only where blank) and day cells
+    (only where blank, and only when the survivor is in the same province or
+    is the single survivor - otherwise they are reported as dropped).
+    """
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+    values = ws.get_all_values()
+    if not values:
+        raise ValueError("OncallEscalation tab is empty")
+    header = values[0]
+    rows = []
+    for i, line in enumerate(values[1:], start=2):
+        if not line or not line[0]:
+            continue
+        p = line + [""] * (len(header) - len(line))
+        rows.append({"row": i, "cells": p, "province": p[0], "position": p[1], "name": p[2],
+                     "clean": _strip_title(p[2]), "titled": _strip_title(p[2]) != " ".join(p[2].split())})
+    groups = {}
+    for r in rows:
+        groups.setdefault((_base_province(r["province"]), r["position"], r["clean"]), []).append(r)
+
+    tel_i, type_i, note_i = 3, 4, IDENTITY_HEADER.index("Note")
+    plan, updates, delete_rows = [], [], []
+    for (_, pos, clean), grp in groups.items():
+        keepers = [r for r in grp if not r["titled"]]
+        titled = [r for r in grp if r["titled"]]
+        if not keepers or not titled:
+            continue
+        for t in titled:
+            same = [k for k in keepers if k["province"] == t["province"]]
+            targets_for_cells = same or (keepers if len(keepers) == 1 else [])
+            carried, dropped = [], 0
+            for k in keepers:
+                for col, label in ((tel_i, "tel"), (type_i, "type"), (note_i, "note")):
+                    if not k["cells"][col] and t["cells"][col]:
+                        k["cells"][col] = t["cells"][col]
+                        updates.append((k["row"], col + 1, t["cells"][col]))
+                        carried.append(f"{label}->{k['province']}")
+            for c in range(IDENTITY_COLS, len(header)):
+                v = t["cells"][c]
+                if v in ("", "blank"):
+                    continue
+                placed = False
+                for k in targets_for_cells:
+                    if k["cells"][c] in ("", "blank"):
+                        k["cells"][c] = v
+                        updates.append((k["row"], c + 1, v))
+                        placed = True
+                if not placed and not any(k["cells"][c] == v for k in targets_for_cells):
+                    dropped += 1
+            plan.append({"delete_row": t["row"], "province": t["province"], "position": pos, "name": t["name"],
+                         "kept_as": sorted({f"{k['province']} | {k['name']}" for k in keepers}),
+                         "carried": carried, "day_cells_dropped": dropped})
+            delete_rows.append(t["row"])
+    result = {"applied": False, "to_delete": len(plan), "plan": plan}
+    if not apply or not plan:
+        return result
+
+    from gspread.utils import rowcol_to_a1
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    batch = [{"range": rowcol_to_a1(r, c), "values": [[v]]} for r, c, v in updates]
+    for r in sorted({r for r, _, _ in updates}):
+        batch.append({"range": f"{rowcol_to_a1(r, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(r, _LAST_UPDATED_AT_COL)}",
+                      "values": [[updated_by or "dedupe", now_str]]})
+    for k in range(0, len(batch), 400):
+        ws.batch_update(batch[k:k + 400], value_input_option="RAW")
+    for r in sorted(delete_rows, reverse=True):   # bottom first so row numbers stay valid
+        ws.delete_rows(r)
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    result["applied"] = True
     return result

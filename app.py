@@ -3621,10 +3621,27 @@ def api_oncall_escalation_import_roster():
         import oncall_roster
         _, gs_client = get_drive_and_sheets_clients()
         res = oncall_escalation.import_roster(gs_client, oncall_roster.ROSTER, apply=bool(payload.get('apply')),
-                                              updated_by=session.get('user_name') or 'import')
+                                              updated_by=session.get('user_name') or 'import',
+                                              remove_names=getattr(oncall_roster, 'REMOVE_NAMES', ()))
         return jsonify(res)
     except Exception as e:
         log.exception("oncall-escalation import-roster failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-escalation/dedupe-names', methods=['POST'])
+def api_oncall_escalation_dedupe_names():
+    """Admin-only: deletes Sup/Eng Zone rows that duplicate a title-less row only
+    by a leading title (นาย/นาง/นางสาว...), carrying Tel/Note/day cells over first.
+    POST {apply: false} (default) = plan only."""
+    if session.get('user_email') != 'saridphong_n@bbtec.co.th':
+        return jsonify({'error': 'forbidden'}), 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(oncall_escalation.dedupe_titled_names(
+            gs_client, apply=bool(payload.get('apply')), updated_by=session.get('user_name') or 'dedupe'))
+    except Exception as e:
+        log.exception("oncall-escalation dedupe-names failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/oncall-schedule/note', methods=['POST'])
