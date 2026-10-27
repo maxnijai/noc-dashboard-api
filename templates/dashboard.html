@@ -14796,6 +14796,11 @@ loadData();
         items.slice(0, 40).forEach(x => lines.push(`  • ${x.province} | ${x.position} | ${x.name}` + (x.from_province ? ` (จาก ${x.from_province})` : '')));
         if (items.length > 40) lines.push(`  … และอีก ${items.length - 40} รายการ`);
       };
+      if ((plan.province_fixes || []).length) {
+        lines.push('');
+        lines.push(`แก้ชื่อจังหวัดที่นำเข้าผิดรอบก่อน (${plan.province_fixes.length} แถว):`);
+        plan.province_fixes.slice(0, 40).forEach(x => lines.push(`  • ${x.position} | ${x.name}: ${x.from} → ${x.to}` + (x.action === 'merge_delete' ? ' (รวมกับแถวที่มีอยู่)' : '')));
+      }
       show('rename', 'เปลี่ยนจังหวัด:');
       show('copy', 'เพิ่มโดยคัดลอก:');
       show('new', 'เพิ่มใหม่:');
