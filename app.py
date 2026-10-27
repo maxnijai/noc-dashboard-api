@@ -22,6 +22,7 @@ from pending_ticket import (
     build_p0_daily_trend,
     build_p0_drilldown,
     build_nsa34_flag_breakdown,
+    build_nsa34_p2,
     build_nsa34_flag_history,
     build_pending_ticket_xlsx,
 )
@@ -3383,6 +3384,17 @@ def api_p0_nsa34_flag():
         return jsonify(build_nsa34_flag_breakdown(gs_client, drive_service, days=7))
     except Exception as e:
         log.exception("p0-nsa34-flag API failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/p0-nsa34-p2')
+def api_p0_nsa34_p2():
+    """Flag Priority "P2 - เฝ้าระวัง" tab: Flag tickets still P2 (+ P1 about to turn P0), split NSA3/NSA4,
+    with each ticket's work-log plan. Read-only; loaded when the tab is opened."""
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(build_nsa34_p2(gs_client))
+    except Exception as e:
+        log.exception("p0-nsa34-p2 API failed")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/p0-nsa34-flag-history')

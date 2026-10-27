@@ -2391,6 +2391,80 @@ def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
     return out
 
 
+def build_nsa34_p2(gs_client):
+    """Flag Priority "P2 - เฝ้าระวัง" tab: NSA3/NSA4 Flag tickets that are still P2 at the reference
+    point (tomorrow 01:15, same as the P0/P1 split), plus the P1 tickets that will turn P0 in the next
+    round. Read-only, live rows + TicketWorkLog only (no Drive download).
+
+    {"meta": {...counts}, "tickets": [P2 flag tickets, `hrs` = hours left before TARGETFINISH counted
+    from the reference point], "p1esc": [P1 flag tickets, `over` = hours already past TARGETFINISH at the
+    reference point - they pass 24h (= P0) in the next round]}. Each ticket carries the work-log plan
+    (detail / team / group problem / planned close date) so the team sees what is already being done."""
+    from ticket_views import row_matches_view
+    now_dt = bangkok_now()
+    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    rows = fetch_live_rows(gs_client)
+    apply_tog = _rows_have_owner_group(rows)
+    try:
+        work_log = load_work_log(gs_client)
+    except Exception:
+        log.exception("nsa34 p2: work log read failed - plans left blank")
+        work_log = {}
+    p2, esc = [], []
+    meta = {"p0": 0, "p1": 0, "nonflag_p2": 0, "nsa3_all": 0, "nsa4_all": 0, "unparsed": 0}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        sev = str(r.get("SEVERITY", "")).strip()
+        if sev not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "NSA34"):
+            continue
+        meta["nsa3_all" if sev == "NSA3" else "nsa4_all"] += 1
+        tf = _parse_dt(r.get("TARGETFINISH"))
+        pr = _classify_priority_at(r.get("TARGETFINISH"), ref)
+        if pr is None or tf is None:
+            meta["unparsed"] += 1
+            continue
+        cat = _category_text(r).strip()
+        is_flag = cat.lower() in FLAG_PRIORITY_CATEGORIES
+        if pr == "P0":
+            if is_flag:
+                meta["p0"] += 1
+            continue
+        if not is_flag:
+            if pr == "P2":
+                meta["nonflag_p2"] += 1
+            continue
+        tid = str(r.get("TICKETID", "")).strip()
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        wl = work_log.get(tid, {})
+        gp = wl.get("group_problem", "") or ""
+        item = {
+            "id": tid, "tt": str(r.get("TT True", "") or tid), "sev": sev, "cat": cat, "prov": prov,
+            "site": _safe_str(r.get("CINAME")), "dist": _safe_str(r.get("DISTRICT")),
+            "tf": _safe_str(r.get("TARGETFINISH")),
+            "detail": wl.get("detail", "") or "", "team": wl.get("action_team", "") or "",
+            "gp": "" if gp.startswith("(") else gp, "plan": wl.get("plan_closed_date", "") or "",
+        }
+        if pr == "P1":
+            meta["p1"] += 1
+            item["over"] = round((ref - tf).total_seconds() / 3600, 1)
+            esc.append(item)
+        else:
+            item["hrs"] = round((tf - ref).total_seconds() / 3600, 1)
+            p2.append(item)
+    p2.sort(key=lambda t: t["hrs"])
+    esc.sort(key=lambda t: -t["over"])
+    meta["p0p1"] = meta["p0"] + meta["p1"]
+    meta["flag_list"] = list(FLAG_PRIORITY_CATEGORY_LIST)
+    return {"meta": meta, "tickets": p2, "p1esc": esc, "reference": ref.strftime("%Y-%m-%d %H:%M"),
+            "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            "insert_time": rows[0].get("insert_time") if rows else None}
+
+
 def build_nsa34_flag_history(drive_service, start_date, window_days=7, gs_client=None):
     """Flag totals @01:15 per day for the days BEFORE the 7-day window of
     build_nsa34_flag_breakdown (start_date .. today-7), for the month Forecast chart.
