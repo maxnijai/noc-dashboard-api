@@ -676,6 +676,25 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 @media (max-width:1200px){.fire-grid-top{grid-template-columns:1fr}.fire-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
 </style>
+<style>
+.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px}@media(max-width:900px){.ocp-wrap{grid-template-columns:1fr}}
+.ocp-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
+.ocp-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--text3);font-size:12px;margin-bottom:6px}.ocp-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.ocp-box svg{width:100%;height:auto;display:block;max-height:560px}
+.ocp-pv{cursor:pointer}.ocp-pv .ocp-b{fill:var(--bg4);stroke:var(--border);stroke-width:1.5}.ocp-pv:hover .ocp-b{stroke:#2563eb}
+.ocp-pv.sel .ocp-b{stroke:#2563eb;stroke-width:3}.ocp-pv.zero .ocp-b{stroke:#ef4444;stroke-dasharray:3 3}
+.ocp-pv text{text-anchor:middle;pointer-events:none;fill:var(--text);font-size:11px}.ocp-pv .ocp-n{font-weight:700;fill:#fff}
+.ocp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ocp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.ocp-chip{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:99px;padding:3px 10px;cursor:pointer;font-size:12px}.ocp-chip.a{background:#2563eb;border-color:#2563eb;color:#fff}
+.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:520px;overflow-y:auto}
+.ocp-card{border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;position:relative;background:var(--bg1)}
+.ocp-card.off{opacity:.5}.ocp-av{position:relative;width:72px;height:72px;margin:0 auto 6px}.ocp-av>*:first-child{width:72px;height:72px}
+.ocp-cam{position:absolute;right:-6px;bottom:-4px;background:var(--bg4);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:12px;cursor:pointer}
+.ocp-role{font-size:11px;color:var(--text3)}.ocp-nm{font-weight:600;font-size:13px}.ocp-tel{font-size:12px}.ocp-tel a{color:#2563eb;text-decoration:none}
+.ocp-badge{position:absolute;top:8px;right:8px;font-size:10px;padding:1px 7px;border-radius:99px;background:#22c55e;color:#06210f;font-weight:700}.ocp-card.off .ocp-badge{background:var(--bg4);color:var(--text2)}
+.ocp-empty{color:#ef4444;padding:14px;text-align:center;border:1px dashed #ef4444;border-radius:10px}.ocp-note{color:var(--text3);font-size:11px;margin-top:8px}
+</style>
 </head>
 <body>
 
@@ -2482,6 +2501,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div id="oc-today-summary" style="margin-bottom:14px;"></div>
+    <div id="oc-people-panel" style="margin-bottom:14px;"></div>
     <div id="oc-today-filter-banner"></div>
     <div id="oc-bulk-bar" style="display:none; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:#2563eb0d; border:1px solid #2563eb33; border-radius:var(--r); font-size:12px;">
       <span id="oc-bulk-count" style="font-weight:700;"></span>
@@ -14281,7 +14301,7 @@ loadData();
         }).join('');
         return `<tr style="border-top:1px solid var(--border); background:${style.bg};" data-row-key="${escapeHtml(c.row_key)}">
           <td class="oc-sticky-0" style="background:${style.stickyBg};"></td>
-          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; font-weight:600;">${escapeHtml(c.name)}</td>
+          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; font-weight:600;"><span style="display:inline-flex;align-items:center;gap:6px;">${ocpAvatar(c.name, c.position, 24)}${escapeHtml(c.name)}</span></td>
           <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">${escapeHtml(c.province || provinceKey)}</td>
           <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">
             <span style="display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; background:${style.badgeBg}; color:${style.badgeFg};">${escapeHtml(c.position)}</span>
@@ -14489,6 +14509,7 @@ loadData();
       const data = await res.json();
       contact.last_updated_by = data.updated_by;
       contact.last_updated_at = data.updated_at;
+      renderPeoplePanel();
       const tr = document.querySelector(`tr[data-row-key="${CSS.escape(rowKey)}"]`);
       if (tr) {
         tr.querySelector('.oe-updated-by').textContent = data.updated_by || '-';
@@ -14590,9 +14611,156 @@ loadData();
     input.style.opacity = '1';
   };
 
+  // ===== Sup / Eng Zone: photos + today's on-call + clickable province map =====
+  const OCP_POINTS = [
+    ['เชียงใหม่', 18.7883, 98.9853], ['เชียงราย', 19.9105, 99.8406], ['แม่ฮ่องสอน', 19.302, 97.9654],
+    ['ลำปาง', 18.2888, 99.4909], ['ลำพูน', 18.5744, 99.0087], ['น่าน', 18.7756, 100.773],
+    ['แพร่', 18.1445, 100.1405], ['พะเยา', 19.1664, 99.8998], ['กำแพงเพชร', 16.4827, 99.5226],
+    ['เพชรบูรณ์', 16.4189, 101.1591], ['พิจิตร', 16.4429, 100.3487], ['พิษณุโลก', 16.8211, 100.2659],
+    ['สุโขทัย', 17.0068, 99.8265], ['ตาก', 16.8697, 99.1257], ['อุตรดิตถ์', 17.62, 100.0993],
+  ];
+  const ocpPos = (function () {
+    const la = OCP_POINTS.map(p => p[1]), lo = OCP_POINTS.map(p => p[2]);
+    const a0 = Math.min(...la) - 0.35, a1 = Math.max(...la) + 0.35, o0 = Math.min(...lo) - 0.5, o1 = Math.max(...lo) + 0.5;
+    const pos = {};
+    OCP_POINTS.forEach(p => { pos[p[0]] = { x: 30 + (p[2] - o0) / (o1 - o0) * 460, y: 30 + (a1 - p[1]) / (a1 - a0) * 440 }; });
+    const names = Object.keys(pos);
+    for (let k = 0; k < 300; k++) for (const a of names) for (const b of names) {   // nudge apart so bubbles never overlap
+      if (a === b) continue;
+      const A = pos[a], B = pos[b]; const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 0.1;
+      if (d < 50) { const m = (50 - d) / 2; A.x -= dx / d * m; A.y -= dy / d * m; B.x += dx / d * m; B.y += dy / d * m; }
+    }
+    names.forEach(n => { pos[n].x = Math.min(490, Math.max(30, pos[n].x)); pos[n].y = Math.min(470, Math.max(30, pos[n].y)); });
+    return pos;
+  })();
+  let ocpPhotos = {}, ocpCanUpload = false, ocpSel = '', ocpFilter = 'on';
+
+  // same normalisation as the server: no leading title, single spaces, "เเ" -> "แ"
+  function ocpKey(n) {
+    let s = String(n || '').split(/\s+/).filter(Boolean).join(' ');
+    for (const t of ['นางสาว', 'น.ส.', 'นส.', 'นาง', 'นาย', 'คุณ']) { if (s.startsWith(t)) { s = s.slice(t.length).trim(); break; } }
+    return s.replace(/เเ/g, 'แ');
+  }
+  function ocpInitials(n) { const k = ocpKey(n).split(' '); return (k[0] || '').slice(0, 1) + (k[1] || '').slice(0, 1); }
+  function ocpAvatar(name, position, size) {
+    const ph = ocpPhotos[ocpKey(name)];
+    const ring = position === 'Eng Zone' ? '#d97706' : '#2563eb';
+    const base = `width:${size}px;height:${size}px;border-radius:50%;border:${size > 40 ? 3 : 2}px solid ${ring};flex:none;`;
+    if (ph) return `<img src="${ph}" alt="" style="${base}object-fit:cover;display:block;">`;
+    let h = 0; for (const ch of ocpKey(name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return `<span style="${base}display:inline-grid;place-items:center;background:hsl(${h} 45% 78%);color:#1f2937;font-weight:700;font-size:${Math.round(size * 0.36)}px;">${escapeHtml(ocpInitials(name))}</span>`;
+  }
+  function ocpPeople() {
+    const t = todayStr(), map = new Map();
+    for (const p of (escalationData && escalationData.provinces || [])) {
+      for (const c of p.contacts) {
+        const base = escBaseName(p.province);
+        const k = base + '|' + c.position + '|' + ocpKey(c.name);
+        if (!map.has(k)) map.set(k, { prov: base, labels: new Set(), position: c.position, name: c.name, tel: c.tel, on: false });
+        const m = map.get(k); m.labels.add(c.province || base); m.on = m.on || c.days[t] === 'on'; m.tel = m.tel || c.tel;
+      }
+    }
+    return [...map.values()];
+  }
+  function escBaseName(n) { return String(n || '').replace(/[12]$/, ''); }
+
+  function renderPeoplePanel() {
+    const box = el('oc-people-panel'); if (!box) return;
+    if (!escalationData || !escalationData.provinces) { box.innerHTML = ''; return; }
+    const people = ocpPeople();
+    const cnt = n => new Set(people.filter(p => p.prov === n && p.on).map(p => ocpKey(p.name))).size;
+    const totalOn = new Set(people.filter(p => p.on).map(p => ocpKey(p.name))).size;
+    const bubbles = OCP_POINTS.map(pt => {
+      const n = pt[0], c = cnt(n), x = ocpPos[n].x, y = ocpPos[n].y;
+      return `<g class="ocp-pv${n === ocpSel ? ' sel' : ''}${c ? '' : ' zero'}" data-prov="${escapeHtml(n)}"><circle class="ocp-b" cx="${x}" cy="${y}" r="21"/><circle cx="${x}" cy="${y - 1}" r="9" fill="${c ? '#22c55e' : '#ef4444'}"/><text class="ocp-n" x="${x}" y="${y + 3}">${c}</text><text class="ocp-l" x="${x}" y="${y + 34}">${escapeHtml(n)}</text></g>`;
+    }).join('');
+    let list = people.filter(p => !ocpSel || p.prov === ocpSel);
+    if (ocpFilter === 'on') list = list.filter(p => p.on);
+    else if (ocpFilter === 'Supervisor' || ocpFilter === 'Eng Zone') list = list.filter(p => p.position === ocpFilter);
+    const rank = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2 };
+    list.sort((a, b) => (b.on - a.on) || ((rank[a.position] ?? 9) - (rank[b.position] ?? 9)) || a.prov.localeCompare(b.prov, 'th'));
+    const seen = new Set();   // with no province picked, show each person once
+    if (!ocpSel) list = list.filter(p => { const k = p.position + '|' + ocpKey(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
+    const chips = [['on', 'เข้าเวรวันนี้'], ['all', 'ทั้งหมด'], ['Supervisor', 'Supervisor'], ['Eng Zone', 'Eng Zone']]
+      .map(([k, l]) => `<button class="ocp-chip${ocpFilter === k ? ' a' : ''}" data-ocp-f="${k}">${l}</button>`).join('');
+    const cards = list.length ? list.map(p => {
+      const lab = [...p.labels].sort((a, b) => a.localeCompare(b, 'th'));
+      const where = ocpSel ? (lab.some(l => l !== p.prov) ? ' · ' + lab.join(', ') : '') : ' · ' + (lab.length > 1 ? lab.join(', ') : p.prov);
+      const cam = ocpCanUpload ? `<span class="ocp-cam" data-ocp-up="${escapeHtml(ocpKey(p.name))}" title="อัปโหลดรูป">📷</span>` : '';
+      return `<div class="ocp-card${p.on ? '' : ' off'}"><span class="ocp-badge">${p.on ? 'On Call' : 'ไม่เข้าเวร'}</span>
+        <div class="ocp-av">${ocpAvatar(p.name, p.position, 72)}${cam}</div>
+        <div class="ocp-role">${escapeHtml(p.position)}${escapeHtml(where)}</div>
+        <div class="ocp-nm">${escapeHtml(p.name)}</div>
+        <div class="ocp-tel">${p.tel ? `<a href="${telHref(p.tel)}">${escapeHtml(p.tel)}</a>` : '—'}</div></div>`;
+    }).join('') : '<div class="ocp-empty" style="grid-column:1/-1">ไม่มีคนเข้าเวรตามเงื่อนไขนี้</div>';
+    box.innerHTML = `<div class="ocp-wrap">
+      <div class="ocp-box"><div class="ocp-legend"><span><i style="background:#22c55e"></i>เลขในวงกลม = Sup/Eng ที่เข้าเวรวันนี้</span><span><i style="border:2px dashed #ef4444"></i>0 = ไม่มีคนเข้าเวร</span></div>
+        <svg viewBox="0 0 520 520" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${bubbles}</svg></div>
+      <div class="ocp-box"><div class="ocp-head"><b>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</b>
+        <span style="color:var(--text3);font-size:12px;">วันนี้เข้าเวร ${totalOn} คน</span>
+        ${ocpSel ? '<button class="ocp-chip" data-ocp-all="1">× ดูทุกจังหวัด</button>' : ''}</div>
+        <div class="ocp-chips">${chips}</div><div class="ocp-grid">${cards}</div>
+        ${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div>`;
+  }
+
+  (function wirePeoplePanel() {
+    const box = el('oc-people-panel'); if (!box) return;
+    box.addEventListener('click', e => {
+      const g = e.target.closest('.ocp-pv');
+      if (g) { ocpSel = (ocpSel === g.dataset.prov) ? '' : g.dataset.prov; renderPeoplePanel(); return; }
+      if (e.target.closest('[data-ocp-all]')) { ocpSel = ''; renderPeoplePanel(); return; }
+      const f = e.target.closest('[data-ocp-f]'); if (f) { ocpFilter = f.dataset.ocpF; renderPeoplePanel(); return; }
+      const up = e.target.closest('[data-ocp-up]'); if (up) ocpPickPhoto(up.dataset.ocpUp);
+    });
+  })();
+
+  function ocpResize(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
+      fr.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('ไฟล์นี้ไม่ใช่รูปภาพ'));
+        img.onload = () => {
+          const S = 200, cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+          const m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
+          const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, S, S);
+          ctx.drawImage(img, sx, sy, m, m, 0, 0, S, S);
+          let q = 0.85, out = cv.toDataURL('image/jpeg', q);
+          while (out.length > 40000 && q > 0.3) { q -= 0.1; out = cv.toDataURL('image/jpeg', q); }
+          resolve(out);
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  function ocpPickPhoto(key) {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      try {
+        const data = await ocpResize(f);
+        const res = await fetch('/api/oncall-photos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: key, photo: data }) });
+        if (!res.ok) throw new Error(await ocApiError(res));
+        ocpPhotos[key] = data;
+        renderPeoplePanel();
+        if (scheduleData) render();     // refresh avatars in the table too
+      } catch (e) { alert('อัปโหลดรูปไม่สำเร็จ: ' + (e.message || e)); }
+    };
+    inp.click();
+  }
+  async function fetchPhotos() {
+    try {
+      const res = await fetch('/api/oncall-photos');
+      if (!res.ok) return;
+      const j = await res.json(); ocpPhotos = j.photos || {}; ocpCanUpload = !!j.can_upload;
+    } catch (e) { console.error('photos load failed', e); }
+  }
+
   async function reload() {
     try {
-      const [data, escData] = await Promise.all([fetchData(), fetchEscalationData()]);
+      const [data, escData] = await Promise.all([fetchData(), fetchEscalationData(), fetchPhotos()]);
       if (!data) return;
       scheduleData = data;
       escalationData = escData;
@@ -14601,6 +14769,7 @@ loadData();
       populateMonthFilter(data);
       renderTodaySummary(data);
       render();
+      renderPeoplePanel();
       loaded = true;
     } catch (e) {
       console.error('Oncall Team load failed', e);
