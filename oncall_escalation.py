@@ -484,7 +484,7 @@ def _norm_name(s):
     return _strip_title(s)
 
 
-def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=()):
+def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=(), values=None):
     """Matches `roster` (list of {province, position, name, dates:[YYYY-MM-DD]})
     against the live OncallEscalation tab and returns a plan; with
     apply=True it also writes it.
@@ -509,7 +509,8 @@ def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=
         raise ValueError("OncallEscalation tab has not been seeded yet")
 
     all_dates = sorted({d for e in roster for d in e.get("dates", [])})
-    values = ws.get_all_values()
+    if values is None:
+        values = ws.get_all_values()
     header = values[0] if values else []
     missing_months = sorted({d[:7] for d in all_dates if d not in set(header[IDENTITY_COLS:])})
     if apply:
@@ -703,6 +704,75 @@ def dedupe_titled_names(gs_client, apply=False, updated_by=None):
     for k in range(0, len(batch), 400):
         ws.batch_update(batch[k:k + 400], value_input_option="RAW")
     for r in sorted(delete_rows, reverse=True):   # bottom first so row numbers stay valid
+        ws.delete_rows(r)
+    _invalidate_cache()
+    _invalidate_layout_cache()
+    result["applied"] = True
+    return result
+
+
+def fix_wrong_provinces(gs_client, fixes, apply=False, values=None, updated_by=None):
+    """Moves Sup/Eng Zone rows that an earlier import filed under the wrong Thai province name
+    (app.py's PROV_THAI has PCT/PCB/PHE mixed up) to the right one.
+
+    `fixes` = [(wrong_province, position_or_None, {names}_or_None, correct_province), ...], applied in
+    order. When a row with the same person/position already exists under the correct province, the wrong
+    row's Tel/Type/Note/day cells are merged into it (blank cells only) and the wrong row is deleted;
+    otherwise the row is simply renamed. Returns {"plan": [...], "values": <sheet after the fix>}.
+    With values=<rows> nothing is read (used to plan the import on top of the fixed sheet)."""
+    sh = _get_spreadsheet(gs_client)
+    ws = _get_escalation_ws(sh)
+    if ws is None:
+        raise ValueError("OncallEscalation tab has not been seeded yet")
+    src = [list(r) for r in (values if values is not None else ws.get_all_values())]
+    if not src:
+        return {"plan": [], "values": src}
+    header = src[0]
+    width = len(header)
+    rows = []
+    for i, line in enumerate(src[1:], start=2):
+        p = line + [""] * (width - len(line))
+        rows.append({"row": i, "cells": p, "dead": False})
+    plan, updates = [], {}   # updates: (row, col0) -> value
+
+    def setcell(r, col, val):
+        r["cells"][col] = val
+        updates[(r["row"], col)] = val
+
+    for wrong, pos, names, right in fixes:
+        clean_names = {_norm_name(n) for n in names} if names else None
+        for r in rows:
+            c = r["cells"]
+            if r["dead"] or c[0] != wrong or (pos and c[1] != pos):
+                continue
+            if clean_names is not None and _norm_name(c[2]) not in clean_names:
+                continue
+            twin = next((t for t in rows if t is not r and not t["dead"] and t["cells"][0] == right
+                         and t["cells"][1] == c[1] and _norm_name(t["cells"][2]) == _norm_name(c[2])), None)
+            if twin is None:
+                setcell(r, 0, right)
+                plan.append({"action": "rename", "row": r["row"], "name": c[2], "position": c[1], "from": wrong, "to": right})
+            else:
+                for col in [3, 4, IDENTITY_HEADER.index("Note")] + list(range(IDENTITY_COLS, width)):
+                    old = twin["cells"][col]
+                    if (old in ("", "blank")) and c[col] not in ("", "blank"):
+                        setcell(twin, col, c[col])
+                r["dead"] = True
+                plan.append({"action": "merge_delete", "row": r["row"], "name": c[2], "position": c[1], "from": wrong, "to": right})
+    new_values = [header] + [r["cells"] for r in rows if not r["dead"]]
+    result = {"plan": plan, "values": new_values, "applied": False}
+    if not apply or not plan:
+        return result
+
+    from gspread.utils import rowcol_to_a1
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    batch = [{"range": rowcol_to_a1(rw, col + 1), "values": [[v]]} for (rw, col), v in updates.items()]
+    for rw in sorted({rw for (rw, _c) in updates}):
+        batch.append({"range": f"{rowcol_to_a1(rw, _LAST_UPDATED_BY_COL)}:{rowcol_to_a1(rw, _LAST_UPDATED_AT_COL)}",
+                      "values": [[updated_by or "fix-province", now_str]]})
+    for k in range(0, len(batch), 400):
+        ws.batch_update(batch[k:k + 400], value_input_option="RAW")
+    for r in sorted((r["row"] for r in rows if r["dead"]), reverse=True):
         ws.delete_rows(r)
     _invalidate_cache()
     _invalidate_layout_cache()

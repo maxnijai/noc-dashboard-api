@@ -3632,9 +3632,15 @@ def api_oncall_escalation_import_roster():
     try:
         import oncall_roster
         _, gs_client = get_drive_and_sheets_clients()
-        res = oncall_escalation.import_roster(gs_client, oncall_roster.ROSTER, apply=bool(payload.get('apply')),
-                                              updated_by=session.get('user_name') or 'import',
-                                              remove_names=getattr(oncall_roster, 'REMOVE_NAMES', ()))
+        apply_ = bool(payload.get('apply'))
+        who = session.get('user_name') or 'import'
+        fixes = getattr(oncall_roster, 'PROVINCE_FIXES', [])
+        # 1) move rows an earlier import filed under the wrong province name; 2) match the roster on top of that.
+        fx = oncall_escalation.fix_wrong_provinces(gs_client, fixes, apply=apply_, updated_by=who)
+        res = oncall_escalation.import_roster(gs_client, oncall_roster.ROSTER, apply=apply_, updated_by=who,
+                                              remove_names=getattr(oncall_roster, 'REMOVE_NAMES', ()),
+                                              values=None if apply_ else fx['values'])
+        res['province_fixes'] = fx['plan']
         return jsonify(res)
     except Exception as e:
         log.exception("oncall-escalation import-roster failed")
