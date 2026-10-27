@@ -481,7 +481,11 @@ def _strip_title(s):
 
 def _norm_name(s):
     """Whitespace-normalised name with any leading title removed - used for matching."""
-    return _strip_title(s)
+    return _strip_title(s).replace("เเ", "แ")   # "เ"+"เ" typed instead of "แ" is the same name
+
+
+def _plain_name(s):
+    return " ".join(str(s or "").split())
 
 
 def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=(), values=None):
@@ -534,7 +538,7 @@ def import_roster(gs_client, roster, apply=False, updated_by=None, remove_names=
     by_exact = {}
     for e in existing:   # a title-less row wins over a "นาย..." twin
         k = (e["province"], e["position"], e["name"])
-        if k not in by_exact or _strip_title(e["raw_name"]) == " ".join(e["raw_name"].split()):
+        if k not in by_exact or _norm_name(e["raw_name"]) == _plain_name(e["raw_name"]):
             by_exact[k] = e
     claimed = set()
     plan = []
@@ -653,7 +657,7 @@ def dedupe_titled_names(gs_client, apply=False, updated_by=None):
             continue
         p = line + [""] * (len(header) - len(line))
         rows.append({"row": i, "cells": p, "province": p[0], "position": p[1], "name": p[2],
-                     "clean": _strip_title(p[2]), "titled": _strip_title(p[2]) != " ".join(p[2].split())})
+                     "clean": _norm_name(p[2]), "titled": _norm_name(p[2]) != _plain_name(p[2])})
     groups = {}
     for r in rows:
         groups.setdefault((_base_province(r["province"]), r["position"], r["clean"]), []).append(r)
