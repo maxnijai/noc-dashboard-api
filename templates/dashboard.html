@@ -3160,7 +3160,7 @@ window.p0RenderSiteType = function () {
 // Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
 // /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
 // else on the page is touched.
-const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true }, hist: null, histInflight: null,
+const P0FL = { tab: 'P01', p2: null, p2ts: 0, p2err: '', p2Inflight: null, data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true }, hist: null, histInflight: null,
   // Month Forecast baseline: Flag P0+P1 @01:15 on the start date, straight line down to the target by month end.
   fc: { startDate: '2026-10-11', startValue: 157, endDate: '2026-10-31', target: 0 } };
 (function () {
@@ -3181,6 +3181,7 @@ window.p0OpenFlag = async function () {
     });
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fl-close]')) { ov.style.display = 'none'; return; }
+      const p2el = e.target.closest('[data-p2]'); if (p2el) { e.preventDefault(); window.p0P2Click(p2el.dataset.p2); return; }
       const pb = e.target.closest('[data-fl-prio]'); if (pb) { P0FL.prio[pb.dataset.flPrio] = !P0FL.prio[pb.dataset.flPrio]; window.p0RenderFlag(); return; }
       const m = e.target.closest('[data-fl-mode]'); if (m) { P0FL.mode = m.dataset.flMode; window.p0RenderFlag(); return; }
       const so = e.target.closest('[data-fl-sort]'); if (so) { P0FL.sort = so.dataset.flSort; window.p0RenderFlag(); return; }
@@ -3192,7 +3193,7 @@ window.p0OpenFlag = async function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
     document.body.appendChild(ov);
   }
-  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true };
+  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true }; P0FL.tab = 'P01';
   ov.style.display = 'flex';
   // Stale-while-revalidate: show whatever we already have instantly, refresh in the background when older than 60s.
   if (P0FL.data) {
@@ -3365,6 +3366,193 @@ window.p0RenderFlag = function () {
     <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag ทุก Priority = ${fullTot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
   </div>`;
 };
+
+// ===== NSA3/NSA4 FLAG PRIORITY - TAB "P2 · เฝ้าระวัง" =====
+// Additive: the existing P0 + P1 panel above is untouched; this adds a tab bar to it and a second panel
+// fed by /api/p0-nsa34-p2 (loaded when the tab is opened). Nothing else on the page reads this data.
+(function () {
+  const st = document.createElement('style');
+  st.textContent = '#p0fl-overlay .p2{--flag:#d97706;--red:#d05555;--green:#2e8b4f;--blue:#2563eb;--n3:#8b6fe0;--n4:#1aa6c4;display:flex;flex-direction:column;gap:14px}#p0fl-overlay .p2 .tabs,#p0fl-overlay .p2tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);flex-wrap:wrap}#p0fl-overlay .p2tab{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none;color:var(--text2);display:flex;gap:8px;align-items:center;cursor:pointer}#p0fl-overlay .p2tab.on{background:var(--bg3);border-color:var(--border);color:var(--text);position:relative;top:1px}#p0fl-overlay .p2tab .new{font-size:10px;background:#d97706;color:#fff;border-radius:10px;padding:1px 7px}#p0fl-overlay .p2tab .cnt{font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;background:var(--bg)}#p0fl-overlay .p2 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}#p0fl-overlay .p2 .tile{border:1px solid var(--border);border-top:3px solid var(--c);border-radius:6px;padding:8px 10px;background:var(--bg2)}#p0fl-overlay .p2 .tile b{display:block;font-size:26px;line-height:1.15}#p0fl-overlay .p2 .tile span{font-size:11.5px;color:var(--text3)}#p0fl-overlay .p2 .tile span strong{color:var(--text)}#p0fl-overlay .p2 .tile .x{font-size:12px;margin-left:6px;font-weight:700}#p0fl-overlay .p2 .grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,1fr);gap:12px}@media(max-width:820px){ #p0fl-overlay .p2 .grid2{grid-template-columns:1fr}}#p0fl-overlay .p2 .sevchip{font:inherit;font-size:12px;font-weight:700;padding:3px 12px;border-radius:14px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer}#p0fl-overlay .p2 .sevchip.n3.on{background:color-mix(in srgb,var(--n3) 18%,transparent);border-color:var(--n3);color:var(--n3)}#p0fl-overlay .p2 .sevchip.n4.on{background:color-mix(in srgb,var(--n4) 18%,transparent);border-color:var(--n4);color:var(--n4)}#p0fl-overlay .p2 .sevchip:not(.on){opacity:.55}#p0fl-overlay .p2 .bar{display:inline-flex;width:90px;height:8px;border-radius:4px;overflow:hidden;background:var(--bg3);vertical-align:middle}#p0fl-overlay .p2 .bar i{display:block;height:100%}#p0fl-overlay .p2 .hot{font-weight:800;color:var(--red)}#p0fl-overlay .p2 .dim{color:var(--text3)}#p0fl-overlay .p2 .n3c{color:var(--n3);font-weight:700}#p0fl-overlay .p2 .n4c{color:var(--n4);font-weight:700}#p0fl-overlay .p2 svg{display:block;width:100%;height:auto}#p0fl-overlay .p2 .foot{font-size:11.5px;color:var(--text3);line-height:1.8}#p0fl-overlay .p2 .legend{display:flex;gap:12px;font-size:11.5px;color:var(--text2);flex-wrap:wrap}#p0fl-overlay .p2 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}#p0fl-overlay .p2 .sevtag{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:10px}#p0fl-overlay .p2 .sevtag.NSA3{background:color-mix(in srgb,var(--n3) 18%,transparent);color:var(--n3)}#p0fl-overlay .p2 .sevtag.NSA4{background:color-mix(in srgb,var(--n4) 18%,transparent);color:var(--n4)}#p0fl-overlay .p2 .callout{border-left:4px solid #d97706;background:color-mix(in srgb,#d97706 10%,transparent);border-radius:0 6px 6px 0;padding:8px 12px;font-size:12.5px;line-height:1.7}#p0fl-overlay .p2 .sc{overflow:auto;max-height:360px;border:1px solid var(--border);border-radius:6px}#p0fl-overlay .p2 .fl-seg button.on{background:#d97706;color:#fff}#p0fl-overlay .p2 tr.p2-cat,#p0fl-overlay .p2 tr.p2-prow{cursor:pointer}#p0fl-overlay .p2 tr.p2-cat:hover td,#p0fl-overlay .p2 tr.p2-prow:hover td{background:var(--bg3)}#p0fl-overlay .p2 tr.sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .p2 .sc td:first-child{min-width:0}';
+  document.head.appendChild(st);
+  let T = [], M = { flag_list: [] }, E = [];
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const S = { sev: {NSA3:true, NSA4:true}, cat: null, sort: 'total', tab: 'P2', bucket: null, kind: 'both', prov: null, noplan: false };
+
+const hasPlan = t => !!String(t.detail || '').trim();
+const planCell = t => hasPlan(t)
+  ? `<div style="text-align:left;white-space:normal;min-width:260px;max-width:340px;line-height:1.45"><div>${esc(t.detail)}</div><div style="font-size:10.5px;color:var(--text3)">${t.team ? `<span class="sevtag" style="background:var(--bg3);border:1px solid var(--border)">${esc(t.team)}</span> ` : ''}${t.gp ? esc(String(t.gp).replace('Wait for other parties - ', 'Wait: ').replace('In progress - Priority TT management/ Interrupted by urgency TT', 'In progress - Priority TT')) : ''}${t.plan ? ' · 📅 ' + esc(t.plan) : ''}</div></div>`
+  : '<span class="hot" style="white-space:nowrap">⚠ ยังไม่มีแผน / ไม่ได้กรอก Detail</span>';
+const BK = [{k:0,lab:'≤ 1 วัน',sub:'P1 รอบถัดไป',lo:0,hi:24,c:'#B23A3A'},{k:1,lab:'1–2 วัน',sub:'P1 ในอีก 2 รอบ',lo:24,hi:48,c:'#d97706'},{k:2,lab:'2–3 วัน',sub:'P1 ในอีก 3 รอบ',lo:48,hi:72,c:'#c9a227'},{k:3,lab:'3–7 วัน',sub:'ยังมีเวลา',lo:72,hi:1e9,c:'#639922'}];
+const bOf = h => BK.find(b => h >= b.lo && h < b.hi).k;
+const prCode = c => c;
+function filtered(ignoreCat){ return T.filter(t => S.sev[t.sev] && (ignoreCat || S.cat === null || t.cat === S.cat) && (S.bucket === null || bOf(t.hrs) === S.bucket)); }
+function catRows(){
+  const base = T.filter(t => S.sev[t.sev] && (S.bucket === null || bOf(t.hrs) === S.bucket));
+  const m = {}; M.flag_list.forEach(c => m[c] = {name:c,n3:0,n4:0,b:[0,0,0,0]});
+  base.forEach(t => { const r = m[t.cat]; if (!r) return; (t.sev === 'NSA3' ? r.n3++ : r.n4++); r.b[bOf(t.hrs)]++; });
+  const a = Object.values(m).map(r => Object.assign(r, {tot:r.n3 + r.n4}));
+  a.sort((x, y) => S.sort === 'soon' ? (y.b[0] - x.b[0]) || (y.tot - x.tot) : S.sort === 'n3' ? y.n3 - x.n3 || y.tot - x.tot : S.sort === 'n4' ? y.n4 - x.n4 || y.tot - x.tot : y.tot - x.tot);
+  return a;
+}
+function tomorrowHtml(){
+  const sevOk = t => S.sev[t.sev];
+  const nw = T.filter(t => t.hrs < 24 && sevOk(t)).map(t => Object.assign({kind:'P1'}, t));
+  const es = E.filter(sevOk).map(t => Object.assign({kind:'P0'}, t));
+  const itemsAll = (S.kind === 'new' ? nw : S.kind === 'esc' ? es : nw.concat(es));
+  const nPlan = itemsAll.filter(t => !hasPlan(t)).length;
+  const items = S.noplan ? itemsAll.filter(t => !hasPlan(t)) : itemsAll;
+  const c3 = a => a.filter(t => t.sev === 'NSA3').length;
+  const provs = {}, cats = {};
+  items.forEach(t => { const p = provs[t.prov] = provs[t.prov] || {n3:0,n4:0,c:{}}; const c = cats[t.cat] = cats[t.cat] || {n3:0,n4:0};
+    const k = t.sev === 'NSA3' ? 'n3' : 'n4'; p[k]++; c[k]++; const cc = p.c[t.cat] = p.c[t.cat] || {n3:0,n4:0}; cc[k]++; });
+  const catList = Object.entries(cats).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4));
+  const top = catList.slice(0, 6).map(x => x[0]), restN = catList.slice(6);
+  const pl = Object.entries(provs).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4));
+  const cell = v => !v ? '<span class="dim">·</span>' : `<span class="n3c">${v.n3 || '–'}</span><span class="dim"> / </span><span class="n4c">${v.n4 || '–'}</span>`;
+  const heat = v => v ? `style="background:color-mix(in srgb,var(--red) ${Math.min(50, (v.n3 + v.n4) * 9)}%,transparent)"` : '';
+  const short = c => c.replace('Cell Up/Down Alarm: ', 'Cell: ');
+  const rowsH = pl.map(([p, v]) => { const rest = {n3:0,n4:0}; Object.entries(v.c).forEach(([c, x]) => { if (!top.includes(c)) { rest.n3 += x.n3; rest.n4 += x.n4; } });
+    return `<tr class="p2-prow ${S.prov === p ? 'sel' : ''}" data-p2="prov:${p}" style="cursor:pointer"><td><b>${p}</b></td>${top.map(c => `<td ${heat(v.c[c])}>${cell(v.c[c])}</td>`).join('')}<td ${heat(rest.n3 + rest.n4 ? rest : null)}>${cell(rest.n3 + rest.n4 ? rest : null)}</td><td><b>${v.n3 + v.n4}</b></td></tr>`; }).join('');
+  const cTot = c => items.filter(t => t.cat === c).reduce((a, t) => { a[t.sev === 'NSA3' ? 'n3' : 'n4']++; return a; }, {n3:0,n4:0});
+  const restT = {n3: restN.reduce((s, x) => s + x[1].n3, 0), n4: restN.reduce((s, x) => s + x[1].n4, 0)};
+  const totRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม</td>${top.map(c => `<td>${cell(cTot(c))}</td>`).join('')}<td>${cell(restT.n3 + restT.n4 ? restT : null)}</td><td>${items.length}</td></tr>`;
+  const cmax = Math.max(1, ...catList.map(x => x[1].n3 + x[1].n4));
+  const grp = catList.slice(0, 8).map(([c, v]) => `<div style="display:grid;grid-template-columns:1fr 90px 24px 24px;gap:6px;align-items:center;font-size:12px;padding:2px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c)}">${esc(short(c))}</span><span class="bar" style="width:90px;height:9px"><i style="width:${v.n3 / cmax * 100}%;background:var(--n3)"></i><i style="width:${v.n4 / cmax * 100}%;background:var(--n4)"></i></span><span class="n3c" style="text-align:right">${v.n3}</span><span class="n4c" style="text-align:right">${v.n4}</span></div>`).join('');
+  const shown = items.filter(t => S.prov === null || t.prov === S.prov).sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'P0' ? -1 : 1) || (a.hrs ?? 0) - (b.hrs ?? 0)).slice(0, 10);
+  const lst = shown.map(t => `<tr><td>${esc(t.tt)}</td><td><span class="sevtag ${t.sev}">${t.sev}</span></td><td><span class="sevtag" style="background:${t.kind === 'P0' ? '#B23A3A' : '#d97706'};color:#fff">→ ${t.kind}</span></td><td style="text-align:left">${esc(short(t.cat))}</td><td>${t.prov}</td><td style="text-align:left">${esc(t.site)}</td><td>${t.kind === 'P0' ? 'เกิน ' + t.over.toFixed(1) + ' ชม.' : 'เหลือ ' + t.hrs.toFixed(1) + ' ชม.'}</td><td>${planCell(t)}</td></tr>`).join('');
+  return `<div class="fl-box" style="border-top:3px solid var(--red)"><h3><span>🔮 พรุ่งนี้ (รอบ 01:15 ถัดไป) ตั๋ว Flag ที่จะเข้า P1 / P0 <span class="fl-chip">ต้องปิดวันนี้เพื่อไม่ให้เติม</span></span>
+    <span class="fl-seg"><button data-p2="kind:both" class="${S.kind === 'both' ? 'on' : ''}">ทั้งหมด</button><button data-p2="kind:new" class="${S.kind === 'new' ? 'on' : ''}">P2 → P1 (เข้าใหม่)</button><button data-p2="kind:esc" class="${S.kind === 'esc' ? 'on' : ''}">P1 → P0 (ลุกลาม)</button></span></h3>
+    <div class="tiles" style="margin-bottom:10px">
+      <div class="tile" style="--c:var(--flag)"><b>${nw.length}<span class="x"><span class="n3c">N3 ${c3(nw)}</span> · <span class="n4c">N4 ${nw.length - c3(nw)}</span></span></b><span>P2 → <strong>P1</strong> (เข้า P0+P1 ใหม่)</span></div>
+      <div class="tile" style="--c:var(--red)"><b>${es.length}<span class="x"><span class="n3c">N3 ${c3(es)}</span> · <span class="n4c">N4 ${es.length - c3(es)}</span></span></b><span>P1 → <strong>P0</strong> (เกิน SLA &gt; 1 วัน)</span></div>
+      <div class="tile" style="--c:#8b5cf6"><b>${nPlan}<span class="x">จาก ${itemsAll.length}</span></b><span>ยังไม่มี Detail / แผนแก้ไข <a href="#" data-p2="noplan:1" style="color:var(--blue)">${S.noplan ? '✓ แสดงเฉพาะกลุ่มนี้ (ล้าง)' : 'กรองเฉพาะกลุ่มนี้'}</a></span></div>
+      <div class="tile" style="--c:var(--blue)"><b>${M.p0p1} → <span style="color:var(--red)">${M.p0p1 + nw.length}</span></b><span>Flag P0+P1 พรุ่งนี้ · P0 ${M.p0} → <strong>${M.p0 + es.length}</strong> · P1 ${M.p1} → <strong>${M.p1 - es.length + nw.length}</strong></span></div>
+    </div>
+    <div class="grid2">
+      <div><div class="legend" style="margin-bottom:4px"><b style="color:var(--text)">จังหวัด × Category group</b> <span>(<span class="n3c">NSA3</span> / <span class="n4c">NSA4</span> · คลิกจังหวัด = กรองรายการ ${S.prov ? `· <a href="#" data-p2="clr:prov" style="color:var(--blue)">ล้าง ${S.prov} ✕</a>` : ''})</span></div>
+        <div class="sc" style="max-height:310px"><table style="min-width:560px"><thead><tr><th>จังหวัด</th>${top.map(c => `<th title="${esc(c)}" style="max-width:96px;overflow:hidden;text-overflow:ellipsis">${esc(short(c).slice(0, 14))}</th>`).join('')}<th>อื่นๆ</th><th>รวม</th></tr></thead><tbody>${rowsH}${totRow}</tbody></table></div></div>
+      <div><div class="legend" style="margin-bottom:4px"><b style="color:var(--text)">Category group ที่จะเข้ามากสุด</b><span><i style="background:var(--n3)"></i>NSA3</span><span><i style="background:var(--n4)"></i>NSA4</span></div>${grp || '<span class="dim">ไม่มี</span>'}</div>
+    </div>
+    <div class="sc" style="max-height:240px;margin-top:10px"><table style="min-width:860px"><thead><tr><th>TT</th><th>Sev</th><th>พรุ่งนี้</th><th style="text-align:left">Category</th><th>จังหวัด</th><th style="text-align:left">Site</th><th>เวลา</th><th style="text-align:left">Detail · แผนแก้ไข</th></tr></thead><tbody>${lst || '<tr><td colspan="8" class="dim" style="text-align:center;padding:12px">ไม่มี</td></tr>'}</tbody></table></div>
+    <div class="foot" style="margin-top:6px">P2 → P1: TARGETFINISH ถึงก่อนรอบ 01:15 ถัดไป · P1 → P0: P1 ปัจจุบันที่จะเกิน SLA &gt; 24 ชม. ในรอบถัดไป · ปิด/แก้ตั๋วก่อนรอบ 01:15 = ไม่ถูกนับเข้า</div></div>`;
+}
+function p2Body(){
+  const all = T, f = filtered(false);
+  const n3 = f.filter(t => t.sev === 'NSA3').length, n4 = f.length - n3;
+  const soon = all.filter(t => S.sev[t.sev] && t.hrs < 24), soon3 = soon.filter(t => t.sev === 'NSA3').length, soon4 = soon.length - soon3;
+  const pNow = M.p0p1, pNext = pNow + soon.length;
+  const rows = catRows(), maxT = Math.max(1, ...rows.map(r => r.tot));
+  const catHtml = rows.map(r => {
+    const dim = r.tot === 0 ? 'style="opacity:.4"' : '';
+    const w3 = r.n3 / maxT * 100, w4 = r.n4 / maxT * 100;
+    return `<tr class="p2-cat ${S.cat === r.name ? 'sel' : ''}" data-p2="cat:${esc(r.name)}" ${dim}><td>${esc(r.name.replace('Cell Up/Down Alarm: ', 'Cell: '))}</td>
+      <td class="n3c">${r.n3 || '–'}</td><td class="n4c">${r.n4 || '–'}</td><td><b>${r.tot || '–'}</b></td>
+      <td><span class="bar" style="width:110px"><i style="width:${w3}%;background:var(--n3)"></i><i style="width:${w4}%;background:var(--n4)"></i></span></td>
+      ${r.b.map((v, i) => `<td class="${i === 0 && v ? 'hot' : (v ? '' : 'dim')}" ${v ? `style="background:color-mix(in srgb,${BK[i].c} ${Math.min(55, v * 14)}%,transparent)"` : ''}>${v || '·'}</td>`).join('')}</tr>`;
+  }).join('');
+  const tot3 = rows.reduce((s, r) => s + r.n3, 0), tot4 = rows.reduce((s, r) => s + r.n4, 0);
+  const totRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม Flag P2</td><td class="n3c">${tot3}</td><td class="n4c">${tot4}</td><td>${tot3 + tot4}</td><td></td>${[0,1,2,3].map(i => `<td>${rows.reduce((s, r) => s + r.b[i], 0)}</td>`).join('')}</tr>`;
+  // countdown chart (stacked NSA3/NSA4 per bucket)
+  const cd = BK.map(b => { const x = T.filter(t => bOf(t.hrs) === b.k && (S.cat === null || t.cat === S.cat)); return {b, n3: x.filter(t => t.sev === 'NSA3' && S.sev.NSA3).length, n4: x.filter(t => t.sev === 'NSA4' && S.sev.NSA4).length}; });
+  const cmax = Math.max(1, ...cd.map(c => c.n3 + c.n4)), W = 440, H = 190, bw = 70, gap = (W - 40 - bw * 4) / 3;
+  let g = '';
+  cd.forEach((c, i) => { const x = 30 + i * (bw + gap), h3 = c.n3 / cmax * 130, h4 = c.n4 / cmax * 130, y0 = 150;
+    const sel = S.bucket === i ? `stroke="var(--text)" stroke-width="2"` : '';
+    g += `<g data-p2="bk:${i}" style="cursor:pointer"><rect x="${x - 6}" y="10" width="${bw + 12}" height="${y0 + 28}" fill="transparent"/><rect x="${x}" y="${y0 - h4}" width="${bw}" height="${h4}" fill="var(--n4)" ${sel}/><rect x="${x}" y="${y0 - h4 - h3}" width="${bw}" height="${h3}" fill="var(--n3)" ${sel}/>
+      <text x="${x + bw / 2}" y="${y0 - h3 - h4 - 6}" text-anchor="middle" font-size="12" font-weight="800" fill="var(--text)">${c.n3 + c.n4}</text>
+      ${c.n4 ? `<text x="${x + bw / 2}" y="${y0 - h4 / 2 + 4}" text-anchor="middle" font-size="10.5" fill="#fff">${c.n4}</text>` : ''}${c.n3 ? `<text x="${x + bw / 2}" y="${y0 - h4 - h3 / 2 + 4}" text-anchor="middle" font-size="10.5" fill="#fff">${c.n3}</text>` : ''}
+      <rect x="${x}" y="${y0 + 6}" width="${bw}" height="3" fill="${c.b.c}"/><text x="${x + bw / 2}" y="${y0 + 22}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--text)">${c.b.lab}</text>
+      <text x="${x + bw / 2}" y="${y0 + 35}" text-anchor="middle" font-size="9.5" fill="var(--text3)">${c.b.sub.length > 22 ? c.b.sub.slice(0, 22) + '…' : c.b.sub}</text></g>`; });
+  // province table
+  const provs = {}; f.forEach(t => { (provs[t.prov] = provs[t.prov] || {n3:0, n4:0, s:0}); (t.sev === 'NSA3' ? provs[t.prov].n3++ : provs[t.prov].n4++); if (t.hrs < 24) provs[t.prov].s++; });
+  const pr = Object.entries(provs).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4)); const pmax = Math.max(1, ...pr.map(p => p[1].n3 + p[1].n4));
+  const provHtml = pr.slice(0, 10).map(([p, v]) => `<div style="display:grid;grid-template-columns:42px 1fr 24px 24px 38px;gap:6px;align-items:center;font-size:12px;padding:2px 0"><b>${p}</b><span class="bar" style="width:100%;height:9px"><i style="width:${v.n3 / pmax * 100}%;background:var(--n3)"></i><i style="width:${v.n4 / pmax * 100}%;background:var(--n4)"></i></span><span class="n3c" style="text-align:right">${v.n3}</span><span class="n4c" style="text-align:right">${v.n4}</span><span class="${v.s ? 'hot' : 'dim'}" style="text-align:right" title="หมด SLA ภายใน 1 วัน">${v.s ? '⚑' + v.s : '·'}</span></div>`).join('');
+  // ticket list
+  const list = filtered(false).slice().sort((a, b) => a.hrs - b.hrs).slice(0, 14);
+  const listHtml = list.map(t => `<tr><td>${esc(t.tt)}</td><td><span class="sevtag ${t.sev}">${t.sev}</span></td><td style="text-align:left">${esc(t.cat.replace('Cell Up/Down Alarm: ', 'Cell: '))}</td><td>${t.prov}</td><td style="text-align:left">${esc(t.site)}</td><td class="${t.hrs < 24 ? 'hot' : ''}">${t.hrs < 24 ? t.hrs.toFixed(1) + ' ชม.' : (t.hrs / 24).toFixed(1) + ' วัน'}</td><td>${esc(t.tf)}</td><td>${planCell(t)}</td></tr>`).join('');
+  const selChip = S.cat ? `<span class="fl-chip">Category: ${esc(S.cat.replace('Cell Up/Down Alarm: ', 'Cell: '))} <a href="#" data-p2="clr:cat" style="color:var(--blue)">ล้าง ✕</a></span>` : '';
+  const bkChip = S.bucket !== null ? `<span class="fl-chip">เวลาเหลือ: ${BK[S.bucket].lab} <a href="#" data-p2="clr:bk" style="color:var(--blue)">ล้าง ✕</a></span>` : '';
+  return `<div class="callout"><b>P2 = Flag ที่ยังไม่เกิน SLA ณ รอบ 01:15</b> (Category อยู่ใน Flag 24 รายการ แต่ยังไม่เป็น P0/P1) — แท็บนี้แยก <span class="n3c">NSA3</span> กับ <span class="n4c">NSA4</span> ของกลุ่ม Category เดียวกัน เพื่อรู้ว่าตั๋วไหน <b>จะเป็น P1 รอบถัดไป</b> แล้วเร่งปิดก่อน ไม่ให้เติมเข้า P0+P1</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3)"><span style="font-weight:600">Severity:</span>
+    <button class="sevchip n3 ${S.sev.NSA3 ? 'on' : ''}" data-p2="sev:NSA3">NSA3</button><button class="sevchip n4 ${S.sev.NSA4 ? 'on' : ''}" data-p2="sev:NSA4">NSA4</button> ${selChip} ${bkChip}</div>
+  ${tomorrowHtml()}
+  <div class="tiles">
+    <div class="tile" style="--c:var(--flag)"><b>${f.length}<span class="x"><span class="n3c">N3 ${n3}</span> · <span class="n4c">N4 ${n4}</span></span></b><span>Flag P2 ${S.cat || S.bucket !== null ? '(ตามตัวกรอง)' : 'ทั้งหมด'} · ${Math.round(f.length / (M.nsa3_all + M.nsa4_all) * 100)}% ของ NSA3/4</span></div>
+    <div class="tile" style="--c:var(--red)"><b>${soon.length}<span class="x"><span class="n3c">N3 ${soon3}</span> · <span class="n4c">N4 ${soon4}</span></span></b><span>หมด SLA ภายใน 1 วัน → <strong>เป็น P1 รอบ 01:15 ถัดไป</strong></span></div>
+    <div class="tile" style="--c:var(--blue)"><b>${pNow} → <span style="color:var(--red)">${pNext}</span></b><span>Flag P0+P1 ถ้าไม่ปิดตั๋ว P2 กลุ่ม ≤ 1 วันเลย (+${soon.length})</span></div>
+    <div class="tile" style="--c:var(--n3)"><b>${rows.filter(r => r.b[0] > 0).length}<span style="font-size:13px;color:var(--text3)"> / ${M.flag_list.length}</span></b><span>Category ที่มีตั๋วหมด SLA ภายใน 1 วัน</span></div>
+  </div>
+  <div class="grid2">
+    <div class="fl-box"><h3><span>ตั๋ว P2 จะหมด SLA เมื่อไหร่ <span class="fl-chip">คลิกแท่ง = กรอง</span></span><span class="legend"><span><i style="background:var(--n3)"></i>NSA3</span><span><i style="background:var(--n4)"></i>NSA4</span></span></h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="จำนวนตั๋ว P2 แยกตามเวลาที่เหลือก่อนหมด SLA">${g}</svg></div>
+    <div class="fl-box"><h3><span>Top 10 จังหวัด (Flag P2) <span class="fl-chip">⚑ = หมด SLA ใน 1 วัน</span></span><span class="legend"><span><i style="background:var(--n3)"></i>N3</span><span><i style="background:var(--n4)"></i>N4</span></span></h3>${provHtml || '<span class="dim">ไม่มีข้อมูล</span>'}</div>
+  </div>
+  <div class="fl-box"><h3><span>Flag P2 แยกตาม Category — NSA3 เทียบ NSA4 <span class="fl-chip">คลิกแถว = ดูเฉพาะ Category นั้น</span></span>
+    <span class="fl-seg"><button data-p2="sort:total" class="${S.sort === 'total' ? 'on' : ''}">เรียงตามจำนวน</button><button data-p2="sort:soon" class="${S.sort === 'soon' ? 'on' : ''}">ใกล้หมด SLA ก่อน</button><button data-p2="sort:n3" class="${S.sort === 'n3' ? 'on' : ''}">NSA3</button><button data-p2="sort:n4" class="${S.sort === 'n4' ? 'on' : ''}">NSA4</button></span></h3>
+    <div class="sc"><table style="min-width:760px"><thead><tr><th>Category</th><th style="color:var(--n3)">NSA3</th><th style="color:var(--n4)">NSA4</th><th>รวม</th><th>สัดส่วน</th>${BK.map(b => `<th title="${b.sub}">${b.lab}</th>`).join('')}</tr></thead><tbody>${catHtml}${totRow}</tbody></table></div>
+    <div class="foot" style="margin-top:6px">คอลัมน์ ≤ 1 วัน / 1–2 / 2–3 / 3–7 = เวลาที่เหลือก่อน TARGETFINISH นับจากรอบ 01:15 · สีเข้ม = ตั๋วเยอะ</div></div>
+  <div class="fl-box"><h3><span>ตั๋วที่ต้องปิดก่อน (เรียงตามเวลาเหลือน้อยสุด) <span class="fl-chip">แสดง ${list.length} จาก ${f.length}</span></span><button class="btn">⬇ Export รายการ (CSV)</button></h3>
+    <div class="sc" style="max-height:330px"><table style="min-width:980px"><thead><tr><th>TT</th><th>Sev</th><th style="text-align:left">Category</th><th>จังหวัด</th><th style="text-align:left">Site</th><th>เหลือเวลา</th><th>TARGETFINISH</th><th style="text-align:left">Detail · แผนแก้ไข</th></tr></thead><tbody>${listHtml || '<tr><td colspan="8" class="dim" style="text-align:center;padding:14px">ไม่มีตั๋ว</td></tr>'}</tbody></table></div></div>
+  <div class="foot">Flag = Category อยู่ใน Flag 24 รายการ (เหมือนแท็บเดิม) · P2 = ตั๋วที่ TARGETFINISH ยังไม่ถึง ณ รอบ 01:15 · ไม่ Flag ที่เป็น P2 อีก ${M.nonflag_p2} ใบ ไม่ถูกนับในแท็บนี้ · NSA3 + NSA4 ของ P2 + P0 + P1 + ไม่ Flag = ตรงกับการ์ด NSA3/NSA4 · ไม่มีการเปลี่ยนตัวเลขของแท็บ P0 + P1 เดิม</div>`;
+}
+
+  const ovEl = () => document.getElementById('p0fl-overlay');
+  const tabsHtml = () => `<div class="p2tabs">
+    <button type="button" class="p2tab ${P0FL.tab !== 'P2' ? 'on' : ''}" data-p2="tab:P01">Flag P0 + P1${P0FL.p2 ? `<span class="cnt">${P0FL.p2.meta.p0p1}</span>` : ''}</button>
+    <button type="button" class="p2tab ${P0FL.tab === 'P2' ? 'on' : ''}" data-p2="tab:P2">Flag P2 · เฝ้าระวัง${P0FL.p2 ? `<span class="cnt">${P0FL.p2.tickets.length}</span>` : ''}<span class="new">ใหม่</span></button>
+  </div>`;
+  const headHtml = () => { const f = P0FL.data || {}; return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="display:inline-block;margin-top:4px;font-size:12px;border:1px solid var(--border2);border-radius:12px;padding:1px 10px;color:var(--text2);">🕒 รอบข้อมูลปัจจุบัน (insert_time): <b>${esc((P0FL.p2 && P0FL.p2.insert_time) || f.insert_time || '-')}</b></div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`; };
+  const dialog = inner => `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">${inner}</div>`;
+
+  window.p0LoadP2 = function () {
+    if (P0FL.p2Inflight) return P0FL.p2Inflight;
+    P0FL.p2Inflight = (async () => {
+      try {
+        const res = await fetch('/api/p0-nsa34-p2');
+        if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+        P0FL.p2 = await res.json(); P0FL.p2ts = Date.now(); P0FL.p2err = '';
+        T = P0FL.p2.tickets; M = P0FL.p2.meta; E = P0FL.p2.p1esc;
+        return true;
+      } catch (e) { P0FL.p2err = e.message || String(e); console.error('Flag P2 load failed', e); return false; }
+      finally { P0FL.p2Inflight = null; }
+    })();
+    return P0FL.p2Inflight;
+  };
+  function renderP2() {
+    const ov = ovEl(); if (!ov) return;
+    if (!P0FL.p2) {
+      ov.innerHTML = dialog(headHtml() + tabsHtml() + (P0FL.p2err
+        ? `<div class="callout" style="border-left:4px solid #B23A3A;padding:8px 12px">โหลดแท็บ P2 ไม่สำเร็จ: ${esc(P0FL.p2err)}</div>`
+        : '<div style="color:var(--text3);font-size:13px;padding:20px 0;">กำลังโหลดข้อมูล P2…</div>'));
+      if (!P0FL.p2err) window.p0LoadP2().then(() => { if (ov.style.display === 'flex' && P0FL.tab === 'P2') window.p0RenderFlag(); });
+      return;
+    }
+    T = P0FL.p2.tickets; M = P0FL.p2.meta; E = P0FL.p2.p1esc;
+    ov.innerHTML = dialog(headHtml() + tabsHtml() + `<div class="p2">${p2Body()}</div>`);
+    if ((Date.now() - (P0FL.p2ts || 0)) >= 60000 && !P0FL.p2Inflight) window.p0LoadP2().then(ok => { if (ok && ov.style.display === 'flex' && P0FL.tab === 'P2') window.p0RenderFlag(); });
+  }
+  const mainRender = window.p0RenderFlag;
+  window.p0RenderFlag = function () {
+    if (P0FL.tab === 'P2') { renderP2(); return; }
+    mainRender();
+    const ov = ovEl(), dlg = ov && ov.firstElementChild;
+    if (dlg && dlg.children[0]) dlg.children[0].insertAdjacentHTML('afterend', tabsHtml());
+  };
+  window.p0P2Click = function (spec) {
+    const i = spec.indexOf(':'), act = spec.slice(0, i), val = spec.slice(i + 1);
+    if (act === 'tab') P0FL.tab = val;
+    else if (act === 'sev') { const o = val === 'NSA3' ? 'NSA4' : 'NSA3'; S.sev[val] = !S.sev[val]; if (!S.sev[val] && !S.sev[o]) S.sev[o] = true; }
+    else if (act === 'cat') S.cat = (S.cat === val) ? null : val;
+    else if (act === 'sort') S.sort = val;
+    else if (act === 'bk') S.bucket = (S.bucket === +val) ? null : +val;
+    else if (act === 'noplan') S.noplan = !S.noplan;
+    else if (act === 'kind') S.kind = val;
+    else if (act === 'prov') S.prov = (S.prov === val) ? null : val;
+    else if (act === 'clr') { if (val === 'cat') S.cat = null; else if (val === 'prov') S.prov = null; else S.bucket = null; }
+    window.p0RenderFlag();
+  };
+})();
+
 // ===== P0 SITE TYPE PANEL (end) =====
 function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function p0Top5Html(list, base, accent, scope, groupKey) {
