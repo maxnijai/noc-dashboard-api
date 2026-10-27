@@ -14796,6 +14796,7 @@ loadData();
         items.slice(0, 40).forEach(x => lines.push(`  • ${x.province} | ${x.position} | ${x.name}` + (x.from_province ? ` (จาก ${x.from_province})` : '')));
         if (items.length > 40) lines.push(`  … และอีก ${items.length - 40} รายการ`);
       };
+      if (plan.dedupe_deleted) lines.push(`ลบแถวชื่อซ้ำ (นาย…/สะกดต่างกัน): ${plan.dedupe_deleted} แถว`);
       if ((plan.province_fixes || []).length) {
         lines.push('');
         lines.push(`แก้ชื่อจังหวัดที่นำเข้าผิดรอบก่อน (${plan.province_fixes.length} แถว):`);
