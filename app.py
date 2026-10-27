@@ -3740,6 +3740,34 @@ def api_oncall_escalation():
         log.exception("oncall-escalation API failed")
         return jsonify({'error': str(e)}), 500
 
+
+import oncall_photos
+
+@app.route('/api/oncall-photos')
+def api_oncall_photos():
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify({'photos': oncall_photos.load_photos(gs_client),
+                        'can_upload': oncall_photos.can_upload(session.get('user_email'))})
+    except Exception as e:
+        log.exception("oncall-photos load failed")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/oncall-photos', methods=['POST'])
+def api_oncall_photos_save():
+    if not oncall_photos.can_upload(session.get('user_email')):
+        return jsonify({'error': 'ไม่มีสิทธิ์อัปโหลดรูป'}), 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(oncall_photos.save_photo(gs_client, payload.get('name', ''), payload.get('photo', ''),
+                                                updated_by=session.get('user_name') or session.get('user_email')))
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        log.exception("oncall-photos save failed")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/oncall-escalation/seed', methods=['POST'])
 def api_oncall_escalation_seed():
     """One-time bootstrap: POST {rows: [{province, position, name, tel, type}, ...],
