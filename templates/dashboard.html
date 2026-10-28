@@ -677,23 +677,39 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
 </style>
 <style>
-.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px}@media(max-width:900px){.ocp-wrap{grid-template-columns:1fr}}
-.ocp-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;min-width:0}
-.ocp-legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--text3);font-size:12px;margin-bottom:6px}.ocp-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
-.ocp-box svg{width:100%;height:auto;display:block;max-height:640px}
-.ocp-pv{cursor:pointer}.ocp-ctx{fill:var(--bg3);stroke:var(--border);stroke-width:.6;opacity:.6}.ocp-pv .ocp-b{fill:#16a34a22;stroke:var(--text3);stroke-width:1;stroke-linejoin:round}.ocp-pv:hover .ocp-b{fill:#2563eb33;stroke:#2563eb}
-.ocp-pv.sel .ocp-b{fill:#2563eb40;stroke:#2563eb;stroke-width:2.5}.ocp-pv.zero .ocp-b{fill:#ef444422;stroke:#ef4444}
-.ocp-pv text{text-anchor:middle;pointer-events:none;fill:var(--text);font-size:10px;font-weight:600;paint-order:stroke;stroke:var(--bg2);stroke-width:2.5px}.ocp-pv text.ocp-n{font-weight:700;fill:#fff;font-size:11px;stroke:none}
-.ocp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.ocp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.ocp-chip{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:99px;padding:3px 10px;cursor:pointer;font-size:12px}.ocp-chip.a{background:#2563eb;border-color:#2563eb;color:#fff}
-.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:520px;overflow-y:auto}
-.ocp-card{border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;position:relative;background:var(--bg1)}
-.ocp-card.off{opacity:.5}.ocp-av{position:relative;width:72px;height:72px;margin:0 auto 6px}.ocp-av>*:first-child{width:72px;height:72px}
-.ocp-cam{position:absolute;right:-6px;bottom:-4px;background:var(--bg4);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;font-size:12px;cursor:pointer}
-.ocp-role{font-size:11px;color:var(--text3)}.ocp-nm{font-weight:600;font-size:13px}.ocp-tel{font-size:12px}.ocp-tel a{color:#2563eb;text-decoration:none}
-.ocp-badge{position:absolute;top:8px;right:8px;font-size:10px;padding:1px 7px;border-radius:99px;background:#22c55e;color:#06210f;font-weight:700}.ocp-card.off .ocp-badge{background:var(--bg4);color:var(--text2)}
-.ocp-empty{color:#ef4444;padding:14px;text-align:center;border:1px dashed #ef4444;border-radius:10px}.ocp-note{color:var(--text3);font-size:11px;margin-top:8px}
+.ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
+.ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
+.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}}
+.ocp-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;min-width:0}
+.ocp-legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--text3);font-size:12px;margin-bottom:2px}.ocp-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;border:2.5px solid;vertical-align:-1px;margin-right:5px}
+.ocp-box svg{width:100%;height:auto;display:block;max-height:calc(100vh - 160px)}
+.ocp-ctx{fill:var(--bg3);stroke:var(--border);stroke-width:.6}
+.ocp-pv{cursor:pointer}.ocp-pv .ocp-b{fill:var(--bg4);stroke:var(--bg2);stroke-width:1.6;stroke-linejoin:round;transition:fill .15s}.ocp-pv.zero .ocp-b{fill:#ef444428}
+.ocp-pv:hover .ocp-b{fill:#2563eb30}.ocp-pv.sel .ocp-b{fill:#2563eb3d;stroke:#2563eb;stroke-width:2.6}
+.ocp-pv .ocp-pn{font-size:9.5px;font-weight:600;fill:var(--text2);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:var(--bg4);stroke-width:2.5px}
+.ocp-pv.sel .ocp-pn{fill:#2563eb}.ocp-pv.zero .ocp-pn{fill:#ef4444}.ocp-nobody{font-size:9px;font-weight:700;fill:#ef4444;text-anchor:middle;pointer-events:none}
+.ocp-ini{font-weight:800;text-anchor:middle;fill:#13213a;pointer-events:none}
+.ocp-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:6px}.ocp-head h3{margin:0;font-size:22px}.ocp-sub{color:var(--text3);font-size:13px}
+.ocp-chips{margin-left:auto;display:flex;gap:6px}.ocp-chip{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:99px;padding:4px 14px;cursor:pointer;font-size:12px}.ocp-chip.a{background:#2563eb;border-color:#2563eb;color:#fff}
+.ocp-sec{margin:14px 0 8px;font-size:12px;color:var(--text3);font-weight:700;letter-spacing:.04em}
+.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.ocp-card{border:1px solid var(--border);border-radius:16px;padding:14px 10px 12px;text-align:center;background:var(--bg2);position:relative;transition:.15s}.ocp-card:hover{box-shadow:0 6px 18px #0000001a}.ocp-card.off{opacity:.5}
+.ocp-av{position:relative;width:88px;height:88px;margin:0 auto 8px}.ocp-av>img,.ocp-av>span.ocp-im{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:28px;color:#13213a;object-fit:cover;box-shadow:0 0 0 3px var(--bg2),0 0 0 4px var(--border)}
+.ocp-st{position:absolute;right:2px;bottom:2px;width:17px;height:17px;border-radius:50%;background:#16a34a;border:3px solid var(--bg2)}.ocp-card.off .ocp-st{background:#aab6c8}
+.ocp-role{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:1px 10px;background:#2563eb22;color:#2563eb}.ocp-card.eng .ocp-role{background:#d9770622;color:#d97706}
+.ocp-nm{font-weight:700;font-size:15px;margin:6px 0 1px}.ocp-where{font-size:12px;color:var(--text3)}
+.ocp-call{display:block;margin-top:8px;background:#2563eb14;border:1px solid #2563eb40;color:#2563eb;border-radius:10px;padding:5px 0;font-size:13px;text-decoration:none;font-weight:600}
+.ocp-cam{position:absolute;right:-2px;top:-2px;background:var(--bg2);border:1px solid var(--border);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;cursor:pointer;font-size:12px}
+.ocp-empty{color:#ef4444;padding:18px;text-align:center;border:1px dashed #ef4444;border-radius:12px}.ocp-note{color:var(--text3);font-size:11px;margin-top:8px}
+.ocp-tip{position:fixed;pointer-events:none;background:#17243a;color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;display:none;z-index:2000;white-space:pre-line}
+.ocp-mod{position:fixed;inset:0;background:#0b1424aa;display:none;place-items:center;z-index:2100}.ocp-mod.on{display:grid}
+.ocp-mbox{background:var(--bg2);color:var(--text);border-radius:16px;padding:18px;width:min(380px,92vw)}.ocp-mbox h4{margin:0 0 4px;font-size:16px}.ocp-mbox p{margin:0 0 10px;color:var(--text3);font-size:12px}
+.ocp-crop{position:relative;width:260px;height:260px;margin:0 auto;background:var(--bg4);border-radius:12px;overflow:hidden;cursor:grab;touch-action:none}.ocp-crop canvas{display:block}
+.ocp-crop:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 114px,#0b142488 115px)}
+.ocp-row{display:flex;align-items:center;gap:10px;margin:12px 0}.ocp-row input[type=range]{flex:1}.ocp-btns{display:flex;gap:8px;justify-content:flex-end}
+.ocp-btn{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:10px;padding:6px 14px;cursor:pointer}.ocp-btn.p{background:#2563eb;color:#fff;border-color:#2563eb}
+.ocp-prev{display:flex;align-items:center;gap:8px;color:var(--text3);font-size:12px}.ocp-prev canvas{border-radius:50%;border:2px solid #2563eb}
 </style>
 </head>
 <body>
@@ -14644,94 +14660,151 @@ loadData();
   }
   function escBaseName(n) { return String(n || '').replace(/[12]$/, ''); }
 
+  function ocpSvgAvatar(p, cx, cy, R, uid) {
+    const ring = p.position === 'Eng Zone' ? '#d97706' : '#2563eb';
+    const ph = ocpPhotos[ocpKey(p.name)];
+    let body;
+    if (ph) {
+      body = `<clipPath id="ocpc${uid}"><circle cx="${cx}" cy="${cy}" r="${R}"/></clipPath><circle cx="${cx}" cy="${cy}" r="${R}" fill="#fff"/><image href="${ph}" x="${cx - R}" y="${cy - R}" width="${R * 2}" height="${R * 2}" clip-path="url(#ocpc${uid})" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+      let h = 0; for (const ch of ocpKey(p.name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+      body = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="hsl(${h} 60% 82%)"/><text class="ocp-ini" x="${cx}" y="${cy + R * 0.22}" style="font-size:${R * 0.62}px">${escapeHtml(ocpInitials(p.name))}</text>`;
+    }
+    return `<g>${body}<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-width="3.4"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${ring}" stroke-width="2.4"/></g>`;
+  }
+
   function renderPeoplePanel() {
     const box = el('oc-people-panel'); if (!box) return;
     if (!escalationData || !escalationData.provinces) { box.innerHTML = ''; return; }
     const people = ocpPeople();
-    const cnt = n => new Set(people.filter(p => p.prov === n && p.on).map(p => ocpKey(p.name))).size;
-    const totalOn = new Set(people.filter(p => p.on).map(p => ocpKey(p.name))).size;
+    const onOf = n => { const s = new Set(); return people.filter(p => p.prov === n && p.on && !s.has(p.position + ocpKey(p.name)) && s.add(p.position + ocpKey(p.name))); };
+    const allOn = (() => { const s = new Set(); return people.filter(p => p.on && !s.has(p.position + ocpKey(p.name)) && s.add(p.position + ocpKey(p.name))); })();
+    const nSup = allOn.filter(p => p.position !== 'Eng Zone').length, nEng = allOn.length - nSup;
+    const nZero = Object.keys(OCP_GEO.prov).filter(n => !onOf(n).length).length;
+    let uid = 0;
     const ctxPaths = OCP_GEO.ctx.map(d => `<path class="ocp-ctx" d="${d}"/>`).join('');
-    const bubbles = ctxPaths + Object.keys(OCP_GEO.prov).map(n => {
-      const g = OCP_GEO.prov[n], c = cnt(n), x = g.c[0], y = g.c[1];
-      return `<g class="ocp-pv${n === ocpSel ? ' sel' : ''}${c ? '' : ' zero'}" data-prov="${escapeHtml(n)}"><path class="ocp-b" d="${g.d}"/>
-        <circle cx="${x}" cy="${y - 6}" r="9" fill="${c ? '#16a34a' : '#ef4444'}"/><text class="ocp-n" x="${x}" y="${y - 2.5}">${c}</text><text class="ocp-l" x="${x}" y="${y + 14}">${escapeHtml(n)}</text></g>`;
+    const prov = Object.keys(OCP_GEO.prov).map(n => {
+      const g = OCP_GEO.prov[n], ps = onOf(n), x = g.c[0], y = g.c[1], R = n === ocpSel ? 17 : 15, step = R * 1.5, x0 = x - (ps.length - 1) * step / 2;
+      const av = ps.map((p, i) => ocpSvgAvatar(p, x0 + i * step, y - 5, R, ++uid)).join('');
+      const tip = n + '\n' + (ps.length ? ps.map(p => '• ' + p.name + ' (' + p.position + ')').join('\n') : 'ไม่มีคนเข้าเวร');
+      return `<g class="ocp-pv${n === ocpSel ? ' sel' : ''}${ps.length ? '' : ' zero'}" data-prov="${escapeHtml(n)}" data-tip="${escapeHtml(tip)}"><path class="ocp-b" d="${g.d}"/>${av}<text class="ocp-pn" x="${x}" y="${y + R + 9}">${escapeHtml(n)}</text>${ps.length ? '' : `<text class="ocp-nobody" x="${x}" y="${y - 3}">ไม่มีคนเข้าเวร</text>`}</g>`;
     }).join('');
     let list = people.filter(p => !ocpSel || p.prov === ocpSel);
     if (ocpFilter === 'on') list = list.filter(p => p.on);
-    else if (ocpFilter === 'Supervisor' || ocpFilter === 'Eng Zone') list = list.filter(p => p.position === ocpFilter);
-    const rank = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2 };
-    list.sort((a, b) => (b.on - a.on) || ((rank[a.position] ?? 9) - (rank[b.position] ?? 9)) || a.prov.localeCompare(b.prov, 'th'));
-    const seen = new Set();   // with no province picked, show each person once
-    if (!ocpSel) list = list.filter(p => { const k = p.position + '|' + ocpKey(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
-    const chips = [['on', 'เข้าเวรวันนี้'], ['all', 'ทั้งหมด'], ['Supervisor', 'Supervisor'], ['Eng Zone', 'Eng Zone']]
-      .map(([k, l]) => `<button class="ocp-chip${ocpFilter === k ? ' a' : ''}" data-ocp-f="${k}">${l}</button>`).join('');
-    const cards = list.length ? list.map(p => {
-      const lab = [...p.labels].sort((a, b) => a.localeCompare(b, 'th'));
-      const where = ocpSel ? (lab.some(l => l !== p.prov) ? ' · ' + lab.join(', ') : '') : ' · ' + (lab.length > 1 ? lab.join(', ') : p.prov);
-      const cam = ocpCanUpload ? `<span class="ocp-cam" data-ocp-up="${escapeHtml(ocpKey(p.name))}" title="อัปโหลดรูป">📷</span>` : '';
-      return `<div class="ocp-card${p.on ? '' : ' off'}"><span class="ocp-badge">${p.on ? 'On Call' : 'ไม่เข้าเวร'}</span>
-        <div class="ocp-av">${ocpAvatar(p.name, p.position, 72)}${cam}</div>
-        <div class="ocp-role">${escapeHtml(p.position)}${escapeHtml(where)}</div>
-        <div class="ocp-nm">${escapeHtml(p.name)}</div>
-        <div class="ocp-tel">${p.tel ? `<a href="${telHref(p.tel)}">${escapeHtml(p.tel)}</a>` : '—'}</div></div>`;
-    }).join('') : '<div class="ocp-empty" style="grid-column:1/-1">ไม่มีคนเข้าเวรตามเงื่อนไขนี้</div>';
-    box.innerHTML = `<div class="ocp-wrap">
-      <div class="ocp-box"><div class="ocp-legend"><span><i style="background:#22c55e"></i>เลขในวงกลม = Sup/Eng ที่เข้าเวรวันนี้</span><span><i style="border:2px dashed #ef4444"></i>0 = ไม่มีคนเข้าเวร</span></div>
-        <svg viewBox="0 0 ${OCP_GEO.w} ${OCP_GEO.h}" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${bubbles}</svg></div>
-      <div class="ocp-box"><div class="ocp-head"><b>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</b>
-        <span style="color:var(--text3);font-size:12px;">วันนี้เข้าเวร ${totalOn} คน</span>
-        ${ocpSel ? '<button class="ocp-chip" data-ocp-all="1">× ดูทุกจังหวัด</button>' : ''}</div>
-        <div class="ocp-chips">${chips}</div><div class="ocp-grid">${cards}</div>
-        ${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div>`;
+    const seen = new Set();
+    list = list.filter(p => { const k = p.position + '|' + ocpKey(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
+    list.sort((a, b) => (b.on - a.on) || a.prov.localeCompare(b.prov, 'th'));
+    const card = p => {
+      const lab = [...p.labels].sort((a, b) => a.localeCompare(b, 'th')).join(', ');
+      const cam = ocpCanUpload ? `<span class="ocp-cam" data-ocp-up="${escapeHtml(ocpKey(p.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : '';
+      return `<div class="ocp-card${p.position === 'Eng Zone' ? ' eng' : ''}${p.on ? '' : ' off'}"><div class="ocp-av">${ocpAvatar(p.name, p.position, 88)}<span class="ocp-st"></span>${cam}</div>
+        <span class="ocp-role">${escapeHtml(p.position)}</span><div class="ocp-nm">${escapeHtml(p.name)}</div>
+        <div class="ocp-where">${p.on ? '● On Call วันนี้' : 'ไม่เข้าเวร'} · ${escapeHtml(lab)}</div>
+        ${p.tel ? `<a class="ocp-call" href="${telHref(p.tel)}">📞 ${escapeHtml(p.tel)}</a>` : ''}</div>`;
+    };
+    const sec = (t, a) => a.length ? `<div class="ocp-sec">${t.toUpperCase()} · ${a.length} คน</div><div class="ocp-grid">${a.map(card).join('')}</div>` : '';
+    const body = list.length ? sec('Supervisor', list.filter(p => p.position !== 'Eng Zone')) + sec('Eng Zone', list.filter(p => p.position === 'Eng Zone'))
+      : '<div class="ocp-empty">⚠ ไม่มีคนเข้าเวรในจังหวัดนี้วันนี้</div>';
+    box.innerHTML = `<div class="ocp-top"><div class="ocp-kpis">
+        <div class="ocp-kpi"><b style="color:#16a34a">${allOn.length}</b><span>เข้าเวรวันนี้</span></div>
+        <div class="ocp-kpi"><b style="color:#2563eb">${nSup}</b><span>Supervisor</span></div>
+        <div class="ocp-kpi"><b style="color:#d97706">${nEng}</b><span>Eng Zone</span></div>
+        <div class="ocp-kpi"><b style="color:#ef4444">${nZero}</b><span>จังหวัดไม่มีคนเข้าเวร</span></div></div></div>
+      <div class="ocp-wrap">
+      <div class="ocp-box"><div class="ocp-legend"><span><i style="border-color:#2563eb"></i>Supervisor</span><span><i style="border-color:#d97706"></i>Eng Zone</span><span>รูปบนจังหวัด = คน On Call วันนี้ · กดจังหวัดเพื่อดูรายละเอียด</span></div>
+        <svg viewBox="0 0 ${OCP_GEO.w} ${OCP_GEO.h}" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${ctxPaths}${prov}</svg></div>
+      <div class="ocp-box"><div class="ocp-head"><div><h3>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</h3>
+        <div class="ocp-sub">${ocpSel ? 'เข้าเวรวันนี้ ' + onOf(ocpSel).length + ' คน' : 'เข้าเวรวันนี้ทั้งหมด ' + allOn.length + ' คน'}</div></div>
+        <div class="ocp-chips"><button class="ocp-chip${ocpFilter === 'on' ? ' a' : ''}" data-ocp-f="on">เข้าเวร</button><button class="ocp-chip${ocpFilter === 'all' ? ' a' : ''}" data-ocp-f="all">ทั้งหมด</button></div></div>
+        ${body}${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div>`;
   }
 
   (function wirePeoplePanel() {
     const box = el('oc-people-panel'); if (!box) return;
+    let tip = document.getElementById('ocp-tip');
+    if (!tip) { tip = document.createElement('div'); tip.id = 'ocp-tip'; tip.className = 'ocp-tip'; document.body.appendChild(tip); }
+    box.addEventListener('mousemove', e => {
+      const g = e.target.closest && e.target.closest('.ocp-pv');
+      if (!g) { tip.style.display = 'none'; return; }
+      tip.textContent = g.dataset.tip || ''; tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+    });
+    box.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
     box.addEventListener('click', e => {
       const g = e.target.closest('.ocp-pv');
       if (g) { ocpSel = (ocpSel === g.dataset.prov) ? '' : g.dataset.prov; renderPeoplePanel(); return; }
-      if (e.target.closest('[data-ocp-all]')) { ocpSel = ''; renderPeoplePanel(); return; }
       const f = e.target.closest('[data-ocp-f]'); if (f) { ocpFilter = f.dataset.ocpF; renderPeoplePanel(); return; }
-      const up = e.target.closest('[data-ocp-up]'); if (up) ocpPickPhoto(up.dataset.ocpUp);
+      const up = e.target.closest('[data-ocp-up]'); if (up) ocpOpenCrop(up.dataset.ocpUp);
     });
   })();
 
-  function ocpResize(file) {
-    return new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onerror = () => reject(new Error('อ่านไฟล์ไม่ได้'));
-      fr.onload = () => {
-        const img = new Image();
-        img.onerror = () => reject(new Error('ไฟล์นี้ไม่ใช่รูปภาพ'));
-        img.onload = () => {
-          const S = 200, cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-          const m = Math.min(img.width, img.height), sx = (img.width - m) / 2, sy = (img.height - m) / 2;
-          const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, S, S);
-          ctx.drawImage(img, sx, sy, m, m, 0, 0, S, S);
-          let q = 0.85, out = cv.toDataURL('image/jpeg', q);
-          while (out.length > 40000 && q > 0.3) { q -= 0.1; out = cv.toDataURL('image/jpeg', q); }
-          resolve(out);
-        };
-        img.src = fr.result;
-      };
-      fr.readAsDataURL(file);
-    });
-  }
-  function ocpPickPhoto(key) {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-    inp.onchange = async () => {
-      const f = inp.files && inp.files[0]; if (!f) return;
-      try {
-        const data = await ocpResize(f);
-        const res = await fetch('/api/oncall-photos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: key, photo: data }) });
-        if (!res.ok) throw new Error(await ocApiError(res));
-        ocpPhotos[key] = data;
-        renderPeoplePanel();
-        if (scheduleData) render();     // refresh avatars in the table too
-      } catch (e) { alert('อัปโหลดรูปไม่สำเร็จ: ' + (e.message || e)); }
+  // ---- photo dialog: pick a file, drag + zoom so the face sits in the circle (works for side-facing photos), save ----
+  const ocpCrop = { img: null, base: 1, sc: 1, ox: 0, oy: 0, key: '' };
+  function ocpModal() {
+    let m = document.getElementById('ocp-mod'); if (m) return m;
+    m = document.createElement('div'); m.id = 'ocp-mod'; m.className = 'ocp-mod';
+    m.innerHTML = `<div class="ocp-mbox"><h4 id="ocp-mt">จัดตำแหน่งรูป</h4><p>ลากรูปให้ใบหน้าอยู่กลางวงกลม · เลื่อนแถบเพื่อซูม</p>
+      <div class="ocp-crop" id="ocp-crop"><canvas id="ocp-cv" width="260" height="260"></canvas></div>
+      <div class="ocp-row"><span>🔍</span><input id="ocp-zm" type="range" min="1" max="3" step="0.01" value="1"><div class="ocp-prev">ตัวอย่าง <canvas id="ocp-pv" width="44" height="44"></canvas></div></div>
+      <div class="ocp-btns"><button class="ocp-btn" id="ocp-pick">เลือกรูปอื่น…</button><button class="ocp-btn" id="ocp-cn">ยกเลิก</button><button class="ocp-btn p" id="ocp-ok">บันทึก</button></div></div>`;
+    document.body.appendChild(m);
+    const cv = m.querySelector('#ocp-cv'), cx = cv.getContext('2d'), pvx = m.querySelector('#ocp-pv').getContext('2d');
+    const paint = () => {
+      cx.fillStyle = '#e9eef6'; cx.fillRect(0, 0, 260, 260);
+      const c = ocpCrop; if (!c.img) return;
+      cx.drawImage(c.img, c.ox, c.oy, c.img.width * c.base * c.sc, c.img.height * c.base * c.sc);
+      pvx.clearRect(0, 0, 44, 44); pvx.save(); pvx.beginPath(); pvx.arc(22, 22, 22, 0, 7); pvx.clip(); pvx.drawImage(cv, 15, 15, 230, 230, 0, 0, 44, 44); pvx.restore();
     };
-    inp.click();
+    m._paint = paint;
+    m.querySelector('#ocp-cn').onclick = () => m.classList.remove('on');
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); });
+    m.querySelector('#ocp-zm').oninput = e => { const n = +e.target.value, c = ocpCrop, k = n / c.sc; c.ox = 130 - (130 - c.ox) * k; c.oy = 130 - (130 - c.oy) * k; c.sc = n; paint(); };
+    let dr = null; const cr = m.querySelector('#ocp-crop');
+    cr.onpointerdown = e => { dr = [e.clientX, e.clientY, ocpCrop.ox, ocpCrop.oy]; cr.setPointerCapture(e.pointerId); };
+    cr.onpointermove = e => { if (!dr) return; ocpCrop.ox = dr[2] + e.clientX - dr[0]; ocpCrop.oy = dr[3] + e.clientY - dr[1]; paint(); };
+    cr.onpointerup = () => { dr = null; };
+    m.querySelector('#ocp-pick').onclick = () => ocpChooseFile();
+    m.querySelector('#ocp-ok').onclick = async () => {
+      const btn = m.querySelector('#ocp-ok');
+      if (!ocpCrop.img) return;
+      const out = document.createElement('canvas'); out.width = 200; out.height = 200;
+      const o = out.getContext('2d'); o.fillStyle = '#fff'; o.fillRect(0, 0, 200, 200); o.drawImage(cv, 15, 15, 230, 230, 0, 0, 200, 200);
+      let q = 0.85, data = out.toDataURL('image/jpeg', q);
+      while (data.length > 40000 && q > 0.3) { q -= 0.1; data = out.toDataURL('image/jpeg', q); }
+      btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+      try {
+        const res = await fetch('/api/oncall-photos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: ocpCrop.key, photo: data }) });
+        if (!res.ok) throw new Error(await ocApiError(res));
+        ocpPhotos[ocpCrop.key] = data; m.classList.remove('on'); renderPeoplePanel(); if (scheduleData) render();
+      } catch (err) { alert('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || err)); }
+      btn.disabled = false; btn.textContent = 'บันทึก';
+    };
+    return m;
   }
+  function ocpSetImage(i) {
+    const m = ocpModal(), c = ocpCrop, go = () => {
+      c.img = i; c.base = 260 / Math.min(i.width, i.height); c.sc = 1; m.querySelector('#ocp-zm').value = 1;
+      c.ox = (260 - i.width * c.base) / 2; c.oy = (260 - i.height * c.base) / 2; m._paint();
+    };
+    if (i.complete && i.width) go(); else i.onload = go;
+  }
+  function ocpChooseFile() {
+    const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*';
+    f.onchange = () => {
+      const file = f.files && f.files[0]; if (!file) return;
+      const r = new FileReader();
+      r.onload = () => { const i = new Image(); i.onerror = () => alert('ไฟล์นี้ไม่ใช่รูปภาพ'); i.src = r.result; ocpSetImage(i); };
+      r.readAsDataURL(file);
+    };
+    f.click();
+  }
+  function ocpOpenCrop(key) {
+    const m = ocpModal(); ocpCrop.key = key; ocpCrop.img = null; m._paint();
+    m.querySelector('#ocp-mt').textContent = 'จัดตำแหน่งรูป · ' + key;
+    m.classList.add('on');
+    const cur = ocpPhotos[key];
+    if (cur) { const i = new Image(); i.src = cur; ocpSetImage(i); } else ocpChooseFile();
+  }
+
   async function fetchPhotos() {
     try {
       const res = await fetch('/api/oncall-photos');
