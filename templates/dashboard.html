@@ -678,14 +678,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 </style>
 <style>
 .ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.ocp-top{align-items:stretch;flex-wrap:nowrap}.ocp-top>.ocp-kpis{flex:0 0 300px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ocp-top>.ocp-kpis .ocp-kpi{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 14px}.ocp-top>.ocp-kpis .ocp-kpi b{font-size:28px}.ocp-inoc{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:16px}
+.ocp-top{align-items:stretch;flex-wrap:nowrap}.ocp-top>.ocp-kpis{flex:0 0 300px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ocp-top>.ocp-kpis .ocp-kpi{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 14px}.ocp-top>.ocp-kpis .ocp-kpi b{font-size:28px}.ocp-inoc{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:18px}
 .ocp-ih{flex:0 0 190px;border-right:1px solid var(--border);padding-right:14px}.ocp-ih .t{font-weight:800;font-size:22px;color:#0d9488;letter-spacing:.04em}.ocp-ih .s{font-size:11px;color:var(--text3)}
 .ocp-icall{display:inline-flex;align-items:center;gap:6px;margin-top:3px;background:#0d948814;border:1px solid #0d948855;color:#0f766e;border-radius:10px;padding:3px 12px;font-weight:800;font-size:18px;text-decoration:none}
-.ocp-ippl{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,104px));justify-content:start;gap:12px;flex:1;min-width:0}.ocp-ip{text-align:center;min-width:0}
-.ocp-iav{position:relative;width:100%;aspect-ratio:1/1}.ocp-iav>img,.ocp-iav>span:first-child{width:100%!important;height:100%!important;box-sizing:border-box;box-shadow:0 4px 12px rgba(15,157,148,.18);border-color:#0d9488!important;font-size:26px!important}
+.ocp-ippl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;flex:1;min-width:0}.ocp-ip{text-align:center;min-width:0}
+.ocp-iav{position:relative;width:100%;aspect-ratio:1/1}.ocp-iav>img,.ocp-iav>span:first-child{width:100%!important;height:100%!important;box-sizing:border-box;box-shadow:0 4px 12px rgba(15,157,148,.18);border-color:#0d9488!important;font-size:34px!important}
 .ocp-iav .ocp-st{width:13px;height:13px;border-width:2px;right:8px;top:8px;bottom:auto}
 .ocp-icam{position:absolute;right:6px;bottom:6px;width:22px;height:22px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);display:grid;place-items:center;font-size:10px;cursor:pointer}
-.ocp-ip .nk{font-size:13.5px;font-weight:700;margin-top:6px;line-height:1.2}.ocp-ip .fn{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocp-ip .nk{font-size:15px;font-weight:700;margin-top:8px;line-height:1.2}.ocp-ip .fn{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
 .ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
 .ocp-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}.ocp-rbox>.ocp-inner{position:static!important;max-height:640px}}
@@ -14795,7 +14795,7 @@ loadData();
     const nick = n => { const m = String(n).match(/\(([^)]+)\)\s*$/); return m ? m[1] : String(n).split(' ')[0]; };
     const full = n => String(n).replace(/\s*\([^)]*\)\s*$/, '');
     const inocHtml = inocAll.length ? `<div class="ocp-inoc"><div class="ocp-ih"><div class="t">INOC TEAM</div><div class="s">เข้าเวรวันนี้ ${inocOn.length} / ${inocAll.length} คน</div><a class="ocp-icall" href="${telHref(inocTel)}">📞 ${escapeHtml(inocTel)}</a></div>
-      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 104, true)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
+      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 150, true)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
     box.innerHTML = `<div class="ocp-top"><div class="ocp-kpis">
         <div class="ocp-kpi"><b style="color:#16a34a">${allOn.length}</b><span>เข้าเวรวันนี้</span></div>
         <div class="ocp-kpi"><b style="color:#2563eb">${nSup}</b><span>Supervisor</span></div>
