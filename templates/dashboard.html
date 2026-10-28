@@ -680,7 +680,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
 .ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
-.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}}
+.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}.ocp-rbox>.ocp-inner{position:static!important;max-height:640px}}
+.ocp-rbox{position:relative}.ocp-rbox>.ocp-inner{position:absolute;inset:14px;display:flex;flex-direction:column;min-height:0}.ocp-scroll{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
 .ocp-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;min-width:0}
 .ocp-legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--text3);font-size:12px;margin-bottom:2px}.ocp-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;border:2.5px solid;vertical-align:-1px;margin-right:5px}
 .ocp-box svg{width:100%;height:auto;display:block;max-height:calc(100vh - 160px)}
@@ -693,12 +694,13 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 .ocp-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:6px}.ocp-head h3{margin:0;font-size:22px}.ocp-sub{color:var(--text3);font-size:13px}
 .ocp-chips{margin-left:auto;display:flex;gap:6px}.ocp-chip{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:99px;padding:4px 14px;cursor:pointer;font-size:12px}.ocp-chip.a{background:#2563eb;border-color:#2563eb;color:#fff}
 .ocp-sec{margin:14px 0 8px;font-size:12px;color:var(--text3);font-weight:700;letter-spacing:.04em}
-.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.ocp-card{border:1px solid var(--border);border-radius:16px;padding:14px 10px 12px;text-align:center;background:var(--bg2);position:relative;transition:.15s}.ocp-card:hover{box-shadow:0 6px 18px #0000001a}.ocp-card.off{opacity:.5}
-.ocp-av{position:relative;width:88px;height:88px;margin:0 auto 8px}.ocp-av>img,.ocp-av>span.ocp-im{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:28px;color:#13213a;object-fit:cover;box-shadow:0 0 0 3px var(--bg2),0 0 0 4px var(--border)}
+.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ocp-card{border:1px solid var(--border);border-radius:16px;padding:12px 8px 10px;text-align:center;background:var(--bg2);position:relative;transition:.15s}.ocp-card:hover{box-shadow:0 6px 18px #0000001a}.ocp-card.on{border-color:#16a34a66;background:linear-gradient(180deg,#16a34a12,var(--bg2) 55%)}.ocp-card.off{opacity:.5}
+.ocp-badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:1px 8px;border-radius:99px;background:#16a34a;color:#fff}.ocp-card.off .ocp-badge{background:var(--bg4);color:var(--text2)}
+.ocp-av{position:relative;width:76px;height:76px;margin:6px auto 8px}.ocp-av>img,.ocp-av>span.ocp-im{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:28px;color:#13213a;object-fit:cover;box-shadow:0 0 0 3px var(--bg2),0 0 0 4px var(--border)}
 .ocp-st{position:absolute;right:2px;bottom:2px;width:17px;height:17px;border-radius:50%;background:#16a34a;border:3px solid var(--bg2)}.ocp-card.off .ocp-st{background:#aab6c8}
 .ocp-role{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:1px 10px;background:#2563eb22;color:#2563eb}.ocp-card.eng .ocp-role{background:#d9770622;color:#d97706}
-.ocp-nm{font-weight:700;font-size:15px;margin:6px 0 1px}.ocp-where{font-size:12px;color:var(--text3)}
+.ocp-nm{font-weight:700;font-size:14px;margin:6px 0 1px}.ocp-where{font-size:12px;color:var(--text3)}
 .ocp-call{display:block;margin-top:8px;background:#2563eb14;border:1px solid #2563eb40;color:#2563eb;border-radius:10px;padding:5px 0;font-size:13px;text-decoration:none;font-weight:600}
 .ocp-cam{position:absolute;right:-2px;top:-2px;background:var(--bg2);border:1px solid var(--border);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;cursor:pointer;font-size:12px}
 .ocp-empty{color:#ef4444;padding:18px;text-align:center;border:1px dashed #ef4444;border-radius:12px}.ocp-note{color:var(--text3);font-size:11px;margin-top:8px}
@@ -14697,9 +14699,9 @@ loadData();
     const card = p => {
       const lab = [...p.labels].sort((a, b) => a.localeCompare(b, 'th')).join(', ');
       const cam = ocpCanUpload ? `<span class="ocp-cam" data-ocp-up="${escapeHtml(ocpKey(p.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : '';
-      return `<div class="ocp-card${p.position === 'Eng Zone' ? ' eng' : ''}${p.on ? '' : ' off'}"><div class="ocp-av">${ocpAvatar(p.name, p.position, 88)}<span class="ocp-st"></span>${cam}</div>
+      return `<div class="ocp-card${p.position === 'Eng Zone' ? ' eng' : ''}${p.on ? ' on' : ' off'}"><span class="ocp-badge">${p.on ? 'On Call' : 'ไม่เข้าเวร'}</span><div class="ocp-av">${ocpAvatar(p.name, p.position, 76)}<span class="ocp-st"></span>${cam}</div>
         <span class="ocp-role">${escapeHtml(p.position)}</span><div class="ocp-nm">${escapeHtml(p.name)}</div>
-        <div class="ocp-where">${p.on ? '● On Call วันนี้' : 'ไม่เข้าเวร'} · ${escapeHtml(lab)}</div>
+        <div class="ocp-where">${escapeHtml(lab)}</div>
         ${p.tel ? `<a class="ocp-call" href="${telHref(p.tel)}">📞 ${escapeHtml(p.tel)}</a>` : ''}</div>`;
     };
     const sec = (t, a) => a.length ? `<div class="ocp-sec">${t.toUpperCase()} · ${a.length} คน</div><div class="ocp-grid">${a.map(card).join('')}</div>` : '';
@@ -14713,10 +14715,10 @@ loadData();
       <div class="ocp-wrap">
       <div class="ocp-box"><div class="ocp-legend"><span><i style="border-color:#2563eb"></i>Supervisor</span><span><i style="border-color:#d97706"></i>Eng Zone</span><span>รูปบนจังหวัด = คน On Call วันนี้ · กดจังหวัดเพื่อดูรายละเอียด</span></div>
         <svg viewBox="0 0 ${OCP_GEO.w} ${OCP_GEO.h}" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${ctxPaths}${prov}</svg></div>
-      <div class="ocp-box"><div class="ocp-head"><div><h3>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</h3>
+      <div class="ocp-box ocp-rbox"><div class="ocp-inner"><div class="ocp-head"><div><h3>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</h3>
         <div class="ocp-sub">${ocpSel ? 'เข้าเวรวันนี้ ' + onOf(ocpSel).length + ' คน' : 'เข้าเวรวันนี้ทั้งหมด ' + allOn.length + ' คน'}</div></div>
         <div class="ocp-chips"><button class="ocp-chip${ocpFilter === 'on' ? ' a' : ''}" data-ocp-f="on">เข้าเวร</button><button class="ocp-chip${ocpFilter === 'all' ? ' a' : ''}" data-ocp-f="all">ทั้งหมด</button></div></div>
-        ${body}${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div>`;
+        <div class="ocp-scroll">${body}</div>${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div></div>`;
   }
 
   (function wirePeoplePanel() {
