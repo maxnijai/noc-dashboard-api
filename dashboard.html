@@ -94,9 +94,11 @@ tbody .ptk-sticky-4 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
 .oc-sticky-4 { position:sticky; left:402px; width:150px; min-width:150px; z-index:3; }
 .oc-sticky-5 { position:sticky; left:552px; width:70px; min-width:70px; z-index:3; }
 .oc-sticky-6 { position:sticky; left:622px; width:170px; min-width:170px; z-index:3; }
-thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5, thead .oc-sticky-6 { z-index:4; background:var(--bg3); }
-tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5, tbody .oc-sticky-6 { background:var(--bg2); }
-tbody .oc-sticky-6 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-sticky-7 { position:sticky; left:792px; width:150px; min-width:150px; z-index:3; }
+thead .oc-sticky-0, thead .oc-sticky-1, thead .oc-sticky-2, thead .oc-sticky-3, thead .oc-sticky-4, thead .oc-sticky-5, thead .oc-sticky-6, thead .oc-sticky-7 { z-index:4; background:var(--bg3); }
+tbody .oc-sticky-0, tbody .oc-sticky-1, tbody .oc-sticky-2, tbody .oc-sticky-3, tbody .oc-sticky-4, tbody .oc-sticky-5, tbody .oc-sticky-6, tbody .oc-sticky-7 { background:var(--bg2); }
+tbody .oc-sticky-7 { box-shadow: 2px 0 4px -2px rgba(0,0,0,.15); }
+.oc-tel-input { width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px; }
 .oe-sticky-0 { position:sticky; left:0; width:130px; min-width:130px; z-index:3; }
 .oe-sticky-1 { position:sticky; left:130px; width:120px; min-width:120px; z-index:3; }
 .oe-sticky-2 { position:sticky; left:250px; width:180px; min-width:180px; z-index:3; }
@@ -674,6 +676,51 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 @media (max-width:1200px){.fire-grid-top{grid-template-columns:1fr}.fire-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
 </style>
+<style>
+.ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ocp-top{align-items:stretch;flex-wrap:nowrap}.ocp-top>.ocp-kpis{flex:0 0 300px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ocp-top>.ocp-kpis .ocp-kpi{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 14px}.ocp-top>.ocp-kpis .ocp-kpi b{font-size:28px}.ocp-inoc{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:16px}
+.ocp-ih{flex:none;border-right:1px solid var(--border);padding-right:14px}.ocp-ih .t{font-weight:800;font-size:22px;color:#0d9488;letter-spacing:.04em}.ocp-ih .s{font-size:11px;color:var(--text3)}
+.ocp-icall{display:inline-flex;align-items:center;gap:6px;margin-top:3px;background:#0d948814;border:1px solid #0d948855;color:#0f766e;border-radius:10px;padding:3px 12px;font-weight:800;font-size:17px;text-decoration:none;white-space:nowrap}
+.ocp-ippl{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,104px));justify-content:start;gap:12px;flex:1;min-width:0}.ocp-ip{text-align:center;min-width:0}
+.ocp-iav{position:relative;width:100%;aspect-ratio:1/1}.ocp-iav>img,.ocp-iav>span:first-child{width:100%!important;height:100%!important;box-sizing:border-box;box-shadow:0 4px 12px rgba(15,157,148,.18);border-color:#0d9488!important;font-size:26px!important}
+.ocp-iav .ocp-st{width:13px;height:13px;border-width:2px;right:8px;top:8px;bottom:auto}
+.ocp-icam{position:absolute;right:6px;bottom:6px;width:22px;height:22px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);display:grid;place-items:center;font-size:10px;cursor:pointer}
+.ocp-ip .nk{font-size:13.5px;font-weight:700;margin-top:6px;line-height:1.2}.ocp-ip .fn{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
+.ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
+.ocp-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}.ocp-rbox>.ocp-inner{position:static!important;max-height:640px}}
+.ocp-rbox{position:relative}.ocp-rbox>.ocp-inner{position:absolute;inset:14px;display:flex;flex-direction:column;min-height:0}.ocp-scroll{flex:1;min-height:0;overflow-y:auto;padding-right:4px}
+.ocp-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;min-width:0}
+.ocp-legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--text3);font-size:12px;margin-bottom:2px}.ocp-legend i{display:inline-block;width:11px;height:11px;border-radius:50%;border:2.5px solid;vertical-align:-1px;margin-right:5px}
+.ocp-box svg{width:100%;height:auto;display:block;max-height:calc(100vh - 160px)}
+.ocp-ctx{fill:var(--bg3);stroke:var(--border);stroke-width:.6}
+.ocp-pv{cursor:pointer}.ocp-pv .ocp-b{fill:var(--bg4);stroke:var(--bg2);stroke-width:1.6;stroke-linejoin:round;transition:fill .15s}.ocp-pv.zero .ocp-b{fill:#ef444428}
+.ocp-pv:hover .ocp-b{fill:#2563eb30}.ocp-pv.sel .ocp-b{fill:#2563eb3d;stroke:#2563eb;stroke-width:2.6}
+.ocp-pv .ocp-pn{font-size:9.5px;font-weight:600;fill:var(--text2);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:var(--bg4);stroke-width:2.5px}
+.ocp-pv.sel .ocp-pn{fill:#2563eb}.ocp-pv.zero .ocp-pn{fill:#ef4444}.ocp-nobody{font-size:9px;font-weight:700;fill:#ef4444;text-anchor:middle;pointer-events:none}
+.ocp-ini{font-weight:800;text-anchor:middle;fill:#13213a;pointer-events:none}
+.ocp-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:6px}.ocp-head h3{margin:0;font-size:22px}.ocp-sub{color:var(--text3);font-size:13px}
+.ocp-chips{margin-left:auto;display:flex;gap:6px}.ocp-chip{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:99px;padding:4px 14px;cursor:pointer;font-size:12px}.ocp-chip.a{background:#2563eb;border-color:#2563eb;color:#fff}
+.ocp-sec{margin:14px 0 8px;font-size:12px;color:var(--text3);font-weight:700;letter-spacing:.04em}
+.ocp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ocp-card{border:1px solid var(--border);border-radius:16px;padding:12px 8px 10px;text-align:center;background:var(--bg2);position:relative;transition:.15s}.ocp-card:hover{box-shadow:0 6px 18px #0000001a}.ocp-card.on{border-color:#16a34a66;background:linear-gradient(180deg,#16a34a12,var(--bg2) 55%)}.ocp-card.off{opacity:.5}
+.ocp-badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:1px 8px;border-radius:99px;background:#16a34a;color:#fff}.ocp-card.off .ocp-badge{background:var(--bg4);color:var(--text2)}
+.ocp-av{position:relative;width:76px;height:76px;margin:6px auto 8px}.ocp-av>img,.ocp-av>span.ocp-im{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:28px;color:#13213a;object-fit:cover;box-shadow:0 0 0 3px var(--bg2),0 0 0 4px var(--border)}
+.ocp-st{position:absolute;right:2px;bottom:2px;width:17px;height:17px;border-radius:50%;background:#16a34a;border:3px solid var(--bg2)}.ocp-card.off .ocp-st{background:#aab6c8}
+.ocp-role{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:1px 10px;background:#2563eb22;color:#2563eb}.ocp-card.eng .ocp-role{background:#d9770622;color:#d97706}
+.ocp-nm{font-weight:700;font-size:14px;margin:6px 0 1px}.ocp-where{font-size:12px;color:var(--text3)}
+.ocp-call{display:block;margin-top:8px;background:#2563eb14;border:1px solid #2563eb40;color:#2563eb;border-radius:10px;padding:5px 0;font-size:13px;text-decoration:none;font-weight:600}
+.ocp-cam{position:absolute;right:-2px;top:-2px;background:var(--bg2);border:1px solid var(--border);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;cursor:pointer;font-size:12px}
+.ocp-empty{color:#ef4444;padding:18px;text-align:center;border:1px dashed #ef4444;border-radius:12px}.ocp-note{color:var(--text3);font-size:11px;margin-top:8px}
+.ocp-tip{position:fixed;pointer-events:none;background:#17243a;color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;display:none;z-index:2000;white-space:pre-line}
+.ocp-mod{position:fixed;inset:0;background:#0b1424aa;display:none;place-items:center;z-index:2100}.ocp-mod.on{display:grid}
+.ocp-mbox{background:var(--bg2);color:var(--text);border-radius:16px;padding:18px;width:min(380px,92vw)}.ocp-mbox h4{margin:0 0 4px;font-size:16px}.ocp-mbox p{margin:0 0 10px;color:var(--text3);font-size:12px}
+.ocp-crop{position:relative;width:260px;height:260px;margin:0 auto;background:var(--bg4);border-radius:12px;overflow:hidden;cursor:grab;touch-action:none}.ocp-crop canvas{display:block}
+.ocp-crop:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 114px,#0b142488 115px)}
+.ocp-row{display:flex;align-items:center;gap:10px;margin:12px 0}.ocp-row input[type=range]{flex:1}.ocp-btns{display:flex;gap:8px;justify-content:flex-end}
+.ocp-btn{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:10px;padding:6px 14px;cursor:pointer}.ocp-btn.p{background:#2563eb;color:#fff;border-color:#2563eb}
+.ocp-prev{display:flex;align-items:center;gap:8px;color:var(--text3);font-size:12px}.ocp-prev canvas{border-radius:50%;border:2px solid #2563eb}
+</style>
 </head>
 <body>
 
@@ -950,7 +997,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
       <button id="ptk-export-excel" class="btn-secondary" title="ดาวน์โหลดตารางที่กรองอยู่ตอนนี้เป็น Excel">📥 Export Excel</button>
       {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
-      <button id="ptk-migrate-workload" class="btn-secondary" title="รวมค่า Group Problem เก่า &quot;Workload - Assigning team access island/border area&quot; เป็น &quot;Workload - Assigning team access site&quot;">รวม Workload (ครั้งเดียว)</button>
+      <button id="ptk-migrate-workload" class="btn-secondary" title="เปลี่ยนค่า Group Problem เก่า &quot;Workload - Assigning team access site&quot; (และ &quot;...island/border area&quot;) ของ ticket ที่เคยเลือกไว้ เป็น &quot;In progress - Priority TT management/ Interrupted by urgency TT&quot;">เปลี่ยน Workload → In progress (ครั้งเดียว)</button>
       {% endif %}
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
@@ -1011,12 +1058,42 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
     <style>
       .p0-hide-top5 .p0-top5 { display: none; }
+      /* Equal-size cards (explicit request): 5 equal columns in both rows, equal heights, Top 5 slot reserved, Trend pinned to the bottom. */
+      .p0eq-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 12px; background: var(--bg1); align-items: stretch; }
+      .p0eq-grid > div[id$="kpi-summary"], .p0eq-grid > div[id$="snapshot-compare"], .p0eq-grid > div[id$="snapshot-compare"] > div { display: contents !important; }
+      .p0eq-grid .p0eq-card { display: flex !important; flex-direction: column; min-width: 0 !important; flex: none !important; height: auto !important; align-self: stretch; background: var(--bg2); border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--r); box-sizing: border-box; position: relative; }
+      .p0eq-grid .p0eq-card .p0-top5 { min-height: 135px; }
+      .p0eq-grid .p0eq-card > div:last-child { margin-top: auto !important; }
+      @media (max-width: 1100px) { .p0eq-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 700px) { .p0eq-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       .p0-t5r { display: grid; grid-template-columns: 14px minmax(0,1fr) 46px 30px; align-items: center; gap: 6px; font-size: 11.5px; padding: 2.5px 3px; border-radius: 4px; cursor: pointer; }
       .p0-t5r:hover { background: var(--bg3); }
       .p0-t5r.p0-t5-static { cursor: default; }
       /* ---- Focus P0 drill down panel (click a card number / TOP 5 province) ---- */
       .p0dd-click { cursor: pointer; border-radius: 6px; transition: background .12s; }
       .p0dd-click:hover { background: color-mix(in srgb, #2563eb 12%, transparent); }
+      /* ---- P0 status strip (under the Over SLA cards) ---- */
+      .p0st { border-top: 2px solid #2563eb; background: var(--bg1); }
+      .p0st-head { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--bg3); font-size: 12px; font-weight: 700; flex-wrap: wrap; }
+      .p0st-head .h { font-weight: 400; color: var(--text3); font-size: 11px; }
+      .p0st-btn { margin-left: auto; border: 1px solid var(--border2); background: var(--bg2); color: var(--text2); border-radius: 14px; padding: 2px 12px; font-size: 11px; cursor: pointer; }
+      .p0st-btn:hover { border-color: #2563eb; color: #2563eb; }
+      .p0st-flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); font-size: 11.5px; color: var(--text2); }
+      .p0st-flow .stp { border: 1px solid var(--border); border-left: 4px solid var(--c); border-radius: 6px; padding: 2px 9px; background: var(--bg2); font-weight: 600; color: var(--text); }
+      .p0st-flow .ar { color: var(--text3); } .p0st-flow .hl { margin-left: auto; color: var(--text3); }
+      .p0st-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      @media (max-width: 1100px) { .p0st-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 700px) { .p0st-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .p0st-col { padding: 10px 16px 12px; border-left: 1px solid var(--border); cursor: pointer; transition: background .12s; }
+      .p0st-col:first-child { border-left: 0; } .p0st-col:hover { background: color-mix(in srgb, #2563eb 7%, transparent); }
+      .p0st-lab { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--text3); margin-bottom: 5px; } .p0st-lab b { color: var(--text); }
+      .p0st-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--bg4); } .p0st-bar i { display: block; min-width: 0; }
+      .p0st-rows { margin-top: 8px; display: grid; gap: 3px; }
+      .p0st-rw { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 38px; align-items: center; gap: 7px; font-size: 12px; padding: 2px 4px; border-radius: 5px; }
+      .p0st-rw i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); } .p0st-rw b { font-size: 14px; min-width: 26px; text-align: right; }
+      .p0st-rw em { font-style: normal; color: var(--text3); font-size: 11px; text-align: right; }
+      .p0st-rw.z { opacity: .45; } .p0st-rw.alert { background: #d645450f; } .p0st-rw.alert b, .p0st-rw.alert span { color: #d64545; font-weight: 700; }
+      .p0st-sum { margin-top: 7px; font-size: 11.5px; color: var(--text2); border-top: 1px dashed var(--border); padding-top: 6px; } .p0st-sum b { color: var(--text); }
       .p0dd-wrap { display: none; border-top: 2px solid #2563eb; }
       .p0dd-wrap.open { display: block; animation: p0ddIn .25s ease; }
       @keyframes p0ddIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
@@ -1067,16 +1144,18 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
          with the pieces as borderless children inside it, divided by a vertical rule. -->
     <div style="margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
       <div id="p0-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
-      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      <div class="p0eq-grid">
         <div id="p0-kpi-summary" style="flex:1; min-width:220px;"></div>
         <div id="p0-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
+      <div id="p0-status-strip"></div>
       <div id="p0dd-p0" class="p0dd-wrap"></div>
     </div>
     <!-- Total Pending row (same merged layout as the Over SLA block above; stays hidden until its data arrives, so a missing/failed total never leaves an empty gap) -->
     <div id="p0-total-row" style="display:none; margin-bottom:18px; border:1px solid var(--border); border-radius:var(--r); background:var(--bg2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04);">
       <div id="p0-total-topbar" style="padding:8px 14px; background:var(--bg3); font-size:11px; color:var(--text3); min-height:14px;"></div>
-      <div style="display:flex; flex-wrap:wrap; align-items:stretch;">
+      <div id="p0-total-aging-legend" style="display:none; flex-wrap:wrap; gap:4px 14px; padding:8px 14px; background:var(--bg1); border-bottom:1px solid var(--border); font-size:11px; color:var(--text2);"></div>
+      <div class="p0eq-grid">
       <div id="p0-total-kpi-summary" style="flex:1; min-width:220px;"></div>
       <div id="p0-total-snapshot-compare" style="flex:2; min-width:340px; border-left:1px solid var(--border);"></div>
       </div>
@@ -2191,6 +2270,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       #page-fieldfollow .ff-row { display:grid; grid-template-columns:auto auto minmax(0,1fr) auto; gap:8px 14px; align-items:center; padding:9px 12px; cursor:pointer; }
       @media (max-width:1000px){ #page-fieldfollow .ff-row { grid-template-columns:auto minmax(0,1fr); } #page-fieldfollow .ff-row .ff-subj, #page-fieldfollow .ff-row .c-next { grid-column:1/-1; text-align:left; } }
       #page-fieldfollow .ff-tid { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; }
+      #page-fieldfollow .ff-tid { cursor:copy; } #page-fieldfollow .ff-tid:hover { text-decoration:underline dotted; } #page-fieldfollow .ff-tid.ff-copied { color:#16a34a; }
       #page-fieldfollow .ff-chip { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:99px; border:1px solid currentColor; white-space:nowrap; }
       #page-fieldfollow .ff-chip.SA1 { color:var(--ff-bad); } #page-fieldfollow .ff-chip.SA2 { color:var(--ff-sa2); } #page-fieldfollow .ff-chip.SA3 { color:var(--ff-warn); } #page-fieldfollow .ff-chip.SA4 { color:var(--ff-acc); }
       #page-fieldfollow .ff-chip.NSA1, #page-fieldfollow .ff-chip.NSA1_DN { color:var(--ff-nsa); } #page-fieldfollow .ff-chip.NSA2 { color:#9b6bd6; } #page-fieldfollow .ff-chip.NSA3 { color:#3b8fa6; } #page-fieldfollow .ff-chip.NSA4 { color:var(--text3); }
@@ -2456,6 +2536,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <button id="oc-reset-default-on" class="btn-secondary" title="ล้างค่า Oncall เริ่มต้นทั้งหมด รวมถึง 7*24 เดิม ให้เป็นว่าง">ล้างค่า Oncall เริ่มต้น</button>
         <button id="oc-add-note-column" class="btn-secondary" title="เพิ่มคอลัมน์หมายเหตุ (ทำครั้งเดียว)">+ คอลัมน์หมายเหตุ (ครั้งเดียว)</button>
         <button id="oc-repair-columns" class="btn-secondary" title="ซ่อมแนวคอลัมน์ที่เลื่อนผิดตำแหน่ง">🔧 ซ่อมแนวคอลัมน์</button>
+        <button id="oc-import-roster" class="btn-secondary" title="เทียบรายชื่อ Sup/Eng Zone (ต.ค.–พ.ย.) กับข้อมูลในระบบ แล้วดูแผนก่อนกดนำเข้า">📥 นำเข้ารายชื่อ Sup/Eng (ต.ค.–พ.ย.)</button>
+        <button id="oc-dedupe-names" class="btn-secondary" title="ลบแถว Sup/Eng ที่ชื่อซ้ำกับแถวที่ไม่มีคำนำหน้า (นาย/นาง/นางสาว) โดยย้ายเบอร์โทรมาให้ก่อน">🧹 ลบชื่อซ้ำที่มี "นาย"</button>
         <button id="oc-dup-shared-supeng" class="btn-secondary" title="คัดลอก Sup/Eng Zone: พิษณุโลก→อุตรดิตถ์, สุโขทัย→กำแพงเพชร, เพชรบูรณ์→พิจิตร">👥 คัดลอก Sup/EngZone ที่ใช้ร่วมจังหวัด</button>
         <button id="oc-add-user" class="btn-secondary" title="เพิ่มบัญชี login ใหม่ (ไม่ต้องใช้ token)">➕ เพิ่ม User</button>
         {% endif %}
@@ -2468,6 +2550,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       </div>
     </div>
     <div id="oc-today-summary" style="margin-bottom:14px;"></div>
+    <div id="oc-people-panel" style="margin-bottom:14px;"></div>
     <div id="oc-today-filter-banner"></div>
     <div id="oc-bulk-bar" style="display:none; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; background:#2563eb0d; border:1px solid #2563eb33; border-radius:var(--r); font-size:12px;">
       <span id="oc-bulk-count" style="font-weight:700;"></span>
@@ -2953,8 +3036,9 @@ async function loadP0SnapshotComparison(prefix) {
       const diffArrow = diffUp ? '▲' : (diffDown ? '▼' : '–');
       const diffLabel = (g.diff > 0 ? '+' : '') + g.diff;
       return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+      <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
+        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2964,7 +3048,7 @@ async function loadP0SnapshotComparison(prefix) {
         ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
@@ -2996,6 +3080,9 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix) {
   const numEl = document.getElementById(idPrefix + '-num-' + key);
   const chartKey = idPrefix + '|' + key;
   if (!canvas) return false;
+  // Days with no data yet at the start (Drive keeps few days) are dropped so the line fills the whole card width.
+  const firstIdx = series.findIndex(v => v != null);
+  if (firstIdx > 0) { labels = labels.slice(firstIdx); series = series.slice(firstIdx); }
   const lastVal = [...series].reverse().find(v => v != null);
   if (numEl) numEl.textContent = lastVal != null ? lastVal : '-';
   if (p0TrendCharts[chartKey]) p0TrendCharts[chartKey].destroy();
@@ -3014,7 +3101,7 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix) {
       layout: { padding: { top: 20 } },
       plugins: { legend: { display: false },
         datalabels: {
-          display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null,
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex] != null && (ctx.dataset.data.length <= 9 || (ctx.dataset.data.length - 1 - ctx.dataIndex) % 2 === 0), // long ranges: every 2nd label so numbers do not overlap
           align: 'top', anchor: 'end', offset: 4, font: { size: 9, weight: '600' }, color: accent,
           formatter: (value) => value,
         },
@@ -3142,7 +3229,7 @@ window.p0RenderSiteType = function () {
 // Button on the Total Pending "NSA3 / NSA4" card. Read-only: data comes from
 // /api/p0-nsa34-flag (fetched when the button is pressed, kept 60s) and nothing
 // else on the page is touched.
-const P0FL = { data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true }, hist: null, histInflight: null,
+const P0FL = { tab: 'P01', p2: null, p2ts: 0, p2err: '', p2Inflight: null, data: null, ts: 0, mode: 'both', cat: null, sort: 'now', loading: false, prio: { P0: true, P1: true }, hist: null, histInflight: null,
   // Month Forecast baseline: Flag P0+P1 @01:15 on the start date, straight line down to the target by month end.
   fc: { startDate: '2026-10-11', startValue: 157, endDate: '2026-10-31', target: 0 } };
 (function () {
@@ -3163,6 +3250,7 @@ window.p0OpenFlag = async function () {
     });
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fl-close]')) { ov.style.display = 'none'; return; }
+      const p2el = e.target.closest('[data-p2]'); if (p2el) { e.preventDefault(); window.p0P2Click(p2el.dataset.p2); return; }
       const pb = e.target.closest('[data-fl-prio]'); if (pb) { P0FL.prio[pb.dataset.flPrio] = !P0FL.prio[pb.dataset.flPrio]; window.p0RenderFlag(); return; }
       const m = e.target.closest('[data-fl-mode]'); if (m) { P0FL.mode = m.dataset.flMode; window.p0RenderFlag(); return; }
       const so = e.target.closest('[data-fl-sort]'); if (so) { P0FL.sort = so.dataset.flSort; window.p0RenderFlag(); return; }
@@ -3174,7 +3262,7 @@ window.p0OpenFlag = async function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
     document.body.appendChild(ov);
   }
-  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true };
+  P0FL.mode = 'both'; P0FL.cat = null; P0FL.sort = 'now'; P0FL.prio = { P0: true, P1: true }; P0FL.tab = 'P01';
   ov.style.display = 'flex';
   // Stale-while-revalidate: show whatever we already have instantly, refresh in the background when older than 60s.
   if (P0FL.data) {
@@ -3247,12 +3335,31 @@ window.p0RenderFlag = function () {
     else { if (P0FL.hist && P0FL.hist.series[pk || 'all']) fromSeries(P0FL.hist.dates, P0FL.hist.series[pk || 'all']); fromSeries(d.dates, d.series.flag); }
     const pts = Object.keys(act).map(k => [dayIdx(k), act[k]]).filter(p => p[0] >= 0 && p[0] <= nDays).sort((a, b) => a[0] - b[0]);
     const todayIdx = pts.length ? pts[pts.length - 1][0] : 0;
-    const W = 760, H = 280, L = 40, R = 16, T = 18, B = 30;
+    const W = 760, L = isPlan ? 62 : 40, R = isPlan ? 22 : 16, T = 18, H = isPlan ? 370 : 280, B = isPlan ? 108 : 30;
     const mx = Math.max(FC.startValue, ...pts.map(p => p[1]), 1), top = Math.ceil(mx * 1.1 / 20) * 20 || 20;
     const x = i => L + i * (W - L - R) / nDays, y = v => T + (H - T - B) * (1 - v / top);
     let g = '';
     for (let k = 0; k <= 4; k++) { const v = top * k / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)" stroke-dasharray="${k ? 3 : 0}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--text3)">${Math.round(v)}</text>`; }
-    for (let i = 0; i <= nDays; i++) if (i % 2 === 0 || i === nDays || i === todayIdx) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${i === todayIdx ? 'var(--text)' : 'var(--text3)'}" font-weight="${i === todayIdx ? 700 : 400}">${mdLabel(i)}</text>`;
+    if (!isPlan) {
+      for (let i = 0; i <= nDays; i++) if (i % 2 === 0 || i === nDays || i === todayIdx) g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${i === todayIdx ? 'var(--text)' : 'var(--text3)'}" font-weight="${i === todayIdx ? 700 : 400}">${mdLabel(i)}</text>`;
+    } else {
+      // Target / Actual / Diff table under the chart - one column per day, aligned with the x axis.
+      const perDayT = (FC.startValue - FC.target) / nDays, planAt = i => Math.max(FC.target, FC.startValue - perDayT * i);
+      const actAt = {}; pts.forEach(p => { actAt[p[0]] = p[1]; });
+      const cw = (W - L - R) / nDays, rowY = [H - B + 30, H - B + 50, H - B + 70], labs = ['Target', 'Actual', 'Diff'];
+      const labCol = ['#2563eb', FLAG, 'var(--text2)'];
+      rowY.forEach((ry, k) => { if (k % 2 === 0) g += `<rect x="${L - cw / 2}" y="${ry - 13}" width="${W - L - R + cw}" height="19" fill="var(--bg3)" opacity=".7"/>`; });
+      if (pts.length) g += `<rect x="${x(todayIdx) - cw / 2}" y="${H - B + 3}" width="${cw}" height="${rowY[2] - (H - B) + 8}" fill="${FLAG}" opacity=".13" rx="3"/>`;
+      rowY.forEach((ry, k) => { g += `<text x="${L - cw / 2 - 6}" y="${ry + 1}" text-anchor="end" font-size="10.5" font-weight="700" fill="${labCol[k]}">${labs[k]}</text>`; });
+      for (let i = 0; i <= nDays; i++) {
+        const tg = Math.round(planAt(i)), isT = pts.length && i === todayIdx, av = actAt[i], diff = av != null ? av - tg : null;
+        g += `<line x1="${x(i)}" x2="${x(i)}" y1="${H - B}" y2="${H - B + 5}" stroke="var(--border2)"/>`;
+        g += `<text x="${x(i)}" y="${H - B + 18}" text-anchor="middle" font-size="10.5" fill="${isT ? 'var(--text)' : 'var(--text3)'}" font-weight="${isT ? 800 : 500}">${mdLabel(i)}</text>`;
+        g += `<text x="${x(i)}" y="${rowY[0] + 1}" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="${isT ? 800 : 600}">${tg}</text>`;
+        g += `<text x="${x(i)}" y="${rowY[1] + 1}" text-anchor="middle" font-size="10" fill="${av != null ? FLAG : 'var(--text3)'}" font-weight="${av != null ? 700 : 400}">${av != null ? av : '·'}</text>`;
+        if (diff != null) g += `<text x="${x(i)}" y="${rowY[2] + 1}" text-anchor="middle" font-size="10" font-weight="700" fill="${diff > 0 ? '#B23A3A' : (diff < 0 ? '#639922' : 'var(--text3)')}">${diff > 0 ? '+' : ''}${diff}</text>`;
+      }
+    }
     if (pts.length) g += `<line x1="${x(todayIdx)}" x2="${x(todayIdx)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/><text x="${x(todayIdx) + 4}" y="${T + 10}" font-size="10.5" fill="var(--text3)">วันนี้</text>`;
     g += `<line x1="${x(nDays)}" x2="${x(nDays)}" y1="${T}" y2="${H - B}" stroke="var(--border2)" stroke-dasharray="2 3"/>`;
     let kpi = '';
@@ -3274,7 +3381,7 @@ window.p0RenderFlag = function () {
     const lgPlan = isPlan ? `<span style="margin-left:14px"><span style="color:#2563eb">╌╌</span> แผน (เส้นตรงจาก ${FC.startDate.slice(5).replace('-', '/')} = ${FC.startValue})</span>` : '';
     const note = (!isPlan && P0FL.cat === null) ? '<div style="font-size:11.5px;color:var(--text3);margin-top:4px;">เส้นแผนแสดงเฉพาะเมื่อเลือก P0 + P1 ทั้งคู่</div>' : '';
     const tg = isPlan ? `<label style="font-size:12px;color:var(--text2);margin-left:auto;">เป้าหมายคงเหลือ <input type="number" min="0" value="${FC.target}" data-fl-tgt style="width:56px;font:inherit;font-size:12px;padding:1px 5px;border:1px solid var(--border2);border-radius:5px;background:var(--bg3);color:var(--text);"> ใบ ภายใน ${mdLabel(nDays)}</label>` : '';
-    return `${kpi}<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual เทียบแผนลด Flag ถึงสิ้นเดือน" style="display:block;width:100%;height:auto">${g}</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span><span style="color:${FLAG}">●</span> Actual @01:15</span>${lgPlan}${tg}</div>${note}`;
+    return `${kpi}<div style="overflow-x:auto;"><div style="min-width:${isPlan ? 660 : 0}px;"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Actual เทียบแผนลด Flag ถึงสิ้นเดือน" style="display:block;width:100%;height:auto">${g}</svg></div></div><div style="font-size:11.5px;color:var(--text2);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span><span style="color:${FLAG}">●</span> Actual @01:15</span>${lgPlan}${tg}</div>${note}`;
   };
   // ----- category table
   const maxN = Math.max(...d.categories.map(c => c.now), 1);
@@ -3322,12 +3429,199 @@ window.p0RenderFlag = function () {
     <div class="fl-box"><h3><span>Flag แยกตาม Category (${d.categories.length} รายการ) <span class="fl-chip">คลิกแถวเพื่อดู Trend ของ Category นั้น</span></span><span class="fl-seg"><button data-fl-sort="now" class="${P0FL.sort === 'now' ? 'on' : ''}">เรียงตามจำนวน</button><button data-fl-sort="diff" class="${P0FL.sort === 'diff' ? 'on' : ''}">เรียงตามที่เพิ่มขึ้น</button></span></h3>
       <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:620px"><thead><tr><th>Category</th><th>ตอนนี้</th><th>@01:15</th><th>เทียบ</th><th>P0</th><th>% ของ Flag</th><th>7 วัน</th></tr></thead><tbody>${catRows}${catTotRow}</tbody></table></div></div>
     <div class="fl-box"><h3><span>Trend by Province @01:15 (Flag) <span class="fl-chip">สีเข้ม = ค้างมาก · คลิกแถว = เปิดแผนที่ Drill-down</span></span></h3>
-      <div style="overflow:auto;max-height:340px;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
+      <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="min-width:700px"><thead><tr><th>จังหวัด</th>${days.map(t => `<th>${t}</th>`).join('')}<th>ตอนนี้</th><th>เทียบ @01:15</th><th>เทียบ 7 วัน</th><th>7 วัน</th></tr></thead><tbody>${provRows}${provTotRow}</tbody></table></div></div>
     <div class="fl-box"><h3><span>ไม่ Flag — มี Category อะไรบ้าง</span></h3><div style="display:flex;flex-direction:column;gap:3px;font-size:12px">${nonHtml || '<span style="color:var(--text3)">ไม่มี</span>'}</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">ใช้ตรวจว่ามี Category ใหญ่ๆ ที่ยังไม่อยู่ในรายการ Flag หรือไม่</div></div>
 
     <div style="font-size:11.5px;color:var(--text3);line-height:1.8;">Flag = Category อยู่ในรายการ Priority Flag ${d.categories.length} รายการ · Flag + ไม่ Flag ทุก Priority = ${fullTot} (ตรงกับการ์ด NSA3 / NSA4) · Trend นับจากไฟล์ Snapshot 01:15 ของแต่ละวันด้วยกฎ Flag เดียวกับปัจจุบัน (· = ไม่พบไฟล์ของวันนั้น) · Aging ตามคอลัมน์ Aging_Flag_Group</div>
   </div>`;
 };
+
+// ===== NSA3/NSA4 FLAG PRIORITY - TAB "P2 · เฝ้าระวัง" =====
+// Additive: the existing P0 + P1 panel above is untouched; this adds a tab bar to it and a second panel
+// fed by /api/p0-nsa34-p2 (loaded when the tab is opened). Nothing else on the page reads this data.
+(function () {
+  const st = document.createElement('style');
+  st.textContent = '#p0fl-overlay .p2{--flag:#d97706;--red:#d05555;--green:#2e8b4f;--blue:#2563eb;--n3:#8b6fe0;--n4:#1aa6c4;display:flex;flex-direction:column;gap:14px}#p0fl-overlay .p2 .tabs,#p0fl-overlay .p2tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);flex-wrap:wrap}#p0fl-overlay .p2tab{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;background:none;color:var(--text2);display:flex;gap:8px;align-items:center;cursor:pointer}#p0fl-overlay .p2tab.on{background:var(--bg3);border-color:var(--border);color:var(--text);position:relative;top:1px}#p0fl-overlay .p2tab .new{font-size:10px;background:#d97706;color:#fff;border-radius:10px;padding:1px 7px}#p0fl-overlay .p2tab .cnt{font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;background:var(--bg)}#p0fl-overlay .p2 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}#p0fl-overlay .p2 .tile{border:1px solid var(--border);border-top:3px solid var(--c);border-radius:6px;padding:8px 10px;background:var(--bg2)}#p0fl-overlay .p2 .tile b{display:block;font-size:26px;line-height:1.15}#p0fl-overlay .p2 .tile span{font-size:11.5px;color:var(--text3)}#p0fl-overlay .p2 .tile span strong{color:var(--text)}#p0fl-overlay .p2 .tile .x{font-size:12px;margin-left:6px;font-weight:700}#p0fl-overlay .p2 .grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(250px,1fr);gap:12px}@media(max-width:820px){ #p0fl-overlay .p2 .grid2{grid-template-columns:1fr}}#p0fl-overlay .p2 .sevchip{font:inherit;font-size:12px;font-weight:700;padding:3px 12px;border-radius:14px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer}#p0fl-overlay .p2 .sevchip.n3.on{background:color-mix(in srgb,var(--n3) 18%,transparent);border-color:var(--n3);color:var(--n3)}#p0fl-overlay .p2 .sevchip.n4.on{background:color-mix(in srgb,var(--n4) 18%,transparent);border-color:var(--n4);color:var(--n4)}#p0fl-overlay .p2 .sevchip:not(.on){opacity:.55}#p0fl-overlay .p2 .bar{display:inline-flex;width:90px;height:8px;border-radius:4px;overflow:hidden;background:var(--bg3);vertical-align:middle}#p0fl-overlay .p2 .bar i{display:block;height:100%}#p0fl-overlay .p2 .hot{font-weight:800;color:var(--red)}#p0fl-overlay .p2 .dim{color:var(--text3)}#p0fl-overlay .p2 .n3c{color:var(--n3);font-weight:700}#p0fl-overlay .p2 .n4c{color:var(--n4);font-weight:700}#p0fl-overlay .p2 svg{display:block;width:100%;height:auto}#p0fl-overlay .p2 .foot{font-size:11.5px;color:var(--text3);line-height:1.8}#p0fl-overlay .p2 .legend{display:flex;gap:12px;font-size:11.5px;color:var(--text2);flex-wrap:wrap}#p0fl-overlay .p2 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}#p0fl-overlay .p2 .sevtag{font-size:10.5px;font-weight:700;padding:1px 8px;border-radius:10px}#p0fl-overlay .p2 .sevtag.NSA3{background:color-mix(in srgb,var(--n3) 18%,transparent);color:var(--n3)}#p0fl-overlay .p2 .sevtag.NSA4{background:color-mix(in srgb,var(--n4) 18%,transparent);color:var(--n4)}#p0fl-overlay .p2 .callout{border-left:4px solid #d97706;background:color-mix(in srgb,#d97706 10%,transparent);border-radius:0 6px 6px 0;padding:8px 12px;font-size:12.5px;line-height:1.7}#p0fl-overlay .p2 .sc{overflow:auto;max-height:360px;border:1px solid var(--border);border-radius:6px}#p0fl-overlay .p2 .fl-seg button.on{background:#d97706;color:#fff}#p0fl-overlay .p2 tr.p2-cat,#p0fl-overlay .p2 tr.p2-prow{cursor:pointer}#p0fl-overlay .p2 tr.p2-cat:hover td,#p0fl-overlay .p2 tr.p2-prow:hover td{background:var(--bg3)}#p0fl-overlay .p2 tr.sel td{background:color-mix(in srgb,#d97706 14%,transparent)}#p0fl-overlay .p2 .sc td:first-child{min-width:0}';
+  document.head.appendChild(st);
+  let T = [], M = { flag_list: [] }, E = [];
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const S = { sev: {NSA3:true, NSA4:true}, cat: null, sort: 'total', tab: 'P2', bucket: null, kind: 'both', prov: null, noplan: false };
+
+const hasPlan = t => !!String(t.detail || '').trim();
+const planCell = t => hasPlan(t)
+  ? `<div style="text-align:left;white-space:normal;min-width:260px;max-width:340px;line-height:1.45"><div>${esc(t.detail)}</div><div style="font-size:10.5px;color:var(--text3)">${t.team ? `<span class="sevtag" style="background:var(--bg3);border:1px solid var(--border)">${esc(t.team)}</span> ` : ''}${t.gp ? esc(String(t.gp).replace('Wait for other parties - ', 'Wait: ').replace('In progress - Priority TT management/ Interrupted by urgency TT', 'In progress - Priority TT')) : ''}${t.plan ? ' · 📅 ' + esc(t.plan) : ''}</div></div>`
+  : '<span class="hot" style="white-space:nowrap">⚠ ยังไม่มีแผน / ไม่ได้กรอก Detail</span>';
+const BK = [{k:0,lab:'≤ 1 วัน',sub:'P1 รอบถัดไป',lo:0,hi:24,c:'#B23A3A'},{k:1,lab:'1–2 วัน',sub:'P1 ในอีก 2 รอบ',lo:24,hi:48,c:'#d97706'},{k:2,lab:'2–3 วัน',sub:'P1 ในอีก 3 รอบ',lo:48,hi:72,c:'#c9a227'},{k:3,lab:'3–7 วัน',sub:'ยังมีเวลา',lo:72,hi:1e9,c:'#639922'}];
+const bOf = h => BK.find(b => h >= b.lo && h < b.hi).k;
+const prCode = c => c;
+function filtered(ignoreCat){ return T.filter(t => S.sev[t.sev] && (ignoreCat || S.cat === null || t.cat === S.cat) && (S.bucket === null || bOf(t.hrs) === S.bucket)); }
+function catRows(){
+  const base = T.filter(t => S.sev[t.sev] && (S.bucket === null || bOf(t.hrs) === S.bucket));
+  const m = {}; M.flag_list.forEach(c => m[c] = {name:c,n3:0,n4:0,b:[0,0,0,0]});
+  base.forEach(t => { const r = m[t.cat]; if (!r) return; (t.sev === 'NSA3' ? r.n3++ : r.n4++); r.b[bOf(t.hrs)]++; });
+  const a = Object.values(m).map(r => Object.assign(r, {tot:r.n3 + r.n4}));
+  a.sort((x, y) => S.sort === 'soon' ? (y.b[0] - x.b[0]) || (y.tot - x.tot) : S.sort === 'n3' ? y.n3 - x.n3 || y.tot - x.tot : S.sort === 'n4' ? y.n4 - x.n4 || y.tot - x.tot : y.tot - x.tot);
+  return a;
+}
+function tomorrowHtml(){
+  const sevOk = t => S.sev[t.sev];
+  const nw = T.filter(t => t.hrs < 24 && sevOk(t)).map(t => Object.assign({kind:'P1'}, t));
+  const es = E.filter(sevOk).map(t => Object.assign({kind:'P0'}, t));
+  const itemsAll = (S.kind === 'new' ? nw : S.kind === 'esc' ? es : nw.concat(es));
+  const nPlan = itemsAll.filter(t => !hasPlan(t)).length;
+  const items = S.noplan ? itemsAll.filter(t => !hasPlan(t)) : itemsAll;
+  const c3 = a => a.filter(t => t.sev === 'NSA3').length;
+  const provs = {}, cats = {};
+  items.forEach(t => { const p = provs[t.prov] = provs[t.prov] || {n3:0,n4:0,c:{}}; const c = cats[t.cat] = cats[t.cat] || {n3:0,n4:0};
+    const k = t.sev === 'NSA3' ? 'n3' : 'n4'; p[k]++; c[k]++; const cc = p.c[t.cat] = p.c[t.cat] || {n3:0,n4:0}; cc[k]++; });
+  const catList = Object.entries(cats).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4));
+  const top = catList.slice(0, 6).map(x => x[0]), restN = catList.slice(6);
+  const pl = Object.entries(provs).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4));
+  const cell = v => !v ? '<span class="dim">·</span>' : `<span class="n3c">${v.n3 || '–'}</span><span class="dim"> / </span><span class="n4c">${v.n4 || '–'}</span>`;
+  const heat = v => v ? `style="background:color-mix(in srgb,var(--red) ${Math.min(50, (v.n3 + v.n4) * 9)}%,transparent)"` : '';
+  const short = c => c.replace('Cell Up/Down Alarm: ', 'Cell: ');
+  const rowsH = pl.map(([p, v]) => { const rest = {n3:0,n4:0}; Object.entries(v.c).forEach(([c, x]) => { if (!top.includes(c)) { rest.n3 += x.n3; rest.n4 += x.n4; } });
+    return `<tr class="p2-prow ${S.prov === p ? 'sel' : ''}" data-p2="prov:${p}" style="cursor:pointer"><td><b>${p}</b></td>${top.map(c => `<td ${heat(v.c[c])}>${cell(v.c[c])}</td>`).join('')}<td ${heat(rest.n3 + rest.n4 ? rest : null)}>${cell(rest.n3 + rest.n4 ? rest : null)}</td><td><b>${v.n3 + v.n4}</b></td></tr>`; }).join('');
+  const cTot = c => items.filter(t => t.cat === c).reduce((a, t) => { a[t.sev === 'NSA3' ? 'n3' : 'n4']++; return a; }, {n3:0,n4:0});
+  const restT = {n3: restN.reduce((s, x) => s + x[1].n3, 0), n4: restN.reduce((s, x) => s + x[1].n4, 0)};
+  const totRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม</td>${top.map(c => `<td>${cell(cTot(c))}</td>`).join('')}<td>${cell(restT.n3 + restT.n4 ? restT : null)}</td><td>${items.length}</td></tr>`;
+  const cmax = Math.max(1, ...catList.map(x => x[1].n3 + x[1].n4));
+  const grp = catList.slice(0, 8).map(([c, v]) => `<div style="display:grid;grid-template-columns:1fr 90px 24px 24px;gap:6px;align-items:center;font-size:12px;padding:2px 0"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c)}">${esc(short(c))}</span><span class="bar" style="width:90px;height:9px"><i style="width:${v.n3 / cmax * 100}%;background:var(--n3)"></i><i style="width:${v.n4 / cmax * 100}%;background:var(--n4)"></i></span><span class="n3c" style="text-align:right">${v.n3}</span><span class="n4c" style="text-align:right">${v.n4}</span></div>`).join('');
+  const shown = items.filter(t => S.prov === null || t.prov === S.prov).sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'P0' ? -1 : 1) || (a.hrs ?? 0) - (b.hrs ?? 0)).slice(0, 10);
+  const lst = shown.map(t => `<tr><td>${esc(t.tt)}</td><td><span class="sevtag ${t.sev}">${t.sev}</span></td><td><span class="sevtag" style="background:${t.kind === 'P0' ? '#B23A3A' : '#d97706'};color:#fff">→ ${t.kind}</span></td><td style="text-align:left">${esc(short(t.cat))}</td><td>${t.prov}</td><td style="text-align:left">${esc(t.site)}</td><td>${t.kind === 'P0' ? 'เกิน ' + t.over.toFixed(1) + ' ชม.' : 'เหลือ ' + t.hrs.toFixed(1) + ' ชม.'}</td><td>${planCell(t)}</td></tr>`).join('');
+  return `<div class="fl-box" style="border-top:3px solid var(--red)"><h3><span>🔮 พรุ่งนี้ (รอบ 01:15 ถัดไป) ตั๋ว Flag ที่จะเข้า P1 / P0 <span class="fl-chip">ต้องปิดวันนี้เพื่อไม่ให้เติม</span></span>
+    <span class="fl-seg"><button data-p2="kind:both" class="${S.kind === 'both' ? 'on' : ''}">ทั้งหมด</button><button data-p2="kind:new" class="${S.kind === 'new' ? 'on' : ''}">P2 → P1 (เข้าใหม่)</button><button data-p2="kind:esc" class="${S.kind === 'esc' ? 'on' : ''}">P1 → P0 (ลุกลาม)</button></span></h3>
+    <div class="tiles" style="margin-bottom:10px">
+      <div class="tile" style="--c:var(--flag)"><b>${nw.length}<span class="x"><span class="n3c">N3 ${c3(nw)}</span> · <span class="n4c">N4 ${nw.length - c3(nw)}</span></span></b><span>P2 → <strong>P1</strong> (เข้า P0+P1 ใหม่)</span></div>
+      <div class="tile" style="--c:var(--red)"><b>${es.length}<span class="x"><span class="n3c">N3 ${c3(es)}</span> · <span class="n4c">N4 ${es.length - c3(es)}</span></span></b><span>P1 → <strong>P0</strong> (เกิน SLA &gt; 1 วัน)</span></div>
+      <div class="tile" style="--c:#8b5cf6"><b>${nPlan}<span class="x">จาก ${itemsAll.length}</span></b><span>ยังไม่มี Detail / แผนแก้ไข <a href="#" data-p2="noplan:1" style="color:var(--blue)">${S.noplan ? '✓ แสดงเฉพาะกลุ่มนี้ (ล้าง)' : 'กรองเฉพาะกลุ่มนี้'}</a></span></div>
+      <div class="tile" style="--c:var(--blue)"><b>${M.p0p1} → <span style="color:var(--red)">${M.p0p1 + nw.length}</span></b><span>Flag P0+P1 พรุ่งนี้ · P0 ${M.p0} → <strong>${M.p0 + es.length}</strong> · P1 ${M.p1} → <strong>${M.p1 - es.length + nw.length}</strong></span></div>
+    </div>
+    <div class="grid2">
+      <div><div class="legend" style="margin-bottom:4px"><b style="color:var(--text)">จังหวัด × Category group</b> <span>(<span class="n3c">NSA3</span> / <span class="n4c">NSA4</span> · คลิกจังหวัด = กรองรายการ ${S.prov ? `· <a href="#" data-p2="clr:prov" style="color:var(--blue)">ล้าง ${S.prov} ✕</a>` : ''})</span></div>
+        <div class="sc" style="max-height:310px"><table style="min-width:560px"><thead><tr><th>จังหวัด</th>${top.map(c => `<th title="${esc(c)}" style="max-width:96px;overflow:hidden;text-overflow:ellipsis">${esc(short(c).slice(0, 14))}</th>`).join('')}<th>อื่นๆ</th><th>รวม</th></tr></thead><tbody>${rowsH}${totRow}</tbody></table></div></div>
+      <div><div class="legend" style="margin-bottom:4px"><b style="color:var(--text)">Category group ที่จะเข้ามากสุด</b><span><i style="background:var(--n3)"></i>NSA3</span><span><i style="background:var(--n4)"></i>NSA4</span></div>${grp || '<span class="dim">ไม่มี</span>'}</div>
+    </div>
+    <div class="sc" style="max-height:240px;margin-top:10px"><table style="min-width:860px"><thead><tr><th>TT</th><th>Sev</th><th>พรุ่งนี้</th><th style="text-align:left">Category</th><th>จังหวัด</th><th style="text-align:left">Site</th><th>เวลา</th><th style="text-align:left">Detail · แผนแก้ไข</th></tr></thead><tbody>${lst || '<tr><td colspan="8" class="dim" style="text-align:center;padding:12px">ไม่มี</td></tr>'}</tbody></table></div>
+    <div class="foot" style="margin-top:6px">P2 → P1: TARGETFINISH ถึงก่อนรอบ 01:15 ถัดไป · P1 → P0: P1 ปัจจุบันที่จะเกิน SLA &gt; 24 ชม. ในรอบถัดไป · ปิด/แก้ตั๋วก่อนรอบ 01:15 = ไม่ถูกนับเข้า</div></div>`;
+}
+function p2Body(){
+  const all = T, f = filtered(false);
+  const n3 = f.filter(t => t.sev === 'NSA3').length, n4 = f.length - n3;
+  const soon = all.filter(t => S.sev[t.sev] && t.hrs < 24), soon3 = soon.filter(t => t.sev === 'NSA3').length, soon4 = soon.length - soon3;
+  const pNow = M.p0p1, pNext = pNow + soon.length;
+  const rows = catRows(), maxT = Math.max(1, ...rows.map(r => r.tot));
+  const catHtml = rows.map(r => {
+    const dim = r.tot === 0 ? 'style="opacity:.4"' : '';
+    const w3 = r.n3 / maxT * 100, w4 = r.n4 / maxT * 100;
+    return `<tr class="p2-cat ${S.cat === r.name ? 'sel' : ''}" data-p2="cat:${esc(r.name)}" ${dim}><td>${esc(r.name.replace('Cell Up/Down Alarm: ', 'Cell: '))}</td>
+      <td class="n3c">${r.n3 || '–'}</td><td class="n4c">${r.n4 || '–'}</td><td><b>${r.tot || '–'}</b></td>
+      <td><span class="bar" style="width:110px"><i style="width:${w3}%;background:var(--n3)"></i><i style="width:${w4}%;background:var(--n4)"></i></span></td>
+      ${r.b.map((v, i) => `<td class="${i === 0 && v ? 'hot' : (v ? '' : 'dim')}" ${v ? `style="background:color-mix(in srgb,${BK[i].c} ${Math.min(55, v * 14)}%,transparent)"` : ''}>${v || '·'}</td>`).join('')}</tr>`;
+  }).join('');
+  const tot3 = rows.reduce((s, r) => s + r.n3, 0), tot4 = rows.reduce((s, r) => s + r.n4, 0);
+  const totRow = `<tr style="border-top:2px solid var(--border2);background:var(--bg3);font-weight:700"><td>รวม Flag P2</td><td class="n3c">${tot3}</td><td class="n4c">${tot4}</td><td>${tot3 + tot4}</td><td></td>${[0,1,2,3].map(i => `<td>${rows.reduce((s, r) => s + r.b[i], 0)}</td>`).join('')}</tr>`;
+  // countdown chart (stacked NSA3/NSA4 per bucket)
+  const cd = BK.map(b => { const x = T.filter(t => bOf(t.hrs) === b.k && (S.cat === null || t.cat === S.cat)); return {b, n3: x.filter(t => t.sev === 'NSA3' && S.sev.NSA3).length, n4: x.filter(t => t.sev === 'NSA4' && S.sev.NSA4).length}; });
+  const cmax = Math.max(1, ...cd.map(c => c.n3 + c.n4)), W = 440, H = 190, bw = 70, gap = (W - 40 - bw * 4) / 3;
+  let g = '';
+  cd.forEach((c, i) => { const x = 30 + i * (bw + gap), h3 = c.n3 / cmax * 130, h4 = c.n4 / cmax * 130, y0 = 150;
+    const sel = S.bucket === i ? `stroke="var(--text)" stroke-width="2"` : '';
+    g += `<g data-p2="bk:${i}" style="cursor:pointer"><rect x="${x - 6}" y="10" width="${bw + 12}" height="${y0 + 28}" fill="transparent"/><rect x="${x}" y="${y0 - h4}" width="${bw}" height="${h4}" fill="var(--n4)" ${sel}/><rect x="${x}" y="${y0 - h4 - h3}" width="${bw}" height="${h3}" fill="var(--n3)" ${sel}/>
+      <text x="${x + bw / 2}" y="${y0 - h3 - h4 - 6}" text-anchor="middle" font-size="12" font-weight="800" fill="var(--text)">${c.n3 + c.n4}</text>
+      ${c.n4 ? `<text x="${x + bw / 2}" y="${y0 - h4 / 2 + 4}" text-anchor="middle" font-size="10.5" fill="#fff">${c.n4}</text>` : ''}${c.n3 ? `<text x="${x + bw / 2}" y="${y0 - h4 - h3 / 2 + 4}" text-anchor="middle" font-size="10.5" fill="#fff">${c.n3}</text>` : ''}
+      <rect x="${x}" y="${y0 + 6}" width="${bw}" height="3" fill="${c.b.c}"/><text x="${x + bw / 2}" y="${y0 + 22}" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--text)">${c.b.lab}</text>
+      <text x="${x + bw / 2}" y="${y0 + 35}" text-anchor="middle" font-size="9.5" fill="var(--text3)">${c.b.sub.length > 22 ? c.b.sub.slice(0, 22) + '…' : c.b.sub}</text></g>`; });
+  // province table
+  const provs = {}; f.forEach(t => { (provs[t.prov] = provs[t.prov] || {n3:0, n4:0, s:0}); (t.sev === 'NSA3' ? provs[t.prov].n3++ : provs[t.prov].n4++); if (t.hrs < 24) provs[t.prov].s++; });
+  const pr = Object.entries(provs).sort((a, b) => (b[1].n3 + b[1].n4) - (a[1].n3 + a[1].n4)); const pmax = Math.max(1, ...pr.map(p => p[1].n3 + p[1].n4));
+  const provHtml = pr.slice(0, 10).map(([p, v]) => `<div style="display:grid;grid-template-columns:42px 1fr 24px 24px 38px;gap:6px;align-items:center;font-size:12px;padding:2px 0"><b>${p}</b><span class="bar" style="width:100%;height:9px"><i style="width:${v.n3 / pmax * 100}%;background:var(--n3)"></i><i style="width:${v.n4 / pmax * 100}%;background:var(--n4)"></i></span><span class="n3c" style="text-align:right">${v.n3}</span><span class="n4c" style="text-align:right">${v.n4}</span><span class="${v.s ? 'hot' : 'dim'}" style="text-align:right" title="หมด SLA ภายใน 1 วัน">${v.s ? '⚑' + v.s : '·'}</span></div>`).join('');
+  // ticket list
+  const list = filtered(false).slice().sort((a, b) => a.hrs - b.hrs).slice(0, 14);
+  const listHtml = list.map(t => `<tr><td>${esc(t.tt)}</td><td><span class="sevtag ${t.sev}">${t.sev}</span></td><td style="text-align:left">${esc(t.cat.replace('Cell Up/Down Alarm: ', 'Cell: '))}</td><td>${t.prov}</td><td style="text-align:left">${esc(t.site)}</td><td class="${t.hrs < 24 ? 'hot' : ''}">${t.hrs < 24 ? t.hrs.toFixed(1) + ' ชม.' : (t.hrs / 24).toFixed(1) + ' วัน'}</td><td>${esc(t.tf)}</td><td>${planCell(t)}</td></tr>`).join('');
+  const selChip = S.cat ? `<span class="fl-chip">Category: ${esc(S.cat.replace('Cell Up/Down Alarm: ', 'Cell: '))} <a href="#" data-p2="clr:cat" style="color:var(--blue)">ล้าง ✕</a></span>` : '';
+  const bkChip = S.bucket !== null ? `<span class="fl-chip">เวลาเหลือ: ${BK[S.bucket].lab} <a href="#" data-p2="clr:bk" style="color:var(--blue)">ล้าง ✕</a></span>` : '';
+  return `<div class="callout"><b>P2 = Flag ที่ยังไม่เกิน SLA ณ รอบ 01:15</b> (Category อยู่ใน Flag 24 รายการ แต่ยังไม่เป็น P0/P1) — แท็บนี้แยก <span class="n3c">NSA3</span> กับ <span class="n4c">NSA4</span> ของกลุ่ม Category เดียวกัน เพื่อรู้ว่าตั๋วไหน <b>จะเป็น P1 รอบถัดไป</b> แล้วเร่งปิดก่อน ไม่ให้เติมเข้า P0+P1</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text3)"><span style="font-weight:600">Severity:</span>
+    <button class="sevchip n3 ${S.sev.NSA3 ? 'on' : ''}" data-p2="sev:NSA3">NSA3</button><button class="sevchip n4 ${S.sev.NSA4 ? 'on' : ''}" data-p2="sev:NSA4">NSA4</button> ${selChip} ${bkChip}</div>
+  ${tomorrowHtml()}
+  <div class="tiles">
+    <div class="tile" style="--c:var(--flag)"><b>${f.length}<span class="x"><span class="n3c">N3 ${n3}</span> · <span class="n4c">N4 ${n4}</span></span></b><span>Flag P2 ${S.cat || S.bucket !== null ? '(ตามตัวกรอง)' : 'ทั้งหมด'} · ${Math.round(f.length / (M.nsa3_all + M.nsa4_all) * 100)}% ของ NSA3/4</span></div>
+    <div class="tile" style="--c:var(--red)"><b>${soon.length}<span class="x"><span class="n3c">N3 ${soon3}</span> · <span class="n4c">N4 ${soon4}</span></span></b><span>หมด SLA ภายใน 1 วัน → <strong>เป็น P1 รอบ 01:15 ถัดไป</strong></span></div>
+    <div class="tile" style="--c:var(--blue)"><b>${pNow} → <span style="color:var(--red)">${pNext}</span></b><span>Flag P0+P1 ถ้าไม่ปิดตั๋ว P2 กลุ่ม ≤ 1 วันเลย (+${soon.length})</span></div>
+    <div class="tile" style="--c:var(--n3)"><b>${rows.filter(r => r.b[0] > 0).length}<span style="font-size:13px;color:var(--text3)"> / ${M.flag_list.length}</span></b><span>Category ที่มีตั๋วหมด SLA ภายใน 1 วัน</span></div>
+  </div>
+  <div class="grid2">
+    <div class="fl-box"><h3><span>ตั๋ว P2 จะหมด SLA เมื่อไหร่ <span class="fl-chip">คลิกแท่ง = กรอง</span></span><span class="legend"><span><i style="background:var(--n3)"></i>NSA3</span><span><i style="background:var(--n4)"></i>NSA4</span></span></h3>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="จำนวนตั๋ว P2 แยกตามเวลาที่เหลือก่อนหมด SLA">${g}</svg></div>
+    <div class="fl-box"><h3><span>Top 10 จังหวัด (Flag P2) <span class="fl-chip">⚑ = หมด SLA ใน 1 วัน</span></span><span class="legend"><span><i style="background:var(--n3)"></i>N3</span><span><i style="background:var(--n4)"></i>N4</span></span></h3>${provHtml || '<span class="dim">ไม่มีข้อมูล</span>'}</div>
+  </div>
+  <div class="fl-box"><h3><span>Flag P2 แยกตาม Category — NSA3 เทียบ NSA4 <span class="fl-chip">คลิกแถว = ดูเฉพาะ Category นั้น</span></span>
+    <span class="fl-seg"><button data-p2="sort:total" class="${S.sort === 'total' ? 'on' : ''}">เรียงตามจำนวน</button><button data-p2="sort:soon" class="${S.sort === 'soon' ? 'on' : ''}">ใกล้หมด SLA ก่อน</button><button data-p2="sort:n3" class="${S.sort === 'n3' ? 'on' : ''}">NSA3</button><button data-p2="sort:n4" class="${S.sort === 'n4' ? 'on' : ''}">NSA4</button></span></h3>
+    <div class="sc"><table style="min-width:760px"><thead><tr><th>Category</th><th style="color:var(--n3)">NSA3</th><th style="color:var(--n4)">NSA4</th><th>รวม</th><th>สัดส่วน</th>${BK.map(b => `<th title="${b.sub}">${b.lab}</th>`).join('')}</tr></thead><tbody>${catHtml}${totRow}</tbody></table></div>
+    <div class="foot" style="margin-top:6px">คอลัมน์ ≤ 1 วัน / 1–2 / 2–3 / 3–7 = เวลาที่เหลือก่อน TARGETFINISH นับจากรอบ 01:15 · สีเข้ม = ตั๋วเยอะ</div></div>
+  <div class="fl-box"><h3><span>ตั๋วที่ต้องปิดก่อน (เรียงตามเวลาเหลือน้อยสุด) <span class="fl-chip">แสดง ${list.length} จาก ${f.length}</span></span><button class="btn">⬇ Export รายการ (CSV)</button></h3>
+    <div class="sc" style="max-height:330px"><table style="min-width:980px"><thead><tr><th>TT</th><th>Sev</th><th style="text-align:left">Category</th><th>จังหวัด</th><th style="text-align:left">Site</th><th>เหลือเวลา</th><th>TARGETFINISH</th><th style="text-align:left">Detail · แผนแก้ไข</th></tr></thead><tbody>${listHtml || '<tr><td colspan="8" class="dim" style="text-align:center;padding:14px">ไม่มีตั๋ว</td></tr>'}</tbody></table></div></div>
+  <div class="foot">Flag = Category อยู่ใน Flag 24 รายการ (เหมือนแท็บเดิม) · P2 = ตั๋วที่ TARGETFINISH ยังไม่ถึง ณ รอบ 01:15 · ไม่ Flag ที่เป็น P2 อีก ${M.nonflag_p2} ใบ ไม่ถูกนับในแท็บนี้ · NSA3 + NSA4 ของ P2 + P0 + P1 + ไม่ Flag = ตรงกับการ์ด NSA3/NSA4 · ไม่มีการเปลี่ยนตัวเลขของแท็บ P0 + P1 เดิม</div>`;
+}
+
+  const ovEl = () => document.getElementById('p0fl-overlay');
+  const tabsHtml = () => `<div class="p2tabs">
+    <button type="button" class="p2tab ${P0FL.tab !== 'P2' ? 'on' : ''}" data-p2="tab:P01">Flag P0 + P1${P0FL.p2 ? `<span class="cnt">${P0FL.p2.meta.p0p1}</span>` : ''}</button>
+    <button type="button" class="p2tab ${P0FL.tab === 'P2' ? 'on' : ''}" data-p2="tab:P2">Flag P2 · เฝ้าระวัง${P0FL.p2 ? `<span class="cnt">${P0FL.p2.tickets.length}</span>` : ''}<span class="new">ใหม่</span></button>
+  </div>`;
+  const headHtml = () => { const f = P0FL.data || {}; return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;"><div><div style="font-size:15px;font-weight:700;">NSA3 / NSA4 · แยกตาม Flag Priority</div><div style="display:inline-block;margin-top:4px;font-size:12px;border:1px solid var(--border2);border-radius:12px;padding:1px 10px;color:var(--text2);">🕒 รอบข้อมูลปัจจุบัน (insert_time): <b>${esc((P0FL.p2 && P0FL.p2.insert_time) || f.insert_time || '-')}</b></div></div><button type="button" class="btn-secondary" data-fl-close style="font-size:12px;padding:4px 10px;">ปิด ✕</button></div>`; };
+  const dialog = inner => `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(960px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">${inner}</div>`;
+
+  window.p0LoadP2 = function () {
+    if (P0FL.p2Inflight) return P0FL.p2Inflight;
+    P0FL.p2Inflight = (async () => {
+      try {
+        const res = await fetch('/api/p0-nsa34-p2');
+        if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+        P0FL.p2 = await res.json(); P0FL.p2ts = Date.now(); P0FL.p2err = '';
+        T = P0FL.p2.tickets; M = P0FL.p2.meta; E = P0FL.p2.p1esc;
+        return true;
+      } catch (e) { P0FL.p2err = e.message || String(e); console.error('Flag P2 load failed', e); return false; }
+      finally { P0FL.p2Inflight = null; }
+    })();
+    return P0FL.p2Inflight;
+  };
+  function renderP2() {
+    const ov = ovEl(); if (!ov) return;
+    if (!P0FL.p2) {
+      ov.innerHTML = dialog(headHtml() + tabsHtml() + (P0FL.p2err
+        ? `<div class="callout" style="border-left:4px solid #B23A3A;padding:8px 12px">โหลดแท็บ P2 ไม่สำเร็จ: ${esc(P0FL.p2err)}</div>`
+        : '<div style="color:var(--text3);font-size:13px;padding:20px 0;">กำลังโหลดข้อมูล P2…</div>'));
+      if (!P0FL.p2err) window.p0LoadP2().then(() => { if (ov.style.display === 'flex' && P0FL.tab === 'P2') window.p0RenderFlag(); });
+      return;
+    }
+    T = P0FL.p2.tickets; M = P0FL.p2.meta; E = P0FL.p2.p1esc;
+    ov.innerHTML = dialog(headHtml() + tabsHtml() + `<div class="p2">${p2Body()}</div>`);
+    if ((Date.now() - (P0FL.p2ts || 0)) >= 60000 && !P0FL.p2Inflight) window.p0LoadP2().then(ok => { if (ok && ov.style.display === 'flex' && P0FL.tab === 'P2') window.p0RenderFlag(); });
+  }
+  const mainRender = window.p0RenderFlag;
+  window.p0RenderFlag = function () {
+    if (P0FL.tab === 'P2') { renderP2(); return; }
+    mainRender();
+    const ov = ovEl(), dlg = ov && ov.firstElementChild;
+    if (dlg && dlg.children[0]) dlg.children[0].insertAdjacentHTML('afterend', tabsHtml());
+  };
+  window.p0P2Click = function (spec) {
+    const i = spec.indexOf(':'), act = spec.slice(0, i), val = spec.slice(i + 1);
+    if (act === 'tab') P0FL.tab = val;
+    else if (act === 'sev') { const o = val === 'NSA3' ? 'NSA4' : 'NSA3'; S.sev[val] = !S.sev[val]; if (!S.sev[val] && !S.sev[o]) S.sev[o] = true; }
+    else if (act === 'cat') S.cat = (S.cat === val) ? null : val;
+    else if (act === 'sort') S.sort = val;
+    else if (act === 'bk') S.bucket = (S.bucket === +val) ? null : +val;
+    else if (act === 'noplan') S.noplan = !S.noplan;
+    else if (act === 'kind') S.kind = val;
+    else if (act === 'prov') S.prov = (S.prov === val) ? null : val;
+    else if (act === 'clr') { if (val === 'cat') S.cat = null; else if (val === 'prov') S.prov = null; else S.bucket = null; }
+    window.p0RenderFlag();
+  };
+})();
+
 // ===== P0 SITE TYPE PANEL (end) =====
 function p0T5Esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function p0Top5Html(list, base, accent, scope, groupKey) {
@@ -3598,6 +3892,54 @@ function p0ddDrawTables(all, teams) {
   const un = all.filter(t => !t.t).length; if (un) ins.push(`มี <b>${un}</b> งานที่ยังไม่มีทีมรับ (ป้ายสีเทาบนแผนที่)`);
   document.getElementById('p0dd-ins').innerHTML = ins.map(i => `<li>${i}</li>`).join('') || '<li>ไม่มีข้อมูล</li>';
 }
+// ── P0 status strip: งานของการ์ด P0 แยกตามสถานะการเดินทาง (ใช้ข้อมูลชุดเดียวกับ Drill down) ──
+(function () {
+  const COLS = [['ALL', 'รวมทุกกลุ่ม'], ['MB', P0DD_GROUPS.MB], ['FBB', P0DD_GROUPS.FBB], ['NW_NSA12', P0DD_GROUPS.NW_NSA12], ['NSA34', P0DD_GROUPS.NSA34]];
+  let data = null, err = '', hidden = false, started = false;
+  try { hidden = localStorage.getItem('p0StripHidden') === '1'; } catch (e) { /* storage unavailable - default shown */ }
+  function head(extra) {
+    return `<div class="p0st-head">🚦 สถานะการเดินทางของงาน P0 <span class="h">· กดคอลัมน์เพื่อ Drill down (แผนที่ + ทีม) ของกลุ่มนั้น</span>${extra || ''}<button class="p0st-btn" onclick="p0StatusStripToggle()">${hidden ? '▼ แสดงสถานะ' : '▲ ซ่อน'}</button></div>`;
+  }
+  function render() {
+    const box = document.getElementById('p0-status-strip'); if (!box) return;
+    if (hidden) { box.innerHTML = `<div class="p0st">${head('')}</div>`; return; }
+    if (err) { box.innerHTML = `<div class="p0st">${head('')}<div style="padding:12px 16px; color:#B23A3A; font-size:12px;">โหลดสถานะไม่สำเร็จ: ${p0T5Esc(err)} <button class="btn-secondary" onclick="p0StatusStripRefresh(true)">ลองใหม่</button></div></div>`; return; }
+    if (!data) { box.innerHTML = `<div class="p0st">${head('')}<div style="padding:12px 16px; color:var(--text3); font-size:12px;">กำลังโหลดสถานะงาน...</div></div>`; return; }
+    const p0 = data.tickets.filter(t => t.z === 1);
+    const flow = P0DD_STATS.map((s, i) => `<span class="stp" style="--c:${s[2]}">${i + 1}. ${s[1]}</span>${i < P0DD_STATS.length - 1 ? '<span class="ar">→</span>' : ''}`).join('');
+    const cols = COLS.map(c => {
+      const rows = c[0] === 'ALL' ? p0 : p0.filter(t => t.g === c[0]);
+      const cnt = P0DD_STATS.map(s => rows.filter(t => t.s === s[0]).length), tot = rows.length || 1;
+      const pct = k => Math.round(cnt[k] / tot * 100);
+      const bar = P0DD_STATS.map((s, k) => `<i style="width:${cnt[k] / tot * 100}%; background:${s[2]}"></i>`).join('');
+      const lines = P0DD_STATS.map((s, k) => `<div class="p0st-rw${cnt[k] ? '' : ' z'}${k === 0 && cnt[k] ? ' alert' : ''}" style="--c:${s[2]}"><i></i><span>${s[1]}</span><b>${cnt[k]}</b><em>${pct(k)}%</em></div>`).join('');
+      const sum = cnt[0] ? `⚠ <b>${cnt[0]} งาน (${pct(0)}%)</b> ทีมยังไม่เดินทาง` : (rows.length ? 'ทุกงานมีทีมออกเดินทางแล้ว' : 'ไม่มีงาน');
+      return `<div class="p0st-col" onclick="p0OpenDrilldown('p0','${c[0]}','')"><div class="p0st-lab"><b>${p0T5Esc(c[1])}</b><span>${rows.length} งาน</span></div><div class="p0st-bar">${bar}</div><div class="p0st-rows">${lines}</div><div class="p0st-sum">${sum}</div></div>`;
+    }).join('');
+    box.innerHTML = `<div class="p0st">${head('')}<div class="p0st-flow"><b>ลำดับขั้นของงาน:</b>${flow}<span class="hl">แถบสี = สัดส่วนงานของกลุ่มนั้นในแต่ละขั้น</span></div><div class="p0st-grid">${cols}</div></div>`;
+  }
+  window.p0StatusStripToggle = function () {
+    hidden = !hidden;
+    try { localStorage.setItem('p0StripHidden', hidden ? '1' : '0'); } catch (e) { /* ignore */ }
+    render();
+    if (!hidden && !data) window.p0StatusStripRefresh(false);
+  };
+  window.p0StatusStripRefresh = function (force) {
+    if (!document.getElementById('p0-status-strip')) return Promise.resolve();
+    if (hidden && !force) return Promise.resolve();   // nothing to show; load when it is opened
+    err = ''; render();
+    return p0ddLoad(!!force).then(d => { data = d; render(); }).catch(e => { err = e.message || String(e); render(); });
+  };
+  document.addEventListener('DOMContentLoaded', () => { render(); window.p0StatusStripRefresh(false); });
+  // keep in step with the cards: whenever the Over SLA cards are reloaded, reload the status numbers too
+  const orig = window.loadP0SnapshotComparison;
+  if (typeof orig === 'function') window.loadP0SnapshotComparison = function (prefix) {
+    const r = orig.apply(this, arguments);
+    if (prefix === 'p0' && started) window.p0StatusStripRefresh(true);
+    started = true;
+    return r;
+  };
+})();
 // One delegated listener for the 4 big-number click targets (the TOP 5 rows call p0OpenDrilldown directly).
 document.addEventListener('click', (e) => {
   const el = e.target.closest && e.target.closest('[data-dd-row]');
@@ -3634,7 +3976,7 @@ function renderTotalPendingRow(prefix, data) {
   // never quite lined up with the compact "@01:15: X ▲+Y" line the
   // Bookmark cards use.
   kpiEl.innerHTML = `
-    <div style="height:100%; box-shadow:inset 3px 0 0 ${TP_NAVY}; padding:14px 16px;">
+    <div class="p0eq-card" style="height:100%; border-left:3px solid ${TP_NAVY}; padding:12px 14px;">
       <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">📦 Total Pending</div>
       <div class="p0dd-click" data-dd-row="total" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${TP_NAVY}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalNow}</div>
       <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -3644,18 +3986,18 @@ function renderTotalPendingRow(prefix, data) {
       ${p0Top5Html(data.overall_top_total, totalNow, TP_NAVY, 'total', '')}
       <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
         <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+          <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span>
           <span id="tp-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:${TP_NAVY}; white-space:nowrap;">…</span>
         </div>
         <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-TOTAL"></canvas></div>
       </div>
+      <div class="tp-aging" id="tp-aging-TOTAL" style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);"></div>
     </div>`;
 
   const cards = groups.map((g, i) => {
     const accent = TP_ACCENTS[i % TP_ACCENTS.length];
     return `
-      <div style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
-        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
+      <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -3665,11 +4007,12 @@ function renderTotalPendingRow(prefix, data) {
         ${p0Top5Html(g.top_total, g.current_total, accent, 'total', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="tp-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="tp-trend-${g.key}"></canvas></div>
         </div>
+        <div class="tp-aging" id="tp-aging-${g.key}" style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);"></div>
       </div>`;
   }).join('');
   cmpEl.innerHTML = `<div style="height:100%; background:var(--bg1); padding:12px; display:flex; flex-wrap:wrap; gap:10px;">${cards}</div>`;
@@ -3698,6 +4041,85 @@ function renderTotalPendingSparklines() {
     return sum;
   });
   renderP0Sparkline('TOTAL', TP_NAVY, labels, totalSeries, 'tp-trend');
+  try { renderTotalPendingAging(data, totalSeries); } catch (e) { console.error('Total Pending aging stack failed', e); }
+}
+
+// Aging stack under each Total Pending card's trend line: one bar per day (@01:15), segments = Aging_Flag_Group,
+// total on top and a dashed line through the totals. Extra API field aging_total - when it is missing or empty the
+// sections simply stay hidden and the cards look exactly as before.
+const TP_AGING_FALLBACK = ['#d94452', '#ef7f4a', '#f3b66f', '#f1e07a', '#86ef86', '#3a9d54'];
+function tpAgingFg(c) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(c || '').trim());
+  if (!m) return 'var(--text)';
+  const n = parseInt(m[1], 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum < 0.6 ? '#fff' : '#1c2a3a';
+}
+function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals) {
+  // Leading days with no data are dropped so the bars fill the whole card width.
+  const st0 = dates.findIndex((_, d) => totals[d] != null || bySeg[order[0]][d] != null);
+  if (st0 > 0) { dates = dates.slice(st0); totals = totals.slice(st0); order.forEach(k => { bySeg[k] = bySeg[k].slice(st0); }); }
+  const W = 240, H = 150, L = 2, R = 2, T = 16, B = 16, n = dates.length, slot = (W - L - R) / n, bw = slot * 0.72;
+  const segSum = d => order.reduce((a, k) => a + (bySeg[k][d] || 0), 0);
+  const tops = dates.map((_, d) => { const t = totals[d]; return t != null ? Math.max(t, segSum(d)) : (bySeg[order[0]][d] == null ? null : segSum(d)); });
+  const vals = tops.filter(v => v != null);
+  if (!vals.length) return '';
+  const mx = Math.max(...vals, 1), y = v => T + (H - T - B) * (1 - v / mx), x = d => L + slot * d + slot / 2;
+  let s = '';
+  dates.forEach((dt, d) => {
+    if (tops[d] == null) return;
+    let acc = 0;
+    const seg = (name, v, col) => {
+      if (!v) return;
+      const y1 = y(acc + v), y0 = y(acc), h = y0 - y1; acc += v;
+      s += `<rect x="${x(d) - bw / 2}" y="${y1}" width="${bw}" height="${h}" fill="${col}"><title>${dt.slice(5).replace('-', '/')} · ${p0T5Esc(name)}: ${v}</title></rect>`;
+      if (h >= 10 && bw >= 13) s += `<text x="${x(d)}" y="${y1 + h / 2 + 3}" text-anchor="middle" font-size="8" style="fill:${tpAgingFg(col)}" pointer-events="none">${v}</text>`;
+    };
+    order.forEach(k => seg(k, bySeg[k][d] || 0, colorOf(k)));
+    const other = (totals[d] != null ? totals[d] : 0) - segSum(d);
+    if (other > 0) seg('อื่นๆ / ไม่ระบุ', other, '#9aa7b4');
+    if (n <= 9 || (n - 1 - d) % 2 === 0) s += `<text x="${x(d)}" y="${y(tops[d]) - 4}" text-anchor="middle" font-size="${n > 9 ? 7.5 : 8.5}" font-weight="600" style="fill:var(--text)">${tops[d]}</text>`;
+    s += `<text x="${x(d)}" y="${H - 4}" text-anchor="middle" font-size="8" style="fill:var(--text3)">${dt.slice(8)}</text>`;
+  });
+  const lp = dates.map((_, d) => tops[d] == null ? null : `${x(d)},${y(tops[d]) - 1}`).filter(Boolean);
+  if (lp.length > 1) s += `<polyline points="${lp.join(' ')}" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.3" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block; overflow:visible; color:var(--text);" role="img" aria-label="Aging stack ${n} วัน">${s}</svg>`;
+}
+function renderTotalPendingAging(data, totalSeries) {
+  const ag = data && data.aging_total;
+  const legend = document.getElementById('p0-total-aging-legend');
+  const hideAll = () => { document.querySelectorAll('.tp-aging').forEach(e => { e.style.display = 'none'; }); if (legend) legend.style.display = 'none'; };
+  if (!ag || !ag.series || !ag.order || !ag.order.length) { hideAll(); return; }
+  const order = ag.order, colorOf = k => (ag.colors && ag.colors[k]) || TP_AGING_FALLBACK[order.indexOf(k) % TP_AGING_FALLBACK.length];
+  const n = data.dates.length, any = [];
+  const bySegFor = key => {
+    const out = {};
+    order.forEach(k => {
+      out[k] = data.dates.map((_, d) => {
+        if (key !== 'TOTAL') { const v = ((ag.series[key] || {})[k] || [])[d]; return v == null ? null : v; }
+        let sum = null;
+        tpGroupKeys.forEach(g => { const v = ((ag.series[g] || {})[k] || [])[d]; if (v != null) sum = (sum || 0) + v; });
+        return sum;
+      });
+    });
+    return out;
+  };
+  const keys = tpGroupKeys.concat(['TOTAL']);
+  keys.forEach(key => {
+    const box = document.getElementById('tp-aging-' + key);
+    if (!box) return;
+    const totals = key === 'TOTAL' ? totalSeries : (data.series_total[key] || []);
+    const svg = tpAgingBarsSvg(data.dates, bySegFor(key), order, colorOf, totals);
+    if (!svg) { box.style.display = 'none'; return; }
+    any.push(key);
+    box.innerHTML = `<div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${(data.dates.length - Math.max(0, data.dates.findIndex((_, d) => totalSeries[d] != null)))} วัน)</span></div>${svg}`;
+    box.style.display = 'block';
+  });
+  if (legend) {
+    if (any.length) {
+      legend.innerHTML = order.map(k => `<span style="display:flex; align-items:center; gap:5px; white-space:nowrap;"><i style="width:10px; height:10px; border-radius:2px; background:${colorOf(k)}; display:inline-block;"></i>${p0T5Esc(k)}</span>`).join('');
+      legend.style.display = 'flex';
+    } else legend.style.display = 'none';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7624,27 +8046,30 @@ function renderPivot(ft) {
 
   if (el('ptk-migrate-workload')) {
     el('ptk-migrate-workload').addEventListener('click', async () => {
-      if (!confirm('รวมค่า Group Problem เก่า "Workload - Assigning team access island/border area" เป็น "Workload - Assigning team access site" สำหรับ ticket ที่เคยเลือกไว้แล้วทั้งหมด?')) return;
+      const NEW_GP = 'In progress - Priority TT management/ Interrupted by urgency TT';
+      const OLD_GPS = ['Workload - Assigning team access site', 'Workload - Assigning team access island/border area'];
+      if (!confirm('เปลี่ยนค่า Group Problem เก่า "Workload - Assigning team access site" (และ "...island/border area") เป็น "' + NEW_GP + '" สำหรับ ticket ที่เคยเลือกไว้แล้วทั้งหมด?')) return;
       const btn = el('ptk-migrate-workload');
       btn.disabled = true;
-      btn.textContent = 'กำลังรวม...';
+      btn.textContent = 'กำลังเปลี่ยน...';
       try {
-        const res = await fetch('/api/pending-ticket/rename-group-problem', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            old_value: 'Workload - Assigning team access island/border area',
-            new_value: 'Workload - Assigning team access site',
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'failed');
-        alert(`รวมสำเร็จ ✅ — แก้ไป ${data.changed} ticket`);
+        let changed = 0;
+        for (const old_value of OLD_GPS) {
+          const res = await fetch('/api/pending-ticket/rename-group-problem', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_value, new_value: NEW_GP }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'failed');
+          changed += data.changed || 0;
+        }
+        alert(`เปลี่ยนสำเร็จ ✅ — แก้ไป ${changed} ticket`);
         reload();
       } catch (e) {
-        alert('รวมไม่สำเร็จ: ' + e.message);
+        alert('เปลี่ยนไม่สำเร็จ: ' + e.message);
       }
       btn.disabled = false;
-      btn.textContent = 'รวม Workload (ครั้งเดียว)';
+      btn.textContent = 'เปลี่ยน Workload → In progress (ครั้งเดียว)';
     });
   }
 
@@ -8315,14 +8740,14 @@ function renderPivot(ft) {
     // number, compact compare line, Top5, Trend, all at the identical
     // font-sizes those cards use (explicit request: match Bookmark exactly).
     const totalCard = `
-      <div style="height:100%; box-shadow:inset 3px 0 0 #B23A3A; padding:14px 16px;">
+      <div class="p0eq-card" style="height:100%; border-left:3px solid #B23A3A; padding:12px 14px;">
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap;">🔴 Total P0</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="ALL" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ทั้งหมด" style="font-size:32px; font-weight:800; line-height:1; color:${totalP0 > 0 ? '#B23A3A' : 'var(--text3)'}; display:inline-block; padding:0 4px; margin-left:-4px;">${totalP0}</div>
         <div id="p0-total-p0-compare">${renderTotalP0CompareInner(cachedSnapshotData)}</div>
         <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (7 วัน)</span>
+            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span>
             <span id="p0-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:#B23A3A; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-TOTAL"></canvas></div>
@@ -13527,6 +13952,15 @@ loadData();
       $('ff-tab-board').hidden = tab !== 'board'; $('ff-tab-dash').hidden = tab !== 'dash'; $('ff-tab-hist').hidden = tab !== 'hist';
       if (tab === 'hist') loadHist(); renderAll(); return;
     }
+    const tidEl = ev.target.closest('.ff-tid');
+    if (tidEl && tidEl.closest('.ff-tk')) {
+      ev.stopPropagation();
+      const id = tidEl.closest('.ff-tk').dataset.id, old = tidEl.textContent;
+      const done = () => { tidEl.textContent = '✓ คัดลอกแล้ว'; tidEl.classList.add('ff-copied'); setTimeout(() => { tidEl.textContent = old; tidEl.classList.remove('ff-copied'); }, 1100); };
+      const fallback = () => { try { const ta = document.createElement('textarea'); ta.value = id; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } catch (e) {} };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, fallback); else fallback();
+      return;
+    }
     const fb = ev.target.closest('#ff-flt button');
     if (fb) { filter = fb.dataset.f; document.querySelectorAll('#ff-flt button').forEach(b => b.classList.toggle('on', b === fb)); renderBoard(); return; }
     const a = ev.target.closest('[data-act]');
@@ -13727,6 +14161,7 @@ loadData();
     'Supervisor': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
     'Supervisor MTE': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
     'Eng Zone': { bg: '#B4530915', stickyBg: '#fdecd8', badgeBg: '#B4530922', badgeFg: '#B45309' },
+    'INOC': { bg: '#0d94880f', stickyBg: '#e3f5f3', badgeBg: '#0d948822', badgeFg: '#0f766e' },
   };
 
   function populateProvinceFilter(data) {
@@ -13893,9 +14328,12 @@ loadData();
     // but no field-team rows matching the current filters, so those still
     // show up.
     const teamProvinces = filteredRows.map(r => r.province_th || '(ไม่ระบุจังหวัด)');
+    // Sup/Eng rows may be filed under "เชียงใหม่1"/"เชียงใหม่2"; they still sit in the
+    // "เชียงใหม่" block (same as the field teams) and show their own label in the Province column.
+    const escBase = n => String(n || '').replace(/[12]$/, '');
     const escalationProvinces = (escalationData && escalationData.provinces || [])
-      .filter(p => !provinceFilter || p.province === provinceFilter)
-      .map(p => p.province);
+      .filter(p => !provinceFilter || escBase(p.province) === provinceFilter)
+      .map(p => escBase(p.province));
     const provinceOrder = [...new Set([...teamProvinces, ...escalationProvinces])];
     const rows = provinceOrder.flatMap(p =>
       filteredRows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === p)
@@ -13921,15 +14359,24 @@ loadData();
     const escByProvince = {};
     if (escalationData && escalationData.provinces) {
       escalationData.provinces.forEach(p => {
-        if (provinceFilter && p.province !== provinceFilter) return;
-        escByProvince[p.province] = p.contacts;
+        const b = escBase(p.province);
+        if (provinceFilter && b !== provinceFilter) return;
+        escByProvince[b] = (escByProvince[b] || []).concat(p.contacts);
+      });
+      const rankOf = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2, 'INOC': 3 };
+      Object.keys(escByProvince).forEach(b => {
+        escByProvince[b] = escByProvince[b].map((c, i) => [c, i])
+          .sort((x, y) => ((rankOf[x[0].position] ?? 99) - (rankOf[y[0].position] ?? 99))
+            || String(x[0].province || '').localeCompare(String(y[0].province || ''), 'th')
+            || (x[1] - y[1]))
+          .map(x => x[0]);
       });
     }
 
     const bodyRows = provinceOrder.map(provinceKey => {
       const teamRowsForProvince = rows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === provinceKey);
       const escContacts = escByProvince[provinceKey] || [];
-      const count = teamRowsForProvince.length;
+      const count = teamRowsForProvince.length || escContacts.length;   // INOC has no field-team rows - count its people
       const groupHeader = `<tr>
         <td colspan="${totalCols}" style="padding:6px 8px; background:var(--bg4); font-weight:700; font-size:12px; border-top:2px solid var(--border);">
           ${escapeHtml(provinceKey)} <span style="font-weight:400; color:var(--text3); font-size:11px;">(${count} คน)</span>
@@ -13952,8 +14399,8 @@ loadData();
         }).join('');
         return `<tr style="border-top:1px solid var(--border); background:${style.bg};" data-row-key="${escapeHtml(c.row_key)}">
           <td class="oc-sticky-0" style="background:${style.stickyBg};"></td>
-          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; font-weight:600;">${escapeHtml(c.name)}</td>
-          <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">${escapeHtml(provinceKey)}</td>
+          <td class="oc-sticky-1" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg}; font-weight:600;"><span style="display:inline-flex;align-items:center;gap:6px;">${ocpAvatar(c.name, c.position, 24)}${escapeHtml(c.name)}</span></td>
+          <td class="oc-sticky-2" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">${escapeHtml(c.province || provinceKey)}</td>
           <td class="oc-sticky-3" style="padding:6px 8px; white-space:nowrap; background:${style.stickyBg};">
             <span style="display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; background:${style.badgeBg}; color:${style.badgeFg};">${escapeHtml(c.position)}</span>
           </td>
@@ -13962,7 +14409,9 @@ loadData();
           <td class="oc-sticky-6" style="padding:2px 4px; background:${style.stickyBg};">
             <input type="text" class="oc-note-input" data-note-key="${escapeHtml(c.row_key)}" data-note-kind="escalation" value="${escapeHtml(c.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
-          <td style="padding:6px 8px; white-space:nowrap;"><a href="${telHref(c.tel)}" style="color:var(--blue); text-decoration:none;">📞 ${escapeHtml(c.tel)}</a></td>
+          <td class="oc-sticky-7" style="padding:2px 4px; background:${style.stickyBg};">
+            <input type="text" class="oc-tel-input" data-tel-key="${escapeHtml(c.row_key)}" data-tel-kind="escalation" value="${escapeHtml(c.tel).replace(/"/g, '&quot;')}" placeholder="เบอร์โทร" title="แก้ไขเบอร์โทรได้ (Enter เพื่อบันทึก)" onblur="saveOncallTel(this)" onkeydown="if(event.key==='Enter'){this.blur();}">
+          </td>
           <td class="oe-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_by) || '-'}</td>
           <td class="oe-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(c.last_updated_at) || '-'}</td>
           ${cells}
@@ -13995,7 +14444,9 @@ loadData();
           <td class="oc-sticky-6" style="padding:2px 4px;">
             <input type="text" class="oc-note-input" data-note-key="${escapeHtml(r.team_id1)}" data-note-kind="team" value="${escapeHtml(r.note).replace(/"/g, '&quot;')}" placeholder="พิมพ์หมายเหตุ..." onblur="saveOncallNote(this)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:100%; padding:4px 6px; border:1px solid var(--border); border-radius:4px; background:var(--bg1); color:var(--text); font-size:12px;">
           </td>
-          <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(r.tel)}</td>
+          <td class="oc-sticky-7" style="padding:2px 4px;">
+            <input type="text" class="oc-tel-input" data-tel-key="${escapeHtml(r.team_id1)}" data-tel-kind="team" value="${escapeHtml(r.tel).replace(/"/g, '&quot;')}" placeholder="เบอร์โทร" title="แก้ไขเบอร์โทรได้ (Enter เพื่อบันทึก)" onblur="saveOncallTel(this)" onkeydown="if(event.key==='Enter'){this.blur();}">
+          </td>
           <td class="oc-updated-by" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_by) || '-'}</td>
           <td class="oc-updated-at" style="padding:6px 8px; white-space:nowrap; color:var(--text3);">${escapeHtml(r.last_updated_at) || '-'}</td>
           ${cells}
@@ -14017,7 +14468,7 @@ loadData();
               <th class="oc-sticky-4" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Team ID</th>
               <th class="oc-sticky-5" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Remark</th>
               <th class="oc-sticky-6" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">หมายเหตุ</th>
-              <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
+              <th class="oc-sticky-7" rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">Tel</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">แก้ไขล่าสุดโดย</th>
               <th rowspan="2" style="padding:6px 8px; text-align:left; vertical-align:bottom;">เวลาแก้ไขล่าสุด</th>
               ${dayRow}
@@ -14031,7 +14482,7 @@ loadData();
     scrollToToday();
   }
 
-  // Auto-scrolls the date grid so today's column sits right after the
+  // Auto-scrolls the date grid so today's column sits in the middle of the
   // frozen columns - people don't have to hunt for today's column on load,
   // but scrolling left for earlier days and right for later ones still
   // works exactly as normal since this only sets the starting scroll
@@ -14044,7 +14495,7 @@ loadData();
     const todayTh = container.querySelector('th[data-date-header="' + todayStr() + '"]');
     if (!todayTh) return;
     let stickyWidth = 0;
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i <= 7; i++) {
       const cell = container.querySelector('.oc-sticky-' + i);
       if (cell) stickyWidth += cell.offsetWidth;
     }
@@ -14053,8 +14504,34 @@ loadData();
     // them - reading immediately after innerHTML assignment can otherwise
     // catch layout mid-flight in some browsers with sticky positioning.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      container.scrollLeft = Math.max(0, todayTh.offsetLeft - stickyWidth);
+      // Put today's column in the MIDDLE of the visible date area (not stuck against the
+      // frozen columns), so the days just before and just after it are both in view.
+      // Late in the month there is not enough table to the right to scroll that far, so a
+      // little trailing space is added to the scroll area for those days only.
+      container.style.paddingRight = '0px';
+      const dateArea = Math.max(0, container.clientWidth - stickyWidth);
+      const want = Math.max(0, todayTh.offsetLeft - stickyWidth - Math.max(0, (dateArea - todayTh.offsetWidth) / 2));
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (want > maxScroll) {
+        container.style.paddingRight = Math.ceil(want - maxScroll) + 'px';
+      }
+      container.scrollLeft = want;
     }));
+  }
+
+  // Shows why a click did not save (it used to snap back silently).
+  let ocFlashTimer = null;
+  function ocFlash(msg) {
+    const st = el('oc-status');
+    if (!st) return;
+    if (ocFlashTimer === null) st.dataset.prev = st.textContent;
+    st.textContent = '⚠ ' + msg; st.style.color = '#E24B4A';
+    clearTimeout(ocFlashTimer);
+    ocFlashTimer = setTimeout(() => { st.textContent = st.dataset.prev || ''; st.style.color = ''; ocFlashTimer = null; }, 8000);
+  }
+  async function ocApiError(res) {
+    const er = await res.json().catch(() => ({}));
+    return er.error || ('HTTP ' + res.status);
   }
 
   window.toggleOncallCell = async function (teamId1, dateStr, td) {
@@ -14080,7 +14557,7 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ team_id1: teamId1, date: dateStr, status: next }),
       });
-      if (!res.ok) throw new Error('toggle failed');
+      if (!res.ok) throw new Error(await ocApiError(res));
       const data = await res.json();
       row.last_updated_by = data.updated_by;
       row.last_updated_at = data.updated_at;
@@ -14099,6 +14576,7 @@ loadData();
       badge.style.border = revertStyle.border || 'none';
       badge.textContent = revertStyle.label;
       console.error('Oncall toggle failed', e);
+      ocFlash('บันทึกไม่สำเร็จ: ' + e.message);
     }
   };
 
@@ -14125,10 +14603,11 @@ loadData();
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ row_key: rowKey, date: dateStr, status: next }),
       });
-      if (!res.ok) throw new Error('toggle failed');
+      if (!res.ok) throw new Error(await ocApiError(res));
       const data = await res.json();
       contact.last_updated_by = data.updated_by;
       contact.last_updated_at = data.updated_at;
+      renderPeoplePanel();
       const tr = document.querySelector(`tr[data-row-key="${CSS.escape(rowKey)}"]`);
       if (tr) {
         tr.querySelector('.oe-updated-by').textContent = data.updated_by || '-';
@@ -14141,7 +14620,46 @@ loadData();
       badge.style.color = revertStyle.fg;
       badge.textContent = revertStyle.label;
       console.error('Escalation toggle failed', e);
+      ocFlash('บันทึกไม่สำเร็จ: ' + e.message);
     }
+  };
+
+  window.saveOncallTel = async function (input) {
+    const key = input.dataset.telKey;
+    const kind = input.dataset.telKind; // "team" or "escalation"
+    const tel = input.value.trim();
+    if (tel === input.defaultValue.trim()) { input.value = input.defaultValue; return; } // unchanged
+    input.style.opacity = '0.6';
+    const url = kind === 'escalation' ? '/api/oncall-escalation/tel' : '/api/oncall-schedule/tel';
+    const body = kind === 'escalation' ? { row_key: key, tel } : { team_id1: key, tel };
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(await ocApiError(res));
+      const data = await res.json();
+      input.value = data.tel; input.defaultValue = data.tel;
+      input.style.borderColor = '#639922';
+      setTimeout(() => { input.style.borderColor = ''; }, 1200);
+      if (kind === 'escalation') {
+        for (const p of (escalationData && escalationData.provinces || [])) {
+          const c = p.contacts.find(c => c.row_key === key);
+          if (c) { c.tel = data.tel; c.last_updated_by = data.updated_by; c.last_updated_at = data.updated_at; break; }
+        }
+        const tr = document.querySelector(`tr[data-row-key="${CSS.escape(key)}"]`);
+        if (tr) { tr.querySelector('.oe-updated-by').textContent = data.updated_by || '-'; tr.querySelector('.oe-updated-at').textContent = data.updated_at || '-'; }
+      } else {
+        const row = scheduleData && scheduleData.rows.find(r => r.team_id1 === key);
+        if (row) { row.tel = data.tel; row.last_updated_by = data.updated_by; row.last_updated_at = data.updated_at; }
+        const tr = document.querySelector(`tr[data-row-team="${CSS.escape(key)}"]`);
+        if (tr) { tr.querySelector('.oc-updated-by').textContent = data.updated_by || '-'; tr.querySelector('.oc-updated-at').textContent = data.updated_at || '-'; }
+      }
+    } catch (e) {
+      console.error('Save tel failed', e);
+      input.value = input.defaultValue; // put the old number back so the screen never shows an unsaved value
+      input.style.borderColor = '#E24B4A';
+      setTimeout(() => { input.style.borderColor = ''; }, 2000);
+      ocFlash('บันทึกเบอร์โทรไม่สำเร็จ: ' + e.message);
+    }
+    input.style.opacity = '1';
   };
 
   window.saveOncallNote = async function (input) {
@@ -14191,9 +14709,204 @@ loadData();
     input.style.opacity = '1';
   };
 
+  // ===== Sup / Eng Zone: photos + today's on-call + clickable province map =====
+  const OCP_GEO = {"w":520,"h":642,"prov":{"เชียงใหม่":{"d":"M145.6 349.7L147.3 352.2L145.2 356.7L145.1 360.6L149.4 367.2L149.2 370.0L147.2 373.9L149.8 375.2L149.4 381.8L151.7 381.2L151.2 382.8L146.6 384.0L143.4 383.4L141.9 384.5L138.8 383.9L131.3 387.7L127.5 383.9L127.8 382.4L124.5 380.9L123.0 378.6L124.7 377.7L124.9 375.5L120.2 368.6L123.7 367.6L124.2 366.2L123.3 364.5L124.4 361.6L120.9 349.3L117.7 348.9L114.4 352.4L111.1 353.5L107.9 353.8L106.7 352.6L103.3 353.3L102.2 350.3L100.2 348.6L100.0 345.2L98.1 342.4L104.1 337.1L105.0 331.7L103.1 328.2L104.5 326.3L102.7 324.0L99.7 323.9L96.3 320.1L95.9 317.5L94.3 315.7L94.6 313.6L93.2 312.2L93.7 309.3L94.9 308.3L93.5 307.0L98.0 304.8L104.0 308.0L106.0 303.9L115.3 301.9L114.8 299.4L112.5 297.8L115.9 293.1L114.8 290.5L113.4 290.4L113.6 289.3L111.6 290.5L109.4 289.4L108.2 283.0L105.8 282.6L105.5 281.5L106.6 281.2L107.6 278.6L106.5 277.1L107.2 275.5L103.6 273.0L103.6 268.3L110.4 267.1L111.1 265.4L110.0 262.4L104.1 258.9L101.7 255.1L102.1 253.9L98.7 252.2L97.2 252.6L96.4 251.2L97.4 249.2L99.8 247.9L101.5 243.0L105.2 241.7L106.3 240.2L107.5 240.5L107.4 237.7L111.1 238.9L114.3 234.8L111.5 232.6L111.4 230.7L108.3 230.5L108.3 228.8L104.3 227.2L101.2 227.6L99.9 226.0L100.6 223.6L99.3 219.6L100.1 218.5L99.5 216.0L98.6 215.8L101.5 213.4L101.6 211.6L98.5 211.2L97.7 209.1L96.9 206.1L98.4 200.7L102.5 195.8L105.4 194.9L105.5 192.8L107.2 191.3L106.2 187.9L106.8 185.7L113.0 175.5L115.5 173.4L114.6 169.5L116.0 167.1L117.3 168.1L125.8 168.0L126.8 174.5L128.9 175.8L129.1 178.1L130.5 178.5L132.2 181.5L134.5 182.4L136.3 180.1L147.6 182.7L150.4 180.4L153.5 180.6L158.4 177.7L159.7 174.8L157.7 167.7L150.6 161.9L150.7 160.8L153.8 159.3L152.6 156.3L154.3 153.7L153.3 152.4L154.2 149.5L152.8 147.4L153.4 145.0L151.1 141.0L153.6 138.8L152.5 137.9L152.3 134.6L153.9 131.6L153.5 129.3L152.6 126.4L150.2 124.9L150.3 121.2L147.7 119.9L147.4 114.0L142.7 110.6L140.0 110.0L139.4 106.0L145.1 103.3L147.4 106.5L150.5 108.3L151.0 104.7L153.1 103.4L156.7 103.7L156.9 101.9L159.9 100.6L160.7 101.3L161.3 99.5L165.4 98.5L166.3 97.3L169.3 99.0L170.7 98.3L173.5 99.2L175.6 96.5L179.1 94.4L180.2 92.2L187.8 98.1L188.7 100.2L190.6 96.7L195.7 101.2L196.9 95.8L199.7 94.2L201.5 87.9L200.5 86.4L200.4 78.9L202.6 78.5L201.2 73.9L202.0 71.6L203.8 70.3L202.6 68.7L202.7 66.2L205.2 62.9L205.8 59.5L212.2 58.5L211.7 57.1L215.4 55.4L221.1 55.6L226.2 57.7L230.1 61.3L233.4 62.6L239.6 60.4L245.9 60.3L252.4 57.4L252.1 55.6L254.0 53.7L260.3 56.6L260.3 58.2L252.1 61.4L252.2 64.8L249.0 66.8L250.3 69.2L245.3 74.8L244.0 74.9L243.8 80.0L241.7 80.8L239.8 83.3L240.2 85.7L243.2 88.5L242.6 90.0L243.7 92.1L240.7 92.1L239.1 95.7L237.5 96.3L237.4 101.9L235.7 103.8L232.1 104.3L226.1 110.9L227.2 115.4L229.8 117.3L230.2 120.1L233.5 123.6L231.6 125.1L230.1 129.0L231.6 129.5L232.6 133.4L231.7 136.0L233.9 139.7L233.3 140.1L234.3 144.0L232.5 145.3L235.3 154.7L231.9 159.8L232.3 161.6L231.1 163.4L232.8 166.7L232.9 171.1L235.6 175.8L239.8 178.3L239.8 180.7L241.8 185.6L238.7 187.7L240.2 192.1L239.2 194.7L240.7 198.9L240.1 200.8L236.5 203.3L238.5 214.0L236.0 216.0L233.7 221.8L235.8 225.0L234.3 225.9L233.7 229.5L237.2 230.8L236.1 232.4L236.5 233.9L234.2 234.4L232.6 239.4L230.3 238.8L226.7 234.9L221.8 232.5L223.6 229.6L223.4 225.7L220.5 224.7L218.4 222.5L218.5 219.3L214.9 219.0L208.7 223.6L206.2 223.3L205.2 224.3L199.0 223.2L198.4 226.3L195.5 227.5L194.0 229.9L194.5 231.2L190.5 236.8L190.7 238.2L184.4 241.8L183.0 241.4L177.5 247.5L173.5 248.9L172.0 250.6L169.7 251.0L167.7 249.3L166.6 250.7L165.9 249.7L164.2 252.4L164.6 253.3L166.0 252.9L162.9 258.3L165.4 262.1L161.9 263.0L162.0 264.8L167.2 267.7L168.9 270.0L173.0 271.7L173.0 274.2L174.3 275.2L174.0 279.9L176.4 282.6L177.0 287.6L175.7 290.5L177.4 291.5L173.5 300.3L176.9 299.6L179.7 301.9L179.2 303.5L180.5 304.6L183.6 317.9L182.5 317.1L181.7 318.1L182.1 321.9L178.3 323.9L176.0 324.1L175.4 320.8L174.1 319.8L171.9 323.4L169.7 323.0L167.9 324.3L163.3 324.6L161.8 319.7L158.3 321.9L156.6 326.2L153.0 322.9L152.0 323.4L150.9 322.4L149.6 324.0L145.1 320.7L144.1 322.1L142.4 322.0L142.5 325.8L145.9 334.2L146.7 344.3L145.6 349.7Z","c":[156.1,220.5]},"เชียงราย":{"d":"M256.6 166.9L259.2 169.3L256.7 173.0L257.0 175.9L255.6 176.9L251.9 176.7L245.7 184.6L241.8 185.6L239.8 180.7L239.8 178.3L235.6 175.8L232.9 171.1L232.8 166.7L231.1 163.4L232.3 161.6L231.9 159.8L235.3 154.7L232.5 145.3L234.3 144.0L233.3 140.1L233.9 139.7L231.7 136.0L232.6 133.4L231.6 129.5L230.1 129.0L231.6 125.1L233.5 123.6L230.2 120.1L229.8 117.3L227.2 115.4L226.2 113.3L226.9 109.3L229.9 107.6L232.1 104.3L235.7 103.8L237.4 101.9L237.5 96.3L239.1 95.7L240.7 92.1L243.7 92.1L242.6 90.0L243.2 88.5L240.2 85.7L239.8 83.3L241.7 80.8L243.8 80.0L244.0 74.9L245.3 74.8L250.3 69.2L249.0 66.8L252.2 64.8L252.1 61.4L260.3 58.2L260.3 56.6L254.0 53.7L256.8 53.7L256.8 51.7L259.6 47.0L255.1 43.9L253.2 36.8L253.4 33.2L248.1 28.8L248.1 25.4L252.2 26.3L254.4 29.0L258.9 29.5L264.9 32.5L268.4 31.1L272.4 34.3L276.7 32.7L276.5 31.3L277.9 30.4L282.9 32.2L286.6 32.0L289.8 27.7L289.9 24.5L292.5 20.8L292.0 19.8L298.7 19.4L303.1 17.2L305.2 18.9L304.5 19.6L306.2 20.6L306.2 22.6L308.3 22.5L311.8 25.4L315.3 26.0L314.6 27.5L315.9 26.9L316.8 28.3L316.0 28.9L318.0 34.7L317.4 39.9L319.6 41.9L322.8 42.3L326.4 42.2L327.2 40.2L325.6 36.6L331.6 34.2L332.4 32.5L332.1 29.9L334.3 28.4L334.7 26.3L336.7 24.7L343.5 24.8L346.3 27.2L346.7 29.8L348.5 30.3L349.4 34.9L352.7 41.4L357.2 44.5L357.2 47.8L365.0 54.2L367.7 50.5L370.6 51.3L369.7 59.4L363.9 77.5L364.3 81.8L362.2 84.1L361.9 86.0L358.0 87.1L355.8 89.4L356.5 90.6L355.4 94.6L352.7 96.0L351.9 101.0L349.4 104.0L345.4 103.4L344.0 104.8L344.9 106.7L342.1 111.0L338.4 111.6L338.0 110.7L336.8 111.9L336.1 111.1L332.6 116.0L327.5 115.2L325.9 116.4L325.2 123.3L318.2 122.0L314.8 123.5L314.7 136.1L311.7 134.5L308.5 135.2L308.7 136.4L307.2 135.5L301.6 136.5L298.7 138.9L297.9 135.9L296.3 136.7L293.6 133.3L292.4 134.4L284.0 133.9L276.1 137.4L272.6 137.1L273.8 141.6L271.9 140.6L267.0 141.4L259.8 137.6L261.5 144.9L260.6 146.0L261.5 146.8L261.2 151.8L257.9 156.6L256.6 166.9Z","c":[294.3,101.5]},"แม่ฮ่องสอน":{"d":"M93.5 307.0L94.9 308.3L93.7 309.3L93.2 312.2L94.6 313.6L94.3 315.7L95.9 317.5L96.3 320.1L99.7 323.9L102.7 324.0L104.5 326.3L103.1 328.2L105.0 331.7L104.1 337.1L98.1 342.4L95.1 341.0L92.8 337.9L91.8 333.9L90.9 333.9L91.3 332.7L90.0 331.3L90.7 330.6L89.4 327.1L87.1 325.2L87.4 322.4L85.6 320.9L86.4 319.4L85.1 318.1L84.9 315.7L78.6 317.4L77.2 320.1L77.9 322.0L71.6 326.0L67.9 325.3L65.9 326.2L64.8 325.3L62.3 326.3L57.9 323.5L57.4 321.4L55.4 321.4L52.4 314.3L54.1 309.1L59.3 305.4L59.4 302.2L55.6 293.3L53.4 293.2L54.4 291.2L53.0 287.4L52.8 282.1L50.0 280.0L45.5 273.4L45.8 271.7L48.8 268.3L46.9 264.3L39.9 261.6L37.0 268.3L33.6 269.7L27.6 262.2L27.1 259.5L28.3 255.7L25.3 253.4L24.5 250.3L22.5 248.0L20.9 242.0L16.8 238.0L16.4 234.4L18.4 231.7L18.5 236.3L23.1 235.5L25.5 237.9L27.5 243.6L31.6 241.9L33.7 243.8L37.3 244.1L38.6 239.7L40.5 240.6L41.4 239.1L46.6 238.6L46.1 236.1L48.4 236.3L50.1 234.3L55.6 235.1L57.9 234.6L58.9 233.2L62.9 234.1L63.5 221.3L61.2 215.8L62.4 213.6L61.3 212.5L61.2 207.7L59.7 205.4L60.8 203.5L60.0 199.2L55.9 197.4L54.3 194.2L52.3 193.7L52.0 191.6L54.5 191.5L56.3 190.5L56.0 189.3L57.9 189.4L59.7 187.8L59.4 180.9L62.3 181.1L63.3 179.8L63.1 177.2L65.5 177.1L67.7 175.1L70.4 174.7L71.0 159.8L64.5 154.9L66.6 152.5L67.5 153.5L71.1 152.4L66.2 145.0L66.9 141.4L64.8 139.8L67.9 138.1L73.1 130.2L76.0 128.0L72.4 124.5L73.2 119.4L77.7 119.1L82.1 116.9L83.9 117.4L85.6 116.3L85.4 112.7L92.5 111.7L93.2 110.4L91.8 108.3L92.1 105.1L91.1 102.6L92.5 97.8L92.1 93.1L93.6 91.9L94.7 93.3L97.6 92.5L97.5 94.6L99.4 96.9L103.5 95.2L108.4 98.3L108.7 100.0L110.5 101.4L113.3 102.0L114.4 104.0L113.8 105.9L115.4 107.8L120.4 107.3L123.8 105.3L129.0 106.3L131.4 104.7L132.9 105.7L138.7 105.4L140.0 110.0L142.7 110.6L147.4 114.0L147.7 119.9L150.3 121.2L150.2 124.9L152.6 126.4L153.9 131.6L152.3 134.6L152.5 137.9L153.6 138.8L151.1 141.0L153.4 145.0L152.8 147.4L154.2 149.5L153.3 152.4L154.3 153.7L152.6 156.3L153.8 159.3L150.7 160.8L150.6 161.9L157.7 167.7L159.7 174.8L157.6 178.5L153.5 180.6L150.4 180.4L147.6 182.7L136.3 180.1L134.5 182.4L132.2 181.5L130.5 178.5L129.1 178.1L128.9 175.8L126.8 174.5L125.8 168.0L117.3 168.1L116.0 167.1L114.6 169.5L115.5 173.4L113.0 175.5L106.8 185.7L106.2 187.9L107.2 191.3L105.5 192.8L105.4 194.9L102.5 195.8L98.4 200.7L96.9 206.1L97.7 209.1L98.5 211.2L101.6 211.6L101.5 213.4L98.6 215.8L99.5 216.0L100.1 218.5L99.3 219.6L100.6 223.6L99.9 226.0L101.2 227.6L104.3 227.2L108.3 228.8L108.3 230.5L111.4 230.7L111.5 232.6L114.3 234.8L111.1 238.9L107.4 237.7L107.5 240.5L106.3 240.2L105.2 241.7L101.5 243.0L99.8 247.9L97.4 249.2L96.4 251.2L97.2 252.6L98.7 252.2L102.1 253.9L101.7 255.1L104.1 258.9L110.0 262.4L111.1 265.4L110.4 267.1L103.6 268.3L103.6 273.0L107.2 275.5L106.5 277.1L107.6 278.6L106.6 281.2L105.5 281.5L105.8 282.6L108.2 283.0L109.4 289.4L111.6 290.5L113.6 289.3L113.4 290.4L114.8 290.5L115.9 293.1L112.5 297.8L114.8 299.4L115.3 301.9L106.0 303.9L104.0 308.0L98.0 304.8L93.5 307.0Z","c":[80.5,217.0]},"ลำปาง":{"d":"M222.8 368.9L220.7 372.6L216.7 376.9L210.2 372.7L209.8 374.3L207.5 372.3L206.2 372.7L203.0 371.1L201.3 368.3L199.1 367.9L195.8 362.1L190.4 361.0L189.7 355.3L187.5 352.9L188.1 348.7L185.7 347.9L184.9 343.6L187.7 341.0L191.2 342.0L192.1 341.3L197.8 342.5L199.9 344.9L203.3 345.2L204.6 342.5L204.9 335.9L207.4 334.6L207.2 330.7L209.2 330.4L210.1 327.3L211.6 326.8L209.3 322.1L212.6 321.2L216.8 322.5L215.4 318.4L217.8 317.9L217.9 316.6L213.8 312.2L213.9 310.9L209.5 310.5L210.5 306.7L208.3 305.9L208.9 300.4L205.5 293.4L204.9 284.4L203.5 282.0L204.0 280.5L201.0 275.8L199.9 271.5L201.0 270.1L206.6 269.7L207.8 268.4L210.2 269.9L211.3 264.8L214.5 264.2L216.4 260.6L216.1 257.6L218.6 255.9L219.6 252.2L223.8 249.0L224.3 245.5L226.0 243.7L228.8 243.1L231.0 244.1L232.9 242.9L232.6 239.4L234.2 234.4L236.5 233.9L236.1 232.4L237.2 230.8L233.7 229.5L234.3 225.9L235.8 225.0L233.7 221.8L236.0 216.0L238.5 214.0L236.5 203.3L240.1 200.8L240.7 198.9L239.2 194.7L240.2 192.1L238.7 187.7L240.9 185.9L245.7 184.6L251.9 176.7L255.6 176.9L257.0 175.9L256.7 173.0L259.2 169.3L256.6 166.9L257.6 158.0L259.7 153.0L261.2 151.8L261.5 146.8L260.6 146.0L261.5 144.9L259.8 137.6L267.0 141.4L271.9 140.6L274.1 141.9L273.6 144.2L275.4 146.6L274.3 150.7L274.8 156.3L277.4 166.1L280.8 170.2L282.5 178.2L284.8 179.5L287.6 178.6L287.7 180.3L289.1 181.0L288.6 184.2L289.8 185.5L294.4 185.6L295.2 186.9L297.5 187.0L299.2 187.9L301.4 192.2L307.0 196.5L309.2 197.6L310.9 196.8L315.1 201.2L314.2 204.5L314.7 206.6L317.0 205.4L320.7 208.8L321.1 210.4L318.4 214.2L317.9 216.7L319.6 223.4L318.3 228.0L320.5 231.4L318.9 236.2L317.2 234.7L313.5 236.4L312.7 239.5L313.5 241.2L310.0 246.7L309.7 249.1L307.8 249.3L308.9 250.3L307.3 254.4L305.9 255.5L303.7 255.3L304.0 256.3L300.7 260.2L300.4 262.9L297.1 268.4L291.8 267.9L291.0 271.2L285.6 275.9L285.3 277.6L280.4 284.4L281.1 286.3L278.6 288.4L276.6 292.6L273.5 293.1L273.6 294.1L271.0 295.8L269.8 296.0L269.0 294.1L267.1 293.4L262.0 296.5L263.0 299.5L250.6 309.7L249.9 312.7L244.0 317.8L243.0 320.7L240.9 321.8L240.1 324.7L238.1 326.6L239.6 329.2L238.8 331.3L240.1 332.5L240.1 336.7L244.1 333.9L247.1 334.0L249.4 330.7L250.2 332.3L249.3 336.1L250.0 337.7L246.8 341.5L247.5 346.6L244.4 345.5L243.1 349.5L245.5 350.8L244.9 352.4L245.9 354.9L243.9 355.9L243.7 359.5L242.3 361.4L243.2 363.8L246.3 365.6L244.6 368.5L244.9 370.5L246.3 370.8L247.7 373.2L249.2 373.2L250.0 376.3L250.0 378.1L247.6 380.1L247.7 386.3L246.1 386.6L245.9 389.2L244.6 388.9L243.8 390.4L241.7 390.2L240.9 391.8L238.7 391.1L237.1 387.0L235.1 384.8L231.0 384.1L230.4 380.6L227.5 375.1L227.4 369.5L222.8 368.9Z","c":[255.4,264.7]},"ลำพูน":{"d":"M209.3 322.1L211.6 326.8L210.1 327.3L209.2 330.4L207.2 330.7L207.4 334.6L204.9 335.9L204.6 342.5L203.3 345.2L199.9 344.9L197.8 342.5L195.9 342.0L187.7 341.0L184.9 343.6L184.7 345.4L185.7 347.9L188.1 348.7L187.4 350.9L188.1 354.0L185.0 356.8L184.7 359.1L182.3 356.8L178.5 356.7L177.6 358.0L171.7 360.0L170.4 361.7L166.9 362.1L163.9 366.8L163.1 362.7L165.5 359.7L165.6 358.0L164.6 356.4L165.2 351.6L163.0 346.9L164.1 343.0L163.2 339.0L167.5 337.9L170.0 335.9L165.4 330.1L165.4 328.0L163.3 324.6L167.9 324.3L169.7 323.0L171.9 323.4L174.1 319.8L175.4 320.8L176.0 324.1L178.3 323.9L182.1 321.9L181.7 318.1L182.5 317.1L183.6 317.9L180.5 304.6L179.2 303.5L179.7 301.9L176.9 299.6L173.5 300.3L177.4 291.5L175.7 290.5L177.0 287.6L176.4 282.6L174.0 279.9L174.3 275.2L173.0 274.2L173.0 271.7L168.9 270.0L167.2 267.7L162.0 264.8L161.9 263.0L165.4 262.1L162.9 258.3L166.0 252.9L164.6 253.3L164.2 252.4L165.9 249.7L167.1 250.6L167.7 249.3L169.7 251.0L172.0 250.6L173.5 248.9L177.5 247.5L183.0 241.4L184.4 241.8L190.7 238.2L190.5 236.8L194.5 231.2L194.0 229.9L195.5 227.5L198.4 226.3L199.0 223.2L205.2 224.3L206.2 223.3L208.7 223.6L214.9 219.0L218.5 219.3L218.4 222.5L220.5 224.7L223.4 225.7L223.6 229.6L221.8 232.5L226.7 234.9L230.3 238.8L232.6 239.4L232.9 242.9L231.0 244.1L228.8 243.1L226.0 243.7L224.3 245.5L223.8 249.0L219.6 252.2L218.6 255.9L216.1 257.6L216.4 260.6L214.5 264.2L211.3 264.8L210.2 269.9L207.8 268.4L206.6 269.7L201.0 270.1L199.9 271.5L201.0 275.8L204.0 280.5L203.5 282.0L204.9 284.4L205.5 293.4L208.9 300.4L208.3 305.9L210.5 306.7L209.5 310.5L213.9 310.9L213.8 312.2L217.9 316.6L217.8 317.9L215.4 318.4L216.8 322.5L211.2 321.4L209.3 322.1Z","c":[191.1,292.8]},"น่าน":{"d":"M367.8 296.6L360.1 294.2L353.7 299.1L352.6 298.1L351.5 293.1L352.2 291.9L350.7 290.7L350.8 285.1L353.2 282.7L356.2 282.4L357.7 278.2L357.0 275.9L359.5 270.1L361.5 268.4L360.2 267.0L359.9 263.8L361.4 261.7L360.1 260.4L362.6 259.2L364.0 255.5L366.1 255.7L367.6 252.5L367.5 248.2L366.6 244.3L362.8 246.2L360.1 245.1L359.4 243.6L356.0 244.2L355.0 243.0L352.9 245.1L351.1 244.7L349.7 241.8L350.7 240.0L349.8 236.4L347.9 235.5L349.1 229.3L350.8 228.4L350.3 227.2L347.0 226.5L345.9 222.4L350.3 215.5L346.6 214.2L347.0 211.2L344.3 210.1L345.1 207.0L344.4 206.1L347.2 203.0L347.5 200.4L349.7 198.1L350.2 194.1L351.9 193.0L351.6 192.0L355.4 191.9L357.1 193.1L360.1 191.2L360.0 189.6L362.5 186.5L357.4 184.5L361.5 179.6L365.6 180.9L368.3 180.5L369.3 182.1L373.7 183.3L375.2 181.7L369.1 176.4L370.2 173.6L371.5 174.5L375.5 172.8L376.2 167.8L375.0 164.5L374.9 159.6L373.1 156.7L374.9 148.6L374.1 147.2L369.8 150.5L368.5 148.9L369.2 146.5L365.3 145.0L365.9 143.5L364.1 142.1L361.7 142.9L360.9 139.7L366.5 137.8L369.2 135.5L369.3 133.6L371.2 131.1L373.3 130.5L372.9 127.0L374.0 122.6L378.7 121.6L381.0 122.4L390.4 126.8L391.4 129.5L396.7 125.3L401.6 119.6L405.2 112.7L407.8 114.1L414.1 114.4L414.9 113.5L418.4 114.3L420.7 113.3L423.6 114.4L424.2 116.0L426.4 116.6L427.4 118.4L429.6 118.4L430.3 119.8L435.5 118.3L438.5 119.3L439.5 116.0L443.6 116.3L443.9 117.3L447.6 118.7L448.4 120.2L446.9 122.2L448.1 125.0L446.2 127.7L446.0 131.5L442.8 130.7L439.9 131.2L439.3 132.9L440.4 136.0L438.4 139.7L437.3 139.7L437.7 142.2L439.2 145.0L441.9 145.8L443.3 148.1L441.8 150.4L445.3 159.1L443.7 164.9L445.0 171.3L456.0 179.9L453.6 185.1L450.8 185.4L448.8 188.2L449.3 192.4L446.9 193.6L446.9 195.0L444.7 196.4L443.8 198.7L444.7 203.1L443.5 204.8L445.2 207.6L444.2 209.6L444.5 211.9L443.5 212.0L442.7 215.3L441.4 216.4L442.5 218.7L445.0 219.5L446.7 221.4L441.6 228.8L436.8 230.3L436.9 236.1L433.1 237.1L432.0 239.9L428.3 240.6L426.9 243.2L427.1 245.4L422.8 249.7L422.9 251.9L425.6 254.1L426.3 256.8L425.0 259.5L422.9 260.0L416.6 265.2L414.7 265.4L412.9 268.6L408.7 271.8L407.3 274.4L408.7 276.2L406.8 278.4L407.4 282.3L403.3 284.2L403.2 287.0L401.2 288.8L400.4 291.1L396.1 291.7L395.1 294.4L392.5 296.9L390.9 293.3L386.9 295.1L385.9 292.8L384.7 297.5L381.9 297.4L380.7 295.8L374.2 294.9L367.8 296.6Z","c":[394.3,205.8]},"แพร่":{"d":"M252.3 326.9L247.1 334.0L244.1 333.9L240.1 336.7L240.1 332.5L238.8 331.3L239.6 329.2L238.1 326.6L240.1 324.7L240.9 321.8L243.0 320.7L244.0 317.8L249.9 312.7L250.6 309.7L263.0 299.5L262.0 296.5L267.1 293.4L269.0 294.1L269.8 296.0L271.0 295.8L273.6 294.1L273.5 293.1L276.6 292.6L278.6 288.4L281.1 286.3L280.4 284.4L285.3 277.6L285.6 275.9L291.0 271.2L291.8 267.9L297.1 268.4L300.4 262.9L300.7 260.2L304.0 256.3L303.7 255.3L305.9 255.5L307.3 254.4L308.9 250.3L307.8 249.3L309.7 249.1L310.0 246.7L313.5 241.2L312.7 239.5L313.5 236.4L317.2 234.7L319.3 235.9L319.4 232.8L320.5 231.4L318.3 228.0L319.6 223.4L317.9 216.7L318.4 214.2L321.1 210.4L320.0 208.6L320.2 206.3L322.0 206.6L324.5 204.7L326.3 207.5L327.7 206.0L329.2 207.0L332.2 205.7L344.4 207.1L344.3 210.1L347.0 211.2L346.6 214.2L350.3 215.5L345.9 222.4L347.0 226.5L350.3 227.2L350.8 228.4L349.1 229.3L347.9 235.5L349.8 236.4L350.7 240.0L349.7 241.8L351.1 244.7L352.9 245.1L355.0 243.0L356.0 244.2L359.4 243.6L360.1 245.1L362.8 246.2L366.6 244.3L367.6 252.5L366.1 255.7L364.0 255.5L362.6 259.2L360.1 260.4L361.4 261.7L359.9 263.8L360.2 267.0L361.5 268.4L359.5 270.1L357.0 275.9L357.7 278.2L356.2 282.4L353.2 282.7L350.8 285.1L350.7 290.7L352.2 291.9L351.5 293.1L352.6 298.1L350.3 298.1L345.7 302.6L346.7 309.0L344.8 312.8L343.1 313.0L341.0 308.3L338.9 307.9L338.0 305.6L336.1 306.0L334.3 305.0L332.0 306.5L330.8 309.7L325.0 313.3L321.6 317.1L313.6 319.7L312.6 318.0L306.9 320.1L304.9 319.7L306.3 322.2L305.2 323.6L303.3 323.8L302.8 325.9L300.4 325.6L297.5 323.1L294.6 322.7L289.5 323.9L286.7 323.1L283.5 324.6L280.0 329.1L280.1 330.7L277.7 332.6L276.0 331.7L275.3 328.6L274.1 328.6L271.3 323.7L269.0 324.0L266.8 321.9L263.3 321.1L257.8 322.2L254.5 324.1L254.2 325.6L252.3 326.9Z","c":[325.3,270.6]},"พะเยา":{"d":"M344.4 207.1L332.2 205.7L329.2 207.0L327.7 206.0L326.3 207.5L324.5 204.7L322.0 206.6L320.2 206.3L319.9 207.6L317.0 205.4L314.7 206.6L314.2 204.5L315.1 201.2L313.8 199.4L310.9 196.8L309.2 197.6L307.0 196.5L301.4 192.2L299.2 187.9L295.2 186.9L294.4 185.6L289.8 185.5L288.6 184.2L289.1 181.0L287.7 180.3L287.6 178.6L284.8 179.5L282.5 178.2L280.8 170.2L277.4 166.1L274.8 156.3L274.3 150.7L275.4 146.6L273.6 144.2L274.1 141.9L272.6 137.1L276.1 137.4L284.0 133.9L292.4 134.4L293.6 133.3L296.3 136.7L297.9 135.9L298.7 138.9L301.6 136.5L307.2 135.5L308.7 136.4L308.5 135.2L311.7 134.5L314.7 136.1L314.8 123.5L318.2 122.0L325.2 123.3L325.9 116.4L327.5 115.2L332.6 116.0L336.1 111.1L336.8 111.9L338.0 110.7L338.4 111.6L342.1 111.0L344.9 106.7L344.0 104.8L345.4 103.4L349.4 104.0L351.9 101.0L356.1 104.4L354.3 108.1L355.9 109.5L356.3 113.4L360.2 115.6L361.2 119.1L360.2 122.5L363.4 125.4L367.5 125.9L370.4 128.2L372.9 127.0L373.3 130.5L371.2 131.1L369.3 133.6L369.2 135.5L366.5 137.8L360.9 139.7L360.8 141.7L361.7 142.9L364.1 142.1L365.9 143.5L365.3 145.0L369.2 146.5L368.5 148.9L369.8 150.5L374.1 147.2L374.9 148.6L373.1 156.7L374.9 159.6L375.0 164.5L376.2 167.8L375.5 172.8L371.5 174.5L370.2 173.6L369.1 176.4L375.2 181.7L373.7 183.3L369.3 182.1L368.3 180.5L365.6 180.9L361.5 179.6L357.4 184.5L362.5 186.5L360.0 189.6L360.1 191.2L357.1 193.1L355.4 191.9L351.6 192.0L351.9 193.0L350.2 194.1L349.7 198.1L347.5 200.4L347.2 203.0L344.4 206.1L344.6 208.0L344.4 207.1Z","c":[324.4,155.0]},"กำแพงเพชร":{"d":"M286.2 537.0L286.0 539.7L284.0 538.9L282.1 539.8L282.4 542.1L278.8 546.8L275.5 544.3L272.6 545.8L268.7 541.1L266.6 540.3L258.8 541.3L257.0 539.0L255.7 539.6L252.8 538.7L250.1 539.6L250.0 541.7L246.7 541.7L244.4 539.6L242.1 540.7L236.9 539.0L234.0 540.7L232.8 538.8L231.7 541.5L229.5 541.5L229.6 542.9L220.6 536.4L220.2 537.8L219.1 536.8L218.2 538.7L216.7 537.7L216.8 538.7L214.1 540.9L211.9 540.6L208.3 543.9L207.3 543.5L207.2 540.6L208.4 538.5L206.0 536.0L207.5 532.8L207.0 527.5L207.5 525.5L210.4 523.5L210.6 521.9L209.7 519.1L208.1 518.7L206.4 516.0L203.4 514.7L203.4 512.1L205.2 511.5L206.6 505.7L203.2 500.7L202.4 496.9L203.7 495.0L203.5 492.5L202.5 491.6L201.8 486.4L199.6 486.0L200.0 482.5L202.8 482.3L205.2 477.5L209.6 475.3L211.2 475.9L213.1 473.0L215.8 472.7L218.8 468.6L221.8 469.9L224.2 469.2L225.9 465.2L225.8 461.1L224.4 458.8L224.8 454.4L227.6 453.6L227.6 451.9L228.8 451.3L228.7 449.3L231.0 445.5L231.3 442.1L229.7 440.4L232.5 438.9L233.4 436.8L238.1 437.9L240.2 437.3L239.7 434.5L243.2 433.1L243.5 431.0L249.2 430.9L248.5 429.2L249.3 426.9L251.4 425.5L254.2 428.2L254.0 430.5L256.0 435.7L257.3 431.7L260.1 432.4L259.3 431.6L260.4 431.7L261.5 438.2L268.2 445.1L269.3 444.7L271.9 446.8L273.8 446.4L273.9 447.9L274.9 448.0L279.5 445.0L279.1 446.7L281.6 448.1L281.5 451.9L284.7 451.6L286.5 450.2L285.9 448.6L287.1 447.7L288.5 447.3L289.0 448.4L290.3 448.3L291.3 445.9L293.4 448.4L295.9 449.3L294.9 450.7L296.2 457.7L299.2 463.7L309.0 463.7L308.5 470.5L310.1 470.7L311.2 472.8L307.3 478.8L306.7 486.0L305.5 487.4L308.1 491.9L310.3 492.4L309.4 495.9L311.0 497.9L309.7 501.6L312.4 506.7L310.1 508.5L309.1 512.9L299.9 524.3L295.8 524.3L290.4 528.5L290.5 532.7L288.2 536.3L286.2 537.0Z","c":[253.3,486.2]},"เพชรบูรณ์":{"d":"M450.1 585.8L450.5 591.2L449.5 593.1L450.5 595.5L450.3 600.3L447.4 603.7L439.0 608.0L433.0 606.5L429.0 606.8L425.9 605.0L422.8 608.7L420.1 608.4L419.4 606.6L416.3 608.6L415.3 608.2L414.2 597.6L411.2 598.8L409.5 597.8L408.6 595.5L409.5 591.6L408.9 589.9L407.2 589.2L404.2 584.6L400.9 584.9L401.0 582.5L398.6 581.9L395.9 577.2L397.7 574.9L397.0 572.9L398.6 567.2L397.0 563.6L397.1 559.6L393.9 548.4L394.9 546.0L394.7 543.0L391.0 540.7L391.3 538.4L394.9 537.8L394.0 535.3L392.6 534.4L393.0 531.2L387.0 527.9L380.6 527.0L379.3 525.0L376.9 525.3L379.0 518.8L379.0 516.0L377.9 514.4L386.1 501.6L386.0 500.9L380.6 501.7L381.4 500.3L380.9 500.9L379.9 499.7L378.4 495.1L380.4 490.2L384.8 486.2L385.0 482.5L388.5 482.4L390.8 480.9L391.9 481.5L393.5 478.9L395.5 478.8L394.3 476.2L396.8 475.0L396.6 473.5L398.5 472.4L398.7 470.8L400.3 470.4L400.0 468.5L401.3 467.6L400.1 462.5L400.9 459.8L402.0 459.4L402.5 455.9L404.6 453.8L408.6 454.0L409.4 452.3L410.5 452.2L409.1 451.7L409.6 450.5L408.4 448.7L409.4 448.0L407.4 446.5L408.0 443.3L405.8 442.9L406.3 438.3L407.8 439.5L411.3 439.5L412.2 438.5L411.9 435.6L414.5 435.5L414.0 433.7L418.3 431.9L421.7 426.6L427.0 427.0L428.6 426.2L429.6 423.4L429.6 413.3L435.4 411.1L437.5 408.1L439.5 407.7L441.2 408.7L442.0 407.8L441.3 405.7L443.5 403.0L447.4 404.3L455.5 396.3L460.4 395.1L466.3 399.2L467.1 404.2L468.9 405.3L472.1 414.4L475.3 412.9L477.2 416.1L479.9 417.4L481.2 416.0L483.4 415.7L485.8 410.3L488.1 410.8L487.6 412.2L490.8 418.3L491.1 422.5L492.6 422.9L491.1 428.9L491.7 430.7L491.0 430.9L495.9 437.8L495.7 438.6L493.6 437.4L492.1 438.7L496.6 443.9L503.2 442.7L503.6 447.0L501.9 448.6L500.8 452.4L499.2 452.6L499.1 453.7L496.2 455.6L492.3 451.6L486.4 452.3L481.7 449.0L481.2 447.3L477.5 446.8L477.5 448.7L480.1 453.2L479.5 456.0L474.6 452.4L472.8 452.7L472.6 455.2L474.5 459.3L471.6 460.3L471.3 466.0L473.8 467.3L472.0 467.8L472.2 468.6L469.8 470.2L468.6 469.7L467.8 471.6L468.7 475.4L465.4 480.1L462.6 481.8L462.6 483.2L460.5 484.4L461.6 486.4L458.6 489.2L457.3 498.8L455.6 500.6L457.6 502.5L457.1 504.7L458.2 509.0L456.7 509.2L454.2 512.9L452.2 525.8L454.3 529.1L453.8 531.5L456.1 534.8L457.8 534.1L456.4 539.4L457.9 539.8L455.5 543.3L453.3 544.2L452.4 549.7L453.2 550.1L453.2 553.1L451.6 554.7L454.0 557.3L453.6 558.8L455.0 559.2L454.0 559.6L453.8 562.6L455.3 569.3L452.0 574.6L450.4 582.2L448.4 584.4L450.1 585.8Z","c":[421.1,501.9]},"พิจิตร":{"d":"M374.9 532.4L366.1 539.3L364.4 537.4L357.6 537.2L356.5 538.1L352.9 536.8L351.0 538.3L343.7 537.3L344.9 534.5L344.5 533.0L342.6 531.9L342.8 533.5L340.9 533.6L341.2 535.0L336.6 537.4L335.6 535.7L333.8 535.9L333.7 538.1L331.1 538.8L326.5 538.1L324.9 535.0L325.0 532.9L320.0 525.1L319.9 521.4L315.8 516.2L316.7 514.0L315.8 513.6L315.6 511.8L312.2 511.2L310.1 508.5L312.4 506.7L309.7 501.6L311.0 497.9L309.4 495.9L310.3 492.4L308.1 491.9L305.5 487.4L306.7 486.0L307.3 478.8L311.2 472.8L310.1 470.7L308.5 470.5L308.7 464.4L311.1 463.5L312.5 464.8L315.4 464.1L318.0 460.8L320.3 459.9L323.4 462.0L327.7 463.2L326.6 461.7L329.0 460.5L328.7 459.2L329.7 458.7L328.4 458.3L328.3 456.3L331.0 456.1L331.0 457.8L332.7 459.7L332.9 466.8L334.7 469.6L336.3 468.7L342.8 470.1L346.8 469.0L348.6 467.7L347.8 467.2L349.6 466.9L353.9 468.9L354.5 471.2L359.0 470.8L360.3 468.1L362.6 466.9L363.2 464.5L365.0 465.5L368.6 464.8L370.4 463.2L370.6 470.4L371.7 470.7L371.4 476.3L369.6 477.7L372.5 482.7L373.8 482.5L376.4 484.8L377.0 487.4L375.2 490.4L375.7 492.5L378.8 493.5L378.5 496.3L379.9 499.7L380.9 500.9L381.4 500.3L380.6 501.7L386.0 500.9L386.1 501.6L377.9 514.4L379.0 516.0L379.0 518.8L376.9 525.3L379.3 525.0L380.6 527.0L387.0 527.9L391.6 530.1L393.0 531.2L392.6 534.4L394.0 535.3L394.9 537.8L391.3 538.4L388.2 531.8L384.3 531.7L379.0 529.7L375.9 530.2L374.9 532.4Z","c":[344.6,497.1]},"พิษณุโลก":{"d":"M380.4 490.2L378.8 493.5L375.9 492.9L375.2 490.4L377.0 487.4L376.4 484.8L373.8 482.5L372.5 482.7L369.6 477.7L371.4 476.3L371.7 470.7L370.6 470.4L370.4 463.2L368.6 464.8L365.0 465.5L363.2 464.5L362.6 466.9L360.3 468.1L359.0 470.8L354.5 471.2L353.9 468.9L349.6 466.9L347.8 467.2L348.6 467.7L346.8 469.0L342.8 470.1L336.3 468.7L334.0 469.4L332.9 466.8L332.7 459.7L331.0 457.8L331.0 456.1L328.3 456.3L328.4 458.3L329.7 458.7L328.7 459.2L329.0 460.5L326.6 461.7L327.7 463.2L323.4 462.0L320.3 459.9L318.0 460.8L315.4 464.1L312.5 464.8L311.1 463.5L308.7 464.4L308.1 463.1L306.7 464.1L299.2 463.7L296.2 457.7L294.9 450.7L295.9 449.3L293.4 448.4L291.3 445.9L294.0 440.8L295.3 438.8L301.0 435.3L301.1 431.0L306.7 430.7L307.3 431.5L308.5 428.3L316.7 428.3L318.3 427.0L318.4 425.4L319.5 425.3L318.1 419.0L319.1 418.5L317.6 416.4L315.8 416.4L314.0 414.1L312.1 414.3L311.8 413.1L307.9 410.4L308.9 407.4L307.1 405.7L305.7 406.5L305.4 403.9L302.9 402.0L302.0 396.3L308.3 398.2L306.9 399.7L308.8 399.6L311.3 394.7L323.7 394.2L325.1 396.3L325.8 392.3L329.9 391.7L335.1 387.0L333.3 379.1L334.0 375.1L340.9 371.6L342.8 373.2L343.5 371.1L348.2 370.5L354.1 367.1L360.3 367.5L362.2 366.3L363.6 369.1L365.5 367.6L371.9 367.3L373.4 366.3L374.6 362.1L378.0 361.1L377.5 359.2L380.8 357.8L382.9 355.5L388.4 353.2L392.1 348.5L392.3 346.5L395.2 342.2L399.6 340.4L402.8 334.3L406.4 333.3L407.4 335.2L412.0 335.0L414.3 333.2L415.6 330.1L417.7 331.5L416.8 335.2L417.9 335.1L416.0 338.0L415.9 344.4L413.4 347.3L413.2 349.9L409.0 350.1L406.3 347.3L403.8 348.3L401.6 352.9L402.9 354.8L398.6 360.2L398.8 361.7L401.1 363.7L403.2 363.9L405.3 362.0L407.7 363.6L408.6 367.2L407.5 376.2L417.6 377.1L418.1 379.3L422.3 382.9L426.0 383.4L428.9 388.6L428.7 390.8L425.8 393.7L424.6 402.3L422.6 402.3L423.0 413.6L421.5 417.3L422.6 421.0L420.0 421.9L421.1 423.6L424.7 424.3L424.2 426.8L421.7 426.6L418.3 431.9L414.0 433.7L414.5 435.5L411.9 435.6L412.2 438.5L411.3 439.5L407.8 439.5L406.3 438.3L405.8 442.9L408.0 443.3L407.4 446.5L409.4 448.0L408.4 448.7L409.6 450.5L409.1 451.7L410.5 452.2L409.4 452.3L408.6 454.0L404.6 453.8L401.7 457.1L402.0 459.4L400.9 459.8L400.0 464.0L401.3 467.6L400.0 468.5L400.3 470.4L398.7 470.8L398.5 472.4L396.6 473.5L396.8 475.0L394.3 476.2L395.5 478.8L393.5 478.9L391.9 481.5L390.8 480.9L388.5 482.4L385.0 482.5L384.8 486.2L380.4 490.2Z","c":[366.2,412.1]},"สุโขทัย":{"d":"M295.3 438.8L290.3 448.3L289.0 448.4L288.5 447.3L287.1 447.7L285.9 448.6L286.5 450.2L284.7 451.6L281.5 451.9L281.6 448.1L279.1 446.7L279.5 445.0L274.9 448.0L273.9 447.9L273.8 446.4L271.9 446.8L269.3 444.7L268.2 445.1L261.5 438.2L260.4 431.7L259.3 431.6L260.1 432.4L257.3 431.7L256.0 435.7L254.0 430.5L254.2 428.2L251.4 425.5L249.3 426.9L248.5 429.2L246.9 428.2L247.4 422.6L243.4 413.5L240.8 412.1L240.2 407.5L240.9 406.0L238.4 404.3L235.0 404.8L233.1 402.7L234.0 399.8L232.3 398.9L232.5 384.6L235.1 384.8L237.1 387.0L238.7 391.1L240.9 391.8L241.7 390.2L243.8 390.4L244.6 388.9L245.9 389.2L246.1 386.6L247.7 386.3L247.6 380.1L250.0 378.1L250.0 376.3L249.2 373.2L247.7 373.2L246.3 370.8L244.9 370.5L244.6 368.5L246.3 365.6L243.2 363.8L242.3 361.4L243.7 359.5L243.9 355.9L245.9 354.9L244.9 352.4L245.5 350.8L243.1 349.5L244.4 345.5L247.5 346.6L246.8 341.5L250.0 337.7L249.4 330.7L251.2 327.9L254.2 325.6L254.5 324.1L257.8 322.2L263.3 321.1L266.8 321.9L269.0 324.0L271.3 323.7L274.1 328.6L275.3 328.6L276.0 331.7L277.7 332.6L280.1 330.7L280.0 329.1L283.5 324.6L286.7 323.1L289.5 323.9L295.8 322.9L298.8 325.1L298.9 327.2L297.7 327.8L298.7 329.6L303.3 333.8L304.8 339.9L303.6 342.8L304.7 344.0L299.0 348.1L300.8 352.3L300.0 357.3L300.8 358.6L302.5 357.4L304.3 358.5L305.3 361.2L308.1 363.1L309.5 362.8L310.7 365.5L306.4 368.9L308.4 371.8L307.3 373.1L308.7 377.0L306.6 379.6L307.6 381.4L305.2 382.8L302.4 387.6L304.4 387.8L302.8 389.0L305.4 390.7L304.2 391.3L305.6 393.7L304.4 396.6L302.4 395.9L302.1 397.6L302.9 402.0L305.4 403.9L305.7 406.5L307.1 405.7L308.9 407.4L307.9 410.4L311.8 413.1L312.1 414.3L314.0 414.1L315.8 416.4L317.6 416.4L319.1 418.5L318.1 419.0L319.5 425.3L318.4 425.4L318.3 427.0L316.7 428.3L308.5 428.3L307.3 431.5L306.7 430.7L301.1 431.0L301.0 435.3L295.3 438.8Z","c":[275.4,386.4]},"ตาก":{"d":"M209.4 524.8L207.5 525.5L206.7 529.7L207.5 532.8L206.0 536.0L208.4 538.5L207.2 540.6L207.3 543.5L208.5 545.3L208.4 549.9L212.5 553.7L211.8 557.3L213.0 561.4L210.1 568.7L210.5 572.7L208.5 575.2L208.1 578.5L203.1 581.6L203.9 585.1L206.4 588.0L203.9 594.4L205.3 600.0L202.6 602.2L202.5 605.7L201.2 606.9L202.1 612.3L200.4 613.5L199.9 617.1L198.5 618.0L198.1 624.2L196.1 624.8L193.9 621.8L192.9 617.0L189.4 617.1L188.1 614.6L185.4 613.8L185.9 612.1L183.7 608.1L180.3 605.4L179.4 605.7L173.6 596.8L170.9 594.8L171.5 591.2L165.3 587.8L165.3 586.9L167.0 587.3L167.6 586.0L160.7 576.6L159.3 572.7L158.5 572.1L156.8 573.5L157.0 572.1L152.9 571.3L152.2 569.6L149.5 570.6L148.2 567.1L151.1 555.3L155.2 544.7L153.6 544.8L152.3 540.1L154.8 532.2L153.7 529.5L150.2 527.1L150.4 524.1L152.6 521.9L154.1 522.1L155.5 525.9L157.4 525.0L157.0 523.4L160.7 522.1L160.6 521.0L162.2 519.5L161.3 517.9L163.0 517.7L162.6 516.0L163.5 515.2L165.9 515.0L167.0 516.4L169.7 516.9L173.7 516.0L176.4 518.6L181.1 515.8L181.5 512.0L182.7 511.0L182.0 504.8L183.8 503.1L184.5 504.0L185.6 502.0L187.3 501.3L188.1 496.2L189.9 495.3L189.8 490.8L187.9 490.5L188.9 486.3L184.6 481.6L179.1 482.0L177.4 485.2L177.8 486.2L174.0 488.5L173.4 490.8L170.2 490.7L168.1 492.3L165.4 499.1L163.0 498.1L162.4 499.3L161.3 496.9L161.3 490.8L159.8 490.0L161.0 488.3L159.9 487.9L159.4 485.3L160.2 484.5L158.0 483.2L160.3 478.5L159.6 476.3L157.7 475.5L155.5 472.2L153.7 467.6L152.1 467.6L152.4 466.2L151.0 465.1L152.6 465.4L151.8 464.4L152.6 463.1L150.9 460.8L150.9 457.9L146.8 457.4L145.6 455.8L144.4 456.5L145.0 449.9L142.6 451.1L143.3 448.4L139.8 448.4L140.7 447.9L139.1 446.8L139.7 445.6L138.9 444.4L140.9 444.6L141.7 439.6L143.5 440.2L144.2 438.8L145.4 439.6L145.9 438.7L144.7 438.0L148.3 436.9L147.1 435.1L145.9 435.4L144.7 434.2L143.3 434.8L142.2 433.8L143.2 431.2L144.8 432.0L144.0 429.4L147.4 431.5L146.0 428.9L147.0 427.2L144.4 426.8L145.4 425.0L143.9 425.8L143.7 423.8L141.9 424.4L141.3 422.8L142.8 421.3L144.0 421.6L141.8 420.4L141.7 418.9L139.7 418.9L141.0 417.9L140.2 416.3L137.4 415.9L138.2 413.0L135.4 413.0L136.2 411.4L132.5 409.1L131.8 410.1L131.0 408.6L126.1 410.0L122.5 406.5L122.5 405.3L121.1 405.1L122.1 404.0L122.9 404.6L123.6 402.8L121.3 403.2L121.0 400.9L120.4 402.5L119.0 402.3L119.5 399.0L120.9 398.8L119.8 397.6L118.0 398.1L117.6 397.0L118.9 395.6L116.6 395.4L117.0 394.0L115.5 394.5L115.3 391.3L113.3 392.0L114.9 389.2L113.2 390.1L111.5 389.2L110.7 386.8L106.6 385.3L106.0 383.5L103.1 381.9L102.1 378.8L100.6 378.7L99.8 374.9L101.4 372.6L100.3 371.2L97.9 370.0L97.1 370.7L93.3 366.1L94.5 364.8L92.3 363.6L87.4 356.8L85.1 357.1L84.2 354.9L79.9 353.6L77.8 348.2L65.7 337.4L62.3 332.2L62.3 329.9L63.6 329.2L61.9 327.0L60.5 327.0L60.1 325.3L62.3 326.3L64.8 325.3L65.9 326.2L67.9 325.3L71.6 326.0L77.9 322.0L77.2 320.1L78.6 317.4L85.4 316.1L84.7 317.1L86.4 319.4L85.6 320.9L87.4 322.4L87.1 325.2L89.4 327.1L90.7 330.6L90.0 331.3L91.3 332.7L90.9 333.9L91.8 333.9L92.8 337.9L99.5 344.0L100.2 348.6L102.2 350.3L103.3 353.3L106.7 352.6L107.9 353.8L111.1 353.5L114.4 352.4L117.7 348.9L120.9 349.3L124.4 361.6L123.3 364.5L124.2 366.2L123.7 367.6L120.2 368.6L124.9 375.5L124.7 377.7L123.0 378.6L124.5 380.9L127.8 382.4L127.5 383.9L131.3 387.7L138.8 383.9L141.9 384.5L143.4 383.4L146.6 384.0L151.2 382.8L151.7 381.2L149.4 381.8L149.8 375.2L147.2 373.9L149.2 370.0L149.4 367.2L145.1 360.6L145.2 356.7L147.3 352.2L145.6 349.7L146.7 344.3L145.9 334.2L142.5 325.8L142.4 322.0L144.1 322.1L145.1 320.7L149.6 324.0L150.9 322.4L153.9 323.3L156.6 326.2L158.3 321.9L161.8 319.7L163.6 325.9L165.4 328.0L165.4 330.1L169.4 334.3L170.0 335.9L169.1 337.0L163.2 339.0L164.1 343.0L163.0 346.9L165.2 351.6L164.6 356.4L165.6 358.0L165.5 359.7L163.1 362.7L163.9 366.8L166.9 362.1L170.4 361.7L171.7 360.0L177.6 358.0L178.5 356.7L182.3 356.8L184.7 359.1L185.0 356.8L188.1 354.0L189.7 355.3L190.4 361.0L195.8 362.1L199.1 367.9L201.3 368.3L203.0 371.1L206.2 372.7L207.5 372.3L209.8 374.3L210.2 372.7L216.7 376.9L222.8 368.9L227.4 369.5L228.1 377.5L230.4 380.6L231.0 384.1L232.5 384.6L233.0 387.5L232.0 393.8L232.3 398.9L234.0 399.8L233.1 402.7L235.0 404.8L238.4 404.3L240.9 406.0L240.2 407.5L240.8 412.1L243.4 413.5L246.6 420.0L247.4 422.6L246.9 428.2L249.2 430.9L243.5 431.0L243.2 433.1L239.7 434.5L240.2 437.3L238.1 437.9L233.4 436.8L232.5 438.9L229.7 440.4L231.3 442.1L231.0 445.5L228.7 449.3L228.8 451.3L227.6 451.9L227.6 453.6L224.8 454.4L224.4 458.8L225.8 461.1L225.9 465.2L224.2 469.2L221.8 469.9L218.8 468.6L215.8 472.7L213.1 473.0L211.2 475.9L209.6 475.3L205.2 477.5L202.8 482.3L200.0 482.5L199.6 486.0L201.8 486.4L202.5 491.6L203.5 492.5L203.7 495.0L202.4 496.9L203.2 500.7L206.6 505.7L205.2 511.5L203.4 512.1L203.4 514.7L206.4 516.0L208.1 518.7L209.7 519.1L210.6 521.9L209.4 524.8Z","c":[185.9,470.3]},"อุตรดิตถ์":{"d":"M333.3 379.1L334.5 388.2L329.9 391.7L325.8 392.3L325.1 396.3L323.7 394.2L311.3 394.7L308.8 399.6L306.9 399.7L308.3 398.2L304.4 396.6L305.6 393.7L304.2 391.3L305.4 390.7L302.8 389.0L304.4 387.8L302.4 387.6L305.2 382.8L307.6 381.4L306.6 379.6L308.7 377.0L307.3 373.1L308.4 371.8L306.4 368.9L306.9 367.7L309.1 367.6L310.7 364.5L309.5 362.8L308.1 363.1L305.3 361.2L304.3 358.5L302.5 357.4L300.8 358.6L300.0 357.3L300.8 352.3L299.0 348.1L304.7 344.0L303.6 342.8L304.8 339.9L303.3 333.8L297.7 327.8L298.9 327.2L298.8 325.1L295.8 322.9L302.8 325.9L303.3 323.8L305.2 323.6L306.3 322.2L304.9 319.7L306.9 320.1L312.6 318.0L313.6 319.7L321.6 317.1L325.0 313.3L330.8 309.7L332.0 306.5L334.3 305.0L336.1 306.0L338.0 305.6L338.9 307.9L341.0 308.3L341.6 311.0L344.0 313.4L346.7 309.0L345.7 302.6L350.3 298.1L351.9 297.8L353.7 299.1L360.1 294.2L367.8 296.6L374.2 294.9L380.7 295.8L381.9 297.4L384.7 297.5L385.9 292.8L386.9 295.1L390.9 293.3L392.5 296.9L395.1 294.4L396.1 291.7L400.4 291.1L401.2 288.8L403.2 287.0L404.1 283.2L407.4 282.3L406.8 278.4L408.7 276.2L407.3 274.4L414.7 265.4L416.6 265.2L422.9 260.0L425.0 259.5L426.3 256.8L431.3 258.5L433.1 260.7L436.8 261.4L433.1 266.7L434.7 268.6L432.6 270.8L434.3 272.2L435.0 275.6L436.5 274.8L438.0 276.1L434.5 286.4L435.8 291.9L437.0 293.1L434.4 297.2L433.5 296.3L430.1 300.7L429.7 306.2L424.6 310.5L422.0 310.6L418.9 313.1L418.8 314.6L420.7 316.6L420.4 319.7L416.7 321.2L416.1 323.1L417.6 325.4L416.8 327.0L414.4 327.9L415.6 330.1L414.3 333.2L412.0 335.0L408.7 335.5L406.9 334.8L406.4 333.3L402.8 334.3L399.6 340.4L395.2 342.2L392.3 346.5L392.1 348.5L388.4 353.2L382.9 355.5L380.8 357.8L377.5 359.2L378.0 361.1L374.6 362.1L373.4 366.3L371.9 367.3L365.5 367.6L363.6 369.1L362.2 366.3L360.3 367.5L354.1 367.1L348.2 370.5L343.5 371.1L342.8 373.2L340.9 371.6L334.0 375.1L333.3 379.1Z","c":[356.2,328.4]}},"ctx":["M313.7 615.2L302.7 610.2L294.8 612.4L290.9 609.6L280.8 609.6L277.4 615.6L278.0 621.5L281.0 625.3L279.8 626.6L284.3 634.1L282.1 642.0L243.6 642.0L243.8 639.9L237.8 639.9L235.0 636.1L231.3 638.2L231.0 642.0L213.6 642.0L213.5 639.5L203.4 640.5L197.9 637.3L198.5 628.9L196.1 624.8L198.1 624.2L198.5 618.0L202.1 612.3L202.6 602.2L205.3 600.0L203.9 594.4L206.4 588.0L203.1 581.6L208.1 578.5L210.5 572.7L213.0 561.4L212.5 553.7L221.6 557.2L229.4 565.3L237.2 567.6L239.3 573.6L244.1 574.8L249.3 580.5L253.9 580.8L275.1 566.7L278.0 566.4L292.3 574.5L292.9 570.1L299.9 568.1L301.6 587.8L307.4 590.0L311.2 586.8L308.8 591.1L314.0 595.1L313.2 596.6L318.5 597.5L316.9 598.7L318.8 602.5L315.6 603.0L318.3 606.8L313.7 615.2Z","M362.9 630.3L357.5 632.2L353.7 639.4L346.1 633.8L344.1 626.8L342.2 627.3L337.5 619.7L335.0 604.6L332.8 603.1L330.7 604.8L321.0 598.1L313.2 596.6L314.0 595.1L308.8 591.1L311.2 586.8L307.4 590.0L301.6 587.8L299.9 568.1L292.9 570.1L292.3 574.5L278.0 566.4L275.1 566.7L253.9 580.8L249.3 580.5L244.1 574.8L239.3 573.6L237.2 567.6L229.4 565.3L221.6 557.2L216.0 556.1L209.1 551.1L207.3 543.5L220.6 536.4L229.6 542.9L232.8 538.8L234.0 540.7L236.9 539.0L244.4 539.6L246.7 541.7L257.0 539.0L258.8 541.3L266.6 540.3L272.6 545.8L275.5 544.3L278.8 546.8L282.1 539.8L286.0 539.7L290.5 532.7L290.4 528.5L295.8 524.3L299.9 524.3L309.1 512.9L310.1 508.5L315.6 511.8L315.8 516.2L327.2 538.7L333.7 538.1L333.8 535.9L337.6 537.0L342.6 531.9L344.9 534.5L343.7 537.3L364.4 537.4L366.1 539.3L375.9 530.2L388.2 531.8L391.0 540.7L394.7 543.0L393.9 548.4L398.6 567.2L395.9 577.2L398.5 580.7L389.0 586.6L391.6 588.5L391.5 592.4L385.3 594.7L381.8 593.5L377.9 597.6L375.8 604.3L376.7 608.3L372.0 614.7L374.5 617.5L365.6 624.4L362.9 630.3Z","M462.2 641.6L458.8 607.2L466.7 605.7L468.2 603.2L471.2 604.5L482.3 601.9L484.6 603.6L488.2 599.4L500.5 601.7L504.4 596.8L513.0 600.5L520.0 593.0L520.0 642.0L462.2 641.6Z","M230.2 641.2L232.8 636.1L237.8 639.9L243.8 639.9L243.6 642.0L230.2 641.2Z","M114.0 640.6L108.5 634.4L111.7 624.8L110.0 618.8L116.5 619.8L121.5 613.3L121.0 609.5L132.3 616.2L133.7 611.6L130.8 610.6L133.7 608.3L133.9 603.7L138.2 603.2L137.5 601.4L139.9 602.7L143.2 600.8L147.2 602.9L149.2 607.0L151.8 602.5L152.4 591.3L148.9 576.2L149.5 570.6L152.2 569.6L156.8 573.5L159.3 572.7L167.6 586.0L165.3 587.8L171.5 591.2L170.9 594.8L179.4 605.7L183.7 608.1L185.4 613.8L189.4 617.1L192.9 617.0L198.5 628.9L197.9 637.3L203.4 640.5L213.9 640.0L213.6 642.0L113.1 642.0L114.0 640.6Z","M358.6 642.0L354.2 638.4L357.5 632.2L362.9 630.3L365.6 624.4L374.5 617.5L372.0 614.7L376.7 608.3L375.8 604.3L377.9 597.6L381.8 593.5L385.3 594.7L391.5 592.4L391.6 588.5L389.0 586.6L398.5 580.7L400.9 584.9L404.2 584.6L408.9 589.9L409.5 597.8L414.2 597.6L414.5 606.7L416.3 608.6L419.4 606.6L422.8 608.7L425.9 605.0L439.0 608.0L447.4 603.7L450.3 600.3L450.1 585.8L448.4 584.4L455.3 569.3L454.0 559.6L461.3 560.8L457.5 578.2L460.6 637.2L456.0 642.0L358.6 642.0Z","M488.2 599.4L484.6 603.6L482.3 601.9L471.2 604.5L468.2 603.2L466.7 605.7L458.8 607.2L457.5 578.2L461.3 560.8L453.6 558.8L451.6 554.7L453.3 544.2L457.9 539.8L456.4 539.4L457.8 534.1L456.1 534.8L453.8 531.5L452.2 525.8L454.2 512.9L458.2 509.0L457.6 502.5L455.6 500.6L458.6 489.2L461.6 486.4L460.5 484.4L468.7 475.4L468.6 469.7L473.8 467.3L471.3 466.0L471.6 460.3L474.5 459.3L472.8 452.7L479.5 456.0L478.2 446.5L486.4 452.3L492.3 451.6L496.2 455.6L499.1 453.7L502.1 456.1L501.7 458.2L507.7 454.9L516.0 458.3L520.0 457.4L520.0 593.0L513.0 600.5L504.4 596.8L500.5 601.7L488.2 599.4Z","M331.3 640.6L339.5 638.1L339.0 636.5L345.9 631.7L346.1 633.8L358.6 642.0L331.6 642.0L331.3 640.6Z","M503.2 442.7L496.6 443.9L492.1 438.7L495.9 437.8L491.0 430.9L492.6 422.9L488.1 410.8L485.8 410.3L483.4 415.7L479.9 417.4L475.3 412.9L472.1 414.4L466.3 399.2L460.4 395.1L455.5 396.3L447.4 404.3L443.5 403.0L441.2 408.7L437.5 408.1L435.4 411.1L429.6 413.3L428.6 426.2L424.2 426.8L424.7 424.3L420.0 421.9L422.6 421.0L422.6 402.3L424.6 402.3L425.8 393.7L428.9 388.6L426.0 383.4L422.3 382.9L417.6 377.1L407.5 376.2L407.7 363.6L405.3 362.0L401.1 363.7L398.6 360.2L402.9 354.8L402.4 350.4L406.3 347.3L409.0 350.1L419.4 351.5L423.6 356.7L428.1 357.1L427.2 358.5L429.3 360.6L434.8 361.6L436.2 355.2L442.1 353.8L450.4 340.7L454.8 339.8L458.7 335.3L460.8 337.1L464.0 333.3L460.5 331.5L465.7 331.8L469.8 328.2L470.6 332.3L474.0 326.2L479.7 325.3L477.3 321.2L479.8 315.6L481.8 317.9L484.4 312.8L494.6 311.8L497.1 309.6L502.1 293.0L515.5 297.3L520.0 290.9L520.0 434.1L503.2 442.7Z","M519.7 457.4L516.0 458.3L507.7 454.9L501.7 458.2L502.1 456.1L499.1 453.7L503.6 447.0L503.2 442.7L520.0 434.1L519.7 457.4Z","M282.1 641.0L284.3 634.1L279.8 626.6L281.0 625.3L278.0 621.5L277.4 615.6L280.8 609.6L290.9 609.6L294.8 612.4L307.6 610.8L313.7 615.2L318.3 606.8L315.6 603.0L318.8 602.5L316.9 598.7L318.5 597.5L330.7 604.8L332.8 603.1L335.0 604.6L337.5 619.7L342.2 627.3L344.1 626.8L345.9 631.7L339.0 636.5L339.5 638.1L331.3 640.6L331.6 642.0L282.1 641.0Z","M456.0 642.0L460.6 637.2L462.4 642.0L456.0 642.0Z"]};
+  let ocpPhotos = {}, ocpCanUpload = false, ocpSel = '', ocpFilter = 'on';
+
+  // same normalisation as the server: no leading title, single spaces, "เเ" -> "แ"
+  function ocpKey(n) {
+    let s = String(n || '').split(/\s+/).filter(Boolean).join(' ');
+    for (const t of ['นางสาว', 'น.ส.', 'นส.', 'นาง', 'นาย', 'คุณ']) { if (s.startsWith(t)) { s = s.slice(t.length).trim(); break; } }
+    return s.replace(/เเ/g, 'แ');
+  }
+  function ocpInitials(n) { const k = ocpKey(n).split(' '); return (k[0] || '').slice(0, 1) + (k[1] || '').slice(0, 1); }
+  function ocpAvatar(name, position, size, square) {
+    const ph = ocpPhotos[ocpKey(name)];
+    const ring = position === 'Eng Zone' ? '#d97706' : (position === 'INOC' ? '#0d9488' : '#2563eb');
+    const base = `width:${size}px;height:${size}px;border-radius:${square ? '16px' : '50%'};border:${size > 40 ? 3 : 2}px solid ${ring};flex:none;`;
+    if (ph) return `<img src="${ph}" alt="" style="${base}object-fit:cover;display:block;">`;
+    let h = 0; for (const ch of ocpKey(name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return `<span style="${base}display:inline-grid;place-items:center;background:hsl(${h} 45% 78%);color:#1f2937;font-weight:700;font-size:${Math.round(size * 0.36)}px;">${escapeHtml(ocpInitials(name))}</span>`;
+  }
+  function ocpPeople() {
+    const t = todayStr(), map = new Map();
+    for (const p of (escalationData && escalationData.provinces || [])) {
+      if (p.province === 'INOC') continue;   // INOC has its own strip, not on the Sup/Eng province map
+      for (const c of p.contacts) {
+        const base = escBaseName(p.province);
+        const k = base + '|' + c.position + '|' + ocpKey(c.name);
+        if (!map.has(k)) map.set(k, { prov: base, labels: new Set(), position: c.position, name: c.name, tel: c.tel, on: false });
+        const m = map.get(k); m.labels.add(c.province || base); m.on = m.on || c.days[t] === 'on'; m.tel = m.tel || c.tel;
+      }
+    }
+    return [...map.values()];
+  }
+  function escBaseName(n) { return String(n || '').replace(/[12]$/, ''); }
+
+  function ocpSvgAvatar(p, cx, cy, R, uid) {
+    const ring = p.position === 'Eng Zone' ? '#d97706' : '#2563eb';
+    const ph = ocpPhotos[ocpKey(p.name)];
+    let body;
+    if (ph) {
+      body = `<clipPath id="ocpc${uid}"><circle cx="${cx}" cy="${cy}" r="${R}"/></clipPath><circle cx="${cx}" cy="${cy}" r="${R}" fill="#fff"/><image href="${ph}" x="${cx - R}" y="${cy - R}" width="${R * 2}" height="${R * 2}" clip-path="url(#ocpc${uid})" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+      let h = 0; for (const ch of ocpKey(p.name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+      body = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="hsl(${h} 60% 82%)"/><text class="ocp-ini" x="${cx}" y="${cy + R * 0.22}" style="font-size:${R * 0.62}px">${escapeHtml(ocpInitials(p.name))}</text>`;
+    }
+    return `<g>${body}<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#fff" stroke-width="3.4"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${ring}" stroke-width="2.4"/></g>`;
+  }
+
+  function renderPeoplePanel() {
+    const box = el('oc-people-panel'); if (!box) return;
+    if (!escalationData || !escalationData.provinces) { box.innerHTML = ''; return; }
+    const people = ocpPeople();
+    const onOf = n => { const s = new Set(); return people.filter(p => p.prov === n && p.on && !s.has(p.position + ocpKey(p.name)) && s.add(p.position + ocpKey(p.name))); };
+    const allOn = (() => { const s = new Set(); return people.filter(p => p.on && !s.has(p.position + ocpKey(p.name)) && s.add(p.position + ocpKey(p.name))); })();
+    const nSup = allOn.filter(p => p.position !== 'Eng Zone').length, nEng = allOn.length - nSup;
+    const nZero = Object.keys(OCP_GEO.prov).filter(n => !onOf(n).length).length;
+    let uid = 0;
+    const ctxPaths = OCP_GEO.ctx.map(d => `<path class="ocp-ctx" d="${d}"/>`).join('');
+    const prov = Object.keys(OCP_GEO.prov).map(n => {
+      const g = OCP_GEO.prov[n], ps = onOf(n), x = g.c[0], y = g.c[1], R = n === ocpSel ? 17 : 15, step = R * 1.5, x0 = x - (ps.length - 1) * step / 2;
+      const av = ps.map((p, i) => ocpSvgAvatar(p, x0 + i * step, y - 5, R, ++uid)).join('');
+      const tip = n + '\n' + (ps.length ? ps.map(p => '• ' + p.name + ' (' + p.position + ')').join('\n') : 'ไม่มีคนเข้าเวร');
+      return `<g class="ocp-pv${n === ocpSel ? ' sel' : ''}${ps.length ? '' : ' zero'}" data-prov="${escapeHtml(n)}" data-tip="${escapeHtml(tip)}"><path class="ocp-b" d="${g.d}"/>${av}<text class="ocp-pn" x="${x}" y="${y + R + 9}">${escapeHtml(n)}</text>${ps.length ? '' : `<text class="ocp-nobody" x="${x}" y="${y - 3}">ไม่มีคนเข้าเวร</text>`}</g>`;
+    }).join('');
+    let list = people.filter(p => !ocpSel || p.prov === ocpSel);
+    if (ocpFilter === 'on') list = list.filter(p => p.on);
+    const seen = new Set();
+    list = list.filter(p => { const k = p.position + '|' + ocpKey(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
+    list.sort((a, b) => (b.on - a.on) || a.prov.localeCompare(b.prov, 'th'));
+    const card = p => {
+      const lab = [...p.labels].sort((a, b) => a.localeCompare(b, 'th')).join(', ');
+      const cam = ocpCanUpload ? `<span class="ocp-cam" data-ocp-up="${escapeHtml(ocpKey(p.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : '';
+      return `<div class="ocp-card${p.position === 'Eng Zone' ? ' eng' : ''}${p.on ? ' on' : ' off'}"><span class="ocp-badge">${p.on ? 'On Call' : 'ไม่เข้าเวร'}</span><div class="ocp-av">${ocpAvatar(p.name, p.position, 76)}<span class="ocp-st"></span>${cam}</div>
+        <span class="ocp-role">${escapeHtml(p.position)}</span><div class="ocp-nm">${escapeHtml(p.name)}</div>
+        <div class="ocp-where">${escapeHtml(lab)}</div>
+        ${p.tel ? `<a class="ocp-call" href="${telHref(p.tel)}">📞 ${escapeHtml(p.tel)}</a>` : ''}</div>`;
+    };
+    const sec = (t, a) => a.length ? `<div class="ocp-sec">${t.toUpperCase()} · ${a.length} คน</div><div class="ocp-grid">${a.map(card).join('')}</div>` : '';
+    const body = list.length ? sec('Supervisor', list.filter(p => p.position !== 'Eng Zone')) + sec('Eng Zone', list.filter(p => p.position === 'Eng Zone'))
+      : '<div class="ocp-empty">⚠ ไม่มีคนเข้าเวรในจังหวัดนี้วันนี้</div>';
+    const inocAll = [];
+    for (const pr of escalationData.provinces) if (pr.province === 'INOC') pr.contacts.forEach(c => inocAll.push(c));
+    const tdy = todayStr(), inocOn = inocAll.filter(c => c.days[tdy] === 'on');
+    const inocTel = (inocAll.find(c => c.tel) || {}).tel || '082-095-4450';
+    const nick = n => { const m = String(n).match(/\(([^)]+)\)\s*$/); return m ? m[1] : String(n).split(' ')[0]; };
+    const full = n => String(n).replace(/\s*\([^)]*\)\s*$/, '');
+    const inocHtml = inocAll.length ? `<div class="ocp-inoc"><div class="ocp-ih"><div class="t">INOC TEAM</div><div class="s">เข้าเวรวันนี้ ${inocOn.length} / ${inocAll.length} คน</div><a class="ocp-icall" href="${telHref(inocTel)}">📞 ${escapeHtml(inocTel)}</a></div>
+      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 104, true)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
+    box.innerHTML = `<div class="ocp-top"><div class="ocp-kpis">
+        <div class="ocp-kpi"><b style="color:#16a34a">${allOn.length}</b><span>เข้าเวรวันนี้</span></div>
+        <div class="ocp-kpi"><b style="color:#2563eb">${nSup}</b><span>Supervisor</span></div>
+        <div class="ocp-kpi"><b style="color:#d97706">${nEng}</b><span>Eng Zone</span></div>
+        <div class="ocp-kpi"><b style="color:#ef4444">${nZero}</b><span>จังหวัดไม่มีคนเข้าเวร</span></div></div>${inocHtml}</div>
+      <div class="ocp-wrap">
+      <div class="ocp-box"><div class="ocp-legend"><span><i style="border-color:#2563eb"></i>Supervisor</span><span><i style="border-color:#d97706"></i>Eng Zone</span><span>รูปบนจังหวัด = คน On Call วันนี้ · กดจังหวัดเพื่อดูรายละเอียด</span></div>
+        <svg viewBox="0 0 ${OCP_GEO.w} ${OCP_GEO.h}" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${ctxPaths}${prov}</svg></div>
+      <div class="ocp-box ocp-rbox"><div class="ocp-inner"><div class="ocp-head"><div><h3>${ocpSel ? 'จังหวัด' + escapeHtml(ocpSel) : 'ทุกจังหวัด'}</h3>
+        <div class="ocp-sub">${ocpSel ? 'เข้าเวรวันนี้ ' + onOf(ocpSel).length + ' คน' : 'เข้าเวรวันนี้ทั้งหมด ' + allOn.length + ' คน'}</div></div>
+        <div class="ocp-chips"><button class="ocp-chip${ocpFilter === 'on' ? ' a' : ''}" data-ocp-f="on">เข้าเวร</button><button class="ocp-chip${ocpFilter === 'all' ? ' a' : ''}" data-ocp-f="all">ทั้งหมด</button></div></div>
+        <div class="ocp-scroll">${body}</div>${ocpCanUpload ? '' : '<div class="ocp-note">รูปอัปโหลดได้เฉพาะผู้ที่ได้รับสิทธิ์</div>'}</div></div></div>`;
+  }
+
+  (function wirePeoplePanel() {
+    const box = el('oc-people-panel'); if (!box) return;
+    let tip = document.getElementById('ocp-tip');
+    if (!tip) { tip = document.createElement('div'); tip.id = 'ocp-tip'; tip.className = 'ocp-tip'; document.body.appendChild(tip); }
+    box.addEventListener('mousemove', e => {
+      const g = e.target.closest && e.target.closest('.ocp-pv');
+      if (!g) { tip.style.display = 'none'; return; }
+      tip.textContent = g.dataset.tip || ''; tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+    });
+    box.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    box.addEventListener('click', e => {
+      const g = e.target.closest('.ocp-pv');
+      if (g) { ocpSel = (ocpSel === g.dataset.prov) ? '' : g.dataset.prov; renderPeoplePanel(); return; }
+      const f = e.target.closest('[data-ocp-f]'); if (f) { ocpFilter = f.dataset.ocpF; renderPeoplePanel(); return; }
+      const up = e.target.closest('[data-ocp-up]'); if (up) ocpOpenCrop(up.dataset.ocpUp);
+    });
+  })();
+
+  // ---- photo dialog: pick a file, drag + zoom so the face sits in the circle (works for side-facing photos), save ----
+  const ocpCrop = { img: null, base: 1, sc: 1, ox: 0, oy: 0, key: '' };
+  function ocpModal() {
+    let m = document.getElementById('ocp-mod'); if (m) return m;
+    m = document.createElement('div'); m.id = 'ocp-mod'; m.className = 'ocp-mod';
+    m.innerHTML = `<div class="ocp-mbox"><h4 id="ocp-mt">จัดตำแหน่งรูป</h4><p>ลากรูปให้ใบหน้าอยู่กลางวงกลม · เลื่อนแถบเพื่อซูม</p>
+      <div class="ocp-crop" id="ocp-crop"><canvas id="ocp-cv" width="260" height="260"></canvas></div>
+      <div class="ocp-row"><span>🔍</span><input id="ocp-zm" type="range" min="1" max="3" step="0.01" value="1"><div class="ocp-prev">ตัวอย่าง <canvas id="ocp-pv" width="44" height="44"></canvas></div></div>
+      <div class="ocp-btns"><button class="ocp-btn" id="ocp-pick">เลือกรูปอื่น…</button><button class="ocp-btn" id="ocp-cn">ยกเลิก</button><button class="ocp-btn p" id="ocp-ok">บันทึก</button></div></div>`;
+    document.body.appendChild(m);
+    const cv = m.querySelector('#ocp-cv'), cx = cv.getContext('2d'), pvx = m.querySelector('#ocp-pv').getContext('2d');
+    const paint = () => {
+      cx.fillStyle = '#e9eef6'; cx.fillRect(0, 0, 260, 260);
+      const c = ocpCrop; if (!c.img) return;
+      cx.drawImage(c.img, c.ox, c.oy, c.img.width * c.base * c.sc, c.img.height * c.base * c.sc);
+      pvx.clearRect(0, 0, 44, 44); pvx.save(); pvx.beginPath(); pvx.arc(22, 22, 22, 0, 7); pvx.clip(); pvx.drawImage(cv, 15, 15, 230, 230, 0, 0, 44, 44); pvx.restore();
+    };
+    m._paint = paint;
+    m.querySelector('#ocp-cn').onclick = () => m.classList.remove('on');
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); });
+    m.querySelector('#ocp-zm').oninput = e => { const n = +e.target.value, c = ocpCrop, k = n / c.sc; c.ox = 130 - (130 - c.ox) * k; c.oy = 130 - (130 - c.oy) * k; c.sc = n; paint(); };
+    let dr = null; const cr = m.querySelector('#ocp-crop');
+    cr.onpointerdown = e => { dr = [e.clientX, e.clientY, ocpCrop.ox, ocpCrop.oy]; cr.setPointerCapture(e.pointerId); };
+    cr.onpointermove = e => { if (!dr) return; ocpCrop.ox = dr[2] + e.clientX - dr[0]; ocpCrop.oy = dr[3] + e.clientY - dr[1]; paint(); };
+    cr.onpointerup = () => { dr = null; };
+    m.querySelector('#ocp-pick').onclick = () => ocpChooseFile();
+    m.querySelector('#ocp-ok').onclick = async () => {
+      const btn = m.querySelector('#ocp-ok');
+      if (!ocpCrop.img) return;
+      const out = document.createElement('canvas'); out.width = 200; out.height = 200;
+      const o = out.getContext('2d'); o.fillStyle = '#fff'; o.fillRect(0, 0, 200, 200); o.drawImage(cv, 15, 15, 230, 230, 0, 0, 200, 200);
+      let q = 0.85, data = out.toDataURL('image/jpeg', q);
+      while (data.length > 40000 && q > 0.3) { q -= 0.1; data = out.toDataURL('image/jpeg', q); }
+      btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+      try {
+        const res = await fetch('/api/oncall-photos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: ocpCrop.key, photo: data }) });
+        if (!res.ok) throw new Error(await ocApiError(res));
+        ocpPhotos[ocpCrop.key] = data; m.classList.remove('on'); renderPeoplePanel(); if (scheduleData) render();
+      } catch (err) { alert('อัปโหลดรูปไม่สำเร็จ: ' + (err.message || err)); }
+      btn.disabled = false; btn.textContent = 'บันทึก';
+    };
+    return m;
+  }
+  function ocpSetImage(i) {
+    const m = ocpModal(), c = ocpCrop, go = () => {
+      c.img = i; c.base = 260 / Math.min(i.width, i.height); c.sc = 1; m.querySelector('#ocp-zm').value = 1;
+      c.ox = (260 - i.width * c.base) / 2; c.oy = (260 - i.height * c.base) / 2; m._paint();
+    };
+    if (i.complete && i.width) go(); else i.onload = go;
+  }
+  function ocpChooseFile() {
+    const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*';
+    f.onchange = () => {
+      const file = f.files && f.files[0]; if (!file) return;
+      const r = new FileReader();
+      r.onload = () => { const i = new Image(); i.onerror = () => alert('ไฟล์นี้ไม่ใช่รูปภาพ'); i.src = r.result; ocpSetImage(i); };
+      r.readAsDataURL(file);
+    };
+    f.click();
+  }
+  function ocpOpenCrop(key) {
+    const m = ocpModal(); ocpCrop.key = key; ocpCrop.img = null; m._paint();
+    m.querySelector('#ocp-mt').textContent = 'จัดตำแหน่งรูป · ' + key;
+    m.classList.add('on');
+    const cur = ocpPhotos[key];
+    if (cur) { const i = new Image(); i.src = cur; ocpSetImage(i); } else ocpChooseFile();
+  }
+
+  async function fetchPhotos() {
+    try {
+      const res = await fetch('/api/oncall-photos');
+      if (!res.ok) return;
+      const j = await res.json(); ocpPhotos = j.photos || {}; ocpCanUpload = !!j.can_upload;
+    } catch (e) { console.error('photos load failed', e); }
+  }
+
   async function reload() {
     try {
-      const [data, escData] = await Promise.all([fetchData(), fetchEscalationData()]);
+      const [data, escData] = await Promise.all([fetchData(), fetchEscalationData(), fetchPhotos()]);
       if (!data) return;
       scheduleData = data;
       escalationData = escData;
@@ -14202,6 +14915,7 @@ loadData();
       populateMonthFilter(data);
       renderTodaySummary(data);
       render();
+      renderPeoplePanel();
       loaded = true;
     } catch (e) {
       console.error('Oncall Team load failed', e);
@@ -14328,6 +15042,108 @@ loadData();
     btn.textContent = '🔧 ซ่อมแนวคอลัมน์';
   }
 
+  async function dedupeTitledNames() {
+    const btn = el('oc-dedupe-names');
+    const label = btn.textContent;
+    const call = async apply => {
+      const res = await fetch('/api/oncall-escalation/dedupe-names', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apply }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    };
+    btn.disabled = true;
+    btn.textContent = 'กำลังตรวจ...';
+    try {
+      const plan = await call(false);
+      if (!plan.to_delete) { alert('ไม่พบชื่อซ้ำที่มีคำนำหน้า'); }
+      else {
+        const lines = [`จะลบ ${plan.to_delete} แถว (เบอร์/หมายเหตุที่ว่างในแถวที่เหลือจะถูกเติมให้ก่อน):`, ''];
+        plan.plan.slice(0, 40).forEach(x => {
+          lines.push(`• ${x.province} | ${x.position} | ${x.name}`);
+          lines.push(`    คงไว้: ${x.kept_as.join(' ; ')}` + (x.day_cells_dropped ? `  (ช่องวันที่ไม่ถูกย้าย ${x.day_cells_dropped})` : ''));
+        });
+        if (plan.plan.length > 40) lines.push(`… และอีก ${plan.plan.length - 40} แถว`);
+        if (confirm(lines.join('\n') + '\n\nกด OK เพื่อลบจริง')) {
+          btn.textContent = 'กำลังลบ...';
+          const done = await call(true);
+          alert(`ลบแล้ว ${done.to_delete} แถว`);
+          await reload();
+        }
+      }
+    } catch (e) {
+      console.error('Dedupe names failed', e);
+      alert('ไม่สำเร็จ: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
+  async function importRosterSupEng() {
+    const btn = el('oc-import-roster');
+    const label = btn.textContent;
+    const call = async apply => {
+      const res = await fetch('/api/oncall-escalation/import-roster', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apply }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      return data;
+    };
+    btn.disabled = true;
+    btn.textContent = 'กำลังเทียบข้อมูล...';
+    try {
+      const plan = await call(false);
+      const sm = plan.summary || {};
+      const lines = [];
+      lines.push(`มีอยู่แล้ว (เก็บเบอร์เดิม): ${sm.keep || 0}`);
+      lines.push(`เปลี่ยนจังหวัดเป็น เชียงใหม่1/2: ${sm.rename || 0}`);
+      lines.push(`เพิ่มโดยคัดลอกจากคนที่มีอยู่: ${sm.copy || 0}`);
+      lines.push(`เพิ่มใหม่: ${sm.new || 0}`);
+      lines.push(`อัปเดตเบอร์โทรตามไฟล์ Excel: ${sm.tel_updated || 0}`);
+      lines.push(`ลบคนที่ลาออก: ${sm.removed || 0}`);
+      const show = (act, title) => {
+        const items = plan.plan.filter(x => x.action === act);
+        if (!items.length) return;
+        lines.push('');
+        lines.push(title);
+        items.slice(0, 40).forEach(x => lines.push(`  • ${x.province} | ${x.position} | ${x.name}` + (x.from_province ? ` (จาก ${x.from_province})` : '')));
+        if (items.length > 40) lines.push(`  … และอีก ${items.length - 40} รายการ`);
+      };
+      if (plan.dedupe_deleted) lines.push(`ลบแถวชื่อซ้ำ (นาย…/สะกดต่างกัน): ${plan.dedupe_deleted} แถว`);
+      if ((plan.province_fixes || []).length) {
+        lines.push('');
+        lines.push(`แก้ชื่อจังหวัดที่นำเข้าผิดรอบก่อน (${plan.province_fixes.length} แถว):`);
+        plan.province_fixes.slice(0, 40).forEach(x => lines.push(`  • ${x.position} | ${x.name}: ${x.from} → ${x.to}` + (x.action === 'merge_delete' ? ' (รวมกับแถวที่มีอยู่)' : '')));
+      }
+      show('rename', 'เปลี่ยนจังหวัด:');
+      show('copy', 'เพิ่มโดยคัดลอก:');
+      show('new', 'เพิ่มใหม่:');
+      if ((plan.to_remove || []).length) {
+        lines.push('');
+        lines.push('ลบ (ลาออก):');
+        plan.to_remove.forEach(x => lines.push(`  • ${x.province} | ${x.position} | ${x.name}`));
+      }
+      if ((plan.existing_not_in_roster || []).length) {
+        lines.push('');
+        lines.push(`แถวเดิมที่ไม่อยู่ในรายชื่อ (ไม่แตะต้อง): ${plan.existing_not_in_roster.length}`);
+      }
+      if (!confirm(lines.join('\n') + '\n\nกด OK เพื่อนำเข้าจริง (ช่อง On จะใส่เฉพาะช่องที่ยังว่าง ตั้งแต่ 26 ต.ค.)')) {
+        btn.disabled = false; btn.textContent = label; return;
+      }
+      btn.textContent = 'กำลังนำเข้า...';
+      const done = await call(true);
+      alert(`นำเข้าแล้ว: เพิ่ม ${done.written.rows_added} แถว, ลบ ${done.written.rows_removed || 0} แถว, อัปเดต ${done.written.cell_updates} ช่อง`);
+      await reload();
+    } catch (e) {
+      console.error('Import roster failed', e);
+      alert('นำเข้าไม่สำเร็จ: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+
   async function duplicateSharedSupEng() {
     const pairs = [
       { source_province: 'พิษณุโลก', target_province: 'อุตรดิตถ์' },
@@ -14436,8 +15252,10 @@ loadData();
     const byProvince = {};
     scheduleData.rows.forEach(r => {
       const p = r.province_th || '(ไม่ระบุจังหวัด)';
-      const bucket = byProvince[p] || (byProvince[p] = { totalTeams: 0, nod: 0, ofc: 0 });
+      const bucket = byProvince[p] || (byProvince[p] = { totalTeams: 0, nod: 0, ofc: 0, nodTeams: 0, ofcTeams: 0 });
       bucket.totalTeams++;
+      if (r.remark === 'NOD') bucket.nodTeams++;
+      else if (r.remark === 'OFC') bucket.ofcTeams++;
       const status = r.days[today] || 'blank';
       if (status === 'on' || status === 'always') {
         if (r.remark === 'NOD') bucket.nod++;
@@ -14472,6 +15290,17 @@ loadData();
       lines.push('⚠️ จังหวัดที่ยังไม่มี Oncall วันนี้เลย:');
       noOncall.forEach(p => lines.push(`• ${p}`));
     }
+    // Per team type: provinces where nobody of that type is Oncall today.
+    [['NOD', 'nod', 'nodTeams'], ['OFC', 'ofc', 'ofcTeams']].forEach(([label, onKey, teamKey]) => {
+      const zero = provinces.filter(p => byProvince[p][onKey] === 0);
+      if (!zero.length) return;
+      lines.push('━━━━━━━━━━━━━━');
+      lines.push(`⚠️ ${label} เป็น 0 วันนี้ (${zero.length} จังหวัด):`);
+      zero.forEach(p => {
+        const n = byProvince[p][teamKey];
+        lines.push(n ? `• ${p} — มีทีม ${label} ${n} ทีม แต่ไม่มีใคร Oncall` : `• ${p} — ไม่มีทีม ${label} ในระบบ`);
+      });
+    });
     lines.push('━━━━━━━━━━━━━━');
     lines.push(`รวมทั้งภาคเหนือ — NOD ${totalNod} ทีม / OFC ${totalOfc} ทีม`);
     return lines.join('\n');
@@ -14523,6 +15352,8 @@ loadData();
   if (el('oc-add-note-column')) el('oc-add-note-column').addEventListener('click', addNoteColumn);
   if (el('oc-repair-columns')) el('oc-repair-columns').addEventListener('click', repairColumns);
   if (el('oc-dup-shared-supeng')) el('oc-dup-shared-supeng').addEventListener('click', duplicateSharedSupEng);
+  if (el('oc-import-roster')) el('oc-import-roster').addEventListener('click', importRosterSupEng);
+  if (el('oc-dedupe-names')) el('oc-dedupe-names').addEventListener('click', dedupeTitledNames);
   if (el('oc-add-user')) el('oc-add-user').addEventListener('click', addUserPrompt);
   el('oc-bulk-set-oncall').addEventListener('click', bulkSetOncallToday);
   el('oc-bulk-clear').addEventListener('click', () => { selectedTeams.clear(); updateBulkBar(); render(); });
