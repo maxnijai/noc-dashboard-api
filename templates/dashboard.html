@@ -678,6 +678,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 </style>
 <style>
 .ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.ocp-top{align-items:stretch}.ocp-inoc{flex:1;min-width:520px;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:8px 14px;display:flex;align-items:center;gap:12px}
+.ocp-ih{flex:none;border-right:1px solid var(--border);padding-right:14px}.ocp-ih .t{font-weight:800;font-size:15px;color:#0d9488;letter-spacing:.04em}.ocp-ih .s{font-size:11px;color:var(--text3)}
+.ocp-icall{display:inline-flex;align-items:center;gap:6px;margin-top:3px;background:#0d948814;border:1px solid #0d948855;color:#0f766e;border-radius:10px;padding:3px 12px;font-weight:800;font-size:16px;text-decoration:none}
+.ocp-ippl{display:flex;gap:4px;flex:1;min-width:0;flex-wrap:wrap}.ocp-ip{width:62px;flex:none;text-align:center}
+.ocp-iav{position:relative;width:42px;height:42px;margin:0 auto}.ocp-iav>img,.ocp-iav>span:first-child{width:42px;height:42px;box-shadow:0 0 0 2px #16a34a33;border-color:#16a34a!important}
+.ocp-iav .ocp-st{width:12px;height:12px;border-width:2px;right:-1px;bottom:-1px}
+.ocp-icam{position:absolute;right:-8px;top:-4px;width:20px;height:20px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);display:grid;place-items:center;font-size:10px;cursor:pointer}
+.ocp-ip .nk{font-size:12px;font-weight:700;margin-top:3px;line-height:1.2}.ocp-ip .fn{font-size:9.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
 .ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
 .ocp-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}.ocp-rbox>.ocp-inner{position:static!important;max-height:640px}}
@@ -14153,6 +14161,7 @@ loadData();
     'Supervisor': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
     'Supervisor MTE': { bg: '#7c3aed15', stickyBg: '#f3e8ff', badgeBg: '#7c3aed22', badgeFg: '#5b21b6' },
     'Eng Zone': { bg: '#B4530915', stickyBg: '#fdecd8', badgeBg: '#B4530922', badgeFg: '#B45309' },
+    'INOC': { bg: '#0d94880f', stickyBg: '#e3f5f3', badgeBg: '#0d948822', badgeFg: '#0f766e' },
   };
 
   function populateProvinceFilter(data) {
@@ -14354,7 +14363,7 @@ loadData();
         if (provinceFilter && b !== provinceFilter) return;
         escByProvince[b] = (escByProvince[b] || []).concat(p.contacts);
       });
-      const rankOf = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2 };
+      const rankOf = { 'Supervisor': 0, 'Supervisor MTE': 1, 'Eng Zone': 2, 'INOC': 3 };
       Object.keys(escByProvince).forEach(b => {
         escByProvince[b] = escByProvince[b].map((c, i) => [c, i])
           .sort((x, y) => ((rankOf[x[0].position] ?? 99) - (rankOf[y[0].position] ?? 99))
@@ -14367,7 +14376,7 @@ loadData();
     const bodyRows = provinceOrder.map(provinceKey => {
       const teamRowsForProvince = rows.filter(r => (r.province_th || '(ไม่ระบุจังหวัด)') === provinceKey);
       const escContacts = escByProvince[provinceKey] || [];
-      const count = teamRowsForProvince.length;
+      const count = teamRowsForProvince.length || escContacts.length;   // INOC has no field-team rows - count its people
       const groupHeader = `<tr>
         <td colspan="${totalCols}" style="padding:6px 8px; background:var(--bg4); font-weight:700; font-size:12px; border-top:2px solid var(--border);">
           ${escapeHtml(provinceKey)} <span style="font-weight:400; color:var(--text3); font-size:11px;">(${count} คน)</span>
@@ -14713,7 +14722,7 @@ loadData();
   function ocpInitials(n) { const k = ocpKey(n).split(' '); return (k[0] || '').slice(0, 1) + (k[1] || '').slice(0, 1); }
   function ocpAvatar(name, position, size) {
     const ph = ocpPhotos[ocpKey(name)];
-    const ring = position === 'Eng Zone' ? '#d97706' : '#2563eb';
+    const ring = position === 'Eng Zone' ? '#d97706' : (position === 'INOC' ? '#0d9488' : '#2563eb');
     const base = `width:${size}px;height:${size}px;border-radius:50%;border:${size > 40 ? 3 : 2}px solid ${ring};flex:none;`;
     if (ph) return `<img src="${ph}" alt="" style="${base}object-fit:cover;display:block;">`;
     let h = 0; for (const ch of ocpKey(name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
@@ -14722,6 +14731,7 @@ loadData();
   function ocpPeople() {
     const t = todayStr(), map = new Map();
     for (const p of (escalationData && escalationData.provinces || [])) {
+      if (p.province === 'INOC') continue;   // INOC has its own strip, not on the Sup/Eng province map
       for (const c of p.contacts) {
         const base = escBaseName(p.province);
         const k = base + '|' + c.position + '|' + ocpKey(c.name);
@@ -14778,11 +14788,19 @@ loadData();
     const sec = (t, a) => a.length ? `<div class="ocp-sec">${t.toUpperCase()} · ${a.length} คน</div><div class="ocp-grid">${a.map(card).join('')}</div>` : '';
     const body = list.length ? sec('Supervisor', list.filter(p => p.position !== 'Eng Zone')) + sec('Eng Zone', list.filter(p => p.position === 'Eng Zone'))
       : '<div class="ocp-empty">⚠ ไม่มีคนเข้าเวรในจังหวัดนี้วันนี้</div>';
+    const inocAll = [];
+    for (const pr of escalationData.provinces) if (pr.province === 'INOC') pr.contacts.forEach(c => inocAll.push(c));
+    const tdy = todayStr(), inocOn = inocAll.filter(c => c.days[tdy] === 'on');
+    const inocTel = (inocAll.find(c => c.tel) || {}).tel || '082-095-4450';
+    const nick = n => { const m = String(n).match(/\(([^)]+)\)\s*$/); return m ? m[1] : String(n).split(' ')[0]; };
+    const full = n => String(n).replace(/\s*\([^)]*\)\s*$/, '');
+    const inocHtml = inocAll.length ? `<div class="ocp-inoc"><div class="ocp-ih"><div class="t">INOC TEAM</div><div class="s">เข้าเวรวันนี้ ${inocOn.length} / ${inocAll.length} คน</div><a class="ocp-icall" href="${telHref(inocTel)}">📞 ${escapeHtml(inocTel)}</a></div>
+      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 42)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
     box.innerHTML = `<div class="ocp-top"><div class="ocp-kpis">
         <div class="ocp-kpi"><b style="color:#16a34a">${allOn.length}</b><span>เข้าเวรวันนี้</span></div>
         <div class="ocp-kpi"><b style="color:#2563eb">${nSup}</b><span>Supervisor</span></div>
         <div class="ocp-kpi"><b style="color:#d97706">${nEng}</b><span>Eng Zone</span></div>
-        <div class="ocp-kpi"><b style="color:#ef4444">${nZero}</b><span>จังหวัดไม่มีคนเข้าเวร</span></div></div></div>
+        <div class="ocp-kpi"><b style="color:#ef4444">${nZero}</b><span>จังหวัดไม่มีคนเข้าเวร</span></div></div>${inocHtml}</div>
       <div class="ocp-wrap">
       <div class="ocp-box"><div class="ocp-legend"><span><i style="border-color:#2563eb"></i>Supervisor</span><span><i style="border-color:#d97706"></i>Eng Zone</span><span>รูปบนจังหวัด = คน On Call วันนี้ · กดจังหวัดเพื่อดูรายละเอียด</span></div>
         <svg viewBox="0 0 ${OCP_GEO.w} ${OCP_GEO.h}" role="img" aria-label="แผนที่จังหวัด คลิกเพื่อดูคนเข้าเวร">${ctxPaths}${prov}</svg></div>
