@@ -31,7 +31,7 @@ _LAST_UPDATED_AT_COL = IDENTITY_HEADER.index("LastUpdatedAt") + 1  # 1-based
 
 # Escalation call order within a province: Supervisor first, Supervisor MTE
 # next, Eng Zone last (the final level if nobody below answers).
-POSITION_RANK = {"Supervisor": 0, "Supervisor MTE": 1, "Eng Zone": 2}
+POSITION_RANK = {"Supervisor": 0, "Supervisor MTE": 1, "Eng Zone": 2, "INOC": 3}
 
 _CACHE_TTL_SECONDS = 7200  # 2h; explicit invalidation on every write (see toggle/seed below)
 _cache = {"data": None, "ts": 0}

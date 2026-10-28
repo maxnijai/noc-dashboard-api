@@ -3638,7 +3638,7 @@ def api_oncall_escalation_import_roster():
         # 1) move rows an earlier import filed under the wrong province name; 2) match the roster on top of that.
         dd = oncall_escalation.dedupe_titled_names(gs_client, apply=apply_, updated_by=who)
         fx = oncall_escalation.fix_wrong_provinces(gs_client, fixes, apply=apply_, updated_by=who)
-        res = oncall_escalation.import_roster(gs_client, oncall_roster.ROSTER, apply=apply_, updated_by=who,
+        res = oncall_escalation.import_roster(gs_client, list(oncall_roster.ROSTER) + list(getattr(oncall_roster, 'INOC_ROSTER', [])), apply=apply_, updated_by=who,
                                               remove_names=getattr(oncall_roster, 'REMOVE_NAMES', ()),
                                               values=None if apply_ else fx['values'])
         res['province_fixes'] = fx['plan']

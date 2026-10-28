@@ -1792,3 +1792,84 @@ ROSTER = [
   ]
  }
 ]
+
+# INOC team: one shared number; day cells are filled in by hand in the Oncall table.
+INOC_ROSTER = [
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "ณัฏฐ์ชวัล บงกชกุสุมาลย์ (หนึ่ง)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "พลวีร์ สุภาเดช (นิว)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "วัชราภรณ์ ศรียาบ (ปอเช่)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "วณิชชา นาทองห่อ (แฮ็ค)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "ธนโชติ ชูวงศ์วุฒิ (เต้ย)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "ระพีพัฒน์ บุศย์แก้ว (เกมส์)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "กิตติพงษ์ จันทร์ทิพย์ (ปาย)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "เมธัส ณ ลำปาง (ป๊อบ)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "ณภัทร สิงห์โทราช (ภู)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "จรัญศิลป์ เจริญชัย (หนุ่ม)",
+  "tel": "082-095-4450",
+  "dates": []
+ },
+ {
+  "province": "INOC",
+  "position": "INOC",
+  "name": "ชรินทร์ทิพย์ กันทาทรัพย์ (ทิพย์)",
+  "tel": "082-095-4450",
+  "dates": []
+ }
+]
