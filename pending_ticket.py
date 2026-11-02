@@ -145,7 +145,7 @@ EXPORT_HEADER = [
     "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
     "Region",     # column Z: NOR1 / NOR2
-    "Flag Logic",  # column AA: NSA3/NSA4 only - "P0 ใน N วัน (dd-Mon) | <สถานะ Plan_Closed_Date>" when the ticket is/will be P0 within 7 days, else blank (was "Flag Priority" = Category lookup)
+    "Flag Logic",  # column AA: NSA3/NSA4 only - exactly one of "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน"; blank if farther than 7 days (was "Flag Priority" = Category lookup)
 ]
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
@@ -707,7 +707,7 @@ def ticket_p0_offset(target_finish_str, ref0):
 
 
 def flag_logic_text(t, now_dt=None):
-    """Export-sheet column AA for one ticket entry dict: "P0 แล้ว", "P0 ใน N วัน" (N = 1..7) or ""."""
+    """Export-sheet column AA for one ticket entry dict: "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน" or ""."""
     try:
         if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
             return ""
@@ -717,7 +717,7 @@ def flag_logic_text(t, now_dt=None):
         k = ticket_p0_offset(t.get("TARGETFINISH"), ref0)
         if k is None or k > FLAG_LOGIC_DAYS:
             return ""
-        return "P0 แล้ว" if k == 0 else "P0 ใน %d วัน" % k
+        return "%d. %s" % (k + 1, "P0 แล้ว" if k == 0 else "P0 ใน %d วัน" % k)   # numbered so a pivot sorts 1..8
     except Exception:
         log.exception("flag_logic_text failed")
         return ""
