@@ -3438,7 +3438,38 @@ def api_p0_forecast_kasem_comment():
         return jsonify({'status': 'saved', 'row': rec})
     except Exception as e:
         log.exception("kasem comment save failed")
+        if _pt._is_quota_error(e):
+            return jsonify({'error': 'Google Sheets ติดโควต้าการอ่านชั่วคราว — รอ 1 นาทีแล้วกด Save อีกครั้ง (ข้อความที่พิมพ์ยังอยู่)'}), 503
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/kasem-comment/debug')
+def api_kasem_comment_debug():
+    """Diagnostics for "Comment By P'Kasem": what the server really reads from the KasemComment tab.
+    Open while logged in; optional ?ticket=INC000... to check one ticket."""
+    import pending_ticket as _pt
+    out = {'build': 'kasem-v3', 'you': session.get('user_email'), 'can_edit': _pt.is_kasem(session.get('user_email')),
+           'editors': list(_pt.KASEM_EMAILS), 'tab': _pt.KASEM_SHEET}
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        ws = _pt._kasem_ws(gs_client)
+        values = _pt._with_quota_retry(lambda: ws.get_all_values())
+        out['sheet_rows_total'] = len(values)
+        out['row1'] = [str(x)[:40] for x in (values[0] if values else [])]
+        out['row1_is_header'] = bool(values and str(values[0][0]).strip().upper() == 'TICKETID')
+        out['sample'] = [[str(x)[:60] for x in r[:4]] for r in values[:6]]
+        parsed = _pt.load_kasem_comments(gs_client, use_cache=False)
+        out['parsed_comments'] = len(parsed)
+        out['non_empty_comments'] = sum(1 for v in parsed.values() if (v.get('comment') or '').strip())
+        t = (request.args.get('ticket') or '').strip()
+        if t:
+            out['ticket'] = t
+            out['ticket_found'] = t in parsed
+            out['ticket_value'] = parsed.get(t)
+    except Exception as e:
+        log.exception("kasem debug failed")
+        out['error'] = str(e)[:400]
+    return jsonify(out)
 
 
 @app.route('/api/p0-forecast/snapshot', methods=['POST'])
