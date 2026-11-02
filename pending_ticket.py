@@ -689,14 +689,14 @@ def _flag_priority_text(t):
 
 
 # ── Flag Logic (column AA of the export sheet) ────────────────────────────
-# NSA3/NSA4 tickets are no longer counted as P0 on the Focus P0 cards; instead every NSA3/4 ticket that is
-# (k = 0) or will be (k = 1..7) P0 at the 01:15 reference of day ref0 + k is flagged here. A ticket is P0 at a
-# reference R when R - TARGETFINISH > 24h (same formula as _classify_priority), ref0 = tomorrow 01:15.
+# NSA3/NSA4 tickets only: "P0 ใน N วัน" (N = 1..7) = the ticket becomes P0 (over SLA > 24h at the 01:15 reference,
+# same formula as the Focus P0 cards, reference day 0 = tomorrow 01:15) N days from now. Blank for tickets that are
+# already P0, that are more than 7 days away, or that are not NSA3/NSA4.
 FLAG_LOGIC_DAYS = 7
 
 
 def ticket_p0_offset(target_finish_str, ref0):
-    """Whole days from ref0 until the ticket first counts as P0 (0 = already P0 at ref0), None when the date can't be parsed."""
+    """Whole days from ref0 until the ticket first counts as P0 (0 = P0 at ref0, 1 = P1 now), None when the date can't be parsed."""
     tf = _parse_dt(target_finish_str)
     if tf is None:
         return None
@@ -707,7 +707,7 @@ def ticket_p0_offset(target_finish_str, ref0):
 
 
 def flag_logic_text(t, now_dt=None):
-    """Export-sheet column AA for one ticket entry dict ("" for anything but NSA3/NSA4, or when P0 is > 7 days away)."""
+    """Export-sheet column AA for one ticket entry dict: "P0 ใน N วัน" (N = 1..7) or ""."""
     try:
         if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
             return ""
@@ -715,16 +715,9 @@ def flag_logic_text(t, now_dt=None):
         now_dt = now_dt or bangkok_now()
         ref0 = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
         k = ticket_p0_offset(t.get("TARGETFINISH"), ref0)
-        if k is None or k > FLAG_LOGIC_DAYS:
+        if k is None or k < 1 or k > FLAG_LOGIC_DAYS:
             return ""
-        p0_day = (ref0 + _td(days=k)).date()
-        head = "P0 แล้ว" if k == 0 else "P0 ใน %d วัน (%s)" % (k, p0_day.strftime("%d-%b"))
-        plan = str(t.get("plan_closed_date", "") or "").strip()
-        if not plan:
-            tail = "ไม่มี Plan"
-        else:
-            tail = "แผนปิดทัน" if plan <= p0_day.strftime("%Y-%m-%d") else "แผนปิดไม่ทัน"
-        return head + " | " + tail
+        return "P0 ใน %d วัน" % k
     except Exception:
         log.exception("flag_logic_text failed")
         return ""
@@ -1927,7 +1920,7 @@ def build_p0_drilldown(gs_client):
     }
 
 
-NSA34_COUNTS_AS_P0 = False  # NSA3/NSA4 have no P0 any more (see p0_forecast.py: they are forecast instead) - set True to restore the old card number
+NSA34_COUNTS_AS_P0 = True  # NSA3/NSA4 keep their P0 card number (set False to stop counting them as P0)
 
 
 def _p0_allowed(key):

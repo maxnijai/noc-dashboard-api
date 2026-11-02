@@ -1,10 +1,10 @@
-"""NSA3/NSA4 "no P0" rule: 7-day P0 Forecast + daily P0 snapshot (tab P0DailyTrend).
+"""NSA3/NSA4 Flag Priority panel data: P0 / P1 tickets now + daily P0 snapshot (tab P0DailyTrend).
 
-NSA3/NSA4 tickets are no longer counted as P0 on the Focus P0 cards. This module instead
-  * forecasts which NSA3/4 tickets reach P0 (R - TARGETFINISH > 24h at the 01:15 reference R) over the next 7 days,
-    overall and per province (every NSA3/4 ticket counts, not only the "Flag" categories);
-  * stores one row per province per day at ~01:20 in the Google Sheet tab P0DailyTrend, so the trend line is read
-    from that small tab - the big ~5MB Drive backup files are never opened for it.
+Panel behind the NSA3/NSA4 card's "Flag Priority" button (card numbers themselves are untouched):
+  * P0 now (same formula as the card) and P1 tickets, overall and per province, listed per ticket with the work-log
+    Detail / Plan_Closed_Date (edited through the existing /api/pending-ticket/update);
+  * one row per province per day at ~01:20 in the Google Sheet tab P0DailyTrend, so the "@01:15" comparison and the
+    trend lines are read from that small tab - the big ~5MB Drive backup files are never opened for them.
 Read-only on the live data; the only write is the P0DailyTrend tab (created on first use).
 """
 import logging
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 SNAPSHOT_SHEET = "P0DailyTrend"
 SNAPSHOT_HEADER = ["Date", "Province", "NSA3_P0", "NSA4_P0", "P0", "P1", "Total", "RecordedAt"]
-FORECAST_DAYS = pt.FLAG_LOGIC_DAYS
+FORECAST_DAYS = 1  # the panel lists P0 now (k = 0) and P1 (k = 1); export column AA (Flag Logic) looks 7 days ahead on its own
 TREND_HISTORY_DAYS = 30
 
 # Province code (TRUEOWNERGROUP) -> Thai name. PSN/PCT/PCB/PHE follow the ticket data's own codes.
