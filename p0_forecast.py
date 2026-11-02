@@ -8,6 +8,7 @@ Panel behind the NSA3/NSA4 card's "Flag Priority" button (card numbers themselve
 Read-only on the live data; the only write is the P0DailyTrend tab (created on first use).
 """
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timedelta
@@ -21,6 +22,9 @@ SNAPSHOT_SHEET = "P0DailyTrend"
 SNAPSHOT_HEADER = ["Date", "Province", "NSA3_P0", "NSA4_P0", "P0", "P1", "Total", "RecordedAt"]
 FORECAST_DAYS = pt.FLAG_LOGIC_DAYS  # panel lists the same tickets as export column AA (Flag Logic): P0 แล้ว + P0 ใน 1-7 วัน
 TREND_HISTORY_DAYS = 30
+# Daily history of the 8 Flag Logic steps (S0 = "P0 แล้ว", S1..S7 = "P0 ใน N วัน") per TRUEOWNERGROUP, counted at each day's own 01:15 file
+STEPS_SHEET = "P0StepTrend"
+STEPS_HEADER = ["Date", "Group"] + ["S%d" % i for i in range(8)] + ["RecordedAt"]
 
 # Province code (TRUEOWNERGROUP) -> Thai name. PSN/PCT/PCB/PHE follow the ticket data's own codes.
 PROV_TH = {
@@ -31,6 +35,7 @@ PROV_TH = {
 
 _lock = threading.Lock()
 _trend_cache = {"data": None, "ts": 0.0}
+_steps_cache = {"data": None, "ts": 0.0}
 _TREND_TTL = 300
 
 
@@ -73,6 +78,27 @@ def _aggregate(rows, day):
     return agg
 
 
+_TOG_RE = re.compile(r"(NOR[12])-([A-Z0-9]+)-")
+
+
+def _group_key(r):
+    m = _TOG_RE.search(str(r.get("TRUEOWNERGROUP", "") or ""))
+    return "%s-%s" % (m.group(1), m.group(2)) if m else "#none"
+
+
+def _aggregate_steps(rows, day):
+    """{group key: [8 counts]} - NSA3/NSA4 tickets by Flag Logic step, classified with the same reference the live panel
+    uses on that day (next 01:15), so history and today's numbers are comparable."""
+    ref0 = datetime(day.year, day.month, day.day, 1, 15) + timedelta(days=1)
+    out = {}
+    for r, _code in _scope_nsa34(rows):
+        k = pt.ticket_p0_offset(r.get("TARGETFINISH"), ref0)
+        if k is None or k > pt.FLAG_LOGIC_DAYS:
+            continue
+        out.setdefault(_group_key(r), [0] * 8)[k] += 1
+    return out
+
+
 def _prov_name(code):
     return PROV_TH.get(code, code or "(ไม่ระบุ)")
 
@@ -112,11 +138,58 @@ def _write_days(gs_client, per_day, force=False):
     return written
 
 
+def _ensure_steps_tab(sh):
+    try:
+        return sh.worksheet(STEPS_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=STEPS_SHEET, rows=3000, cols=len(STEPS_HEADER))
+        ws.update("A1", [STEPS_HEADER], value_input_option="RAW")
+        return ws
+
+
+def _write_steps(gs_client, per_day, force=False):
+    """per_day: {date: {group: [8 counts]}}. Same rules as _write_days (stored days skipped unless force)."""
+    written = 0
+    with _lock:
+        ws = _ensure_steps_tab(gs_client.open_by_key(pt.REALTIME_SHEET_ID))
+        values = ws.get_all_values()
+        stored = {row[0] for i, row in enumerate(values) if i > 0 and row}
+        stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        out = []
+        for day, agg in sorted(per_day.items()):
+            ds = day.strftime("%Y-%m-%d")
+            if ds in stored:
+                if not force:
+                    continue
+                for rn in sorted([i + 1 for i, row in enumerate(values) if i > 0 and row and row[0] == ds], reverse=True):
+                    ws.delete_rows(rn)
+            out += [[ds, g] + list(c) + [stamp] for g, c in sorted(agg.items())]
+        if out:
+            ws.append_rows(out, value_input_option="RAW")
+            written = len(out)
+        _steps_cache["data"] = None
+    return written
+
+
+def _steps_stored_dates(gs_client):
+    try:
+        ws = gs_client.open_by_key(pt.REALTIME_SHEET_ID).worksheet(STEPS_SHEET)
+        return {row[0] for i, row in enumerate(ws.get_all_values()) if i > 0 and row}
+    except Exception:
+        return set()
+
+
 def record_snapshot(gs_client, day=None, force=False):
     """Writes one row per province for `day` (default today): P0/P1/Total at that day's own 01:15 reference.
     Skips when the day is already stored unless force=True (force replaces that day's rows). Returns rows written."""
     day = day or bangkok_now().date()
-    return _write_days(gs_client, {day: _aggregate(pt.fetch_live_rows(gs_client), day)}, force=force)
+    rows = pt.fetch_live_rows(gs_client)
+    n = _write_days(gs_client, {day: _aggregate(rows, day)}, force=force)
+    try:
+        _write_steps(gs_client, {day: _aggregate_steps(rows, day)}, force=force)
+    except Exception:
+        log.exception("P0StepTrend snapshot failed (P0DailyTrend was written)")
+    return n
 
 
 _bf = {"running": False, "started": None, "finished": None, "done": [], "missing": [], "error": ""}
@@ -134,19 +207,25 @@ def backfill_from_drive(drive_service, gs_client, back_days=7):
     with _lock:
         ws = _ensure_tab(gs_client.open_by_key(pt.REALTIME_SHEET_ID))
         stored = {row[0] for i, row in enumerate(ws.get_all_values()) if i > 0 and row}
+    stored_steps = _steps_stored_dates(gs_client)
     for i in range(0, back_days + 1):           # newest first: today's @01:15 is the one people need first
         day = today - timedelta(days=i)
         ds = day.strftime("%Y-%m-%d")
-        if ds in stored:
+        if ds in stored and ds in stored_steps:
             continue
         with pt._DAY_DL_LOCK:
             info = find_nightly_file(drive_service, day)
             rows = download_xlsx_as_rows(drive_service, info[0]) if info else None
             agg = _aggregate(rows, day) if rows else None
+            steps = _aggregate_steps(rows, day) if rows else None
             rows = None
             pt._release_memory()
         if agg:
-            _write_days(gs_client, {day: agg})
+            _write_days(gs_client, {day: agg})          # skips a day that is already stored
+            try:
+                _write_steps(gs_client, {day: steps})
+            except Exception:
+                log.exception("P0StepTrend backfill write failed for %s", ds)
             _bf["done"].append(ds)
         else:
             _bf["missing"].append(ds)
@@ -215,7 +294,44 @@ def load_trend(gs_client, days=TREND_HISTORY_DAYS):
     return out
 
 
+def load_steps(gs_client, days=TREND_HISTORY_DAYS):
+    """{"dates": [...], "by": {group key: [[8 counts] or None per date]}} from the P0StepTrend tab (5 min cache)."""
+    now = time.monotonic()
+    with _lock:
+        c = _steps_cache
+        if c["data"] is not None and now - c["ts"] < _TREND_TTL:
+            return c["data"]
+    try:
+        values = gs_client.open_by_key(pt.REALTIME_SHEET_ID).worksheet(STEPS_SHEET).get_all_values()[1:]
+    except Exception:
+        values = []
+    per = {}
+    for row in values:
+        if len(row) < 10 or not row[0]:
+            continue
+        try:
+            per.setdefault(row[0], {})[row[1]] = [int(x or 0) for x in row[2:10]]
+        except ValueError:
+            continue
+    today = bangkok_now().date()
+    dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days - 1, -1, -1)]
+    groups = sorted({g for d in per.values() for g in d})
+    out = {"dates": dates, "by": {g: [(per[d].get(g) or [0] * 8) if d in per else None for d in dates] for g in groups}}
+    with _lock:
+        _steps_cache["data"] = out
+        _steps_cache["ts"] = time.monotonic()
+    return out
+
+
 # ── Forecast ──────────────────────────────────────────────────────────────
+def _safe_steps(gs_client):
+    try:
+        return load_steps(gs_client)
+    except Exception:
+        log.exception("P0StepTrend unreadable")
+        return {"dates": [], "by": {}}
+
+
 def build_forecast(gs_client, days=FORECAST_DAYS):
     now_dt = bangkok_now()
     ref0 = (now_dt + timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
@@ -269,5 +385,6 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
         "provinces": provs,
         "tickets": tickets,
         "trend": load_trend(gs_client),
+        "steps": _safe_steps(gs_client),
         "backfill": backfill_status(),
     }
