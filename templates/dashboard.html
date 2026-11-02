@@ -17406,7 +17406,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'prov', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
+  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17435,6 +17435,14 @@ redraw();
 #fc7-box td:first-child,#fc7-box th:first-child{text-align:left;white-space:nowrap}
 #fc7-box tr.tot td{font-weight:800;background:var(--bg3)}
 #fc7-box .sc7{overflow:auto;max-height:620px}
+#fc7-box table.tk th.f,#fc7-box table.tk td.f{position:sticky;background:var(--bg1);z-index:2;box-shadow:inset -1px 0 0 var(--border)}
+#fc7-box table.tk th.f{background:var(--bg3);z-index:3}
+#fc7-box table.tk .f1{left:0;min-width:150px;max-width:150px}#fc7-box table.tk .f2{left:150px;min-width:90px;max-width:90px}
+#fc7-box table.tk .f3{left:240px;min-width:62px;max-width:62px}#fc7-box table.tk .f4{left:302px;min-width:130px;max-width:130px;white-space:normal;text-align:left}
+#fc7-box table.gs th,#fc7-box table.gs td{border:1px solid var(--border)}#fc7-box table.gs td.n{cursor:pointer}
+#fc7-box table.gs td.n:hover{outline:2px solid #7c3aed;outline-offset:-2px;background:#ede9fe;color:#4c1d95}
+#fc7-box table.gs td.l{text-align:left;white-space:nowrap}#fc7-box table.gs tr.sub td{font-weight:800;background:var(--bg3)}
+#fc7-box table.gs td.rg{font-weight:700;vertical-align:bottom;text-align:left}
 #fc7-box .pl{display:inline-block;border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 #fc7-box .p0{background:#fee2e2;color:#b91c1c}#fc7-box .p1{background:#fef3c7;color:#b45309}#fc7-box .fcp{background:#ede9fe;color:#6d28d9}#fc7-box .nn{background:var(--bg3);color:var(--text2)}
 #fc7-box .tb{display:flex;gap:6px}#fc7-box .tab{padding:5px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;font-size:13px;background:var(--bg2);color:var(--text)}
@@ -17545,12 +17553,36 @@ redraw();
       const s = series(r.p, m), mx = Math.max(...s.hist.filter(v => v != null), 1) * 1.15, p = pts(s, Wd, L, R, T, H, B, mx);
       return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>P0 ${r.now}</span></div>
         <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}${p.out.length ? `<circle cx="${p.out[p.out.length - 1][0]}" cy="${p.out[p.out.length - 1][1]}" r="3" fill="#2563eb"/>` : ''}</svg>
-        <div class="s2">ปัจจุบัน ${r.now} · @01:15 ${r.snap == null ? '–' : r.snap} · P1 ${r.p1}</div></div>`; }).join('');
+        <div class="s2">ปัจจุบัน ${r.now} · @01:15 ${r.snap == null ? '–' : r.snap}</div></div>`; }).join('');
   }
 
+  const GRPS = [['NOR1', 'CMI1'], ['NOR1', 'CMI2'], ['NOR1', 'CRI'], ['NOR1', 'LPG'], ['NOR1', 'LPN'], ['NOR1', 'MHS'], ['NOR1', 'NAN'], ['NOR1', 'PHE'], ['NOR1', 'PYO'], ['NOR2', 'KPP'], ['NOR2', 'PCB'], ['NOR2', 'PCT'], ['NOR2', 'PSN'], ['NOR2', 'SKT'], ['NOR2', 'TAK'], ['NOR2', 'UTR']];
+  const PROV2G = { 'เชียงใหม่': 'NOR1-CMI1', 'เชียงราย': 'NOR1-CRI', 'ลำปาง': 'NOR1-LPG', 'ลำพูน': 'NOR1-LPN', 'แม่ฮ่องสอน': 'NOR1-MHS', 'น่าน': 'NOR1-NAN', 'แพร่': 'NOR1-PHE', 'พะเยา': 'NOR1-PYO', 'กำแพงเพชร': 'NOR2-KPP', 'เพชรบูรณ์': 'NOR2-PCB', 'พิจิตร': 'NOR2-PCT', 'พิษณุโลก': 'NOR2-PSN', 'สุโขทัย': 'NOR2-SKT', 'ตาก': 'NOR2-TAK', 'อุตรดิตถ์': 'NOR2-UTR' };
+  const gkey = t => { const m = /(NOR[12])-([A-Z0-9]+)-/.exec(t.grp || ''); return m ? m[1] + '-' + m[2] : (PROV2G[t.prov] || ''); };
+  const gOk = (t, g) => !g || gkey(t) === g || gkey(t).indexOf(g + '-') === 0;
+  function renderSummary(m, el) {
+    const KS = [0, 1, 2, 3, 4, 5, 6, 7], cnt = {};
+    m.T.forEach(t => { const g = gkey(t), c = cnt[g] || (cnt[g] = [0, 0, 0, 0, 0, 0, 0, 0]); c[t.k]++; });
+    const get = (pred) => KS.map(k => sum(Object.keys(cnt).filter(pred).map(g => cnt[g][k])));
+    const td = (v, key, k) => `<td class="n" data-fc7-dd="${esc(key)}|${k}" title="กดเพื่อดูรายใบ">${v || ''}</td>`;
+    const line = (cls, c1, c2, a, key) => `<tr class="${cls}">${c1}${c2}${a.map((v, k) => td(v, key, k)).join('')}<td class="n" data-fc7-dd="${esc(key)}|" style="font-weight:700">${sum(a) || ''}</td></tr>`;
+    let h = `<table class="gs"><tr><th>Region</th><th>TRUEOWNERGROUP</th>${KS.map(k => `<th>${k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + k + ' วัน'}</th>`).join('')}<th>รวม</th></tr>`;
+    ['NOR1', 'NOR2'].forEach(rg => {
+      const gs = GRPS.filter(x => x[0] === rg);
+      gs.forEach((x, i) => { const key = x[0] + '-' + x[1], a = cnt[key] || [0, 0, 0, 0, 0, 0, 0, 0];
+        h += line('', i === 0 ? `<td class="rg" rowspan="${gs.length}">${rg}</td>` : '', `<td class="n l" data-fc7-dd="${key}|">TRUE-TH-BBT-${key}-NOP</td>`, a, key); });
+      h += line('sub', `<td class="l" colspan="2">${rg} รวม</td>`, '', get(g => g.indexOf(rg + '-') === 0), rg);
+    });
+    const other = Object.keys(cnt).filter(g => !GRPS.some(x => x[0] + '-' + x[1] === g));
+    if (other.length) h += line('', '<td></td>', `<td class="l">(ไม่ระบุกลุ่ม)</td>`, get(g => other.indexOf(g) >= 0), '#none');
+    h += line('sub', `<td class="l" colspan="2">ผลรวม</td>`, '', get(() => true), '');
+    el.innerHTML = h + '</table>';
+    document.getElementById('fc7-tbn').textContent = 'กดตัวเลข / ชื่อกลุ่ม / แถวรวม เพื่อดูรายใบ (drilldown) · ตัวเลข = จำนวนใบ NSA3/NSA4 ตาม Flag Logic';
+  }
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
+    if (F7.tab === 'sum') { renderSummary(m, el); return; }
     if (F7.tab === 'prov') {
       const rows = [...m.rows].filter(r => r.now || r.soon || r.snap).sort((a, b) => b.now - a.now), mxc = Math.max(1, ...rows.flatMap(r => r.ks.slice(1)));
       const cell = v => `<td style="background:rgba(124,58,237,${v ? (.08 + .5 * v / mxc).toFixed(2) : 0});font-weight:${v ? 700 : 400};color:${v > mxc * .6 ? '#fff' : 'inherit'}">${v || '·'}</td>`;
@@ -17561,17 +17593,17 @@ redraw();
       return;
     }
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
-    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
+    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
       (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())))
       .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
     const shown = list.slice(0, 100);
-    el.innerHTML = `<div class="fl"><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
+    el.innerHTML = `<div class="fl"><select id="fc7-fG"><option value="">ทุก Region / TRUEOWNERGROUP</option><option value="NOR1"${F7.fG === 'NOR1' ? ' selected' : ''}>NOR1 รวม</option><option value="NOR2"${F7.fG === 'NOR2' ? ' selected' : ''}>NOR2 รวม</option>${GRPS.map(x => { const key = x[0] + '-' + x[1]; return `<option value="${key}"${F7.fG === key ? ' selected' : ''}>${key}</option>`; }).join('')}</select><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
       <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
       <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
-      <table style="min-width:1200px"><tr><th>Ticket</th><th>จังหวัด</th><th>NSA</th><th>Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
+      <table class="tk" style="min-width:1200px"><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
-        return `<tr data-id="${esc(t.id)}"><td><b>${esc(t.id)}</b><div class="sb" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td>${esc(t.prov)}</td><td>${esc(t.nsa)}</td><td>${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
+        return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
@@ -17579,6 +17611,7 @@ redraw();
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
     document.getElementById('fc7-tbn').textContent = 'แก้ Detail / Plan_Closed_Date แล้วกด Save — ใช้ API เดิมของหน้า Pending Ticket เขียนลง Work Log';
     const q = id => document.getElementById(id);
+    q('fc7-fG').onchange = e => { F7.fG = e.target.value; renderTable(); };
     q('fc7-fP').onchange = e => { F7.fP = e.target.value; renderTable(); };
     q('fc7-fD').onchange = e => { F7.fD = e.target.value; renderTable(); };
     q('fc7-fF').onchange = e => { F7.fF = e.target.value; renderTable(); };
@@ -17632,13 +17665,14 @@ redraw();
       <div class="kp" id="fc7-kp"></div>
       <div class="c7" id="fc7-lg7"></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
-      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 · จุดแดง = ปัจจุบัน · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
-      <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 (เฉพาะที่เก็บไว้) · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
+      <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP</span><span class="tab" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
-      const kt = e.target.closest('[data-fc7-k]'); if (kt) { F7.tab = 'tk'; F7.fD = kt.dataset.fc7K; F7.fP = ''; F7.fF = ''; F7.fQ = ''; renderTable(); document.getElementById('fc7-tbl').scrollIntoView({ block: 'nearest' }); return; }
+      const dd = e.target.closest('[data-fc7-dd]'); if (dd) { const pr = dd.dataset.fc7Dd.split('|'); F7.tab = 'tk'; F7.fG = pr[0]; F7.fD = pr[1]; F7.fP = ''; F7.fF = ''; F7.fQ = ''; renderTable(); document.getElementById('fc7-tbl').scrollIntoView({ block: 'nearest' }); return; }
+      const kt = e.target.closest('[data-fc7-k]'); if (kt) { F7.tab = 'tk'; F7.fD = kt.dataset.fc7K; F7.fG = ''; F7.fP = ''; F7.fF = ''; F7.fQ = ''; renderTable(); document.getElementById('fc7-tbl').scrollIntoView({ block: 'nearest' }); return; }
       const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
       const bfb = e.target.closest('[data-fc7-bf]'); if (bfb) { startBackfill(true); return; }
       const sn = e.target.closest('[data-fc7-snap]');
