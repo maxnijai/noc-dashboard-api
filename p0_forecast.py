@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 SNAPSHOT_SHEET = "P0DailyTrend"
 SNAPSHOT_HEADER = ["Date", "Province", "NSA3_P0", "NSA4_P0", "P0", "P1", "Total", "RecordedAt"]
-FORECAST_DAYS = 1  # the panel lists P0 now (k = 0) and P1 (k = 1); export column AA (Flag Logic) looks 7 days ahead on its own
+FORECAST_DAYS = pt.FLAG_LOGIC_DAYS  # panel lists the same tickets as export column AA (Flag Logic): P0 แล้ว + P0 ใน 1-7 วัน
 TREND_HISTORY_DAYS = 30
 
 # Province code (TRUEOWNERGROUP) -> Thai name. PSN/PCT/PCB/PHE follow the ticket data's own codes.
@@ -119,30 +119,60 @@ def record_snapshot(gs_client, day=None, force=False):
     return _write_days(gs_client, {day: _aggregate(pt.fetch_live_rows(gs_client), day)}, force=force)
 
 
+_bf = {"running": False, "started": None, "finished": None, "done": [], "missing": [], "error": ""}
+
+
+def backfill_status():
+    return dict(_bf)
+
+
 def backfill_from_drive(drive_service, gs_client, back_days=7):
-    """One-off: fills P0DailyTrend for past days from the ~01:15 Drive backup files (Drive keeps only a few days).
-    One file is downloaded at a time and dropped right after counting. Returns {"days_written": [...], "missing": [...], "rows": n}."""
+    """Fills P0DailyTrend for past days from the ~01:15 Drive backup files (Drive keeps only a few days).
+    One file at a time, each day written as soon as it is counted (the chart fills up progressively), rows dropped right after."""
     from pending_trend import find_nightly_file, download_xlsx_as_rows
     today = bangkok_now().date()
     with _lock:
         ws = _ensure_tab(gs_client.open_by_key(pt.REALTIME_SHEET_ID))
         stored = {row[0] for i, row in enumerate(ws.get_all_values()) if i > 0 and row}
-    per_day, missing = {}, []
-    for i in range(back_days, -1, -1):
+    for i in range(0, back_days + 1):           # newest first: today's @01:15 is the one people need first
         day = today - timedelta(days=i)
-        if day.strftime("%Y-%m-%d") in stored:
+        ds = day.strftime("%Y-%m-%d")
+        if ds in stored:
             continue
         with pt._DAY_DL_LOCK:
             info = find_nightly_file(drive_service, day)
             rows = download_xlsx_as_rows(drive_service, info[0]) if info else None
-            if rows:
-                per_day[day] = _aggregate(rows, day)
-            else:
-                missing.append(day.strftime("%Y-%m-%d"))
+            agg = _aggregate(rows, day) if rows else None
             rows = None
             pt._release_memory()
-    n = _write_days(gs_client, per_day)
-    return {"days_written": [d.strftime("%Y-%m-%d") for d in sorted(per_day)], "missing": missing, "rows": n}
+        if agg:
+            _write_days(gs_client, {day: agg})
+            _bf["done"].append(ds)
+        else:
+            _bf["missing"].append(ds)
+    return {"days_written": list(_bf["done"]), "missing": list(_bf["missing"])}
+
+
+def start_backfill(drive_service, gs_client, back_days=7):
+    """Runs backfill_from_drive in a background thread (a Drive download + parse takes far longer than one web request).
+    Returns False when one is already running."""
+    with _lock:
+        if _bf["running"]:
+            return False
+        _bf.update(running=True, started=bangkok_now().strftime("%Y-%m-%d %H:%M:%S"), finished=None, done=[], missing=[], error="")
+
+    def _run():
+        try:
+            backfill_from_drive(drive_service, gs_client, back_days)
+        except Exception as e:
+            log.exception("p0 backfill failed")
+            _bf["error"] = str(e)
+        finally:
+            _bf["running"] = False
+            _bf["finished"] = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    threading.Thread(target=_run, daemon=True).start()
+    return True
 
 
 def load_trend(gs_client, days=TREND_HISTORY_DAYS):
@@ -232,4 +262,5 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
         "provinces": provs,
         "tickets": tickets,
         "trend": load_trend(gs_client),
+        "backfill": backfill_status(),
     }

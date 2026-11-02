@@ -3426,16 +3426,18 @@ def api_p0_forecast_snapshot():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/p0-forecast/backfill', methods=['POST'])
+@app.route('/api/p0-forecast/backfill', methods=['GET', 'POST'])
 def api_p0_forecast_backfill():
-    """One-off: fill P0DailyTrend for the past days from the ~01:15 Drive backup files (days already stored are skipped)."""
+    """POST: start (in the background) filling P0DailyTrend for the past days from the ~01:15 Drive backup files
+    (days already stored are skipped). GET: current status. Returns immediately either way."""
     try:
         import p0_forecast as _pf
-        data = request.get_json(silent=True) or {}
-        drive_service, gs_client = get_drive_and_sheets_clients()
-        res = _pf.backfill_from_drive(drive_service, gs_client, back_days=min(int(data.get('days', 7)), 14))
-        log.info("p0 forecast backfill by %s -> %s", session.get('user_email'), res)
-        return jsonify(dict(res, status='ok'))
+        if request.method == 'POST':
+            data = request.get_json(silent=True) or {}
+            drive_service, gs_client = get_drive_and_sheets_clients()
+            started = _pf.start_backfill(drive_service, gs_client, back_days=min(int(data.get('days', 7)), 14))
+            log.info("p0 forecast backfill requested by %s started=%s", session.get('user_email'), started)
+        return jsonify(dict(_pf.backfill_status(), status='ok'))
     except Exception as e:
         log.exception("p0-forecast backfill failed")
         return jsonify({'error': str(e)}), 500

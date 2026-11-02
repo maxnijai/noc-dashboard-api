@@ -689,9 +689,9 @@ def _flag_priority_text(t):
 
 
 # ── Flag Logic (column AA of the export sheet) ────────────────────────────
-# NSA3/NSA4 tickets only: "P0 ใน N วัน" (N = 1..7) = the ticket becomes P0 (over SLA > 24h at the 01:15 reference,
-# same formula as the Focus P0 cards, reference day 0 = tomorrow 01:15) N days from now. Blank for tickets that are
-# already P0, that are more than 7 days away, or that are not NSA3/NSA4.
+# NSA3/NSA4 tickets only: "P0 แล้ว" = already P0 (over SLA > 24h at the 01:15 reference, same formula as the Focus P0
+# cards, reference = tomorrow 01:15); "P0 ใน N วัน" (N = 1..7) = becomes P0 N reference days later. Blank when it is more
+# than 7 days away or the ticket is not NSA3/NSA4.
 FLAG_LOGIC_DAYS = 7
 
 
@@ -707,7 +707,7 @@ def ticket_p0_offset(target_finish_str, ref0):
 
 
 def flag_logic_text(t, now_dt=None):
-    """Export-sheet column AA for one ticket entry dict: "P0 ใน N วัน" (N = 1..7) or ""."""
+    """Export-sheet column AA for one ticket entry dict: "P0 แล้ว", "P0 ใน N วัน" (N = 1..7) or ""."""
     try:
         if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
             return ""
@@ -715,9 +715,9 @@ def flag_logic_text(t, now_dt=None):
         now_dt = now_dt or bangkok_now()
         ref0 = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
         k = ticket_p0_offset(t.get("TARGETFINISH"), ref0)
-        if k is None or k < 1 or k > FLAG_LOGIC_DAYS:
+        if k is None or k > FLAG_LOGIC_DAYS:
             return ""
-        return "P0 ใน %d วัน" % k
+        return "P0 แล้ว" if k == 0 else "P0 ใน %d วัน" % k
     except Exception:
         log.exception("flag_logic_text failed")
         return ""
