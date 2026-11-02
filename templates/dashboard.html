@@ -17434,7 +17434,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cg: null, fC: '', catK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
+  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17473,6 +17473,10 @@ redraw();
 #fc7-box table.gs th,#fc7-box table.gs td{border:1px solid var(--border)}#fc7-box table.gs td.n{cursor:pointer}
 #fc7-box table.gs td.n:hover{outline:2px solid #7c3aed;outline-offset:-2px;background:#ede9fe;color:#4c1d95}
 #fc7-box table.gs td.l{text-align:left;white-space:nowrap}#fc7-box table.gs tr.sub td{font-weight:800;background:var(--bg3)}
+#fc7-box table.pt th,#fc7-box table.pt td{border:1px solid var(--border);padding:5px 8px}#fc7-box table.pt td.n{cursor:pointer;min-width:44px}
+#fc7-box table.pt td.n:hover{outline:2px solid #7c3aed;outline-offset:-2px}#fc7-box table.pt td.l{text-align:left;white-space:nowrap}
+#fc7-box table.pt tr.sub td{font-weight:800;background:var(--bg3)}#fc7-box table.pt td.rg{font-weight:700;vertical-align:bottom;text-align:left}
+#fc7-box table.pt th.late{background:#fee2e2;color:#b91c1c}#fc7-box table.pt th.tod{background:#dbeafe;color:#1d4ed8}
 #fc7-box table.ct th.rot{height:128px;min-width:34px;max-width:40px;padding:4px 2px;vertical-align:bottom;white-space:nowrap}
 #fc7-box table.ct th.rot span{display:inline-block;writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px}
 #fc7-box table.ct th,#fc7-box table.ct td{border:1px solid var(--border)}#fc7-box table.ct td.n{cursor:pointer;min-width:34px;font-weight:700}
@@ -17625,28 +17629,38 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   }
   function sumNote() { document.getElementById('fc7-tbn').textContent = 'กดตัวเลข / ชื่อกลุ่ม / แถวรวม → รายใบเด้งขึ้นข้างล่าง · สีเข้ม = มากที่สุดในคอลัมน์นั้น · @01:15 และ ต่าง เป็นระดับจังหวัด (CMI1+CMI2 = เชียงใหม่) เพราะ Snapshot เก็บรายจังหวัด'; }
 
-  // chart: ticket count along the 8 Flag Logic steps (P0 แล้ว -> P0 ใน 7 วัน)
-  const SC_LABELS = ['P0 แล้ว', 'ใน 1 วัน', 'ใน 2 วัน', 'ใน 3 วัน', 'ใน 4 วัน', 'ใน 5 วัน', 'ใน 6 วัน', 'ใน 7 วัน'];
-  function scCounts(key, m) {
-    const a = [0, 0, 0, 0, 0, 0, 0, 0];
-    m.T.forEach(t => { const g = gkey(t); if (key === 'ALL' || g === key || g.indexOf(key + '-') === 0) a[t.k]++; });
-    return a;
+  // chart: DAILY history (01:15 snapshots) of the 8 Flag Logic steps for one group - stored in the P0StepTrend tab
+  const STEP_COL = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#16a34a', '#0891b2', '#2563eb', '#7c3aed'];
+  const STEP_NAME = k => k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + k + ' วัน';
+  function stepSeries(key) {
+    const st = (F7.data && F7.data.steps) || { dates: [], by: {} }, all = Object.values(st.by);
+    const has = st.dates.map((_, i) => all.some(a => a[i])), f0 = Math.max(0, has.indexOf(true));
+    const gs = Object.keys(st.by).filter(g => key === 'ALL' || g === key || g.indexOf(key + '-') === 0);
+    const dates = st.dates.slice(f0), arr = dates.map((_, i) => has[f0 + i] ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => sum(gs.map(g => (st.by[g][f0 + i] || [0, 0, 0, 0, 0, 0, 0, 0])[k]))) : null);
+    return { dates, arr, days: has.filter(Boolean).length };
   }
   function renderSumChart(m) {
     const box = document.getElementById('fc7-sumchart');
     if (F7.tab !== 'sum') { box.style.display = 'none'; return; }
     box.style.display = '';
-    const keys = ['ALL', 'NOR1', 'NOR2'].concat(GRPS.map(x => x[0] + '-' + x[1])), name = k => k === 'ALL' ? 'ผลรวม' : k;
-    if (!F7.cg) F7.cg = new Set(['ALL', 'NOR1', 'NOR2']);
-    const sel = keys.filter(k => F7.cg.has(k)), W = 1000, H = 290, L = 46, R = 26, T = 24, B = 40;
-    const ser = sel.map((k, i) => ({ k, a: scCounts(k, m), c: k === 'ALL' ? '#dc2626' : k === 'NOR1' ? '#2563eb' : k === 'NOR2' ? '#16a34a' : COLORS[(i + 3) % COLORS.length] }));
-    const mx = Math.max(1, ...ser.flatMap(z => z.a)) * 1.18, x = i => L + (W - L - R) * (i + .5) / 8;
+    const keys = ['ALL'].concat(['NOR1', 'NOR2'], GRPS.map(x => x[0] + '-' + x[1])), name = k => k === 'ALL' ? 'ผลรวม' : k, key = F7.cs || 'ALL';
+    const sr = stepSeries(key), W = 1000, H = 300, L = 46, R = 120, T = 20, B = 36, n = sr.dates.length;
+    const mx = Math.max(1, ...sr.arr.flatMap(a => a || [0])) * 1.12, x = i => n <= 1 ? (L + (W - R)) / 2 : L + (W - L - R) * i / (n - 1), y = v => T + (H - T - B) * (1 - v / mx);
     let g = grid(L, W, R, T, H, B, mx), body = '';
-    SC_LABELS.forEach((l, i) => { g += `<text x="${x(i)}" y="${H - 14}" font-size="11.5" fill="var(--text2)" text-anchor="middle">${i === 0 ? l : 'P0 ' + l}</text><text x="${x(i)}" y="${H - 1}" font-size="10" fill="var(--text3)" text-anchor="middle">${i + 1}</text>`; });
-    ser.forEach(z => { const pts2 = z.a.map((v, i) => [x(i), T + (H - T - B) * (1 - v / mx)]);
-      body += poly(pts2, z.c, false, 2.6) + pts2.map((q, i) => `<circle cx="${q[0]}" cy="${q[1]}" r="3.2" fill="${z.c}"/><text x="${q[0]}" y="${q[1] - 8}" font-size="11" font-weight="700" fill="${z.c}" text-anchor="middle">${z.a[i]}</text>`).join(''); });
-    box.innerHTML = `<div class="hd"><div><h2>Trend ตามลำดับ Flag Logic (1. P0 แล้ว → 8. P0 ใน 7 วัน)</h2><div class="sb">จำนวนใบในแต่ละขั้น · เลือกกลุ่มที่ต้องการเทียบได้ (กดซ้ำเพื่อเอาออก)</div></div><div class="lg">${ser.map(z => `<span><i class="sw" style="background:${z.c}"></i>${esc(name(z.k))}</span>`).join('')}</div></div>
-      <div class="ch" style="margin-bottom:8px;flex-wrap:wrap">${keys.map(k => `<span class="cp${F7.cg.has(k) ? ' pa' : ''}" data-fc7-cg="${esc(k)}">${esc(name(k))}</span>`).join('')}</div>
+    sr.dates.forEach((dt, i) => { if (n <= 12 || i % 2 === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 12}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(dt))}</text>`; });
+    for (let k = 0; k < 8; k++) {
+      const pts2 = [], vals = [];
+      sr.arr.forEach((a, i) => { if (a) { pts2.push([x(i), y(a[k])]); vals.push([sr.dates[i], a[k]]); } });
+      body += poly(pts2, STEP_COL[k], false, k === 0 ? 3 : 2) + pts2.map((q, j) => `<circle cx="${q[0]}" cy="${q[1]}" r="${k === 0 ? 3.6 : 2.8}" fill="${STEP_COL[k]}"><title>${esc(dShort(vals[j][0]))} · ${STEP_NAME(k)}: ${vals[j][1]}</title></circle>`).join('');
+      if (pts2.length) { const q = pts2[pts2.length - 1]; body += `<text x="${q[0] + 8}" y="${q[1] + 4}" font-size="11" font-weight="700" fill="${STEP_COL[k]}">${vals[vals.length - 1][1]}</text>`; }
+    }
+    const bf = (F7.data && F7.data.backfill) || {};
+    const note = bf.running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจาก Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเอง`
+      : sr.days > 0 ? `จุด = จำนวนใบ ณ 01:15 ของแต่ละวัน (Logic เดียวกับ Flag Logic) · มีข้อมูล ${sr.days} วัน · เก็บเพิ่มเองทุกคืน 01:20`
+      : `<b style="color:#b45309">ยังไม่มีข้อมูลรายวัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} — ระบบดึงจากไฟล์แบคอัพ Drive ให้เอง หรือ <button type="button" class="cp" data-fc7-bf="1">ดึงเดี๋ยวนี้</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
+    box.innerHTML = `<div class="hd"><div><h2>Trend รายวัน — P0 แล้ว / P0 ใน 1–7 วัน (${esc(name(key))})</h2><div class="sb">${note}</div></div>
+      <div class="lg">${STEP_COL.map((c, k) => `<span><i class="sw" style="background:${c}"></i>${STEP_NAME(k)}</span>`).join('')}</div></div>
+      <div class="ch" style="margin-bottom:8px;flex-wrap:wrap">${keys.map(k => `<span class="cp${key === k ? ' pa' : ''}" data-fc7-cg="${esc(k)}">${esc(name(k))}</span>`).join('')}</div>
       <svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
   }
 
@@ -17676,6 +17690,36 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     document.getElementById('fc7-catk').onchange = e => { F7.catK = e.target.value; renderCatTable(F7.m); };
   }
 
+  // TRUEOWNERGROUP x Plan_Closed_Date. Dates before today (back date) are red so every province can see what is overdue.
+  function renderPlanTable(m) {
+    const box = document.getElementById('fc7-plan');
+    if (F7.tab !== 'sum') { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const d = F7.data, today = d.today, K = F7.planK, inScope = t => K === '' || t.k === +K, cnt = {}, dset = new Set();
+    m.T.filter(inScope).forEach(t => { const g = gkey(t) || '#none', c = cnt[g] || (cnt[g] = { none: 0, by: {} }); if (!t.plan) c.none++; else { c.by[t.plan] = (c.by[t.plan] || 0) + 1; dset.add(t.plan); } });
+    const dates = [...dset].sort(), isLate = dt => dt < today;
+    const agg = pred => { const o = { none: 0, by: {} }; Object.keys(cnt).filter(pred).forEach(g => { o.none += cnt[g].none; Object.keys(cnt[g].by).forEach(dt => { o.by[dt] = (o.by[dt] || 0) + cnt[g].by[dt]; }); }); return o; };
+    const lateSum = o => sum(dates.filter(isLate).map(dt => o.by[dt] || 0)), totOf = o => o.none + sum(dates.map(dt => o.by[dt] || 0));
+    const mxL = Math.max(1, ...Object.keys(cnt).flatMap(g => dates.filter(isLate).map(dt => cnt[g].by[dt] || 0)));
+    const redCell = v => `background:rgba(220,38,38,${(.16 + .66 * v / mxL).toFixed(2)});color:${v / mxL > .5 ? '#fff' : '#7f1d1d'};font-weight:700`;
+    const tdOf = (v, g, kind, dt, sub) => { if (!v) return '<td></td>'; const st = kind === 'none' ? 'background:#fef3c7;color:#92400e;font-weight:700' : kind === 'date' && isLate(dt) ? (sub ? 'color:#b91c1c;font-weight:800' : redCell(v)) : kind === 'late' ? 'background:#fee2e2;color:#b91c1c;font-weight:800' : ''; return `<td class="n" style="${st}" data-fc7-dp="${esc(g)}|${K}|${kind}|${dt || ''}">${v}</td>`; };
+    const line = (cls, c1, c2, c3, o, g, sub) => `<tr class="${cls}">${c1}${c2}${c3}${tdOf(o.none, g, 'none', '', sub)}${dates.map(dt => tdOf(o.by[dt] || 0, g, 'date', dt, sub)).join('')}<td class="n" data-fc7-dp="${esc(g)}|${K}|all|" style="font-weight:700">${totOf(o) || ''}</td>${tdOf(lateSum(o), g, 'late', '', sub)}</tr>`;
+    let h = `<table class="pt"><tr><th>Region</th><th>TRUEOWNERGROUP</th><th>จังหวัด</th><th style="background:#fef3c7;color:#92400e">ไม่มี Plan</th>${dates.map(dt => `<th class="${isLate(dt) ? 'late' : dt === today ? 'tod' : ''}" title="${esc(dt)}">${esc(dShort(dt))}<div style="font-size:9.5px;font-weight:600">${isLate(dt) ? 'เลยกำหนด' : dt === today ? 'วันนี้' : ''}</div></th>`).join('')}<th>รวม</th><th class="late">Back date<br>รวม</th></tr>`;
+    ['NOR1', 'NOR2'].forEach(rg => {
+      const gs = GRPS.filter(x => x[0] === rg);
+      gs.forEach((x, i) => { const key = x[0] + '-' + x[1], o = cnt[key] || { none: 0, by: {} };
+        h += line('', i === 0 ? `<td class="rg" rowspan="${gs.length}">${rg}</td>` : '', `<td class="n l" data-fc7-dp="${key}|${K}|all|">TRUE-TH-BBT-${key}-NOP</td>`, `<td class="l">${esc(G2P[key])}</td>`, o, key, false); });
+      h += line('sub', `<td class="l" colspan="3">${rg} รวม</td>`, '', '', agg(g => g.indexOf(rg + '-') === 0), rg, true);
+    });
+    if (cnt['#none']) h += line('', '<td></td>', '<td class="l">(ไม่ระบุกลุ่ม)</td>', '<td></td>', cnt['#none'], '#none', false);
+    h += line('sub', `<td class="l" colspan="3">ผลรวม</td>`, '', '', agg(() => true), '', true);
+    const opts = [['0', 'P0 แล้ว'], ...[1, 2, 3, 4, 5, 6, 7].map(k => [String(k), 'P0 ใน ' + k + ' วัน']), ['', 'ทุกใบ (P0 แล้ว + ใน 7 วัน)']];
+    box.innerHTML = `<div class="hd"><div><h2>TRUEOWNERGROUP × Plan_Closed_Date</h2><div class="sb">เทียบกับวันนี้ (${esc(dLong(today))}) · <b style="color:#b91c1c">สีแดง = Plan เลยกำหนด (back date)</b> · เหลือง = ยังไม่มี Plan · กดช่องเพื่อดูรายใบข้างล่าง</div></div>
+      <label class="sb">นับเฉพาะ: <select id="fc7-plank">${opts.map(o => `<option value="${o[0]}"${K === o[0] ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label></div>
+      <div class="sc7" style="max-height:none;overflow-x:auto">${totOf(agg(() => true)) ? h : '<div class="sb" style="padding:12px">ไม่มีใบในขั้นนี้</div>'}</table></div>`;
+    document.getElementById('fc7-plank').onchange = e => { F7.planK = e.target.value; renderPlanTable(F7.m); };
+  }
+
   // drill-down: ticket table opens right under the summary
   function refreshTickets() { if (F7.tab === 'sum') renderDD(); else renderTable(); }
   function renderDD() {
@@ -17685,18 +17729,20 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     const fl = [];
     if (F7.fG) fl.push(F7.fG === '#none' ? '(ไม่ระบุกลุ่ม)' : F7.fG);
     if (F7.fC) fl.push(F7.fC);
+    if (F7.fPD) fl.push('Plan ' + dShort(F7.fPD)); else if (F7.fF === 'late') fl.push('Plan เลยกำหนด'); else if (F7.fF === 'no') fl.push('ไม่มี Plan');
     if (F7.fD !== '') fl.push(F7.fD === '0' ? 'P0 แล้ว' : 'P0 ใน ' + F7.fD + ' วัน');
     document.getElementById('fc7-ddt').textContent = 'รายใบ · แก้ Detail / Plan ได้' + (fl.length ? ' — ' + fl.join(' · ') : ' — ทุกใบ');
     renderTickets(el); sumNote();
   }
-  function openDD(g, k, c) {
-    F7.tab = 'sum'; F7.dd = true; F7.fG = g; F7.fD = k; F7.fC = c || ''; F7.fP = ''; F7.fF = ''; F7.fQ = '';
+  function openDD(g, k, c, x) {
+    x = x || {};
+    F7.tab = 'sum'; F7.dd = true; F7.fG = g; F7.fD = k; F7.fC = c || ''; F7.fP = ''; F7.fF = x.fF || ''; F7.fPD = x.fPD || ''; F7.fQ = '';
     renderTable(); const w = document.getElementById('fc7-ddw'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
-    renderSumChart(m); renderCatTable(m); renderDD();
+    renderSumChart(m); renderCatTable(m); renderPlanTable(m); renderDD();
     el.style.maxHeight = F7.tab === 'sum' ? 'none' : '';   // summary shows in full; the page scrolls, not the table
     if (F7.tab === 'sum') { renderSummary(m, el); return; }
     if (F7.tab === 'prov') {
@@ -17713,7 +17759,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   function renderTickets(el) {
     const m = F7.m, d = F7.data;
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
-    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (!F7.fC || (t.cat || '(ไม่ระบุ)') === F7.fC) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
+    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (!F7.fC || (t.cat || '(ไม่ระบุ)') === F7.fC) && (!F7.fPD || t.plan === F7.fPD) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
       (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())))
       .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
     const shown = list.slice(0, 100);
@@ -17738,7 +17784,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     q('fc7-fC').onchange = e => { F7.fC = e.target.value; refreshTickets(); };
     q('fc7-fP').onchange = e => { F7.fP = e.target.value; refreshTickets(); };
     q('fc7-fD').onchange = e => { F7.fD = e.target.value; refreshTickets(); };
-    q('fc7-fF').onchange = e => { F7.fF = e.target.value; refreshTickets(); };
+    q('fc7-fF').onchange = e => { F7.fF = e.target.value; F7.fPD = ''; refreshTickets(); };
     q('fc7-fQ').oninput = e => { F7.fQ = e.target.value; const pos = e.target.selectionStart; refreshTickets(); const n = q('fc7-fQ'); n.focus(); n.setSelectionRange(pos, pos); };
     el.querySelectorAll('tr[data-id]').forEach(tr => {
       const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv:not(.ks)');
@@ -17807,14 +17853,16 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
         <div id="fc7-sumchart" style="display:none;margin-bottom:12px"></div>
         <div class="sc7" id="fc7-tbl"></div>
         <div id="fc7-cat" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
+        <div id="fc7-plan" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-ddw" style="display:none;margin-top:16px;padding-top:12px;border-top:2px solid var(--border)"><div class="hd"><h2 id="fc7-ddt" style="font-size:15px"></h2><button type="button" class="cp" data-fc7-ddx="1">ปิดรายใบ ✕</button></div><div class="sc7" id="fc7-dd"></div></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
       const dd = e.target.closest('[data-fc7-dd]'); if (dd) { const pr = dd.dataset.fc7Dd.split('|'); openDD(pr[0], pr[1]); return; }
+      const dp = e.target.closest('[data-fc7-dp]'); if (dp) { const pr = dp.dataset.fc7Dp.split('|'); openDD(pr[0], pr[1], '', pr[2] === 'none' ? { fF: 'no' } : pr[2] === 'late' ? { fF: 'late' } : pr[2] === 'date' ? { fPD: pr[3] } : {}); return; }
       const dc = e.target.closest('[data-fc7-dc]'); if (dc) { const pr = dc.dataset.fc7Dc.split('|'); openDD(pr[0], pr[1], decodeURIComponent(pr[2] || '')); return; }
-      const cgb = e.target.closest('[data-fc7-cg]'); if (cgb) { const k = cgb.dataset.fc7Cg; if (F7.cg.has(k)) { if (F7.cg.size > 1) F7.cg.delete(k); } else F7.cg.add(k); renderSumChart(F7.m); return; }
+      const cgb = e.target.closest('[data-fc7-cg]'); if (cgb) { F7.cs = cgb.dataset.fc7Cg; renderSumChart(F7.m); return; }
       if (e.target.closest('[data-fc7-ddx]')) { F7.dd = false; renderDD(); return; }
       const kt = e.target.closest('[data-fc7-k]'); if (kt) { openDD('', kt.dataset.fc7K); return; }
       const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
@@ -17862,7 +17910,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   }
   function maybeBackfill() {
     const d = F7.data; if (!d) return;
-    const have = d.trend.all.filter(v => v != null).length;
+    const st = d.steps || { dates: [], by: {} }, have = st.dates.filter((_, i) => Object.values(st.by).some(a => a[i])).length;
     if (d.backfill && d.backfill.running) pollBackfill();
     else if (have < 2 && !F7.bfTried) startBackfill(false);
   }
