@@ -23,6 +23,7 @@ SNAPSHOT_HEADER = ["Date", "Province", "NSA3_P0", "NSA4_P0", "P0", "P1", "Total"
 FORECAST_DAYS = pt.FLAG_LOGIC_DAYS  # panel lists the same tickets as export column AA (Flag Logic): P0 แล้ว + P0 ใน 1-7 วัน
 TREND_HISTORY_DAYS = 30
 # Daily history of the 8 Flag Logic steps (S0 = "P0 แล้ว", S1..S7 = "P0 ใน N วัน") per TRUEOWNERGROUP, counted at each day's own 01:15 file
+STEPS_ENABLED = False   # the daily 8-step trend chart was removed from the panel; flip to True to record/read it again
 STEPS_SHEET = "P0StepTrend"
 STEPS_HEADER = ["Date", "Group"] + ["S%d" % i for i in range(8)] + ["RecordedAt"]
 
@@ -185,10 +186,11 @@ def record_snapshot(gs_client, day=None, force=False):
     day = day or bangkok_now().date()
     rows = pt.fetch_live_rows(gs_client)
     n = _write_days(gs_client, {day: _aggregate(rows, day)}, force=force)
-    try:
-        _write_steps(gs_client, {day: _aggregate_steps(rows, day)}, force=force)
-    except Exception:
-        log.exception("P0StepTrend snapshot failed (P0DailyTrend was written)")
+    if STEPS_ENABLED:
+        try:
+            _write_steps(gs_client, {day: _aggregate_steps(rows, day)}, force=force)
+        except Exception:
+            log.exception("P0StepTrend snapshot failed (P0DailyTrend was written)")
     return n
 
 
@@ -207,25 +209,26 @@ def backfill_from_drive(drive_service, gs_client, back_days=7):
     with _lock:
         ws = _ensure_tab(gs_client.open_by_key(pt.REALTIME_SHEET_ID))
         stored = {row[0] for i, row in enumerate(ws.get_all_values()) if i > 0 and row}
-    stored_steps = _steps_stored_dates(gs_client)
+    stored_steps = _steps_stored_dates(gs_client) if STEPS_ENABLED else None
     for i in range(0, back_days + 1):           # newest first: today's @01:15 is the one people need first
         day = today - timedelta(days=i)
         ds = day.strftime("%Y-%m-%d")
-        if ds in stored and ds in stored_steps:
+        if ds in stored and (stored_steps is None or ds in stored_steps):
             continue
         with pt._DAY_DL_LOCK:
             info = find_nightly_file(drive_service, day)
             rows = download_xlsx_as_rows(drive_service, info[0]) if info else None
             agg = _aggregate(rows, day) if rows else None
-            steps = _aggregate_steps(rows, day) if rows else None
+            steps = _aggregate_steps(rows, day) if (rows and STEPS_ENABLED) else None
             rows = None
             pt._release_memory()
         if agg:
             _write_days(gs_client, {day: agg})          # skips a day that is already stored
-            try:
-                _write_steps(gs_client, {day: steps})
-            except Exception:
-                log.exception("P0StepTrend backfill write failed for %s", ds)
+            if STEPS_ENABLED:
+                try:
+                    _write_steps(gs_client, {day: steps})
+                except Exception:
+                    log.exception("P0StepTrend backfill write failed for %s", ds)
             _bf["done"].append(ds)
         else:
             _bf["missing"].append(ds)
@@ -325,6 +328,8 @@ def load_steps(gs_client, days=TREND_HISTORY_DAYS):
 
 # ── Forecast ──────────────────────────────────────────────────────────────
 def _safe_steps(gs_client):
+    if not STEPS_ENABLED:
+        return {"dates": [], "by": {}}
     try:
         return load_steps(gs_client)
     except Exception:
