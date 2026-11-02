@@ -146,6 +146,7 @@ EXPORT_HEADER = [
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
     "Region",     # column Z: NOR1 / NOR2
     "Flag Logic",  # column AA: NSA3/NSA4 only - exactly one of "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน"; blank if farther than 7 days (was "Flag Priority" = Category lookup)
+    "Comment By P'Kasem",  # column AB: free-text comment written only by KASEM_EMAIL (stored in the KasemComment tab)
 ]
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
@@ -305,6 +306,73 @@ def load_work_log(gs_client, use_cache=True):
             _work_log_row_index_cache.clear()
             _work_log_row_index_cache.update(row_index)
     return out
+
+
+# ── "Comment By P'Kasem" (export column AB) ───────────────────────────────
+# Stored in its own tab so the Work Log layout is untouched. Only KASEM_EMAIL may write (enforced in the API).
+KASEM_EMAIL = "kasemyanaso@gmail.com"
+KASEM_SHEET = "KasemComment"
+KASEM_HEADER = ["TICKETID", "Comment", "Updated_At", "Updated_By"]
+KASEM_MAX_LEN = 1500
+KASEM_CACHE_TTL_SECONDS = 60
+_kasem_cache = {"data": None, "rows": {}, "ts": 0.0}
+
+
+def is_kasem(email):
+    return str(email or "").strip().lower() == KASEM_EMAIL
+
+
+def _ensure_kasem_tab(sh):
+    try:
+        return sh.worksheet(KASEM_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=KASEM_SHEET, rows=2000, cols=len(KASEM_HEADER))
+        ws.append_row(KASEM_HEADER)
+        return ws
+
+
+def load_kasem_comments(gs_client, use_cache=True):
+    """{ticket_id: {"comment", "updated_at", "updated_by"}} from the KasemComment tab (60 s cache)."""
+    now = time.monotonic()
+    with _cache_lock:
+        if use_cache and _kasem_cache["data"] is not None and (now - _kasem_cache["ts"]) < KASEM_CACHE_TTL_SECONDS:
+            return _kasem_cache["data"]
+    ws = _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+    out, rows = {}, {}
+    for i, row in enumerate(ws.get_all_values()[1:]):
+        if not row or not row[0]:
+            continue
+        p = row + [""] * (len(KASEM_HEADER) - len(row))
+        out[p[0]] = {"comment": p[1], "updated_at": p[2], "updated_by": p[3]}
+        rows[p[0]] = i + 2
+    with _cache_lock:
+        _kasem_cache.update(data=out, rows=rows, ts=now)
+    return out
+
+
+def save_kasem_comment(gs_client, ticket_id, comment, updated_by=""):
+    """Upserts one comment row. Caller must already have checked is_kasem(). Returns the stored dict."""
+    load_kasem_comments(gs_client)   # warms the row index
+    ws = _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+    stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    vals = [ticket_id, comment, stamp, updated_by or KASEM_EMAIL]
+    with _cache_lock:
+        row_idx = _kasem_cache["rows"].get(ticket_id)
+    if row_idx:
+        ws.update(f"A{row_idx}:D{row_idx}", [vals], value_input_option="RAW")
+    else:
+        resp = ws.append_row(vals, value_input_option="RAW")
+        row_idx = _row_number_from_append_response(resp)
+    rec = {"comment": comment, "updated_at": stamp, "updated_by": vals[3]}
+    with _cache_lock:
+        if _kasem_cache["data"] is None:
+            _kasem_cache["data"] = {}
+        _kasem_cache["data"][ticket_id] = rec
+        if row_idx:
+            _kasem_cache["rows"][ticket_id] = row_idx
+        else:
+            _kasem_cache["ts"] = 0.0   # unknown row number -> re-read next time
+    return rec
 
 
 def _invalidate_work_log_cache():
@@ -731,7 +799,7 @@ def _category_text(t):
     return str(t.get("subject_category") or _auto_categorize_subject(t.get("SUBJECT", "")))
 
 
-def _ticket_to_export_row(t, insert_time_str=""):
+def _ticket_to_export_row(t, insert_time_str="", kasem=None):
     """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
     by the external mirror export and the on-demand Excel/Google Sheet
     export buttons, so all three always produce the same column layout."""
@@ -747,6 +815,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         _category_text(t),
         t.get("Region", ""),
         flag_logic_text(t),
+        ((kasem or {}).get(str(t.get("TICKETID", "")).strip()) or {}).get("comment", ""),   # column AB
     ]
 
 
@@ -756,7 +825,12 @@ def export_to_external_sheet(gs_client, tickets, insert_time_str):
     Called once per build_pending_ticket_response(), so it stays in sync
     every time the tab is loaded or refreshed."""
     ws = _get_export_worksheet(gs_client)
-    rows = [_ticket_to_export_row(t, insert_time_str) for t in tickets]
+    try:
+        kasem = load_kasem_comments(gs_client)
+    except Exception:
+        log.exception("export_to_external_sheet: KasemComment tab unreadable - column AB left blank this round")
+        kasem = {}
+    rows = [_ticket_to_export_row(t, insert_time_str, kasem) for t in tickets]
     # A Sheets write past the grid's edge fails outright, so grow the grid first if the new
     # right-most column (or more rows than before) doesn't fit. Only ever adds, never removes.
     try:
@@ -813,6 +887,11 @@ def _fetch_full_ticket_entries(gs_client):
         log.info("_fetch_full_ticket_entries: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
 
     work_log = load_work_log(gs_client)
+    try:
+        kasem_map = load_kasem_comments(gs_client)
+    except Exception:
+        log.exception("KasemComment tab unreadable - Pending Ticket shows no P'Kasem comments this round")
+        kasem_map = {}
 
     def build_entry(r):
         ticket_id = str(r.get("TICKETID", "")).strip()
@@ -838,6 +917,8 @@ def _fetch_full_ticket_entries(gs_client):
         entry["plan_closed_date"] = wl.get("plan_closed_date", "")
         entry["updated_at"] = wl.get("updated_at", "")
         entry["updated_by"] = wl.get("updated_by", "")
+        # "Comment By P'Kasem": only NSA3/NSA4 tickets carry it on the Pending Ticket page
+        entry["kasem_comment"] = (kasem_map.get(ticket_id) or {}).get("comment", "") if str(r.get("SEVERITY", "")).strip().upper() in ("NSA3", "NSA4") else ""
         entry["plan_closed_overdue"] = False
         if entry["plan_closed_date"]:
             try:
@@ -915,7 +996,7 @@ def trigger_background_export(gs_client, all_entries=None):
     return export_insert_time
 
 
-def build_pending_ticket_xlsx(matched_entries):
+def build_pending_ticket_xlsx(matched_entries, kasem=None):
     """Builds an in-memory .xlsx workbook of the given ticket entries (same
     EXPORT_HEADER columns as the mirror sheet), for the on-demand Excel
     export button - not written to disk, returned as bytes for a Flask
@@ -935,7 +1016,7 @@ def build_pending_ticket_xlsx(matched_entries):
         cell.fill = header_fill
         cell.font = header_font
 
-    rows = [_ticket_to_export_row(t) for t in matched_entries]
+    rows = [_ticket_to_export_row(t, "", kasem) for t in matched_entries]
     for row in rows:
         ws.append(row)
     for i, header in enumerate(EXPORT_HEADER, start=1):
