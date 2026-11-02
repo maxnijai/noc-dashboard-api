@@ -17469,19 +17469,20 @@ redraw();
   // k = 0: P0 now (same formula as the card) · k = 1: P1 (becomes P0 at the next 01:15)
   function compute() {
     const d = F7.data, T = d.tickets.filter(nsaOk), by = {};
-    PROVS.forEach(p => { by[p] = { p, now: 0, p1: 0, noplan: 0 }; });
-    T.forEach(t => { const o = by[t.prov] || (by[t.prov] = { p: t.prov, now: 0, p1: 0, noplan: 0 }); if (t.k === 0) { o.now++; if (!t.plan) o.noplan++; } else o.p1++; });
+    const blank = p => ({ p, now: 0, soon: 0, noplan: 0, ks: [0, 0, 0, 0, 0, 0, 0, 0] });
+    PROVS.forEach(p => { by[p] = blank(p); });
+    T.forEach(t => { const o = by[t.prov] || (by[t.prov] = blank(t.prov)); o.ks[t.k]++; if (t.k === 0) { o.now++; if (!t.plan) o.noplan++; } else o.soon++; });
     const last = d.trend.dates.length - 1, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
     const snapOf = p => { const arr = p == null ? d.trend['all' + sfx] : (d.trend['prov' + sfx] || {})[p]; const v = arr ? arr[last] : null; return v == null ? null : v; };
     const rows = Object.values(by).map(o => Object.assign(o, { snap: snapOf(o.p) }));
-    const tot = { now: sum(rows.map(r => r.now)), p1: sum(rows.map(r => r.p1)), noplan: sum(rows.map(r => r.noplan)), snap: snapOf(null) };
+    const tot = { now: sum(rows.map(r => r.now)), soon: sum(rows.map(r => r.soon)), noplan: sum(rows.map(r => r.noplan)), snap: snapOf(null), ks: [0, 1, 2, 3, 4, 5, 6, 7].map(i => sum(rows.map(r => r.ks[i]))) };
     return { T, rows, tot, snapOf };
   }
   function flagOf(t) {
     const d = F7.data, over = t.plan && t.plan < d.today;
     let k = 'no', s = 'ไม่มี Plan';
     if (t.plan) { if (over) { k = 'late'; s = 'Plan เลยกำหนด (' + dShort(t.plan) + ')'; } else { k = 'ok'; s = 'Plan ' + dShort(t.plan); } }
-    return { cls: t.k === 0 ? 'p0' : 'p1', text: t.k === 0 ? 'P0' : 'P0 ใน 1 วัน', k, s };
+    return { cls: t.k === 0 ? 'p0' : (t.k <= 2 ? 'p1' : 'fcp'), text: t.k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + t.k + ' วัน', k, s };
   }
   const stCss = k => ({ ok: 'color:#15803d', late: 'color:#b91c1c;font-weight:700', no: 'color:#b45309;font-weight:700' }[k]);
   const poly = (pts, col, dash, w) => pts.length < 2 ? '' : `<polyline fill="none" stroke="${col}" stroke-width="${w || 2.4}" ${dash ? 'stroke-dasharray="6 5"' : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
@@ -17490,11 +17491,20 @@ redraw();
 
   function renderTop(m) {
     const d = F7.data, diff = m.tot.snap == null ? null : m.tot.now - m.tot.snap, late = F7.m.T.filter(t => t.k === 0 && flagOf(t).k === 'late').length;
+    const scope = F7.grp === 'all' ? 'NSA3 + NSA4' : (F7.grp === 'n3' ? 'NSA3' : 'NSA4');
     document.getElementById('fc7-kp').innerHTML = `
-      <div class="k"><b style="color:#b91c1c">${m.tot.now}</b><span>P0 ปัจจุบัน (NSA3/NSA4)</span><i>เท่ากับตัวเลขบนการ์ด ${F7.grp === 'all' ? '' : '· เฉพาะ ' + F7.grp.toUpperCase().replace('N', 'NSA')}</i></div>
-      <div class="k"><b style="color:var(--text)">${m.tot.snap == null ? '–' : m.tot.snap}</b><span>@01:15 วันนี้ ${m.tot.snap == null ? '' : dtx(diff)}</span><i>${m.tot.snap == null ? 'ยังไม่มี Snapshot วันนี้ (ดูปุ่มในการ์ด Trend)' : 'จากแท็บ P0DailyTrend'}</i></div>
-      <div class="k"><b style="color:#d97706">${m.tot.p1}</b><span>P1 (จะเป็น P0 ที่ 01:15 ถัดไป)</span><i>เกินกำหนดแล้วไม่เกิน 24 ชม.</i></div>
-      <div class="k"><b style="color:#b45309">${m.tot.noplan}</b><span>P0 ที่ยังไม่มี Plan_Closed_Date</span><i>Plan เลยกำหนด ${late} ใบ</i></div>`;
+      <div class="k"><b style="color:#b91c1c">${m.tot.now}</b><span>P0 แล้ว (${scope})</span><i>เกินกำหนด &gt; 24 ชม. ณ 01:15 ${esc(dShort(d.ref0))} · เท่ากับตัวเลขบนการ์ด</i></div>
+      <div class="k"><b style="color:var(--text)">${m.tot.snap == null ? '–' : m.tot.snap}</b><span>P0 @01:15 ของวันนี้ ${m.tot.snap == null ? '' : dtx(diff)}</span><i>${m.tot.snap == null ? 'ยังไม่มีข้อมูลวันนี้ — ระบบกำลังดึงจากไฟล์แบคอัพ Drive (ดูการ์ด Trend)' : 'ปัจจุบัน ' + m.tot.now + ' เทียบ @01:15 ' + m.tot.snap}</i></div>
+      <div class="k"><b style="color:#7c3aed">${sum(m.tot.ks.slice(1))}</b><span>จะเป็น P0 ภายใน 7 วัน</span><i>ยังไม่เป็น P0 วันนี้ แต่จะเข้าเกณฑ์ใน 1–7 รอบ 01:15 ถัดไป</i></div>
+      <div class="k"><b style="color:#b45309">${m.tot.noplan}</b><span>P0 แล้ว ที่ยังไม่มี Plan_Closed_Date</span><i>มี Plan แต่เลยกำหนด ${late} ใบ</i></div>`;
+    const tile = (k, label, color) => `<div class="k" data-fc7-k="${k}" style="cursor:pointer;min-width:0"><b style="font-size:22px;color:${color}">${m.tot.ks[k]}</b><span style="font-weight:700">${label}</span><i>ณ 01:15 ${esc(dLong(addDays(d.ref0, k)))}</i></div>`;
+    document.getElementById('fc7-lg7').innerHTML = `<div class="hd"><div><h2>Flag Logic — ตัวเลขนี้อ่านอย่างไร</h2>
+      <div class="sb">นับทุกใบ NSA3/NSA4 · คำนวณจาก TARGETFINISH · ค่าเดียวกันนี้ถูกเขียนลงคอลัมน์ AA ของชีตส่งออก · กดช่องเพื่อดูรายใบ</div></div></div>
+      <div class="f8" style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:10px">${tile(0, 'P0 แล้ว', '#b91c1c')}${[1, 2, 3, 4, 5, 6, 7].map(k => tile(k, 'P0 ใน ' + k + ' วัน', k <= 2 ? '#d97706' : '#7c3aed')).join('')}</div>
+      <div class="sb" style="line-height:1.7;color:var(--text2)">
+        • <b>P0 แล้ว</b> = เกินกำหนด (TARGETFINISH) มากกว่า 24 ชม. ณ เวลา 01:15 ของรอบถัดไป (${esc(dShort(d.ref0))}) — ใบเหล่านี้คือตัวเลข P0 บนการ์ด<br>
+        • <b>P0 ใน N วัน</b> = ตอนนี้ยังไม่ถึงเกณฑ์ แต่จะเกินกำหนดเกิน 24 ชม. ณ 01:15 ของอีก N วันถัดไป (เช่น <b>P0 ใน 3 วัน</b> = จะเป็น P0 ที่ 01:15 ${esc(dLong(addDays(d.ref0, 3)))}) · ใบที่ไกลเกิน 7 วันไม่นับ<br>
+        • ตัวเลขเป็นค่าสูงสุด: ไม่หักใบที่จะถูกปิดงานก่อนถึงวันนั้น</div>`;
   }
 
   function series(prov, m) {
@@ -17523,7 +17533,10 @@ redraw();
     const have = d.trend.all.filter(v => v != null).length;
     document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
     document.getElementById('fc7-lg').innerHTML = lg;
-    document.getElementById('fc7-trnote').innerHTML = have > 1 ? `จุดบนเส้น = Snapshot @01:15 ที่เก็บไว้ ${have} วัน · จุดขวาสุด = P0 ปัจจุบัน` : `<b style="color:#b45309">ยังมี Snapshot ในแท็บ P0DailyTrend แค่ ${have} วัน</b> — ระบบเก็บเองทุกคืน 01:20 · ครั้งแรกกดดึงย้อนหลังจากไฟล์ Drive ได้เลย <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลย้อนหลังจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
+    const bf = d.backfill || {}, running = !!bf.running;
+    document.getElementById('fc7-trnote').innerHTML = running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจากไฟล์ Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเองเมื่อเสร็จ`
+      : have > 1 ? `จุดบนเส้น = P0 @01:15 ที่เก็บไว้ ${have} วัน (เก็บเองทุกคืน 01:20 + ข้อมูลแบคอัพ Drive) · จุดขวาสุด = P0 ปัจจุบัน`
+      : `<b style="color:#b45309">ยังมีข้อมูล @01:15 แค่ ${have} วัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลแบคอัพจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
     document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
   }
   function renderMulti(m) {
@@ -17540,11 +17553,12 @@ redraw();
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
     if (F7.tab === 'prov') {
-      const rows = [...m.rows].filter(r => r.now || r.p1 || r.snap).sort((a, b) => b.now - a.now);
-      el.innerHTML = `<table><tr><th>จังหวัด</th><th>P0 ปัจจุบัน</th><th>@01:15</th><th>ต่าง</th><th>P1</th><th>P0 ไม่มี Plan</th></tr>` +
-        rows.map(r => `<tr><td>${esc(r.p)}</td><td><span class="pl p0">${r.now}</span></td><td>${r.snap == null ? '–' : r.snap}</td><td>${r.snap == null ? '' : dtx(r.now - r.snap)}</td><td><span class="pl p1">${r.p1}</span></td><td>${r.noplan || '·'}</td></tr>`).join('') +
-        `<tr class="tot"><td>รวมทุกจังหวัด</td><td>${m.tot.now}</td><td>${m.tot.snap == null ? '–' : m.tot.snap}</td><td>${m.tot.snap == null ? '' : dtx(m.tot.now - m.tot.snap)}</td><td>${m.tot.p1}</td><td>${m.tot.noplan}</td></tr></table>`;
-      document.getElementById('fc7-tbn').textContent = 'P0 ปัจจุบันเทียบ Snapshot @01:15 ของวันนี้ (จากแท็บ P0DailyTrend)';
+      const rows = [...m.rows].filter(r => r.now || r.soon || r.snap).sort((a, b) => b.now - a.now), mxc = Math.max(1, ...rows.flatMap(r => r.ks.slice(1)));
+      const cell = v => `<td style="background:rgba(124,58,237,${v ? (.08 + .5 * v / mxc).toFixed(2) : 0});font-weight:${v ? 700 : 400};color:${v > mxc * .6 ? '#fff' : 'inherit'}">${v || '·'}</td>`;
+      el.innerHTML = `<table><tr><th>จังหวัด</th><th>P0 แล้ว</th><th>@01:15</th><th>ต่าง</th>${[1, 2, 3, 4, 5, 6, 7].map(k => `<th>P0 ใน ${k} วัน</th>`).join('')}<th>รวม ≤ 7 วัน</th></tr>` +
+        rows.map(r => `<tr><td>${esc(r.p)}</td><td><span class="pl p0">${r.now}</span></td><td>${r.snap == null ? '–' : r.snap}</td><td>${r.snap == null ? '' : dtx(r.now - r.snap)}</td>${r.ks.slice(1).map(cell).join('')}<td><b>${r.soon}</b></td></tr>`).join('') +
+        `<tr class="tot"><td>รวมทุกจังหวัด</td><td>${m.tot.now}</td><td>${m.tot.snap == null ? '–' : m.tot.snap}</td><td>${m.tot.snap == null ? '' : dtx(m.tot.now - m.tot.snap)}</td>${m.tot.ks.slice(1).map(v => `<td>${v}</td>`).join('')}<td>${m.tot.soon}</td></tr></table>`;
+      document.getElementById('fc7-tbn').textContent = 'P0 แล้ว เทียบ @01:15 วันนี้ · คอลัมน์ P0 ใน N วัน = จำนวนใบที่จะเป็น P0 ในอีก N วัน (สีเข้ม = มาก)';
       return;
     }
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
@@ -17553,7 +17567,7 @@ redraw();
       .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
     const shown = list.slice(0, 100);
     el.innerHTML = `<div class="fl"><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
-      <select id="fc7-fD"><option value="">P0 + P1</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>เฉพาะ P0</option><option value="1"${F7.fD === '1' ? ' selected' : ''}>เฉพาะ P1</option></select>
+      <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
       <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
       <table style="min-width:1200px"><tr><th>Ticket</th><th>จังหวัด</th><th>NSA</th><th>Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
@@ -17617,6 +17631,7 @@ redraw();
         <div style="display:flex;gap:8px;align-items:center"><div class="ch" id="fc7-grp"><span class="cp a" data-fc7-g="all">NSA3+4</span><span class="cp" data-fc7-g="n3">NSA3</span><span class="cp" data-fc7-g="n4">NSA4</span></div><button type="button" class="cp" data-fc7-close="1">ปิด ✕</button></div></div>
 </div>
       <div class="kp" id="fc7-kp"></div>
+      <div class="c7" id="fc7-lg7"></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 · จุดแดง = ปัจจุบัน · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
       <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
@@ -17624,7 +17639,9 @@ redraw();
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
+      const kt = e.target.closest('[data-fc7-k]'); if (kt) { F7.tab = 'tk'; F7.fD = kt.dataset.fc7K; F7.fP = ''; F7.fF = ''; F7.fQ = ''; renderTable(); document.getElementById('fc7-tbl').scrollIntoView({ block: 'nearest' }); return; }
       const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
+      const bfb = e.target.closest('[data-fc7-bf]'); if (bfb) { startBackfill(true); return; }
       const sn = e.target.closest('[data-fc7-snap]');
       if (sn) { sn.disabled = true; fetch('/api/p0-forecast/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(r => r.json()).then(j => { toast(j.error ? ('บันทึกไม่สำเร็จ: ' + j.error) : ('บันทึก Snapshot แล้ว ' + j.rows_written + ' แถว')); F7.ts = 0; return load(true); }).then(() => renderAll()); return; }
       const p = e.target.closest('[data-fc7-p]');
@@ -17646,13 +17663,39 @@ redraw();
     })();
     return F7.inflight;
   }
+  // Backup data first: when the P0DailyTrend tab holds < 2 days, the server fills it from the ~01:15 Drive files in the background; poll until done.
+  async function startBackfill(force) {
+    try {
+      if (force || !F7.bfTried) { F7.bfTried = true; await fetch('/api/p0-forecast/backfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 7 }) }); }
+      pollBackfill();
+    } catch (e) { console.error('backfill start failed', e); }
+  }
+  function pollBackfill() {
+    clearTimeout(F7.poll);
+    F7.poll = setTimeout(async () => {
+      const ov = document.getElementById('fc7-overlay');
+      if (!ov || ov.style.display !== 'flex') return;
+      try {
+        const st = await (await fetch('/api/p0-forecast/backfill')).json();
+        if (F7.data) F7.data.backfill = st;
+        if (st.running) { renderTrend(F7.m); if (st.done && st.done.length !== F7.bfSeen) { F7.bfSeen = st.done.length; await load(true); renderAll(); } pollBackfill(); }
+        else { await load(true); renderAll(); }
+      } catch (e) { console.error(e); }
+    }, 8000);
+  }
+  function maybeBackfill() {
+    const d = F7.data; if (!d) return;
+    const have = d.trend.all.filter(v => v != null).length;
+    if (d.backfill && d.backfill.running) pollBackfill();
+    else if (have < 2 && !F7.bfTried) startBackfill(false);
+  }
   window.p0OpenForecast = async function () {
     const ov = build(); ov.style.display = 'flex';
-    if (F7.data) { renderAll(); if (Date.now() - F7.ts >= 60000) load(true).then(ok => { if (ok && ov.style.display === 'flex') renderAll(); }); return; }
+    if (F7.data) { renderAll(); maybeBackfill(); if (Date.now() - F7.ts >= 60000) load(true).then(ok => { if (ok && ov.style.display === 'flex') renderAll(); }); return; }
     const box = document.getElementById('fc7-box'), keep = box.innerHTML;
     box.innerHTML = '<div style="padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (อ่านจากชีต Pending สดๆ ครั้งแรกอาจใช้เวลาสักครู่)</div>';
     const ok = await load(false);
-    if (ok) { box.innerHTML = keep; renderAll(); }
+    if (ok) { box.innerHTML = keep; renderAll(); maybeBackfill(); }
     else box.innerHTML = '<div style="padding:22px 28px;font-size:13px;max-width:460px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">' + esc(F7.err) + '</div><button type="button" class="cp" data-fc7-close="1">ปิด</button></div>';
   };
 })();
