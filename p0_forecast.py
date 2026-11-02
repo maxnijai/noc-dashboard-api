@@ -220,6 +220,11 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
     now_dt = bangkok_now()
     ref0 = (now_dt + timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
     work_log = pt.load_work_log(gs_client)
+    try:
+        kasem = pt.load_kasem_comments(gs_client)
+    except Exception:
+        log.exception("KasemComment tab unreadable")
+        kasem = {}
     tickets = []
     for r, code in _scoped_nsa34_rows(gs_client):
         k = pt.ticket_p0_offset(r.get("TARGETFINISH"), ref0)
@@ -238,6 +243,7 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
             "group_problem": wl.get("group_problem", ""), "action_team": wl.get("action_team", ""),
             "image_link": wl.get("image_link", ""), "updated_at": wl.get("updated_at", ""), "updated_by": wl.get("updated_by", ""),
             "flag": pt.flag_logic_text(entry, now_dt),
+            "kasem": (kasem.get(tid) or {}).get("comment", ""), "kasem_at": (kasem.get(tid) or {}).get("updated_at", ""),
         })
     tickets.sort(key=lambda t: (t["k"], t["prov"], t["id"]))
     provs = {}
