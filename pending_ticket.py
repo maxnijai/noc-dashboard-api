@@ -323,56 +323,106 @@ def is_kasem(email):
     return str(email or "").strip().lower() in KASEM_EMAILS
 
 
+_kasem_ws_cache = {"ws": None}
+
+
+def _is_quota_error(e):
+    t = str(e)
+    return "429" in t or "Quota exceeded" in t or "RATE_LIMIT" in t
+
+
+def _with_quota_retry(fn, tries=4):
+    """Runs fn(); on a Sheets 429 (per-minute quota shared with the rest of the dashboard) waits and retries."""
+    for n in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if n == tries - 1 or not _is_quota_error(e):
+                raise
+            time.sleep(2.5 * (n + 1))
+
+
 def _ensure_kasem_tab(sh):
     try:
         return sh.worksheet(KASEM_SHEET)
-    except Exception:
+    except Exception as e:
+        if _is_quota_error(e):
+            raise
         ws = sh.add_worksheet(title=KASEM_SHEET, rows=2000, cols=len(KASEM_HEADER))
-        ws.append_row(KASEM_HEADER)
+        _with_quota_retry(lambda: ws.update("A1:D1", [KASEM_HEADER], value_input_option="RAW"))   # fixed row 1, retried on quota
         return ws
 
 
+def _kasem_ws(gs_client):
+    """The KasemComment worksheet, looked up once and then reused (each lookup is a metadata read against the quota)."""
+    with _cache_lock:
+        ws = _kasem_ws_cache["ws"]
+    if ws is None:
+        ws = _with_quota_retry(lambda: _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID)))
+        with _cache_lock:
+            _kasem_ws_cache["ws"] = ws
+    return ws
+
+
 def load_kasem_comments(gs_client, use_cache=True):
-    """{ticket_id: {"comment", "updated_at", "updated_by"}} from the KasemComment tab (60 s cache)."""
+    """{ticket_id: {"comment", "updated_at", "updated_by"}} from the KasemComment tab (60 s cache).
+    If the sheet can't be read (quota), the last good copy is returned instead of failing."""
     now = time.monotonic()
     with _cache_lock:
         if use_cache and _kasem_cache["data"] is not None and (now - _kasem_cache["ts"]) < KASEM_CACHE_TTL_SECONDS:
             return _kasem_cache["data"]
-    ws = _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+        stale = _kasem_cache["data"]
+    try:
+        ws = _kasem_ws(gs_client)
+        values = _with_quota_retry(lambda: ws.get_all_values())
+    except Exception:
+        if stale is not None:
+            log.warning("KasemComment read failed - serving the last cached copy")
+            return stale
+        raise
     out, rows = {}, {}
-    for i, row in enumerate(ws.get_all_values()[1:]):
-        if not row or not row[0]:
+    for i, row in enumerate(values):
+        # Skip the header only when it really is the header: if the tab was created but the header write
+        # was cut off by a quota error, row 1 is already a real comment and must not be dropped.
+        if not row or not str(row[0]).strip() or str(row[0]).strip().upper() == "TICKETID":
             continue
         p = row + [""] * (len(KASEM_HEADER) - len(row))
-        out[p[0]] = {"comment": p[1], "updated_at": p[2], "updated_by": p[3]}
-        rows[p[0]] = i + 2
+        out[str(p[0]).strip()] = {"comment": p[1], "updated_at": p[2], "updated_by": p[3]}
+        rows[str(p[0]).strip()] = i + 1          # 1-based sheet row; a later duplicate row wins
     with _cache_lock:
         _kasem_cache.update(data=out, rows=rows, ts=now)
     return out
 
 
 def save_kasem_comment(gs_client, ticket_id, comment, updated_by=""):
-    """Upserts one comment row. Caller must already have checked is_kasem(). Returns the stored dict."""
-    load_kasem_comments(gs_client)   # warms the row index
-    ws = _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
+    """Upserts one comment row. Caller must already have checked is_kasem(). Returns the stored dict.
+    Uses as few Sheets calls as possible: no re-read when the row index is already cached, and a
+    write-only append when it is not (duplicates are harmless - the newest row wins on load)."""
+    with _cache_lock:
+        warm = _kasem_cache["data"] is not None
+    if not warm:
+        try:
+            load_kasem_comments(gs_client)
+        except Exception:
+            log.warning("save_kasem_comment: could not warm the row index - appending a new row instead")
+    ws = _kasem_ws(gs_client)
     stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     vals = [ticket_id, comment, stamp, updated_by or KASEM_EMAILS[0]]
     with _cache_lock:
         row_idx = _kasem_cache["rows"].get(ticket_id)
     if row_idx:
-        ws.update(f"A{row_idx}:D{row_idx}", [vals], value_input_option="RAW")
+        _with_quota_retry(lambda: ws.update(f"A{row_idx}:D{row_idx}", [vals], value_input_option="RAW"))
     else:
-        resp = ws.append_row(vals, value_input_option="RAW")
+        resp = _with_quota_retry(lambda: ws.append_row(vals, value_input_option="RAW"))
         row_idx = _row_number_from_append_response(resp)
     rec = {"comment": comment, "updated_at": stamp, "updated_by": vals[3]}
     with _cache_lock:
         if _kasem_cache["data"] is None:
             _kasem_cache["data"] = {}
+            _kasem_cache["ts"] = 0.0      # partial copy (this one ticket only) - re-read at the next load
         _kasem_cache["data"][ticket_id] = rec
         if row_idx:
             _kasem_cache["rows"][ticket_id] = row_idx
-        else:
-            _kasem_cache["ts"] = 0.0   # unknown row number -> re-read next time
     return rec
 
 
