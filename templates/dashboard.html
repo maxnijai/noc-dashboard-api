@@ -17629,41 +17629,6 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   }
   function sumNote() { document.getElementById('fc7-tbn').textContent = 'กดตัวเลข / ชื่อกลุ่ม / แถวรวม → รายใบเด้งขึ้นข้างล่าง · สีเข้ม = มากที่สุดในคอลัมน์นั้น · @01:15 และ ต่าง เป็นระดับจังหวัด (CMI1+CMI2 = เชียงใหม่) เพราะ Snapshot เก็บรายจังหวัด'; }
 
-  // chart: DAILY history (01:15 snapshots) of the 8 Flag Logic steps for one group - stored in the P0StepTrend tab
-  const STEP_COL = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#16a34a', '#0891b2', '#2563eb', '#7c3aed'];
-  const STEP_NAME = k => k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + k + ' วัน';
-  function stepSeries(key) {
-    const st = (F7.data && F7.data.steps) || { dates: [], by: {} }, all = Object.values(st.by);
-    const has = st.dates.map((_, i) => all.some(a => a[i])), f0 = Math.max(0, has.indexOf(true));
-    const gs = Object.keys(st.by).filter(g => key === 'ALL' || g === key || g.indexOf(key + '-') === 0);
-    const dates = st.dates.slice(f0), arr = dates.map((_, i) => has[f0 + i] ? [0, 1, 2, 3, 4, 5, 6, 7].map(k => sum(gs.map(g => (st.by[g][f0 + i] || [0, 0, 0, 0, 0, 0, 0, 0])[k]))) : null);
-    return { dates, arr, days: has.filter(Boolean).length };
-  }
-  function renderSumChart(m) {
-    const box = document.getElementById('fc7-sumchart');
-    if (F7.tab !== 'sum') { box.style.display = 'none'; return; }
-    box.style.display = '';
-    const keys = ['ALL'].concat(['NOR1', 'NOR2'], GRPS.map(x => x[0] + '-' + x[1])), name = k => k === 'ALL' ? 'ผลรวม' : k, key = F7.cs || 'ALL';
-    const sr = stepSeries(key), W = 1000, H = 300, L = 46, R = 120, T = 20, B = 36, n = sr.dates.length;
-    const mx = Math.max(1, ...sr.arr.flatMap(a => a || [0])) * 1.12, x = i => n <= 1 ? (L + (W - R)) / 2 : L + (W - L - R) * i / (n - 1), y = v => T + (H - T - B) * (1 - v / mx);
-    let g = grid(L, W, R, T, H, B, mx), body = '';
-    sr.dates.forEach((dt, i) => { if (n <= 12 || i % 2 === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 12}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(dt))}</text>`; });
-    for (let k = 0; k < 8; k++) {
-      const pts2 = [], vals = [];
-      sr.arr.forEach((a, i) => { if (a) { pts2.push([x(i), y(a[k])]); vals.push([sr.dates[i], a[k]]); } });
-      body += poly(pts2, STEP_COL[k], false, k === 0 ? 3 : 2) + pts2.map((q, j) => `<circle cx="${q[0]}" cy="${q[1]}" r="${k === 0 ? 3.6 : 2.8}" fill="${STEP_COL[k]}"><title>${esc(dShort(vals[j][0]))} · ${STEP_NAME(k)}: ${vals[j][1]}</title></circle>`).join('');
-      if (pts2.length) { const q = pts2[pts2.length - 1]; body += `<text x="${q[0] + 8}" y="${q[1] + 4}" font-size="11" font-weight="700" fill="${STEP_COL[k]}">${vals[vals.length - 1][1]}</text>`; }
-    }
-    const bf = (F7.data && F7.data.backfill) || {};
-    const note = bf.running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจาก Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเอง`
-      : sr.days > 0 ? `จุด = จำนวนใบ ณ 01:15 ของแต่ละวัน (Logic เดียวกับ Flag Logic) · มีข้อมูล ${sr.days} วัน · เก็บเพิ่มเองทุกคืน 01:20`
-      : `<b style="color:#b45309">ยังไม่มีข้อมูลรายวัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} — ระบบดึงจากไฟล์แบคอัพ Drive ให้เอง หรือ <button type="button" class="cp" data-fc7-bf="1">ดึงเดี๋ยวนี้</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
-    box.innerHTML = `<div class="hd"><div><h2>Trend รายวัน — P0 แล้ว / P0 ใน 1–7 วัน (${esc(name(key))})</h2><div class="sb">${note}</div></div>
-      <div class="lg">${STEP_COL.map((c, k) => `<span><i class="sw" style="background:${c}"></i>${STEP_NAME(k)}</span>`).join('')}</div></div>
-      <div class="ch" style="margin-bottom:8px;flex-wrap:wrap">${keys.map(k => `<span class="cp${key === k ? ' pa' : ''}" data-fc7-cg="${esc(k)}">${esc(name(k))}</span>`).join('')}</div>
-      <svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
-  }
-
   // TRUEOWNERGROUP x Category (heat map). Scope = which Flag Logic step to count (default: P0 แล้ว).
   function catHeat(v, mx) {
     const t = Math.min(1, v / mx), a = [253, 233, 166], b = [239, 138, 58], c = [215, 25, 28], f = (x, y, u) => Math.round(x + (y - x) * u);
@@ -17742,7 +17707,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
-    renderSumChart(m); renderCatTable(m); renderPlanTable(m); renderDD();
+    renderCatTable(m); renderPlanTable(m); renderDD();
     el.style.maxHeight = F7.tab === 'sum' ? 'none' : '';   // summary shows in full; the page scrolls, not the table
     if (F7.tab === 'sum') { renderSummary(m, el); return; }
     if (F7.tab === 'prov') {
@@ -17850,7 +17815,6 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 (เฉพาะที่เก็บไว้) · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
       <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP × จังหวัด</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div>
-        <div id="fc7-sumchart" style="display:none;margin-bottom:12px"></div>
         <div class="sc7" id="fc7-tbl"></div>
         <div id="fc7-cat" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-plan" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
@@ -17862,7 +17826,6 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       const dd = e.target.closest('[data-fc7-dd]'); if (dd) { const pr = dd.dataset.fc7Dd.split('|'); openDD(pr[0], pr[1]); return; }
       const dp = e.target.closest('[data-fc7-dp]'); if (dp) { const pr = dp.dataset.fc7Dp.split('|'); openDD(pr[0], pr[1], '', pr[2] === 'none' ? { fF: 'no' } : pr[2] === 'late' ? { fF: 'late' } : pr[2] === 'date' ? { fPD: pr[3] } : {}); return; }
       const dc = e.target.closest('[data-fc7-dc]'); if (dc) { const pr = dc.dataset.fc7Dc.split('|'); openDD(pr[0], pr[1], decodeURIComponent(pr[2] || '')); return; }
-      const cgb = e.target.closest('[data-fc7-cg]'); if (cgb) { F7.cs = cgb.dataset.fc7Cg; renderSumChart(F7.m); return; }
       if (e.target.closest('[data-fc7-ddx]')) { F7.dd = false; renderDD(); return; }
       const kt = e.target.closest('[data-fc7-k]'); if (kt) { openDD('', kt.dataset.fc7K); return; }
       const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
@@ -17910,7 +17873,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   }
   function maybeBackfill() {
     const d = F7.data; if (!d) return;
-    const st = d.steps || { dates: [], by: {} }, have = st.dates.filter((_, i) => Object.values(st.by).some(a => a[i])).length;
+    const have = d.trend.all.filter(v => v != null).length;
     if (d.backfill && d.backfill.running) pollBackfill();
     else if (have < 2 && !F7.bfTried) startBackfill(false);
   }
