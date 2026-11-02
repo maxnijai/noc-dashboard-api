@@ -17646,7 +17646,8 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
-    document.getElementById('fc7-tbn').textContent = 'แก้ Detail / Plan_Closed_Date แล้วกด Save — ใช้ API เดิมของหน้า Pending Ticket เขียนลง Work Log';
+    document.getElementById('fc7-tbn').textContent = 'แก้ Detail / Plan_Closed_Date แล้วกด Save — ใช้ API เดิมของหน้า Pending Ticket เขียนลง Work Log · Comment By P\'Kasem: ' +
+      (d.can_kasem === undefined ? 'เซิร์ฟเวอร์ยังเป็นเวอร์ชันเก่า (ไม่ส่ง can_kasem) — ต้องอัปโหลด app.py ล่าสุด' : (d.can_kasem ? 'คุณแก้ไขได้' : 'แก้ได้เฉพาะ kasemyanaso@gmail.com (ตอนนี้ล็อกอินเป็น ' + (CURRENT_USER_EMAIL || '?') + ')'));
     const q = id => document.getElementById(id);
     q('fc7-fG').onchange = e => { F7.fG = e.target.value; renderTable(); };
     q('fc7-fP').onchange = e => { F7.fP = e.target.value; renderTable(); };
