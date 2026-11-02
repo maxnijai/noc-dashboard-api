@@ -17510,32 +17510,31 @@ redraw();
   function series(prov, m) {
     const tr = F7.data.trend, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
     const hist = prov == null ? tr['all' + sfx] : ((tr['prov' + sfx] || {})[prov] || tr.dates.map(() => null));
+    const f0 = Math.max(0, tr.all.findIndex(v => v != null));   // drop empty days before the first stored snapshot
     const now = prov == null ? m.tot.now : (m.rows.find(x => x.p === prov) || { now: 0 }).now;
-    return { hist, now };
+    return { hist: hist.slice(f0), now };
   }
   function pts(s, W, L, R, T, H, B, mx) {
-    const n = s.hist.length, x = i => L + (W - L - R) * i / n, y = v => T + (H - T - B) * (1 - v / mx), out = [];
-    s.hist.forEach((v, i) => { if (v != null) out.push([x(i), y(v)]); });
-    out.push([x(n), y(s.now)]);   // right-most point = P0 now (today's snapshot is the point just before it)
-    return { out, x, y, n };
+    const n = Math.max(1, s.hist.length - 1), x = i => L + (W - L - R) * i / n, y = v => T + (H - T - B) * (1 - v / mx), out = [];
+    const vals = []; s.hist.forEach((v, i) => { if (v != null) { out.push([x(i), y(v)]); vals.push(v); } });
+    return { out, vals, x, y, n };
   }
   function renderTrend(m) {
-    const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 70, T = 14, B = 30;
+    const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 30, T = 18, B = 30;
     const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : p, s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
-    const mx = Math.max(1, ...ser.flatMap(z => [...z.s.hist.filter(v => v != null), z.s.now])) * 1.15, n = d.trend.dates.length, x = i => L + (W - L - R) * i / n;
+    const mx = Math.max(1, ...ser.flatMap(z => z.s.hist.filter(v => v != null))) * 1.15, dts = d.trend.dates.slice(Math.max(0, d.trend.all.findIndex(v => v != null))), n = Math.max(1, dts.length - 1), x = i => L + (W - L - R) * i / n;
     let g = grid(L, W, R, T, H, B, mx);
-    [0, 7, 14, 21, n - 1].forEach(i => { if (i < n) g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(d.trend.dates[i]))}</text>`; });
-    g += `<text x="${x(n)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">ปัจจุบัน</text>`;
+    dts.forEach((dt, i) => { if (dts.length <= 10 || i % 7 === 0 || i === dts.length - 1) g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(dt))}</text>`; });
     let body = '', lg = '';
     ser.forEach(z => { const p = pts(z.s, W, L, R, T, H, B, mx);
-      body += poly(p.out, z.c, false) + p.out.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.8" fill="${z.c}"/>`).join('') + `<text x="${x(n) + 8}" y="${p.y(z.s.now) + 4}" font-size="12" font-weight="700" fill="${z.c}">${z.s.now}</text>`;
-      lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)} (ปัจจุบัน ${z.s.now})</span>`; });
+      body += poly(p.out, z.c, false) + p.out.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.8" fill="${z.c}"/>`).join('')  + p.out.map((q, j) => `<text x="${q[0]}" y="${q[1] - 8}" font-size="11" font-weight="700" fill="${z.c}" text-anchor="middle">${p.vals[j]}</text>`).join('');
+      lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)}</span>`; });
     const have = d.trend.all.filter(v => v != null).length;
     document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
     document.getElementById('fc7-lg').innerHTML = lg;
     const bf = d.backfill || {}, running = !!bf.running;
     document.getElementById('fc7-trnote').innerHTML = running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจากไฟล์ Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเองเมื่อเสร็จ`
-      : have > 1 ? `จุดบนเส้น = P0 @01:15 ที่เก็บไว้ ${have} วัน (เก็บเองทุกคืน 01:20 + ข้อมูลแบคอัพ Drive) · จุดขวาสุด = P0 ปัจจุบัน`
+      : have > 1 ? `จุดบนเส้น = P0 @01:15 ที่เก็บไว้ ${have} วัน (เก็บเองทุกคืน 01:20 + ข้อมูลแบคอัพ Drive)`
       : `<b style="color:#b45309">ยังมีข้อมูล @01:15 แค่ ${have} วัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลแบคอัพจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
     document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
   }
@@ -17543,9 +17542,9 @@ redraw();
     const d = F7.data, Wd = 300, H = 100, L = 4, R = 30, T = 8, B = 8;
     const order = [...m.rows].filter(r => PROVS.includes(r.p)).sort((a, b) => b.now - a.now);
     document.getElementById('fc7-mu').innerHTML = order.map(r => {
-      const s = series(r.p, m), mx = Math.max(...s.hist.filter(v => v != null), s.now, 1) * 1.15, p = pts(s, Wd, L, R, T, H, B, mx);
+      const s = series(r.p, m), mx = Math.max(...s.hist.filter(v => v != null), 1) * 1.15, p = pts(s, Wd, L, R, T, H, B, mx);
       return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>P0 ${r.now}</span></div>
-        <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}<circle cx="${p.x(p.n)}" cy="${p.y(s.now)}" r="3" fill="#dc2626"/></svg>
+        <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}${p.out.length ? `<circle cx="${p.out[p.out.length - 1][0]}" cy="${p.out[p.out.length - 1][1]}" r="3" fill="#2563eb"/>` : ''}</svg>
         <div class="s2">ปัจจุบัน ${r.now} · @01:15 ${r.snap == null ? '–' : r.snap} · P1 ${r.p1}</div></div>`; }).join('');
   }
 
@@ -17666,7 +17665,7 @@ redraw();
   // Backup data first: when the P0DailyTrend tab holds < 2 days, the server fills it from the ~01:15 Drive files in the background; poll until done.
   async function startBackfill(force) {
     try {
-      if (force || !F7.bfTried) { F7.bfTried = true; await fetch('/api/p0-forecast/backfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 7 }) }); }
+      if (force || !F7.bfTried) { F7.bfTried = true; await fetch('/api/p0-forecast/backfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 4, force: !!force }) }); }
       pollBackfill();
     } catch (e) { console.error('backfill start failed', e); }
   }
