@@ -3038,15 +3038,15 @@ async function loadP0SnapshotComparison(prefix) {
       return `
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
-        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button><button type="button" class="p0-stbtn" style="top:30px;color:#7c3aed" onclick="p0OpenForecast()" title="NSA3/4 ไม่มี P0 - Forecast ใบที่จะเป็น P0 ใน 7 วัน + Trend รายจังหวัด">Forecast 7 วัน ▸</button>' : ''}
+        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenForecast()" title="NSA3/4 Flag Priority: P0 ปัจจุบัน vs @01:15 + Trend รายจังหวัด + รายใบ (แก้ Detail / Plan ได้)">Flag Priority ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
-        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;${g.key === 'NSA34' ? 'display:none;' : ''}">${g.current_p0}</div>${g.key === 'NSA34' ? '<div style="font-size:32px; font-weight:800; line-height:1; color:var(--text3);">0</div>' : ''}
-        ${g.key === 'NSA34' ? '<div style="font-size:12px; color:var(--text2); margin-top:8px;"><span style="background:var(--bg3); border-radius:10px; padding:1px 9px; font-size:11px; font-weight:700;">ไม่นับ P0</span> <a href="#" onclick="p0OpenForecast(); return false;" style="color:#7c3aed; font-weight:700;">ดู Forecast ▸</a></div>' : `<div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
+        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
         </div>
-        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}`}
-        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);${g.key === 'NSA34' ? ' display:none;' : ''}">
+        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
@@ -17398,15 +17398,15 @@ redraw();
 
 </script>
 <script>
-// ── NSA3/NSA4 · Forecast P0 7 วัน (NSA3-4 ไม่นับ P0) ─────────────────────────
-// Own overlay + own endpoint (/api/p0-forecast); nothing else on the page reads this data.
+// ── NSA3/NSA4 · Flag Priority panel (P0 ปัจจุบัน vs @01:15 + Trend + รายใบ) ─────────
+// Own overlay + own endpoint (/api/p0-forecast); the card numbers and the old Flag panel code are untouched.
 // Detail / Plan_Closed_Date edits go through the existing /api/pending-ticket/update (same validation, same Work Log).
 (function () {
   const PROVS = ['เชียงใหม่','น่าน','เชียงราย','ตาก','พิจิตร','แม่ฮ่องสอน','แพร่','เพชรบูรณ์','พิษณุโลก','สุโขทัย','ลำปาง','พะเยา','อุตรดิตถ์','ลำพูน','กำแพงเพชร'];
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', close: 0, sel: new Set(), tab: 'prov', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
+  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'prov', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17465,118 +17465,101 @@ redraw();
     t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, 3800);
   }
 
-  // ---- data -> numbers (all from the ticket list, so the NSA filter and the close-rate slider stay consistent) ----
+  // ---- data -> numbers ----
+  // k = 0: P0 now (same formula as the card) · k = 1: P1 (becomes P0 at the next 01:15)
   function compute() {
-    const c = F7.close / 100, by = {};
-    PROVS.forEach(p => { by[p] = { now: 0, add: [0, 0, 0, 0, 0, 0, 0] }; });
-    const T = F7.data.tickets.filter(nsaOk);
-    T.forEach(t => { const o = by[t.prov] || (by[t.prov] = { now: 0, add: [0, 0, 0, 0, 0, 0, 0] }); if (t.k === 0) o.now++; else o.add[t.k - 1]++; });
-    const lv = (now, add) => { let l = now; return add.map(a => { l = Math.round((l + a) * (1 - c)); return l; }); };
-    const rows = Object.keys(by).map(p => ({ p, now: by[p].now, add: by[p].add, lvl: lv(by[p].now, by[p].add), sum: sum(by[p].add) }));
-    const tadd = [0, 1, 2, 3, 4, 5, 6].map(i => sum(rows.map(r => r.add[i]))), tnow = sum(rows.map(r => r.now));
-    return { T, rows, tot: { now: tnow, add: tadd, lvl: lv(tnow, tadd), sum: sum(tadd) } };
+    const d = F7.data, T = d.tickets.filter(nsaOk), by = {};
+    PROVS.forEach(p => { by[p] = { p, now: 0, p1: 0, noplan: 0 }; });
+    T.forEach(t => { const o = by[t.prov] || (by[t.prov] = { p: t.prov, now: 0, p1: 0, noplan: 0 }); if (t.k === 0) { o.now++; if (!t.plan) o.noplan++; } else o.p1++; });
+    const last = d.trend.dates.length - 1, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
+    const snapOf = p => { const arr = p == null ? d.trend['all' + sfx] : (d.trend['prov' + sfx] || {})[p]; const v = arr ? arr[last] : null; return v == null ? null : v; };
+    const rows = Object.values(by).map(o => Object.assign(o, { snap: snapOf(o.p) }));
+    const tot = { now: sum(rows.map(r => r.now)), p1: sum(rows.map(r => r.p1)), noplan: sum(rows.map(r => r.noplan)), snap: snapOf(null) };
+    return { T, rows, tot, snapOf };
   }
   function flagOf(t) {
-    const d = F7.data, p0 = addDays(d.ref0, t.k);
-    const lab = t.k === 0 ? ['p0', 'P0 แล้ว'] : [t.k <= 2 ? 'p1' : 'fcp', 'P0 ใน ' + t.k + ' วัน (' + dShort(p0) + ')'];
-    let k = 'no', s = 'ยังไม่มี Plan';
-    if (t.plan) { if (t.plan <= p0) { k = 'ok'; s = 'แผนปิดทัน (' + dShort(t.plan) + ')'; } else { k = 'late'; s = 'แผนปิดไม่ทัน (' + dShort(t.plan) + ')'; } }
-    return { cls: lab[0], text: lab[1], k, s };
+    const d = F7.data, over = t.plan && t.plan < d.today;
+    let k = 'no', s = 'ไม่มี Plan';
+    if (t.plan) { if (over) { k = 'late'; s = 'Plan เลยกำหนด (' + dShort(t.plan) + ')'; } else { k = 'ok'; s = 'Plan ' + dShort(t.plan); } }
+    return { cls: t.k === 0 ? 'p0' : 'p1', text: t.k === 0 ? 'P0' : 'P0 ใน 1 วัน', k, s };
   }
-  const stCss = k => ({ ok: 'color:#15803d', late: 'color:#b91c1c;font-weight:700', no: 'color:var(--text3)' }[k]);
+  const stCss = k => ({ ok: 'color:#15803d', late: 'color:#b91c1c;font-weight:700', no: 'color:#b45309;font-weight:700' }[k]);
   const poly = (pts, col, dash, w) => pts.length < 2 ? '' : `<polyline fill="none" stroke="${col}" stroke-width="${w || 2.4}" ${dash ? 'stroke-dasharray="6 5"' : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
   const grid = (L, W, R, T, H, B, mx) => { let g = ''; for (let i = 0; i <= 4; i++) { const v = mx * i / 4, y = T + (H - T - B) * (1 - v / mx); g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--border)"/><text x="${L - 6}" y="${y + 4}" font-size="11" fill="var(--text3)" text-anchor="end">${Math.round(v)}</text>`; } return g; };
+  const dtx = n => n == null ? '' : `<span style="color:${n > 0 ? '#B23A3A' : (n < 0 ? '#639922' : 'var(--text3)')};font-weight:700;white-space:nowrap;">${n > 0 ? '▲ +' + n : (n < 0 ? '▼ ' + n : '–')}</span>`;
 
-  // ---- top: header, KPIs, forecast chart ----
   function renderTop(m) {
-    const d = F7.data, top = [...m.rows].sort((a, b) => b.sum - a.sum)[0];
+    const d = F7.data, diff = m.tot.snap == null ? null : m.tot.now - m.tot.snap, late = F7.m.T.filter(t => t.k === 0 && flagOf(t).k === 'late').length;
     document.getElementById('fc7-kp').innerHTML = `
-      <div class="k"><b style="color:var(--text3)">0</b><span>P0 ในการ์ด NSA3 / NSA4</span><i>ตามกติกาใหม่ ไม่นับ P0</i></div>
-      <div class="k"><b style="color:#d97706">${m.tot.now}</b><span>ใบที่เข้าเกณฑ์ P0 ตามสูตรแล้ว (ติดตามเฝ้าระวัง)</span><i>อ้างอิง 01:15 ${esc(dShort(d.ref0))}</i></div>
-      <div class="k"><b style="color:#7c3aed">+${m.tot.sum}</b><span>จะเข้าเกณฑ์ P0 ใหม่ใน 7 วัน</span><i>ใน 3 วัน +${sum(m.tot.add.slice(0, 3))} · ถึง ${esc(dShort(d.dates[6]))} รวมคงค้าง ${m.tot.lvl[6]}</i></div>
-      <div class="k"><b style="font-size:22px;line-height:1.5">${top && top.sum ? esc(top.p) : '-'}</b><span>จังหวัดที่จะเพิ่มมากสุด</span><i>${top ? '+' + top.sum + ' ใบใน 7 วัน' : ''}</i></div>`;
-    // forecast chart
-    const W = 1200, H = 250, L = 44, R = 16, T = 18, B = 34, mx = Math.max(...m.tot.lvl, ...m.tot.add, 1) * 1.15, bw = (W - L - R) / 7, y = v => T + (H - T - B) * (1 - v / mx);
-    let bars = '', pts = [];
-    m.tot.add.forEach((a, k) => { const x = L + bw * k + bw * .2, w = bw * .6;
-      bars += `<rect x="${x}" y="${y(a)}" width="${w}" height="${Math.max(0, y(0) - y(a))}" rx="6" fill="#a78bfa"/><text x="${x + w / 2}" y="${y(a) - 5}" font-size="12" font-weight="700" fill="#7c3aed" text-anchor="middle">+${a}</text><text x="${x + w / 2}" y="${H - 12}" font-size="12" fill="var(--text2)" text-anchor="middle">${esc(dLong(d.dates[k]))}</text>`;
-      pts.push([x + w / 2, y(m.tot.lvl[k])]); });
-    const dots = pts.map((p, k) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--bg2)" stroke="#dc2626" stroke-width="2"/><text x="${p[0]}" y="${p[1] - 10}" font-size="11" fill="#dc2626" text-anchor="middle" font-weight="700">${m.tot.lvl[k]}</text>`).join('');
-    document.getElementById('fc7-cf').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${grid(L, W, R, T, H, B, mx)}${bars}${poly(pts, '#dc2626', false)}${dots}</svg>
-      <div class="lg"><span><i class="sw" style="background:#a78bfa;height:10px"></i>ใบเข้าเกณฑ์ P0 ใหม่ในวันนั้น (01:15)</span><span><i class="sw" style="background:#dc2626"></i>P0 สะสมคงค้าง (เริ่มจาก ${m.tot.now} ใบ${F7.close ? ' · หักปิดงาน ' + F7.close + '%/วัน' : ' · ไม่หักปิดงาน = ค่าสูงสุด'})</span></div>`;
+      <div class="k"><b style="color:#b91c1c">${m.tot.now}</b><span>P0 ปัจจุบัน (NSA3/NSA4)</span><i>เท่ากับตัวเลขบนการ์ด ${F7.grp === 'all' ? '' : '· เฉพาะ ' + F7.grp.toUpperCase().replace('N', 'NSA')}</i></div>
+      <div class="k"><b style="color:var(--text)">${m.tot.snap == null ? '–' : m.tot.snap}</b><span>@01:15 วันนี้ ${m.tot.snap == null ? '' : dtx(diff)}</span><i>${m.tot.snap == null ? 'ยังไม่มี Snapshot วันนี้ (ดูปุ่มในการ์ด Trend)' : 'จากแท็บ P0DailyTrend'}</i></div>
+      <div class="k"><b style="color:#d97706">${m.tot.p1}</b><span>P1 (จะเป็น P0 ที่ 01:15 ถัดไป)</span><i>เกินกำหนดแล้วไม่เกิน 24 ชม.</i></div>
+      <div class="k"><b style="color:#b45309">${m.tot.noplan}</b><span>P0 ที่ยังไม่มี Plan_Closed_Date</span><i>Plan เลยกำหนด ${late} ใบ</i></div>`;
   }
 
-  // ---- trend: history from P0DailyTrend + dashed forecast ----
   function series(prov, m) {
     const tr = F7.data.trend, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
     const hist = prov == null ? tr['all' + sfx] : ((tr['prov' + sfx] || {})[prov] || tr.dates.map(() => null));
-    const r = prov == null ? m.tot : m.rows.find(x => x.p === prov) || { now: 0, lvl: [0, 0, 0, 0, 0, 0, 0] };
-    return { hist, now: r.now, f: r.lvl };
+    const now = prov == null ? m.tot.now : (m.rows.find(x => x.p === prov) || { now: 0 }).now;
+    return { hist, now };
   }
-  function plotTrend(s, col, W, H, L, R, T, B, mxAll) {
-    const d = F7.data, nH = d.trend.dates.length, N = nH + 1 + 7, x = i => L + (W - L - R) * i / (N - 1), y = v => T + (H - T - B) * (1 - v / mxAll);
-    const hp = []; s.hist.forEach((v, i) => { if (v != null) hp.push([x(i), y(v)]); });
-    hp.push([x(nH), y(s.now)]);
-    const fp = [[x(nH), y(s.now)], ...s.f.map((v, k) => [x(nH + 1 + k), y(v)])];
-    return { hp, fp, x, y, N, nH };
+  function pts(s, W, L, R, T, H, B, mx) {
+    const n = s.hist.length, x = i => L + (W - L - R) * i / n, y = v => T + (H - T - B) * (1 - v / mx), out = [];
+    s.hist.forEach((v, i) => { if (v != null) out.push([x(i), y(v)]); });
+    out.push([x(n), y(s.now)]);   // right-most point = P0 now (today's snapshot is the point just before it)
+    return { out, x, y, n };
   }
   function renderTrend(m) {
     const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 70, T = 14, B = 30;
     const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : p, s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
-    const mx = Math.max(1, ...ser.flatMap(z => [...z.s.hist.filter(v => v != null), z.s.now, ...z.s.f])) * 1.15;
-    const nH = d.trend.dates.length, N = nH + 8, x = i => L + (W - L - R) * i / (N - 1);
+    const mx = Math.max(1, ...ser.flatMap(z => [...z.s.hist.filter(v => v != null), z.s.now])) * 1.15, n = d.trend.dates.length, x = i => L + (W - L - R) * i / n;
     let g = grid(L, W, R, T, H, B, mx);
-    [0, 7, 14, 21, nH - 1, nH + 7].forEach(i => { const ds = i < nH ? d.trend.dates[i] : addDays(d.ref0, i - nH); g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(ds))}</text>`; });
-    g += `<rect x="${x(nH - .5)}" y="${T}" width="${x(N - 1) - x(nH - .5)}" height="${H - T - B}" fill="#ede9fe" opacity=".45"/><text x="${(x(nH - .5) + x(N - 1)) / 2}" y="${T + 14}" font-size="11" fill="#7c3aed" text-anchor="middle" font-weight="700">FORECAST 7 วัน</text>`;
+    [0, 7, 14, 21, n - 1].forEach(i => { if (i < n) g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(d.trend.dates[i]))}</text>`; });
+    g += `<text x="${x(n)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">ปัจจุบัน</text>`;
     let body = '', lg = '';
-    ser.forEach(z => { const p = plotTrend(z.s, z.c, W, H, L, R, T, B, mx);
-      body += poly(p.hp, z.c, false) + poly(p.fp, z.c, true) + p.hp.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.5" fill="${z.c}"/>`).join('') + `<text x="${x(N - 1) + 6}" y="${p.y(z.s.f[6]) + 4}" font-size="12" font-weight="700" fill="${z.c}">${z.s.f[6]}</text>`;
-      lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)} (ล่าสุด ${z.s.now} → ${esc(dShort(d.dates[6]))} ${z.s.f[6]})</span>`; });
+    ser.forEach(z => { const p = pts(z.s, W, L, R, T, H, B, mx);
+      body += poly(p.out, z.c, false) + p.out.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.8" fill="${z.c}"/>`).join('') + `<text x="${x(n) + 8}" y="${p.y(z.s.now) + 4}" font-size="12" font-weight="700" fill="${z.c}">${z.s.now}</text>`;
+      lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)} (ปัจจุบัน ${z.s.now})</span>`; });
     const have = d.trend.all.filter(v => v != null).length;
     document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
     document.getElementById('fc7-lg').innerHTML = lg;
-    document.getElementById('fc7-trnote').innerHTML = have > 1 ? `เส้นทึบ = Snapshot @01:15 ที่เก็บไว้ ${have} วัน · เส้นประ = Forecast` : `<b style="color:#b45309">ยังมี Snapshot ในแท็บ P0DailyTrend แค่ ${have} วัน</b> — ระบบเก็บเองทุกคืน 01:20 · ครั้งแรกกดดึงย้อนหลังจากไฟล์ Drive ได้เลย <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลย้อนหลังจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
+    document.getElementById('fc7-trnote').innerHTML = have > 1 ? `จุดบนเส้น = Snapshot @01:15 ที่เก็บไว้ ${have} วัน · จุดขวาสุด = P0 ปัจจุบัน` : `<b style="color:#b45309">ยังมี Snapshot ในแท็บ P0DailyTrend แค่ ${have} วัน</b> — ระบบเก็บเองทุกคืน 01:20 · ครั้งแรกกดดึงย้อนหลังจากไฟล์ Drive ได้เลย <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลย้อนหลังจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
     document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
   }
   function renderMulti(m) {
-    const d = F7.data, Wd = 300, H = 110, L = 4, R = 34, T = 8, B = 8, nH = d.trend.dates.length, N = nH + 8;
-    const order = [...m.rows].filter(r => PROVS.includes(r.p)).sort((a, b) => b.sum - a.sum);
+    const d = F7.data, Wd = 300, H = 100, L = 4, R = 30, T = 8, B = 8;
+    const order = [...m.rows].filter(r => PROVS.includes(r.p)).sort((a, b) => b.now - a.now);
     document.getElementById('fc7-mu').innerHTML = order.map(r => {
-      const s = series(r.p, m), vals = [...s.hist.filter(v => v != null), s.now, ...s.f], mx = Math.max(...vals, 1) * 1.15;
-      const x = i => L + (Wd - L - R) * i / (N - 1), y = v => T + (H - T - B) * (1 - v / mx);
-      const hp = []; s.hist.forEach((v, i) => { if (v != null) hp.push([x(i), y(v)]); }); hp.push([x(nH), y(s.now)]);
-      const fp = [[x(nH), y(s.now)], ...s.f.map((v, k) => [x(nH + 1 + k), y(v)])];
-      return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>+${r.sum} ใน 7 วัน</span></div>
-        <svg viewBox="0 0 ${Wd} ${H}" width="100%"><rect x="${x(nH - .5)}" y="${T}" width="${x(N - 1) - x(nH - .5)}" height="${H - T - B}" fill="#ede9fe" opacity=".5"/>${poly(hp, '#2563eb', false, 2)}${poly(fp, '#7c3aed', true, 2)}<circle cx="${x(nH)}" cy="${y(s.now)}" r="3" fill="#2563eb"/><text x="${x(N - 1) + 4}" y="${y(s.f[6]) + 4}" font-size="11" font-weight="700" fill="#7c3aed">${s.f[6]}</text></svg>
-        <div class="s2">ล่าสุด ${s.now} → ${esc(dShort(d.dates[6]))} ${s.f[6]}</div></div>`; }).join('');
+      const s = series(r.p, m), mx = Math.max(...s.hist.filter(v => v != null), s.now, 1) * 1.15, p = pts(s, Wd, L, R, T, H, B, mx);
+      return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>P0 ${r.now}</span></div>
+        <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}<circle cx="${p.x(p.n)}" cy="${p.y(s.now)}" r="3" fill="#dc2626"/></svg>
+        <div class="s2">ปัจจุบัน ${r.now} · @01:15 ${r.snap == null ? '–' : r.snap} · P1 ${r.p1}</div></div>`; }).join('');
   }
 
-  // ---- table area ----
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
     if (F7.tab === 'prov') {
-      const rows = [...m.rows].filter(r => r.now || r.sum).sort((a, b) => b.sum - a.sum), mxc = Math.max(1, ...rows.flatMap(r => r.add));
-      const cell = v => `<td style="background:rgba(124,58,237,${v ? (.08 + .5 * v / mxc).toFixed(2) : 0});font-weight:${v ? 700 : 400};color:${v > mxc * .6 ? '#fff' : 'inherit'}">${v || '·'}</td>`;
-      el.innerHTML = `<table><tr><th>จังหวัด</th><th>P0 ตามสูตรแล้ว</th>${d.dates.map(x => `<th>${esc(dLong(x))}</th>`).join('')}<th>รวม 7 วัน</th><th>คงค้างสิ้นสุด</th></tr>` +
-        rows.map(r => `<tr><td>${esc(r.p)}</td><td><span class="pl p1">${r.now}</span></td>${r.add.map(cell).join('')}<td><b>+${r.sum}</b></td><td><span class="pl p0">${r.lvl[6]}</span></td></tr>`).join('') +
-        `<tr class="tot"><td>รวมทุกจังหวัด</td><td>${m.tot.now}</td>${m.tot.add.map(v => `<td>+${v}</td>`).join('')}<td>+${m.tot.sum}</td><td>${m.tot.lvl[6]}</td></tr></table>`;
-      document.getElementById('fc7-tbn').textContent = 'ตัวเลขในช่อง = ใบที่เข้าเกณฑ์ P0 ใหม่ในวันนั้น · สีเข้ม = มาก';
+      const rows = [...m.rows].filter(r => r.now || r.p1 || r.snap).sort((a, b) => b.now - a.now);
+      el.innerHTML = `<table><tr><th>จังหวัด</th><th>P0 ปัจจุบัน</th><th>@01:15</th><th>ต่าง</th><th>P1</th><th>P0 ไม่มี Plan</th></tr>` +
+        rows.map(r => `<tr><td>${esc(r.p)}</td><td><span class="pl p0">${r.now}</span></td><td>${r.snap == null ? '–' : r.snap}</td><td>${r.snap == null ? '' : dtx(r.now - r.snap)}</td><td><span class="pl p1">${r.p1}</span></td><td>${r.noplan || '·'}</td></tr>`).join('') +
+        `<tr class="tot"><td>รวมทุกจังหวัด</td><td>${m.tot.now}</td><td>${m.tot.snap == null ? '–' : m.tot.snap}</td><td>${m.tot.snap == null ? '' : dtx(m.tot.now - m.tot.snap)}</td><td>${m.tot.p1}</td><td>${m.tot.noplan}</td></tr></table>`;
+      document.getElementById('fc7-tbn').textContent = 'P0 ปัจจุบันเทียบ Snapshot @01:15 ของวันนี้ (จากแท็บ P0DailyTrend)';
       return;
     }
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
     const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
-      (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())));
+      (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())))
+      .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
     const shown = list.slice(0, 100);
-    el.innerHTML = `<div class="rl" style="margin-bottom:8px;background:var(--bg3);color:var(--text);border-color:var(--border2)"><span style="font-size:20px">🚩</span><div><b style="color:#7c3aed">Flag Logic:</b> ดูว่าใบนี้ <b>เข้าเกณฑ์ P0 วันไหน</b> (01:15 เกินกำหนด &gt; 24 ชม.) แล้วเทียบกับ <b>Plan_Closed_Date</b> — <span class="pl" style="background:#dcfce7;color:#15803d">แผนปิดทัน</span> ปิดก่อน/ตรงวันที่จะเป็น P0 · <span class="pl p0">แผนปิดไม่ทัน</span> วางแผนปิดหลังวันที่จะเป็น P0 · <span class="pl nn">ยังไม่มี Plan</span> · ค่าเดียวกันนี้เขียนลงคอลัมน์ AA ของชีตส่งออก</div></div>
-      <div class="fl"><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
-      <select id="fc7-fD"><option value="">ทุกวัน</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว</option>${d.dates.map((x, i) => `<option value="${i + 1}"${F7.fD === String(i + 1) ? ' selected' : ''}>เป็น P0: ${esc(dLong(x))}</option>`).join('')}</select>
-      <select id="fc7-fF"><option value="">Flag Logic: ทั้งหมด</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>แผนปิดไม่ทัน (${cnt('late')})</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ยังไม่มี Plan (${cnt('no')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>แผนปิดทัน (${cnt('ok')})</option></select>
-      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ</span></div>
+    el.innerHTML = `<div class="fl"><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
+      <select id="fc7-fD"><option value="">P0 + P1</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>เฉพาะ P0</option><option value="1"${F7.fD === '1' ? ' selected' : ''}>เฉพาะ P1</option></select>
+      <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
+      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
       <table style="min-width:1200px"><tr><th>Ticket</th><th>จังหวัด</th><th>NSA</th><th>Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
         return `<tr data-id="${esc(t.id)}"><td><b>${esc(t.id)}</b><div class="sb" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td>${esc(t.prov)}</td><td>${esc(t.nsa)}</td><td>${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
-        <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${esc(f.text)}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : f.k === 'ok' ? '✓ ' : ''}${esc(f.s)}</div></td>
+        <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
@@ -17591,7 +17574,7 @@ redraw();
       const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv');
       const mark = () => { F7.dirty[t.id] = true; F7.terr[t.id] = ''; btn.disabled = false; btn.textContent = 'Save'; };
       tr.querySelector('.d').oninput = e => { t.detail = e.target.value; mark(); };
-      tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : f.k === 'ok' ? '✓ ' : '') + f.s; };
+      tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : '') + f.s; };
       btn.onclick = () => saveTicket(t);
     });
   }
@@ -17620,7 +17603,7 @@ redraw();
   function renderAll() {
     if (!F7.data) return;
     const d = F7.data; F7.m = compute();
-    document.getElementById('fc7-ins').textContent = '🕒 รอบข้อมูล (insert_time): ' + (d.insert_time || '-') + ' · Forecast อ้างอิง 01:15 ของ ' + dShort(d.dates[0]) + ' – ' + dShort(d.dates[6]);
+    document.getElementById('fc7-ins').textContent = '🕒 รอบข้อมูล (insert_time): ' + (d.insert_time || '-') + ' · P0 ปัจจุบัน vs Snapshot @01:15';
     document.querySelectorAll('#fc7-grp .cp').forEach(x => x.classList.toggle('a', x.dataset.fc7G === F7.grp));
     renderTop(F7.m); renderTrend(F7.m); renderMulti(F7.m); renderTable();
   }
@@ -17630,28 +17613,23 @@ redraw();
     if (ov) return ov;
     ov = document.createElement('div'); ov.id = 'fc7-overlay';
     ov.innerHTML = `<div id="fc7-box">
-      <div class="c7"><div class="hd" style="margin:0"><div><h2 style="font-size:17px">NSA3 / NSA4 · Forecast P0 ล่วงหน้า 7 วัน</h2><div class="sb" id="fc7-ins"></div></div>
+      <div class="c7"><div class="hd" style="margin:0"><div><h2 style="font-size:17px">NSA3 / NSA4 · Flag Priority</h2><div class="sb" id="fc7-ins"></div></div>
         <div style="display:flex;gap:8px;align-items:center"><div class="ch" id="fc7-grp"><span class="cp a" data-fc7-g="all">NSA3+4</span><span class="cp" data-fc7-g="n3">NSA3</span><span class="cp" data-fc7-g="n4">NSA4</span></div><button type="button" class="cp" data-fc7-close="1">ปิด ✕</button></div></div>
-        <div class="rl" style="margin-top:10px"><span style="font-size:22px">🔄</span><div><b>กติกาใหม่:</b> Ticket NSA3-4 <b>ไม่ถูกนับเป็น P0</b> ในการ์ด Focus P0 — แต่ติดตามว่า <b>ใบไหนจะเข้าเกณฑ์ P0</b> (เกินกำหนด &gt; 24 ชม. ณ 01:15) ใน 7 วันข้างหน้า นับทุกใบ NSA3/NSA4</div></div></div>
+</div>
       <div class="kp" id="fc7-kp"></div>
-      <div class="c7"><div class="hd"><div><h2>Forecast: ใบที่จะเข้าเกณฑ์ P0 รายวัน (ภาพรวม)</h2><div class="sb">แท่ง = ใบเข้าเกณฑ์ P0 ใหม่ในวันนั้น · เส้น = P0 สะสมคงค้าง</div></div>
-        <div class="sl">สมมติปิดงานได้ <b id="fc7-cv">0%</b>/วัน <input type="range" id="fc7-close" min="0" max="20" value="0" style="width:160px"> <span class="sb">(0% = ไม่มีใบถูกปิดเลย → ค่าสูงสุด)</span></div></div><div id="fc7-cf"></div></div>
-      <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 + Forecast</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
-      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้นทึบ = ย้อนหลัง @01:15 · เส้นประ = Forecast 7 วัน · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตามจังหวัดที่จะเพิ่มมากสุด</div></div></div><div class="mu" id="fc7-mu"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 · จุดแดง = ปัจจุบัน · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
       <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
       const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
-      const bf = e.target.closest('[data-fc7-bf]');
-      if (bf) { bf.disabled = true; bf.textContent = 'กำลังดึงไฟล์ Drive… (อาจใช้เวลาหลายนาที)'; fetch('/api/p0-forecast/backfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 7 }) }).then(r => r.json()).then(j => { toast(j.error ? ('ดึงย้อนหลังไม่สำเร็จ: ' + j.error) : ('ดึงย้อนหลังแล้ว ' + (j.days_written || []).length + ' วัน' + ((j.missing || []).length ? ' · ไม่มีไฟล์ ' + j.missing.length + ' วัน' : ''))); F7.ts = 0; return load(true); }).then(() => renderAll()).catch(() => { bf.disabled = false; }); return; }
       const sn = e.target.closest('[data-fc7-snap]');
       if (sn) { sn.disabled = true; fetch('/api/p0-forecast/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(r => r.json()).then(j => { toast(j.error ? ('บันทึกไม่สำเร็จ: ' + j.error) : ('บันทึก Snapshot แล้ว ' + j.rows_written + ' แถว')); F7.ts = 0; return load(true); }).then(() => renderAll()); return; }
       const p = e.target.closest('[data-fc7-p]');
       if (p) { const v = p.dataset.fc7P; if (!v) F7.sel.clear(); else if (F7.sel.has(v)) F7.sel.delete(v); else F7.sel.add(v); renderTrend(F7.m); renderMulti(F7.m); }
     });
-    ov.addEventListener('input', e => { if (e.target.id === 'fc7-close') { F7.close = +e.target.value; document.getElementById('fc7-cv').textContent = F7.close + '%'; F7.m = compute(); renderTop(F7.m); renderTrend(F7.m); renderMulti(F7.m); renderTable(); } });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
     document.body.appendChild(ov);
     return ov;
@@ -17663,7 +17641,7 @@ redraw();
         const res = await fetch('/api/p0-forecast');
         if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
         F7.data = await res.json(); F7.ts = Date.now(); F7.err = ''; return true;
-      } catch (e) { F7.err = e.message || String(e); if (!quiet) console.error('Forecast load failed', e); return false; }
+      } catch (e) { F7.err = e.message || String(e); if (!quiet) console.error('Flag Priority load failed', e); return false; }
       finally { F7.inflight = null; }
     })();
     return F7.inflight;
@@ -17672,7 +17650,7 @@ redraw();
     const ov = build(); ov.style.display = 'flex';
     if (F7.data) { renderAll(); if (Date.now() - F7.ts >= 60000) load(true).then(ok => { if (ok && ov.style.display === 'flex') renderAll(); }); return; }
     const box = document.getElementById('fc7-box'), keep = box.innerHTML;
-    box.innerHTML = '<div style="padding:28px 34px;font-size:13px;">กำลังโหลด Forecast P0… (อ่านจากชีต Pending สดๆ ครั้งแรกอาจใช้เวลาสักครู่)</div>';
+    box.innerHTML = '<div style="padding:28px 34px;font-size:13px;">กำลังโหลด Flag Priority… (อ่านจากชีต Pending สดๆ ครั้งแรกอาจใช้เวลาสักครู่)</div>';
     const ok = await load(false);
     if (ok) { box.innerHTML = keep; renderAll(); }
     else box.innerHTML = '<div style="padding:22px 28px;font-size:13px;max-width:460px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">' + esc(F7.err) + '</div><button type="button" class="cp" data-fc7-close="1">ปิด</button></div>';
