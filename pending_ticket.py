@@ -145,7 +145,7 @@ EXPORT_HEADER = [
     "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
     "Region",     # column Z: NOR1 / NOR2
-    "Flag Priority",  # column AA: "Flag" when the Category (column Y) is in FLAG_PRIORITY_CATEGORIES, else blank
+    "Flag Logic",  # column AA: NSA3/NSA4 only - "P0 ใน N วัน (dd-Mon) | <สถานะ Plan_Closed_Date>" when the ticket is/will be P0 within 7 days, else blank (was "Flag Priority" = Category lookup)
 ]
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
@@ -688,6 +688,48 @@ def _flag_priority_text(t):
     return "Flag" if _category_text(t).strip().lower() in FLAG_PRIORITY_CATEGORIES else ""
 
 
+# ── Flag Logic (column AA of the export sheet) ────────────────────────────
+# NSA3/NSA4 tickets are no longer counted as P0 on the Focus P0 cards; instead every NSA3/4 ticket that is
+# (k = 0) or will be (k = 1..7) P0 at the 01:15 reference of day ref0 + k is flagged here. A ticket is P0 at a
+# reference R when R - TARGETFINISH > 24h (same formula as _classify_priority), ref0 = tomorrow 01:15.
+FLAG_LOGIC_DAYS = 7
+
+
+def ticket_p0_offset(target_finish_str, ref0):
+    """Whole days from ref0 until the ticket first counts as P0 (0 = already P0 at ref0), None when the date can't be parsed."""
+    tf = _parse_dt(target_finish_str)
+    if tf is None:
+        return None
+    diff0 = (ref0 - tf).total_seconds() / 3600
+    if diff0 > 24:
+        return 0
+    return int((24 - diff0) // 24) + 1
+
+
+def flag_logic_text(t, now_dt=None):
+    """Export-sheet column AA for one ticket entry dict ("" for anything but NSA3/NSA4, or when P0 is > 7 days away)."""
+    try:
+        if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
+            return ""
+        from datetime import timedelta as _td
+        now_dt = now_dt or bangkok_now()
+        ref0 = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+        k = ticket_p0_offset(t.get("TARGETFINISH"), ref0)
+        if k is None or k > FLAG_LOGIC_DAYS:
+            return ""
+        p0_day = (ref0 + _td(days=k)).date()
+        head = "P0 แล้ว" if k == 0 else "P0 ใน %d วัน (%s)" % (k, p0_day.strftime("%d-%b"))
+        plan = str(t.get("plan_closed_date", "") or "").strip()
+        if not plan:
+            tail = "ไม่มี Plan"
+        else:
+            tail = "แผนปิดทัน" if plan <= p0_day.strftime("%Y-%m-%d") else "แผนปิดไม่ทัน"
+        return head + " | " + tail
+    except Exception:
+        log.exception("flag_logic_text failed")
+        return ""
+
+
 def _category_text(t):
     """SUBJECT category (the same _auto_categorize_subject the dashboard uses) for NSA3/NSA4 tickets - the
     only severities the categories were learned on - and "" for every other ticket."""
@@ -711,7 +753,7 @@ def _ticket_to_export_row(t, insert_time_str=""):
         _site_type_text(t),
         _category_text(t),
         t.get("Region", ""),
-        _flag_priority_text(t),
+        flag_logic_text(t),
     ]
 
 
@@ -1741,7 +1783,7 @@ def _province_breakdown_by_group(rows, reference_dt):
             if not row_matches_view(r, key):
                 continue
             total[key][prov] = total[key].get(prov, 0) + 1
-            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            allowed = _p0_allowed(key)
             if priority in allowed:
                 p0[key][prov] = p0[key].get(prov, 0) + 1
     return p0, total
@@ -1858,7 +1900,7 @@ def build_p0_drilldown(gs_client):
         for key in P0_COMPARISON_GROUPS:
             if not row_matches_view(r, key):
                 continue
-            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            allowed = _p0_allowed(key)
             z = 1 if priority in allowed else 0
             counts_total[key] += 1
             counts_p0[key] += z
@@ -1885,6 +1927,18 @@ def build_p0_drilldown(gs_client):
     }
 
 
+NSA34_COUNTS_AS_P0 = False  # NSA3/NSA4 have no P0 any more (see p0_forecast.py: they are forecast instead) - set True to restore the old card number
+
+
+def _p0_allowed(key):
+    """Priorities that count toward a group's Focus P0 card: FBB = P0+P1, NSA3/4 = none, everything else = P0 only."""
+    if key == "FBB":
+        return {"P0", "P1"}
+    if key == "NSA34" and not NSA34_COUNTS_AS_P0:
+        return set()
+    return {"P0"}
+
+
 def _count_p0_by_group(rows, reference_dt):
     from ticket_views import BOOKMARK_VIEWS, row_matches_view
     counts = {k: 0 for k in P0_COMPARISON_GROUPS}
@@ -1903,7 +1957,7 @@ def _count_p0_by_group(rows, reference_dt):
             # Same exception as the P0 Only detail/matrix view: the FBB
             # (Online, "4.FBB with SA1-4") group counts P0+P1 together;
             # every other group stays strict P0-only, unchanged.
-            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            allowed = _p0_allowed(key)
             if priority in allowed:
                 counts[key] += 1
     return counts
@@ -1936,7 +1990,7 @@ def _count_p0_by_group_diagnostic(rows, reference_dt):
         for key in P0_COMPARISON_GROUPS:
             if not row_matches_view(r, key):
                 continue
-            allowed = {"P0", "P1"} if key == "FBB" else {"P0"}
+            allowed = _p0_allowed(key)
             if priority in allowed:
                 counts[key] += 1
     return counts, stages

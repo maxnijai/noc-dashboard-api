@@ -3397,6 +3397,35 @@ def api_p0_nsa34_p2():
         log.exception("p0-nsa34-p2 API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/p0-forecast')
+def api_p0_forecast():
+    """NSA3/NSA4 P0 Forecast (next 7 days, every ticket) + per-province trend from the P0DailyTrend tab.
+    Read-only; loaded when the Forecast panel is opened."""
+    try:
+        import p0_forecast as _pf
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(_pf.build_forecast(gs_client))
+    except Exception as e:
+        log.exception("p0-forecast API failed")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/p0-forecast/snapshot', methods=['POST'])
+def api_p0_forecast_snapshot():
+    """Writes today's P0DailyTrend rows now (the nightly 01:20 job does this automatically). Without
+    {"force": true} an already stored day is left untouched."""
+    try:
+        import p0_forecast as _pf
+        data = request.get_json(silent=True) or {}
+        _, gs_client = get_drive_and_sheets_clients()
+        n = _pf.record_snapshot(gs_client, force=bool(data.get('force')))
+        log.info("p0 forecast snapshot manual call by %s -> %s rows", session.get('user_email'), n)
+        return jsonify({'status': 'ok', 'rows_written': n})
+    except Exception as e:
+        log.exception("p0-forecast snapshot failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/p0-nsa34-flag-history')
 def api_p0_nsa34_flag_history():
     """Flag totals @01:15 for days older than the 7-day window (month Forecast chart). ?from=YYYY-MM-DD"""
@@ -3940,6 +3969,26 @@ def run_pending_auto_fill():
             pass
 
 
+def run_p0_daily_snapshot():
+    """01:20 Bangkok nightly job: one P0DailyTrend row per province (NSA3/4 P0 @ today's 01:15) - the trend line reads only this tab."""
+    import tempfile
+    import p0_forecast as _pf
+    lock_path = os.path.join(tempfile.gettempdir(), f"p0_daily_snapshot_{bangkok_now().strftime('%Y%m%d')}.lock")
+    try:
+        os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
+        return
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        log.info("p0 daily snapshot: %s rows", _pf.record_snapshot(gs_client))
+    except Exception:
+        log.exception("p0 daily snapshot failed")
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
+
+
 def run_flag_daily_record():
     """06:00 Bangkok nightly job: keep the Flag @01:15 Actual (Forecast chart) in the FlagDailyActual tab."""
     import tempfile
@@ -3984,6 +4033,8 @@ def start():
     # 21:30 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=21 would fire at 04:00 Bangkok.
     s.add_job(run_pending_auto_fill, 'cron', hour=21, minute=30, timezone='Asia/Bangkok',
               id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
+    s.add_job(run_p0_daily_snapshot, 'cron', hour=1, minute=20, timezone='Asia/Bangkok',
+              id='p0_daily_snapshot', max_instances=1, coalesce=True, misfire_grace_time=7200, replace_existing=True)
     s.add_job(run_flag_daily_record, 'cron', hour=6, minute=0, timezone='Asia/Bangkok',
               id='flag_daily_record', max_instances=1, coalesce=True, misfire_grace_time=7200, replace_existing=True)
     s.start()
