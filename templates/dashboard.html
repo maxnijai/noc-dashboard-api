@@ -678,14 +678,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 </style>
 <style>
 .ocp-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.ocp-top{align-items:stretch;flex-wrap:nowrap}.ocp-top>.ocp-kpis{flex:0 0 300px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ocp-top>.ocp-kpis .ocp-kpi{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 14px}.ocp-top>.ocp-kpis .ocp-kpi b{font-size:28px}.ocp-inoc{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:18px}
-.ocp-ih{flex:0 0 190px;border-right:1px solid var(--border);padding-right:14px}.ocp-ih .t{font-weight:800;font-size:22px;color:#0d9488;letter-spacing:.04em}.ocp-ih .s{font-size:11px;color:var(--text3)}
-.ocp-icall{display:inline-flex;align-items:center;gap:6px;margin-top:3px;background:#0d948814;border:1px solid #0d948855;color:#0f766e;border-radius:10px;padding:3px 12px;font-weight:800;font-size:18px;text-decoration:none}
-.ocp-ippl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;flex:1;min-width:0}.ocp-ip{text-align:center;min-width:0}
-.ocp-iav{position:relative;width:100%;aspect-ratio:1/1}.ocp-iav>img,.ocp-iav>span:first-child{width:100%!important;height:100%!important;box-sizing:border-box;box-shadow:0 4px 12px rgba(15,157,148,.18);border-color:#0d9488!important;font-size:34px!important}
+.ocp-top{align-items:stretch;flex-wrap:nowrap}.ocp-top>.ocp-kpis{flex:0 0 300px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ocp-top>.ocp-kpis .ocp-kpi{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 14px}.ocp-top>.ocp-kpis .ocp-kpi b{font-size:28px}.ocp-inoc{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);border-left:4px solid #0d9488;border-radius:14px;padding:10px 16px;display:flex;align-items:center;gap:16px}
+.ocp-ih{flex:none;border-right:1px solid var(--border);padding-right:14px}.ocp-ih .t{font-weight:800;font-size:22px;color:#0d9488;letter-spacing:.04em}.ocp-ih .s{font-size:11px;color:var(--text3)}
+.ocp-icall{display:inline-flex;align-items:center;gap:6px;margin-top:3px;background:#0d948814;border:1px solid #0d948855;color:#0f766e;border-radius:10px;padding:3px 12px;font-weight:800;font-size:17px;text-decoration:none;white-space:nowrap}
+.ocp-ippl{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,104px));justify-content:start;gap:12px;flex:1;min-width:0}.ocp-ip{text-align:center;min-width:0}
+.ocp-iav{position:relative;width:100%;aspect-ratio:1/1}.ocp-iav>img,.ocp-iav>span:first-child{width:100%!important;height:100%!important;box-sizing:border-box;box-shadow:0 4px 12px rgba(15,157,148,.18);border-color:#0d9488!important;font-size:26px!important}
 .ocp-iav .ocp-st{width:13px;height:13px;border-width:2px;right:8px;top:8px;bottom:auto}
 .ocp-icam{position:absolute;right:6px;bottom:6px;width:22px;height:22px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);display:grid;place-items:center;font-size:10px;cursor:pointer}
-.ocp-ip .nk{font-size:15px;font-weight:700;margin-top:8px;line-height:1.2}.ocp-ip .fn{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocp-ip .nk{font-size:13.5px;font-weight:700;margin-top:6px;line-height:1.2}.ocp-ip .fn{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ocp-kpis{display:flex;gap:10px;flex-wrap:wrap}.ocp-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:5px 16px;min-width:108px}
 .ocp-kpi b{display:block;font-size:22px;line-height:1.15}.ocp-kpi span{font-size:11px;color:var(--text3)}
 .ocp-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;align-items:stretch}@media(max-width:1000px){.ocp-wrap{grid-template-columns:1fr}.ocp-rbox>.ocp-inner{position:static!important;max-height:640px}}
@@ -3038,15 +3038,15 @@ async function loadP0SnapshotComparison(prefix) {
       return `
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
-        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button>' : ''}
+        ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenFlag()" title="แยกตาม Flag Priority (24 Category) + Trend @01:15">Flag Priority ▸</button><button type="button" class="p0-stbtn" style="top:30px;color:#7c3aed" onclick="p0OpenForecast()" title="NSA3/4 ไม่มี P0 - Forecast ใบที่จะเป็น P0 ใน 7 วัน + Trend รายจังหวัด">Forecast 7 วัน ▸</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
-        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
-        <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;${g.key === 'NSA34' ? 'display:none;' : ''}">${g.current_p0}</div>${g.key === 'NSA34' ? '<div style="font-size:32px; font-weight:800; line-height:1; color:var(--text3);">0</div>' : ''}
+        ${g.key === 'NSA34' ? '<div style="font-size:12px; color:var(--text2); margin-top:8px;"><span style="background:var(--bg3); border-radius:10px; padding:1px 9px; font-size:11px; font-weight:700;">ไม่นับ P0</span> <a href="#" onclick="p0OpenForecast(); return false;" style="color:#7c3aed; font-weight:700;">ดู Forecast ▸</a></div>' : `<div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="white-space:nowrap;">@01:15: <b>${g.snapshot_p0}</b></span>
           <span style="color:${diffColor}; font-weight:700; white-space:nowrap;">${diffArrow} ${diffLabel}</span>
         </div>
-        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
-        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
+        ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}`}
+        <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);${g.key === 'NSA34' ? ' display:none;' : ''}">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
             <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
@@ -14795,7 +14795,7 @@ loadData();
     const nick = n => { const m = String(n).match(/\(([^)]+)\)\s*$/); return m ? m[1] : String(n).split(' ')[0]; };
     const full = n => String(n).replace(/\s*\([^)]*\)\s*$/, '');
     const inocHtml = inocAll.length ? `<div class="ocp-inoc"><div class="ocp-ih"><div class="t">INOC TEAM</div><div class="s">เข้าเวรวันนี้ ${inocOn.length} / ${inocAll.length} คน</div><a class="ocp-icall" href="${telHref(inocTel)}">📞 ${escapeHtml(inocTel)}</a></div>
-      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 150, true)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
+      <div class="ocp-ippl">${inocOn.length ? inocOn.map(c => `<div class="ocp-ip" title="${escapeHtml(c.name)}"><div class="ocp-iav">${ocpAvatar(c.name, 'INOC', 104, true)}<span class="ocp-st"></span>${ocpCanUpload ? `<span class="ocp-icam" data-ocp-up="${escapeHtml(ocpKey(c.name))}" title="อัปโหลด/จัดตำแหน่งรูป">📷</span>` : ''}</div><div class="nk">${escapeHtml(nick(c.name))}</div><div class="fn">${escapeHtml(full(c.name).split(' ')[0])}</div></div>`).join('') : '<div style="color:#ef4444;font-weight:700">⚠ วันนี้ไม่มี INOC เข้าเวร</div>'}</div></div>` : '';
     box.innerHTML = `<div class="ocp-top"><div class="ocp-kpis">
         <div class="ocp-kpi"><b style="color:#16a34a">${allOn.length}</b><span>เข้าเวรวันนี้</span></div>
         <div class="ocp-kpi"><b style="color:#2563eb">${nSup}</b><span>Supervisor</span></div>
@@ -17396,6 +17396,288 @@ redraw();
 
 
 
+</script>
+<script>
+// ── NSA3/NSA4 · Forecast P0 7 วัน (NSA3-4 ไม่นับ P0) ─────────────────────────
+// Own overlay + own endpoint (/api/p0-forecast); nothing else on the page reads this data.
+// Detail / Plan_Closed_Date edits go through the existing /api/pending-ticket/update (same validation, same Work Log).
+(function () {
+  const PROVS = ['เชียงใหม่','น่าน','เชียงราย','ตาก','พิจิตร','แม่ฮ่องสอน','แพร่','เพชรบูรณ์','พิษณุโลก','สุโขทัย','ลำปาง','พะเยา','อุตรดิตถ์','ลำพูน','กำแพงเพชร'];
+  const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
+  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', close: 0, sel: new Set(), tab: 'prov', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
+  const addDays = (ds, n) => { const d = pd(ds); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const dShort = ds => { const p = ds.split('-'); return (+p[2]) + ' ' + TH_M[+p[1] - 1]; };
+  const dLong = ds => TH_D[pd(ds).getUTCDay()] + ' ' + dShort(ds);
+  const nsaOk = t => F7.grp === 'all' || (F7.grp === 'n3' ? t.nsa === 'NSA3' : t.nsa === 'NSA4');
+
+  const st = document.createElement('style');
+  st.textContent = `
+#fc7-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:none;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
+#fc7-box{background:var(--bg1);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1320px;padding:16px;display:flex;flex-direction:column;gap:12px}
+#fc7-box .c7{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+#fc7-box h2{margin:0 0 2px;font-size:15px}#fc7-box .sb{font-size:12px;color:var(--text3)}
+#fc7-box .hd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+#fc7-box .rl{display:flex;gap:10px;align-items:center;background:#fff7ed;color:#7c2d12;border:1px solid #fed7aa;border-radius:10px;padding:8px 12px;font-size:13px}
+#fc7-box .kp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+#fc7-box .k{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg2)}
+#fc7-box .k b{font-size:28px;line-height:1.1;display:block}#fc7-box .k span{font-size:12px;color:var(--text2)}#fc7-box .k i{font-style:normal;font-size:11px;color:var(--text3);display:block}
+#fc7-box .ch{display:flex;gap:6px;flex-wrap:wrap}
+#fc7-box .cp{border:1px solid var(--border);background:var(--bg2);color:var(--text);border-radius:99px;padding:3px 12px;font-size:12px;cursor:pointer}
+#fc7-box .cp.a{background:#2563eb;border-color:#2563eb;color:#fff}#fc7-box .cp.pa{background:#7c3aed;border-color:#7c3aed;color:#fff}
+#fc7-box table{border-collapse:collapse;width:100%;font-size:12.5px}
+#fc7-box th,#fc7-box td{padding:5px 8px;text-align:center;border-bottom:1px solid var(--border)}
+#fc7-box th{font-size:11px;color:var(--text2);font-weight:600;background:var(--bg3);position:sticky;top:0;z-index:1}
+#fc7-box td:first-child,#fc7-box th:first-child{text-align:left;white-space:nowrap}
+#fc7-box tr.tot td{font-weight:800;background:var(--bg3)}
+#fc7-box .sc7{overflow:auto;max-height:620px}
+#fc7-box .pl{display:inline-block;border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+#fc7-box .p0{background:#fee2e2;color:#b91c1c}#fc7-box .p1{background:#fef3c7;color:#b45309}#fc7-box .fcp{background:#ede9fe;color:#6d28d9}#fc7-box .nn{background:var(--bg3);color:var(--text2)}
+#fc7-box .tb{display:flex;gap:6px}#fc7-box .tab{padding:5px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;font-size:13px;background:var(--bg2);color:var(--text)}
+#fc7-box .tab.a{background:#0f172a;color:#fff;border-color:#0f172a}
+#fc7-box .lg{display:flex;gap:14px;font-size:12px;color:var(--text2);flex-wrap:wrap;align-items:center}
+#fc7-box .sw{display:inline-block;width:18px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+#fc7-box .sl{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2)}
+#fc7-box .mu{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+#fc7-box .mm{border:1px solid var(--border);border-radius:10px;padding:8px 10px 4px;cursor:pointer;background:var(--bg2)}
+#fc7-box .mm:hover{border-color:#a78bfa}#fc7-box .mm.sel{border-color:#7c3aed;box-shadow:0 0 0 2px #ede9fe}
+#fc7-box .mm .h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}#fc7-box .mm .h b{font-size:13px}#fc7-box .mm .h span{font-size:11px;font-weight:700;color:#7c3aed}#fc7-box .mm .s2{font-size:10.5px;color:var(--text3)}
+#fc7-box .fl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+#fc7-box select,#fc7-box input[type=text],#fc7-box input[type=date],#fc7-box textarea{border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;font-size:12.5px;background:var(--bg2);color:var(--text)}
+#fc7-box textarea{width:100%;min-width:250px;resize:vertical}
+#fc7-box td.ed{text-align:left}
+#fc7-box .sv{border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
+#fc7-box .sv:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3);cursor:default}
+#fc7-box .bad{border-color:#dc2626!important;background:#fef2f2!important;color:#7f1d1d!important}
+#fc7-box .er{color:#dc2626;font-size:10.5px;max-width:150px;white-space:normal}
+#fc7-box .nt{font-size:12px;color:var(--text2);background:var(--bg3);border:1px dashed var(--border2);border-radius:10px;padding:8px 12px}
+#fc7-toast{position:fixed;right:20px;bottom:20px;background:#0f172a;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9600;box-shadow:0 6px 20px #0004;display:none}
+@media(max-width:900px){ #fc7-box .kp{grid-template-columns:1fr 1fr}#fc7-box .mu{grid-template-columns:1fr 1fr}}`;
+  document.head.appendChild(st);
+
+  function toast(m) {
+    let t = document.getElementById('fc7-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'fc7-toast'; document.body.appendChild(t); }
+    t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => { t.style.display = 'none'; }, 3800);
+  }
+
+  // ---- data -> numbers (all from the ticket list, so the NSA filter and the close-rate slider stay consistent) ----
+  function compute() {
+    const c = F7.close / 100, by = {};
+    PROVS.forEach(p => { by[p] = { now: 0, add: [0, 0, 0, 0, 0, 0, 0] }; });
+    const T = F7.data.tickets.filter(nsaOk);
+    T.forEach(t => { const o = by[t.prov] || (by[t.prov] = { now: 0, add: [0, 0, 0, 0, 0, 0, 0] }); if (t.k === 0) o.now++; else o.add[t.k - 1]++; });
+    const lv = (now, add) => { let l = now; return add.map(a => { l = Math.round((l + a) * (1 - c)); return l; }); };
+    const rows = Object.keys(by).map(p => ({ p, now: by[p].now, add: by[p].add, lvl: lv(by[p].now, by[p].add), sum: sum(by[p].add) }));
+    const tadd = [0, 1, 2, 3, 4, 5, 6].map(i => sum(rows.map(r => r.add[i]))), tnow = sum(rows.map(r => r.now));
+    return { T, rows, tot: { now: tnow, add: tadd, lvl: lv(tnow, tadd), sum: sum(tadd) } };
+  }
+  function flagOf(t) {
+    const d = F7.data, p0 = addDays(d.ref0, t.k);
+    const lab = t.k === 0 ? ['p0', 'P0 แล้ว'] : [t.k <= 2 ? 'p1' : 'fcp', 'P0 ใน ' + t.k + ' วัน (' + dShort(p0) + ')'];
+    let k = 'no', s = 'ยังไม่มี Plan';
+    if (t.plan) { if (t.plan <= p0) { k = 'ok'; s = 'แผนปิดทัน (' + dShort(t.plan) + ')'; } else { k = 'late'; s = 'แผนปิดไม่ทัน (' + dShort(t.plan) + ')'; } }
+    return { cls: lab[0], text: lab[1], k, s };
+  }
+  const stCss = k => ({ ok: 'color:#15803d', late: 'color:#b91c1c;font-weight:700', no: 'color:var(--text3)' }[k]);
+  const poly = (pts, col, dash, w) => pts.length < 2 ? '' : `<polyline fill="none" stroke="${col}" stroke-width="${w || 2.4}" ${dash ? 'stroke-dasharray="6 5"' : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+  const grid = (L, W, R, T, H, B, mx) => { let g = ''; for (let i = 0; i <= 4; i++) { const v = mx * i / 4, y = T + (H - T - B) * (1 - v / mx); g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--border)"/><text x="${L - 6}" y="${y + 4}" font-size="11" fill="var(--text3)" text-anchor="end">${Math.round(v)}</text>`; } return g; };
+
+  // ---- top: header, KPIs, forecast chart ----
+  function renderTop(m) {
+    const d = F7.data, top = [...m.rows].sort((a, b) => b.sum - a.sum)[0];
+    document.getElementById('fc7-kp').innerHTML = `
+      <div class="k"><b style="color:var(--text3)">0</b><span>P0 ในการ์ด NSA3 / NSA4</span><i>ตามกติกาใหม่ ไม่นับ P0</i></div>
+      <div class="k"><b style="color:#d97706">${m.tot.now}</b><span>ใบที่เข้าเกณฑ์ P0 ตามสูตรแล้ว (ติดตามเฝ้าระวัง)</span><i>อ้างอิง 01:15 ${esc(dShort(d.ref0))}</i></div>
+      <div class="k"><b style="color:#7c3aed">+${m.tot.sum}</b><span>จะเข้าเกณฑ์ P0 ใหม่ใน 7 วัน</span><i>ใน 3 วัน +${sum(m.tot.add.slice(0, 3))} · ถึง ${esc(dShort(d.dates[6]))} รวมคงค้าง ${m.tot.lvl[6]}</i></div>
+      <div class="k"><b style="font-size:22px;line-height:1.5">${top && top.sum ? esc(top.p) : '-'}</b><span>จังหวัดที่จะเพิ่มมากสุด</span><i>${top ? '+' + top.sum + ' ใบใน 7 วัน' : ''}</i></div>`;
+    // forecast chart
+    const W = 1200, H = 250, L = 44, R = 16, T = 18, B = 34, mx = Math.max(...m.tot.lvl, ...m.tot.add, 1) * 1.15, bw = (W - L - R) / 7, y = v => T + (H - T - B) * (1 - v / mx);
+    let bars = '', pts = [];
+    m.tot.add.forEach((a, k) => { const x = L + bw * k + bw * .2, w = bw * .6;
+      bars += `<rect x="${x}" y="${y(a)}" width="${w}" height="${Math.max(0, y(0) - y(a))}" rx="6" fill="#a78bfa"/><text x="${x + w / 2}" y="${y(a) - 5}" font-size="12" font-weight="700" fill="#7c3aed" text-anchor="middle">+${a}</text><text x="${x + w / 2}" y="${H - 12}" font-size="12" fill="var(--text2)" text-anchor="middle">${esc(dLong(d.dates[k]))}</text>`;
+      pts.push([x + w / 2, y(m.tot.lvl[k])]); });
+    const dots = pts.map((p, k) => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--bg2)" stroke="#dc2626" stroke-width="2"/><text x="${p[0]}" y="${p[1] - 10}" font-size="11" fill="#dc2626" text-anchor="middle" font-weight="700">${m.tot.lvl[k]}</text>`).join('');
+    document.getElementById('fc7-cf').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${grid(L, W, R, T, H, B, mx)}${bars}${poly(pts, '#dc2626', false)}${dots}</svg>
+      <div class="lg"><span><i class="sw" style="background:#a78bfa;height:10px"></i>ใบเข้าเกณฑ์ P0 ใหม่ในวันนั้น (01:15)</span><span><i class="sw" style="background:#dc2626"></i>P0 สะสมคงค้าง (เริ่มจาก ${m.tot.now} ใบ${F7.close ? ' · หักปิดงาน ' + F7.close + '%/วัน' : ' · ไม่หักปิดงาน = ค่าสูงสุด'})</span></div>`;
+  }
+
+  // ---- trend: history from P0DailyTrend + dashed forecast ----
+  function series(prov, m) {
+    const tr = F7.data.trend, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
+    const hist = prov == null ? tr['all' + sfx] : ((tr['prov' + sfx] || {})[prov] || tr.dates.map(() => null));
+    const r = prov == null ? m.tot : m.rows.find(x => x.p === prov) || { now: 0, lvl: [0, 0, 0, 0, 0, 0, 0] };
+    return { hist, now: r.now, f: r.lvl };
+  }
+  function plotTrend(s, col, W, H, L, R, T, B, mxAll) {
+    const d = F7.data, nH = d.trend.dates.length, N = nH + 1 + 7, x = i => L + (W - L - R) * i / (N - 1), y = v => T + (H - T - B) * (1 - v / mxAll);
+    const hp = []; s.hist.forEach((v, i) => { if (v != null) hp.push([x(i), y(v)]); });
+    hp.push([x(nH), y(s.now)]);
+    const fp = [[x(nH), y(s.now)], ...s.f.map((v, k) => [x(nH + 1 + k), y(v)])];
+    return { hp, fp, x, y, N, nH };
+  }
+  function renderTrend(m) {
+    const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 70, T = 14, B = 30;
+    const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : p, s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
+    const mx = Math.max(1, ...ser.flatMap(z => [...z.s.hist.filter(v => v != null), z.s.now, ...z.s.f])) * 1.15;
+    const nH = d.trend.dates.length, N = nH + 8, x = i => L + (W - L - R) * i / (N - 1);
+    let g = grid(L, W, R, T, H, B, mx);
+    [0, 7, 14, 21, nH - 1, nH + 7].forEach(i => { const ds = i < nH ? d.trend.dates[i] : addDays(d.ref0, i - nH); g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(ds))}</text>`; });
+    g += `<rect x="${x(nH - .5)}" y="${T}" width="${x(N - 1) - x(nH - .5)}" height="${H - T - B}" fill="#ede9fe" opacity=".45"/><text x="${(x(nH - .5) + x(N - 1)) / 2}" y="${T + 14}" font-size="11" fill="#7c3aed" text-anchor="middle" font-weight="700">FORECAST 7 วัน</text>`;
+    let body = '', lg = '';
+    ser.forEach(z => { const p = plotTrend(z.s, z.c, W, H, L, R, T, B, mx);
+      body += poly(p.hp, z.c, false) + poly(p.fp, z.c, true) + p.hp.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.5" fill="${z.c}"/>`).join('') + `<text x="${x(N - 1) + 6}" y="${p.y(z.s.f[6]) + 4}" font-size="12" font-weight="700" fill="${z.c}">${z.s.f[6]}</text>`;
+      lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)} (ล่าสุด ${z.s.now} → ${esc(dShort(d.dates[6]))} ${z.s.f[6]})</span>`; });
+    const have = d.trend.all.filter(v => v != null).length;
+    document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
+    document.getElementById('fc7-lg').innerHTML = lg;
+    document.getElementById('fc7-trnote').innerHTML = have > 1 ? `เส้นทึบ = Snapshot @01:15 ที่เก็บไว้ ${have} วัน · เส้นประ = Forecast` : `<b style="color:#b45309">ยังมี Snapshot ในแท็บ P0DailyTrend แค่ ${have} วัน</b> — ระบบเก็บเองทุกคืน 01:20 · ครั้งแรกกดดึงย้อนหลังจากไฟล์ Drive ได้เลย <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลย้อนหลังจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
+    document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
+  }
+  function renderMulti(m) {
+    const d = F7.data, Wd = 300, H = 110, L = 4, R = 34, T = 8, B = 8, nH = d.trend.dates.length, N = nH + 8;
+    const order = [...m.rows].filter(r => PROVS.includes(r.p)).sort((a, b) => b.sum - a.sum);
+    document.getElementById('fc7-mu').innerHTML = order.map(r => {
+      const s = series(r.p, m), vals = [...s.hist.filter(v => v != null), s.now, ...s.f], mx = Math.max(...vals, 1) * 1.15;
+      const x = i => L + (Wd - L - R) * i / (N - 1), y = v => T + (H - T - B) * (1 - v / mx);
+      const hp = []; s.hist.forEach((v, i) => { if (v != null) hp.push([x(i), y(v)]); }); hp.push([x(nH), y(s.now)]);
+      const fp = [[x(nH), y(s.now)], ...s.f.map((v, k) => [x(nH + 1 + k), y(v)])];
+      return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>+${r.sum} ใน 7 วัน</span></div>
+        <svg viewBox="0 0 ${Wd} ${H}" width="100%"><rect x="${x(nH - .5)}" y="${T}" width="${x(N - 1) - x(nH - .5)}" height="${H - T - B}" fill="#ede9fe" opacity=".5"/>${poly(hp, '#2563eb', false, 2)}${poly(fp, '#7c3aed', true, 2)}<circle cx="${x(nH)}" cy="${y(s.now)}" r="3" fill="#2563eb"/><text x="${x(N - 1) + 4}" y="${y(s.f[6]) + 4}" font-size="11" font-weight="700" fill="#7c3aed">${s.f[6]}</text></svg>
+        <div class="s2">ล่าสุด ${s.now} → ${esc(dShort(d.dates[6]))} ${s.f[6]}</div></div>`; }).join('');
+  }
+
+  // ---- table area ----
+  function renderTable() {
+    const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
+    document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
+    if (F7.tab === 'prov') {
+      const rows = [...m.rows].filter(r => r.now || r.sum).sort((a, b) => b.sum - a.sum), mxc = Math.max(1, ...rows.flatMap(r => r.add));
+      const cell = v => `<td style="background:rgba(124,58,237,${v ? (.08 + .5 * v / mxc).toFixed(2) : 0});font-weight:${v ? 700 : 400};color:${v > mxc * .6 ? '#fff' : 'inherit'}">${v || '·'}</td>`;
+      el.innerHTML = `<table><tr><th>จังหวัด</th><th>P0 ตามสูตรแล้ว</th>${d.dates.map(x => `<th>${esc(dLong(x))}</th>`).join('')}<th>รวม 7 วัน</th><th>คงค้างสิ้นสุด</th></tr>` +
+        rows.map(r => `<tr><td>${esc(r.p)}</td><td><span class="pl p1">${r.now}</span></td>${r.add.map(cell).join('')}<td><b>+${r.sum}</b></td><td><span class="pl p0">${r.lvl[6]}</span></td></tr>`).join('') +
+        `<tr class="tot"><td>รวมทุกจังหวัด</td><td>${m.tot.now}</td>${m.tot.add.map(v => `<td>+${v}</td>`).join('')}<td>+${m.tot.sum}</td><td>${m.tot.lvl[6]}</td></tr></table>`;
+      document.getElementById('fc7-tbn').textContent = 'ตัวเลขในช่อง = ใบที่เข้าเกณฑ์ P0 ใหม่ในวันนั้น · สีเข้ม = มาก';
+      return;
+    }
+    const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
+    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
+      (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())));
+    const shown = list.slice(0, 100);
+    el.innerHTML = `<div class="rl" style="margin-bottom:8px;background:var(--bg3);color:var(--text);border-color:var(--border2)"><span style="font-size:20px">🚩</span><div><b style="color:#7c3aed">Flag Logic:</b> ดูว่าใบนี้ <b>เข้าเกณฑ์ P0 วันไหน</b> (01:15 เกินกำหนด &gt; 24 ชม.) แล้วเทียบกับ <b>Plan_Closed_Date</b> — <span class="pl" style="background:#dcfce7;color:#15803d">แผนปิดทัน</span> ปิดก่อน/ตรงวันที่จะเป็น P0 · <span class="pl p0">แผนปิดไม่ทัน</span> วางแผนปิดหลังวันที่จะเป็น P0 · <span class="pl nn">ยังไม่มี Plan</span> · ค่าเดียวกันนี้เขียนลงคอลัมน์ AA ของชีตส่งออก</div></div>
+      <div class="fl"><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
+      <select id="fc7-fD"><option value="">ทุกวัน</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว</option>${d.dates.map((x, i) => `<option value="${i + 1}"${F7.fD === String(i + 1) ? ' selected' : ''}>เป็น P0: ${esc(dLong(x))}</option>`).join('')}</select>
+      <select id="fc7-fF"><option value="">Flag Logic: ทั้งหมด</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>แผนปิดไม่ทัน (${cnt('late')})</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ยังไม่มี Plan (${cnt('no')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>แผนปิดทัน (${cnt('ok')})</option></select>
+      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ</span></div>
+      <table style="min-width:1200px"><tr><th>Ticket</th><th>จังหวัด</th><th>NSA</th><th>Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
+      shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
+        return `<tr data-id="${esc(t.id)}"><td><b>${esc(t.id)}</b><div class="sb" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td>${esc(t.prov)}</td><td>${esc(t.nsa)}</td><td>${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
+        <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${esc(f.text)}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : f.k === 'ok' ? '✓ ' : ''}${esc(f.s)}</div></td>
+        <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
+        <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
+        <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
+        <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
+    document.getElementById('fc7-tbn').textContent = 'แก้ Detail / Plan_Closed_Date แล้วกด Save — ใช้ API เดิมของหน้า Pending Ticket เขียนลง Work Log';
+    const q = id => document.getElementById(id);
+    q('fc7-fP').onchange = e => { F7.fP = e.target.value; renderTable(); };
+    q('fc7-fD').onchange = e => { F7.fD = e.target.value; renderTable(); };
+    q('fc7-fF').onchange = e => { F7.fF = e.target.value; renderTable(); };
+    q('fc7-fQ').oninput = e => { F7.fQ = e.target.value; const pos = e.target.selectionStart; renderTable(); const n = q('fc7-fQ'); n.focus(); n.setSelectionRange(pos, pos); };
+    el.querySelectorAll('tr[data-id]').forEach(tr => {
+      const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv');
+      const mark = () => { F7.dirty[t.id] = true; F7.terr[t.id] = ''; btn.disabled = false; btn.textContent = 'Save'; };
+      tr.querySelector('.d').oninput = e => { t.detail = e.target.value; mark(); };
+      tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : f.k === 'ok' ? '✓ ' : '') + f.s; };
+      btn.onclick = () => saveTicket(t);
+    });
+  }
+  async function saveTicket(t) {
+    const d = F7.data;
+    let er = '';
+    if (!String(t.detail || '').trim() || !String(t.detail).includes('/')) er = 'Detail ต้องมี "/" (ปัญหา/วิธีแก้ไข)';
+    else if (!t.plan) er = 'Plan_Closed_Date ห้ามว่าง';
+    else if (t.plan < d.today) er = 'Plan_Closed_Date ห้ามย้อนหลัง';
+    else if (!t.group_problem || !t.action_team) er = 'ใบนี้ยังไม่มี Group Problem / Action Team — กรอกที่หน้า Pending Ticket ก่อน';
+    F7.terr[t.id] = er;
+    if (er) { renderTable(); return; }
+    F7.saving[t.id] = true; renderTable();
+    try {
+      const res = await fetch('/api/pending-ticket/update', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: t.id, group_problem: t.group_problem, action_team: t.action_team, detail: String(t.detail).trim(), image_link: t.image_link || '', plan_closed_date: t.plan }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || ('API ' + res.status));
+      const row = j.row || [];
+      t.updated_at = row[6] || ''; t.updated_by = row[7] || ''; F7.dirty[t.id] = false; F7.terr[t.id] = '';
+      toast('✓ บันทึก ' + t.id + ' แล้ว (Detail + Plan_Closed_Date) · Work Log อัปเดตแล้ว');
+    } catch (e) { F7.terr[t.id] = String(e.message || e); }
+    F7.saving[t.id] = false; renderTable();
+  }
+
+  function renderAll() {
+    if (!F7.data) return;
+    const d = F7.data; F7.m = compute();
+    document.getElementById('fc7-ins').textContent = '🕒 รอบข้อมูล (insert_time): ' + (d.insert_time || '-') + ' · Forecast อ้างอิง 01:15 ของ ' + dShort(d.dates[0]) + ' – ' + dShort(d.dates[6]);
+    document.querySelectorAll('#fc7-grp .cp').forEach(x => x.classList.toggle('a', x.dataset.fc7G === F7.grp));
+    renderTop(F7.m); renderTrend(F7.m); renderMulti(F7.m); renderTable();
+  }
+
+  function build() {
+    let ov = document.getElementById('fc7-overlay');
+    if (ov) return ov;
+    ov = document.createElement('div'); ov.id = 'fc7-overlay';
+    ov.innerHTML = `<div id="fc7-box">
+      <div class="c7"><div class="hd" style="margin:0"><div><h2 style="font-size:17px">NSA3 / NSA4 · Forecast P0 ล่วงหน้า 7 วัน</h2><div class="sb" id="fc7-ins"></div></div>
+        <div style="display:flex;gap:8px;align-items:center"><div class="ch" id="fc7-grp"><span class="cp a" data-fc7-g="all">NSA3+4</span><span class="cp" data-fc7-g="n3">NSA3</span><span class="cp" data-fc7-g="n4">NSA4</span></div><button type="button" class="cp" data-fc7-close="1">ปิด ✕</button></div></div>
+        <div class="rl" style="margin-top:10px"><span style="font-size:22px">🔄</span><div><b>กติกาใหม่:</b> Ticket NSA3-4 <b>ไม่ถูกนับเป็น P0</b> ในการ์ด Focus P0 — แต่ติดตามว่า <b>ใบไหนจะเข้าเกณฑ์ P0</b> (เกินกำหนด &gt; 24 ชม. ณ 01:15) ใน 7 วันข้างหน้า นับทุกใบ NSA3/NSA4</div></div></div>
+      <div class="kp" id="fc7-kp"></div>
+      <div class="c7"><div class="hd"><div><h2>Forecast: ใบที่จะเข้าเกณฑ์ P0 รายวัน (ภาพรวม)</h2><div class="sb">แท่ง = ใบเข้าเกณฑ์ P0 ใหม่ในวันนั้น · เส้น = P0 สะสมคงค้าง</div></div>
+        <div class="sl">สมมติปิดงานได้ <b id="fc7-cv">0%</b>/วัน <input type="range" id="fc7-close" min="0" max="20" value="0" style="width:160px"> <span class="sb">(0% = ไม่มีใบถูกปิดเลย → ค่าสูงสุด)</span></div></div><div id="fc7-cf"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 + Forecast</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้นทึบ = ย้อนหลัง @01:15 · เส้นประ = Forecast 7 วัน · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตามจังหวัดที่จะเพิ่มมากสุด</div></div></div><div class="mu" id="fc7-mu"></div></div>
+      <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
+      <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
+    ov.addEventListener('click', e => {
+      if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
+      const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
+      const tb = e.target.closest('[data-fc7-tab]'); if (tb) { F7.tab = tb.dataset.fc7Tab; renderTable(); return; }
+      const bf = e.target.closest('[data-fc7-bf]');
+      if (bf) { bf.disabled = true; bf.textContent = 'กำลังดึงไฟล์ Drive… (อาจใช้เวลาหลายนาที)'; fetch('/api/p0-forecast/backfill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ days: 7 }) }).then(r => r.json()).then(j => { toast(j.error ? ('ดึงย้อนหลังไม่สำเร็จ: ' + j.error) : ('ดึงย้อนหลังแล้ว ' + (j.days_written || []).length + ' วัน' + ((j.missing || []).length ? ' · ไม่มีไฟล์ ' + j.missing.length + ' วัน' : ''))); F7.ts = 0; return load(true); }).then(() => renderAll()).catch(() => { bf.disabled = false; }); return; }
+      const sn = e.target.closest('[data-fc7-snap]');
+      if (sn) { sn.disabled = true; fetch('/api/p0-forecast/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(r => r.json()).then(j => { toast(j.error ? ('บันทึกไม่สำเร็จ: ' + j.error) : ('บันทึก Snapshot แล้ว ' + j.rows_written + ' แถว')); F7.ts = 0; return load(true); }).then(() => renderAll()); return; }
+      const p = e.target.closest('[data-fc7-p]');
+      if (p) { const v = p.dataset.fc7P; if (!v) F7.sel.clear(); else if (F7.sel.has(v)) F7.sel.delete(v); else F7.sel.add(v); renderTrend(F7.m); renderMulti(F7.m); }
+    });
+    ov.addEventListener('input', e => { if (e.target.id === 'fc7-close') { F7.close = +e.target.value; document.getElementById('fc7-cv').textContent = F7.close + '%'; F7.m = compute(); renderTop(F7.m); renderTrend(F7.m); renderMulti(F7.m); renderTable(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+    document.body.appendChild(ov);
+    return ov;
+  }
+  function load(quiet) {
+    if (F7.inflight) return F7.inflight;
+    F7.inflight = (async () => {
+      try {
+        const res = await fetch('/api/p0-forecast');
+        if (!res.ok) { const er = await res.json().catch(() => ({})); throw new Error(er.error || ('API ' + res.status)); }
+        F7.data = await res.json(); F7.ts = Date.now(); F7.err = ''; return true;
+      } catch (e) { F7.err = e.message || String(e); if (!quiet) console.error('Forecast load failed', e); return false; }
+      finally { F7.inflight = null; }
+    })();
+    return F7.inflight;
+  }
+  window.p0OpenForecast = async function () {
+    const ov = build(); ov.style.display = 'flex';
+    if (F7.data) { renderAll(); if (Date.now() - F7.ts >= 60000) load(true).then(ok => { if (ok && ov.style.display === 'flex') renderAll(); }); return; }
+    const box = document.getElementById('fc7-box'), keep = box.innerHTML;
+    box.innerHTML = '<div style="padding:28px 34px;font-size:13px;">กำลังโหลด Forecast P0… (อ่านจากชีต Pending สดๆ ครั้งแรกอาจใช้เวลาสักครู่)</div>';
+    const ok = await load(false);
+    if (ok) { box.innerHTML = keep; renderAll(); }
+    else box.innerHTML = '<div style="padding:22px 28px;font-size:13px;max-width:460px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">' + esc(F7.err) + '</div><button type="button" class="cp" data-fc7-close="1">ปิด</button></div>';
+  };
+})();
 </script>
 </body>
 </html>
