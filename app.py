@@ -2428,7 +2428,12 @@ def api_pending_ticket_export_excel():
     try:
         _, gs_client = get_drive_and_sheets_clients()
         data = build_pending_ticket_response(gs_client, **_pending_ticket_filters_from_request())
-        xlsx_bytes = build_pending_ticket_xlsx(data.get('tickets', []))
+        try:
+            import pending_ticket as _ptk
+            _kasem = _ptk.load_kasem_comments(gs_client)
+        except Exception:
+            _kasem = {}
+        xlsx_bytes = build_pending_ticket_xlsx(data.get('tickets', []), _kasem)
         filename = f"pending-ticket-{bangkok_now().strftime('%Y-%m-%d_%H%M')}.xlsx"
         return Response(
             xlsx_bytes,
@@ -3404,9 +3409,35 @@ def api_p0_forecast():
     try:
         import p0_forecast as _pf
         _, gs_client = get_drive_and_sheets_clients()
-        return jsonify(_pf.build_forecast(gs_client))
+        out = _pf.build_forecast(gs_client)
+        import pending_ticket as _pt
+        out['can_kasem'] = _pt.is_kasem(session.get('user_email'))
+        return jsonify(out)
     except Exception as e:
         log.exception("p0-forecast API failed")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/p0-forecast/kasem-comment', methods=['POST'])
+def api_p0_forecast_kasem_comment():
+    """Saves "Comment By P'Kasem" (export sheet column AB). Only kasemyanaso@gmail.com may write."""
+    import pending_ticket as _pt
+    if not _pt.is_kasem(session.get('user_email')):
+        return jsonify({'error': "เฉพาะ P'Kasem (%s) เท่านั้นที่แก้ Comment นี้ได้" % _pt.KASEM_EMAIL}), 403
+    payload = request.get_json(silent=True) or {}
+    ticket_id = str(payload.get('ticket_id') or '').strip()
+    comment = str(payload.get('comment') or '').strip()
+    if not ticket_id:
+        return jsonify({'error': 'ticket_id is required'}), 400
+    if len(comment) > _pt.KASEM_MAX_LEN:
+        return jsonify({'error': 'Comment ยาวเกิน %d ตัวอักษร' % _pt.KASEM_MAX_LEN}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        rec = _pt.save_kasem_comment(gs_client, ticket_id, comment, session.get('user_email'))
+        log.info("kasem comment saved for %s by %s", ticket_id, session.get('user_email'))
+        return jsonify({'status': 'saved', 'row': rec})
+    except Exception as e:
+        log.exception("kasem comment save failed")
         return jsonify({'error': str(e)}), 500
 
 
