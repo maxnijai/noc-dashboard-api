@@ -3435,7 +3435,11 @@ def api_p0_forecast_backfill():
         if request.method == 'POST':
             data = request.get_json(silent=True) or {}
             drive_service, gs_client = get_drive_and_sheets_clients()
-            started = _pf.start_backfill(drive_service, gs_client, back_days=min(int(data.get('days', 7)), 14))
+            # pull once per server start (results are cached in the P0DailyTrend sheet); {"force":true} re-runs
+            if data.get('force') or not _pf.backfill_status().get('finished'):
+                started = _pf.start_backfill(drive_service, gs_client, back_days=min(int(data.get('days', 4)), 14))
+            else:
+                started = False
             log.info("p0 forecast backfill requested by %s started=%s", session.get('user_email'), started)
         return jsonify(dict(_pf.backfill_status(), status='ok'))
     except Exception as e:
