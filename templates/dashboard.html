@@ -1025,6 +1025,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
             <th style="padding:6px 8px; text-align:left; min-width:130px;">Site Type</th>
             <th style="padding:6px 8px; text-align:left; min-width:200px;">Category</th>
             <th style="padding:6px 8px; text-align:left; min-width:220px;">รายละเอียด</th>
+            <th style="padding:6px 8px; text-align:left; min-width:230px;">Comment By P'Kasem</th>
             <th class="ptk-mobile-hide" style="padding:6px 8px; text-align:left; min-width:160px;">Link รูปทำงาน</th>
             <th style="padding:6px 8px; text-align:left; min-width:140px;">Plan Closed Date</th>
             <th style="padding:6px 8px; text-align:left; min-width:90px;">Save</th>
@@ -7802,6 +7803,31 @@ function renderPivot(ft) {
     return `<span style="display:inline-block;margin-left:4px;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;background:#7c3aed22;color:#7c3aed;">NANO</span>`;
   }
 
+  // "Comment By P'Kasem": shown for NSA3/NSA4 only. Only kasemyanaso@gmail.com gets the editor (the server enforces this too).
+  const PTK_IS_KASEM = String(CURRENT_USER_EMAIL || '').trim().toLowerCase() === 'kasemyanaso@gmail.com';
+  const ptkEsc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  function kasemCellHtml(t, safeTid) {
+    const sev = String(t.SEVERITY || '').trim().toUpperCase();
+    if (sev !== 'NSA3' && sev !== 'NSA4') return '';
+    if (!PTK_IS_KASEM) return t.kasem_comment ? `<div style="white-space:pre-wrap;">${ptkEsc(t.kasem_comment)}</div>` : '<span style="color:var(--text3)">—</span>';
+    return `<div style="display:flex;gap:6px;align-items:flex-start"><textarea class="ptk-field ptk-kasem-text" rows="2" maxlength="1500" placeholder="Comment โดย P'Kasem" oninput="kasemDirty('${safeTid}')" style="flex:1;min-width:0;">${ptkEsc(t.kasem_comment)}</textarea><button class="btn-secondary ptk-kasem-save" style="font-size:11px;padding:3px 8px;flex:none;" onclick="saveKasemRow('${safeTid}')" disabled>Save</button></div><div class="ptk-kasem-msg" style="font-size:11px;"></div>`;
+  }
+  window.kasemDirty = function (tid) {
+    const row = document.querySelector(`#ptk-body tr[data-ticket-id="${tid}"]`); if (!row) return;
+    const b = row.querySelector('.ptk-kasem-save'); if (b) { b.disabled = false; b.textContent = 'Save'; }
+  };
+  window.saveKasemRow = async function (tid) {
+    const row = document.querySelector(`#ptk-body tr[data-ticket-id="${tid}"]`); if (!row) return;
+    const b = row.querySelector('.ptk-kasem-save'), m = row.querySelector('.ptk-kasem-msg'), ta = row.querySelector('.ptk-kasem-text');
+    b.disabled = true; b.textContent = '...'; m.textContent = '';
+    try {
+      const res = await fetch('/api/p0-forecast/kasem-comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket_id: tid, comment: ta.value.trim() }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || ('API ' + res.status));
+      m.style.color = '#15803d'; m.textContent = '✓ บันทึกแล้ว ' + ((j.row && j.row.updated_at) || ''); b.textContent = 'Save';
+    } catch (e) { m.style.color = '#dc2626'; m.textContent = String(e.message || e); b.disabled = false; b.textContent = 'Save'; }
+  };
+
   function renderRows(tickets) {
     const planDateMaxObj = new Date(); planDateMaxObj.setDate(planDateMaxObj.getDate() + 730);
     const planDateMax = planDateMaxObj.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -7838,6 +7864,7 @@ function renderPivot(ft) {
         <td data-label="รายละเอียด" style="padding:6px 8px;">
           <textarea class="ptk-field ptk-detail" oninput="markDirty('${safeTid}'); this.style.outline=''; this.style.background=''; autoGrowDetail(this);" onpaste="return sanitizeDetailPaste(event, this)" rows="1" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข" style="width:100%; min-width:420px; max-width:560px; max-height:600px; overflow-y:auto; resize:vertical; field-sizing:content; white-space:pre-wrap; word-break:break-word;">${t.detail || ''}</textarea>
         </td>
+        <td data-label="Comment By P'Kasem" class="ptk-kasem" style="padding:6px 8px;">${kasemCellHtml(t, safeTid)}</td>
         <td class="ptk-mobile-hide" style="padding:6px 8px;">
           <input type="text" class="ptk-field ptk-link" value="${(t.image_link || '').replace(/"/g, '&quot;')}" oninput="markDirty('${safeTid}')" placeholder="https://..." style="width:100%;">
         </td>
@@ -7850,7 +7877,7 @@ function renderPivot(ft) {
         <td class="ptk-mobile-hide ptk-updated-at" style="padding:6px 8px; color:var(--text3);">${t.updated_at || ''}</td>
         <td class="ptk-mobile-hide ptk-updated-by" style="padding:6px 8px; color:var(--text3);">${t.updated_by || ''}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="24" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
+    }).join('') || '<tr><td colspan="25" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
   }
 
@@ -17406,7 +17433,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {} };
+  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17460,7 +17487,7 @@ redraw();
 #fc7-box .fl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 #fc7-box select,#fc7-box input[type=text],#fc7-box input[type=date],#fc7-box textarea{border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;font-size:12.5px;background:var(--bg2);color:var(--text)}
 #fc7-box textarea{width:100%;min-width:250px;resize:vertical}
-#fc7-box td.ed{text-align:left}
+#fc7-box td.ed{text-align:left}#fc7-box td.kc .ks{flex:none}
 #fc7-box .sv{border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
 #fc7-box .sv:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3);cursor:default}
 #fc7-box .bad{border-color:#dc2626!important;background:#fef2f2!important;color:#7f1d1d!important}
@@ -17610,11 +17637,12 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
       <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
-      <table class="tk" style="width:1590px;min-width:1590px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col style="width:120px"><col style="width:150px"><col style="width:160px"><col style="width:290px"><col style="width:140px"><col style="width:86px"><col style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
+      <table class="tk" style="width:1860px;min-width:1860px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col style="width:120px"><col style="width:150px"><col style="width:160px"><col style="width:290px"><col style="width:270px"><col style="width:140px"><col style="width:86px"><col style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Comment By P'Kasem</th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
         return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
+        <td class="ed kc">${d.can_kasem ? `<div style="display:flex;gap:6px;align-items:flex-start"><textarea class="kt" rows="2" maxlength="1500" style="min-width:0;flex:1" placeholder="Comment โดย P'Kasem">${esc(t.kasem || '')}</textarea><button type="button" class="sv ks"${F7.kdirty[t.id] && !F7.ksaving[t.id] ? '' : ' disabled'}>${F7.ksaving[t.id] ? '...' : 'Save'}</button></div>${F7.kerr[t.id] ? `<div class="er">${esc(F7.kerr[t.id])}</div>` : ''}` : `<div style="white-space:pre-wrap;font-size:12px;text-align:left;color:${t.kasem ? 'var(--text)' : 'var(--text3)'}">${t.kasem ? esc(t.kasem) : '—'}</div>${t.kasem_at ? `<div class="sb">${esc(t.kasem_at)}</div>` : ''}`}</td>
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
@@ -17626,12 +17654,25 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     q('fc7-fF').onchange = e => { F7.fF = e.target.value; renderTable(); };
     q('fc7-fQ').oninput = e => { F7.fQ = e.target.value; const pos = e.target.selectionStart; renderTable(); const n = q('fc7-fQ'); n.focus(); n.setSelectionRange(pos, pos); };
     el.querySelectorAll('tr[data-id]').forEach(tr => {
-      const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv');
+      const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv:not(.ks)');
       const mark = () => { F7.dirty[t.id] = true; F7.terr[t.id] = ''; btn.disabled = false; btn.textContent = 'Save'; };
       tr.querySelector('.d').oninput = e => { t.detail = e.target.value; mark(); };
       tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : '') + f.s; };
       btn.onclick = () => saveTicket(t);
+      const kt = tr.querySelector('.kt'), kb = tr.querySelector('.ks');
+      if (kt && kb) { kt.oninput = e => { t.kasem = e.target.value; F7.kdirty[t.id] = true; F7.kerr[t.id] = ''; kb.disabled = false; kb.textContent = 'Save'; }; kb.onclick = () => saveKasem(t); }
     });
+  }
+  async function saveKasem(t) {
+    F7.ksaving[t.id] = true; renderTable();
+    try {
+      const res = await fetch('/api/p0-forecast/kasem-comment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket_id: t.id, comment: String(t.kasem || '').trim() }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || ('API ' + res.status));
+      t.kasem = (j.row && j.row.comment) || ''; t.kasem_at = (j.row && j.row.updated_at) || ''; F7.kdirty[t.id] = false; F7.kerr[t.id] = '';
+      toast("✓ บันทึก Comment By P'Kasem ของ " + t.id + ' แล้ว (ชีตส่งออกคอลัมน์ AB รอบถัดไป)');
+    } catch (e) { F7.kerr[t.id] = String(e.message || e); }
+    F7.ksaving[t.id] = false; renderTable();
   }
   async function saveTicket(t) {
     const d = F7.data;
