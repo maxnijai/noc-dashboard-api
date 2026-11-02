@@ -17435,10 +17435,13 @@ redraw();
 #fc7-box td:first-child,#fc7-box th:first-child{text-align:left;white-space:nowrap}
 #fc7-box tr.tot td{font-weight:800;background:var(--bg3)}
 #fc7-box .sc7{overflow:auto;max-height:620px}
-#fc7-box table.tk th.f,#fc7-box table.tk td.f{position:sticky;background:var(--bg1);z-index:2;box-shadow:inset -1px 0 0 var(--border)}
-#fc7-box table.tk th.f{background:var(--bg3);z-index:3}
+#fc7-box table.tk{table-layout:fixed;border-collapse:separate;border-spacing:0}#fc7-box table.tk td,#fc7-box table.tk th{overflow:hidden;box-sizing:border-box}
+#fc7-box table.tk th.f,#fc7-box table.tk td.f{position:sticky;background:var(--bg2,#fff);z-index:2;box-shadow:inset -1px 0 0 var(--border)}
+#fc7-box table.tk th.f{background:var(--bg3,#f1f5f9);z-index:4}
+#fc7-box table.tk td.ed{overflow:visible}
 #fc7-box table.tk .f1{left:0;min-width:150px;max-width:150px}#fc7-box table.tk .f2{left:150px;min-width:90px;max-width:90px}
 #fc7-box table.tk .f3{left:240px;min-width:62px;max-width:62px}#fc7-box table.tk .f4{left:302px;min-width:130px;max-width:130px;white-space:normal;text-align:left}
+#fc7-box .sc7 .fl{position:sticky;left:0;z-index:6;width:100%;box-sizing:border-box;background:var(--bg2,#fff)}
 #fc7-box table.gs th,#fc7-box table.gs td{border:1px solid var(--border)}#fc7-box table.gs td.n{cursor:pointer}
 #fc7-box table.gs td.n:hover{outline:2px solid #7c3aed;outline-offset:-2px;background:#ede9fe;color:#4c1d95}
 #fc7-box table.gs td.l{text-align:left;white-space:nowrap}#fc7-box table.gs tr.sub td{font-weight:800;background:var(--bg3)}
@@ -17560,24 +17563,30 @@ redraw();
   const PROV2G = { 'เชียงใหม่': 'NOR1-CMI1', 'เชียงราย': 'NOR1-CRI', 'ลำปาง': 'NOR1-LPG', 'ลำพูน': 'NOR1-LPN', 'แม่ฮ่องสอน': 'NOR1-MHS', 'น่าน': 'NOR1-NAN', 'แพร่': 'NOR1-PHE', 'พะเยา': 'NOR1-PYO', 'กำแพงเพชร': 'NOR2-KPP', 'เพชรบูรณ์': 'NOR2-PCB', 'พิจิตร': 'NOR2-PCT', 'พิษณุโลก': 'NOR2-PSN', 'สุโขทัย': 'NOR2-SKT', 'ตาก': 'NOR2-TAK', 'อุตรดิตถ์': 'NOR2-UTR' };
   const gkey = t => { const m = /(NOR[12])-([A-Z0-9]+)-/.exec(t.grp || ''); return m ? m[1] + '-' + m[2] : (PROV2G[t.prov] || ''); };
   const gOk = (t, g) => !g || gkey(t) === g || gkey(t).indexOf(g + '-') === 0;
+const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เชียงใหม่', 'NOR1-CRI': 'เชียงราย', 'NOR1-LPG': 'ลำปาง', 'NOR1-LPN': 'ลำพูน', 'NOR1-MHS': 'แม่ฮ่องสอน', 'NOR1-NAN': 'น่าน', 'NOR1-PHE': 'แพร่', 'NOR1-PYO': 'พะเยา', 'NOR2-KPP': 'กำแพงเพชร', 'NOR2-PCB': 'เพชรบูรณ์', 'NOR2-PCT': 'พิจิตร', 'NOR2-PSN': 'พิษณุโลก', 'NOR2-SKT': 'สุโขทัย', 'NOR2-TAK': 'ตาก', 'NOR2-UTR': 'อุตรดิตถ์' };
   function renderSummary(m, el) {
-    const KS = [0, 1, 2, 3, 4, 5, 6, 7], cnt = {};
-    m.T.forEach(t => { const g = gkey(t), c = cnt[g] || (cnt[g] = [0, 0, 0, 0, 0, 0, 0, 0]); c[t.k]++; });
+    const KS = [0, 1, 2, 3, 4, 5, 6, 7], Z = () => [0, 0, 0, 0, 0, 0, 0, 0], cnt = {};
+    m.T.forEach(t => { const g = gkey(t), c = cnt[g] || (cnt[g] = Z()); c[t.k]++; });
+    const pr = p => m.rows.find(r => r.p === p);
     const get = (pred) => KS.map(k => sum(Object.keys(cnt).filter(pred).map(g => cnt[g][k])));
     const td = (v, key, k) => `<td class="n" data-fc7-dd="${esc(key)}|${k}" title="กดเพื่อดูรายใบ">${v || ''}</td>`;
-    const line = (cls, c1, c2, a, key) => `<tr class="${cls}">${c1}${c2}${a.map((v, k) => td(v, key, k)).join('')}<td class="n" data-fc7-dd="${esc(key)}|" style="font-weight:700">${sum(a) || ''}</td></tr>`;
-    let h = `<table class="gs"><tr><th>Region</th><th>TRUEOWNERGROUP</th>${KS.map(k => `<th>${k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + k + ' วัน'}</th>`).join('')}<th>รวม</th></tr>`;
+    const snapTd = (now, snap, rs) => `<td${rs > 1 ? ` rowspan="${rs}"` : ''}>${snap == null ? '–' : snap}</td><td${rs > 1 ? ` rowspan="${rs}"` : ''}>${snap == null ? '' : dtx(now - snap)}</td>`;
+    const line = (cls, c1, c2, c3, a, key, tail) => `<tr class="${cls}">${c1}${c2}${c3}${a.map((v, k) => td(v, key, k)).join('')}<td class="n" data-fc7-dd="${esc(key)}|" style="font-weight:700">${sum(a) || ''}</td>${tail}</tr>`;
+    let h = `<table class="gs"><tr><th>Region</th><th>TRUEOWNERGROUP</th><th>จังหวัด</th>${KS.map(k => `<th>${k === 0 ? 'P0 แล้ว' : 'P0 ใน ' + k + ' วัน'}</th>`).join('')}<th>รวม</th><th title="P0 ของจังหวัด ณ 01:15 วันนี้ (Snapshot)">@01:15<br>(จังหวัด)</th><th title="P0 แล้ว ของจังหวัด − @01:15">ต่าง</th></tr>`;
     ['NOR1', 'NOR2'].forEach(rg => {
-      const gs = GRPS.filter(x => x[0] === rg);
-      gs.forEach((x, i) => { const key = x[0] + '-' + x[1], a = cnt[key] || [0, 0, 0, 0, 0, 0, 0, 0];
-        h += line('', i === 0 ? `<td class="rg" rowspan="${gs.length}">${rg}</td>` : '', `<td class="n l" data-fc7-dd="${key}|">TRUE-TH-BBT-${key}-NOP</td>`, a, key); });
-      h += line('sub', `<td class="l" colspan="2">${rg} รวม</td>`, '', get(g => g.indexOf(rg + '-') === 0), rg);
+      const gs = GRPS.filter(x => x[0] === rg), seen = new Set(); let sn = 0, nw = 0, any = false;
+      gs.forEach((x, i) => { const key = x[0] + '-' + x[1], a = cnt[key] || Z(), pv = G2P[key], p = pr(pv), first = !seen.has(pv); seen.add(pv);
+        const span = gs.filter(y => G2P[y[0] + '-' + y[1]] === pv).length;
+        if (first) { nw += p ? p.now : 0; if (p && p.snap != null) { sn += p.snap; any = true; } }
+        h += line('', i === 0 ? `<td class="rg" rowspan="${gs.length}">${rg}</td>` : '', `<td class="n l" data-fc7-dd="${key}|">TRUE-TH-BBT-${key}-NOP</td>`, `<td class="l">${esc(pv)}</td>`, a, key,
+          first ? snapTd(p ? p.now : 0, p ? p.snap : null, span) : ''); });
+      h += line('sub', `<td class="l" colspan="3">${rg} รวม</td>`, '', '', get(g => g.indexOf(rg + '-') === 0), rg, snapTd(nw, any ? sn : null, 1));
     });
     const other = Object.keys(cnt).filter(g => !GRPS.some(x => x[0] + '-' + x[1] === g));
-    if (other.length) h += line('', '<td></td>', `<td class="l">(ไม่ระบุกลุ่ม)</td>`, get(g => other.indexOf(g) >= 0), '#none');
-    h += line('sub', `<td class="l" colspan="2">ผลรวม</td>`, '', get(() => true), '');
+    if (other.length) h += line('', '<td></td>', `<td class="l">(ไม่ระบุกลุ่ม)</td>`, '<td></td>', get(g => other.indexOf(g) >= 0), '#none', '<td></td><td></td>');
+    h += line('sub', `<td class="l" colspan="3">ผลรวม</td>`, '', '', get(() => true), '', snapTd(m.tot.now, m.tot.snap, 1));
     el.innerHTML = h + '</table>';
-    document.getElementById('fc7-tbn').textContent = 'กดตัวเลข / ชื่อกลุ่ม / แถวรวม เพื่อดูรายใบ (drilldown) · ตัวเลข = จำนวนใบ NSA3/NSA4 ตาม Flag Logic';
+    document.getElementById('fc7-tbn').textContent = 'กดตัวเลข / ชื่อกลุ่ม / แถวรวม เพื่อดูรายใบ (drilldown) · @01:15 และ ต่าง เป็นระดับจังหวัด (CMI1+CMI2 = เชียงใหม่) เพราะ Snapshot เก็บรายจังหวัด';
   }
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
@@ -17601,7 +17610,7 @@ redraw();
       <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
       <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
-      <table class="tk" style="min-width:1200px"><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
+      <table class="tk" style="width:1590px;min-width:1590px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col style="width:120px"><col style="width:150px"><col style="width:160px"><col style="width:290px"><col style="width:140px"><col style="width:86px"><col style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
         return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
@@ -17666,7 +17675,7 @@ redraw();
       <div class="c7" id="fc7-lg7"></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 (เฉพาะที่เก็บไว้) · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
-      <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP</span><span class="tab" data-fc7-tab="prov">รายจังหวัด × รายวัน</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
+      <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP × จังหวัด</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div><div class="sc7" id="fc7-tbl"></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
     ov.addEventListener('click', e => {
       if (e.target === ov || e.target.closest('[data-fc7-close]')) { ov.style.display = 'none'; return; }
