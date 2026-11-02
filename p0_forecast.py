@@ -34,10 +34,9 @@ _trend_cache = {"data": None, "ts": 0.0}
 _TREND_TTL = 300
 
 
-def _scoped_nsa34_rows(gs_client):
-    """Live rows in exactly the NSA3/NSA4 scope the Total Pending card uses (NOR1/NOR2, CORP excluded)."""
+def _scope_nsa34(rows):
+    """Rows in exactly the NSA3/NSA4 scope the Total Pending card uses (NOR1/NOR2, CORP excluded) -> [(row, province code)]."""
     from ticket_views import row_matches_view
-    rows = pt.fetch_live_rows(gs_client)
     apply_tog = pt._rows_have_owner_group(rows)
     out = []
     for r in rows:
@@ -54,6 +53,26 @@ def _scoped_nsa34_rows(gs_client):
     return out
 
 
+def _scoped_nsa34_rows(gs_client):
+    return _scope_nsa34(pt.fetch_live_rows(gs_client))
+
+
+def _aggregate(rows, day):
+    """{province name: {n3, n4, p0, p1, tot}} for `rows` classified at `day`'s own 01:15 reference."""
+    ref = datetime(day.year, day.month, day.day, 1, 15)
+    agg = {}
+    for r, code in _scope_nsa34(rows):
+        a = agg.setdefault(_prov_name(code), {"n3": 0, "n4": 0, "p0": 0, "p1": 0, "tot": 0})
+        a["tot"] += 1
+        pr = pt._classify_priority_at(r.get("TARGETFINISH"), ref)
+        if pr == "P0":
+            a["p0"] += 1
+            a["n3" if str(r.get("SEVERITY", "")).strip() == "NSA3" else "n4"] += 1
+        elif pr == "P1":
+            a["p1"] += 1
+    return agg
+
+
 def _prov_name(code):
     return PROV_TH.get(code, code or "(ไม่ระบุ)")
 
@@ -68,39 +87,62 @@ def _ensure_tab(sh):
         return ws
 
 
-def record_snapshot(gs_client, day=None, force=False):
-    """Writes one row per province for `day` (default today): P0/P1/Total at that day's own 01:15 reference.
-    Skips when the day is already stored unless force=True (force replaces that day's rows). Returns rows written."""
-    day = day or bangkok_now().date()
-    ds = day.strftime("%Y-%m-%d")
-    ref = datetime(day.year, day.month, day.day, 1, 15)
-    scoped = _scoped_nsa34_rows(gs_client)
-    agg = {}
-    for r, code in scoped:
-        a = agg.setdefault(_prov_name(code), {"n3": 0, "n4": 0, "p0": 0, "p1": 0, "tot": 0})
-        a["tot"] += 1
-        pr = pt._classify_priority_at(r.get("TARGETFINISH"), ref)
-        if pr == "P0":
-            a["p0"] += 1
-            a["n3" if str(r.get("SEVERITY", "")).strip() == "NSA3" else "n4"] += 1
-        elif pr == "P1":
-            a["p1"] += 1
+def _write_days(gs_client, per_day, force=False):
+    """per_day: {date: agg}. Appends the rows of days not stored yet (force=True replaces stored days). Returns rows written."""
+    written = 0
     with _lock:
         sh = gs_client.open_by_key(pt.REALTIME_SHEET_ID)
         ws = _ensure_tab(sh)
         values = ws.get_all_values()
-        existing = [i + 1 for i, row in enumerate(values) if i > 0 and row and row[0] == ds]
-        if existing and not force:
-            return 0
-        if existing:  # delete from the bottom so row numbers stay valid
-            for rn in sorted(existing, reverse=True):
-                ws.delete_rows(rn)
+        stored = {row[0] for i, row in enumerate(values) if i > 0 and row}
         stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
-        rows = [[ds, name, a["n3"], a["n4"], a["p0"], a["p1"], a["tot"], stamp] for name, a in sorted(agg.items())]
-        if rows:
-            ws.append_rows(rows, value_input_option="RAW")
+        out = []
+        for day, agg in sorted(per_day.items()):
+            ds = day.strftime("%Y-%m-%d")
+            if ds in stored:
+                if not force:
+                    continue
+                for rn in sorted([i + 1 for i, row in enumerate(values) if i > 0 and row and row[0] == ds], reverse=True):
+                    ws.delete_rows(rn)
+            out += [[ds, name, a["n3"], a["n4"], a["p0"], a["p1"], a["tot"], stamp] for name, a in sorted(agg.items())]
+        if out:
+            ws.append_rows(out, value_input_option="RAW")
+            written = len(out)
         _trend_cache["data"] = None
-        return len(rows)
+    return written
+
+
+def record_snapshot(gs_client, day=None, force=False):
+    """Writes one row per province for `day` (default today): P0/P1/Total at that day's own 01:15 reference.
+    Skips when the day is already stored unless force=True (force replaces that day's rows). Returns rows written."""
+    day = day or bangkok_now().date()
+    return _write_days(gs_client, {day: _aggregate(pt.fetch_live_rows(gs_client), day)}, force=force)
+
+
+def backfill_from_drive(drive_service, gs_client, back_days=7):
+    """One-off: fills P0DailyTrend for past days from the ~01:15 Drive backup files (Drive keeps only a few days).
+    One file is downloaded at a time and dropped right after counting. Returns {"days_written": [...], "missing": [...], "rows": n}."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+    today = bangkok_now().date()
+    with _lock:
+        ws = _ensure_tab(gs_client.open_by_key(pt.REALTIME_SHEET_ID))
+        stored = {row[0] for i, row in enumerate(ws.get_all_values()) if i > 0 and row}
+    per_day, missing = {}, []
+    for i in range(back_days, -1, -1):
+        day = today - timedelta(days=i)
+        if day.strftime("%Y-%m-%d") in stored:
+            continue
+        with pt._DAY_DL_LOCK:
+            info = find_nightly_file(drive_service, day)
+            rows = download_xlsx_as_rows(drive_service, info[0]) if info else None
+            if rows:
+                per_day[day] = _aggregate(rows, day)
+            else:
+                missing.append(day.strftime("%Y-%m-%d"))
+            rows = None
+            pt._release_memory()
+    n = _write_days(gs_client, per_day)
+    return {"days_written": [d.strftime("%Y-%m-%d") for d in sorted(per_day)], "missing": missing, "rows": n}
 
 
 def load_trend(gs_client, days=TREND_HISTORY_DAYS):

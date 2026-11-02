@@ -3426,6 +3426,21 @@ def api_p0_forecast_snapshot():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/p0-forecast/backfill', methods=['POST'])
+def api_p0_forecast_backfill():
+    """One-off: fill P0DailyTrend for the past days from the ~01:15 Drive backup files (days already stored are skipped)."""
+    try:
+        import p0_forecast as _pf
+        data = request.get_json(silent=True) or {}
+        drive_service, gs_client = get_drive_and_sheets_clients()
+        res = _pf.backfill_from_drive(drive_service, gs_client, back_days=min(int(data.get('days', 7)), 14))
+        log.info("p0 forecast backfill by %s -> %s", session.get('user_email'), res)
+        return jsonify(dict(res, status='ok'))
+    except Exception as e:
+        log.exception("p0-forecast backfill failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/p0-nsa34-flag-history')
 def api_p0_nsa34_flag_history():
     """Flag totals @01:15 for days older than the 7-day window (month Forecast chart). ?from=YYYY-MM-DD"""
