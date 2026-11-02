@@ -146,7 +146,7 @@ EXPORT_HEADER = [
     "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
     "Region",     # column Z: NOR1 / NOR2
     "Flag Logic",  # column AA: NSA3/NSA4 only - exactly one of "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน"; blank if farther than 7 days (was "Flag Priority" = Category lookup)
-    "Comment By P'Kasem",  # column AB: free-text comment written only by KASEM_EMAIL (stored in the KasemComment tab)
+    "Comment By P'Kasem",  # column AB: free-text comment written only by KASEM_EMAILS (stored in the KasemComment tab)
 ]
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
@@ -310,7 +310,8 @@ def load_work_log(gs_client, use_cache=True):
 
 # ── "Comment By P'Kasem" (export column AB) ───────────────────────────────
 # Stored in its own tab so the Work Log layout is untouched. Only KASEM_EMAIL may write (enforced in the API).
-KASEM_EMAIL = "kasemyanaso@gmail.com"
+KASEM_EMAILS = ("kasemyanaso@gmail.com", "saridphong_n@bbtec.co.th")   # the only users who may edit the comment
+KASEM_EMAIL = KASEM_EMAILS[0]
 KASEM_SHEET = "KasemComment"
 KASEM_HEADER = ["TICKETID", "Comment", "Updated_At", "Updated_By"]
 KASEM_MAX_LEN = 1500
@@ -319,7 +320,7 @@ _kasem_cache = {"data": None, "rows": {}, "ts": 0.0}
 
 
 def is_kasem(email):
-    return str(email or "").strip().lower() == KASEM_EMAIL
+    return str(email or "").strip().lower() in KASEM_EMAILS
 
 
 def _ensure_kasem_tab(sh):
@@ -355,7 +356,7 @@ def save_kasem_comment(gs_client, ticket_id, comment, updated_by=""):
     load_kasem_comments(gs_client)   # warms the row index
     ws = _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID))
     stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
-    vals = [ticket_id, comment, stamp, updated_by or KASEM_EMAIL]
+    vals = [ticket_id, comment, stamp, updated_by or KASEM_EMAILS[0]]
     with _cache_lock:
         row_idx = _kasem_cache["rows"].get(ticket_id)
     if row_idx:

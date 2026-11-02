@@ -3423,7 +3423,7 @@ def api_p0_forecast_kasem_comment():
     """Saves "Comment By P'Kasem" (export sheet column AB). Only kasemyanaso@gmail.com may write."""
     import pending_ticket as _pt
     if not _pt.is_kasem(session.get('user_email')):
-        return jsonify({'error': "เฉพาะ P'Kasem (%s) เท่านั้นที่แก้ Comment นี้ได้" % _pt.KASEM_EMAIL}), 403
+        return jsonify({'error': "เฉพาะ %s เท่านั้นที่แก้ Comment นี้ได้" % " / ".join(_pt.KASEM_EMAILS)}), 403
     payload = request.get_json(silent=True) or {}
     ticket_id = str(payload.get('ticket_id') or '').strip()
     comment = str(payload.get('comment') or '').strip()
