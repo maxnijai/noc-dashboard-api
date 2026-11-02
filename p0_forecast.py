@@ -229,7 +229,8 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
         wl = work_log.get(tid, {})
         entry = {"SEVERITY": r.get("SEVERITY"), "TARGETFINISH": r.get("TARGETFINISH"), "plan_closed_date": wl.get("plan_closed_date", "")}
         tickets.append({
-            "id": tid, "prov": _prov_name(code), "nsa": str(r.get("SEVERITY", "")).strip(),
+            "id": tid, "prov": _prov_name(code), "grp": str(r.get("TRUEOWNERGROUP", "") or "").strip(),
+            "region": str(r.get("Region", "") or "").strip(), "nsa": str(r.get("SEVERITY", "")).strip(),
             "cat": pt._category_text({"SEVERITY": r.get("SEVERITY"), "SUBJECT": r.get("SUBJECT")}),
             "site": str(r.get("CINAME", "") or ""), "subject": str(r.get("SUBJECT", "") or ""),
             "tf": str(r.get("TARGETFINISH", "") or ""), "k": k,
