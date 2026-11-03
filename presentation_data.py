@@ -38,13 +38,17 @@ def build(gs_client, use_cache=True):
         rows = [e for e in entries if row_matches_view(e, key)]
         allowed = pt._p0_allowed(key)
         travel = {t: 0 for t in TRAVEL}
+        travel_over = {t: 0 for t in TRAVEL}
         aging = [0] * len(order)
         prov = {}
         p0 = 0
         det = {str(g): [] for g in OVER_GROUPS}
         for e in rows:
             st = (extras.get(_s(e.get("TICKETID")).upper()) or {}).get("st") or "wait"
-            travel[st if st in travel else "wait"] += 1
+            st = st if st in travel else "wait"
+            travel[st] += 1
+            if _s(e.get("priority")) in allowed:
+                travel_over[st] += 1
             try:
                 ai = order.index(_s(e.get("Aging_Flag_Group")))
             except ValueError:
@@ -59,12 +63,12 @@ def build(gs_client, use_cache=True):
             if key != "NSA34" and ai in OVER_GROUPS and len(det[str(ai)]) < MAX_PER_GROUP:
                 det[str(ai)].append({"id": _s(e.get("TICKETID")), "ci": _s(e.get("CINAME")), "sj": _s(e.get("SUBJECT")),
                                      "st": _s(e.get("site_type")), "dt": _s(e.get("detail")),
-                                     "pl": _s(e.get("plan_closed_date")), "od": bool(e.get("plan_closed_overdue")),
+                                     "pl": _s(e.get("plan_closed_date")), "a": ai, "od": bool(e.get("plan_closed_overdue")),
                                      "d": float(e.get("over_sla_day") or 0)})
         for g in det.values():
             g.sort(key=lambda t: -t["d"])
         top = sorted(prov.items(), key=lambda kv: -kv[1])
-        out["groups"][key] = {"now": len(rows), "p0": p0, "travel": travel, "aging": aging,
+        out["groups"][key] = {"now": len(rows), "p0": p0, "travel": travel, "travel_over": travel_over, "aging": aging,
                               "prov": [[PROV_THAI.get(c, c), n] for c, n in top],
                               "over": det if key != "NSA34" else None}
     out["generated_at"] = pt.bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
