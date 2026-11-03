@@ -3412,6 +3412,8 @@ def api_p0_forecast():
         out = _pf.build_forecast(gs_client)
         import pending_ticket as _pt
         out['can_kasem'] = _pt.is_kasem(session.get('user_email'))
+        out['group_problem_options'] = _pt.GROUP_PROBLEM_OPTIONS
+        out['action_team_options'] = _pt.ACTION_TEAM_OPTIONS
         return jsonify(out)
     except Exception as e:
         log.exception("p0-forecast API failed")
