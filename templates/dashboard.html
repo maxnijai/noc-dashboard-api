@@ -18075,8 +18075,8 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     { id: 'n1', type: 'nsasum', enabled: true, title: 'สรุป Region × TRUEOWNERGROUP × จังหวัด', body: '' },
     { id: 'n2', type: 'nsaplan', enabled: true, title: 'TRUEOWNERGROUP × Plan Closed Date (P0)', body: '' },
     { id: 'st1', type: 'strategy', enabled: true, title: 'กลยุทธ์ลด Ticket ค้างรายBookmark', body: '' },
-    { id: 'f1', type: 'fctotal', enabled: true, title: 'Trend & Forecast · Over SLA รวม', body: '' },
-    { id: 'f2', type: 'fcbm', enabled: true, title: 'Trend & Forecast · แยก Bookmark', body: '' },
+    { id: 'f1', type: 'fctotal', enabled: true, title: 'Forecast · Total Pending (All Bookmarks)', body: 'pct:30 date:2026-12-31' },
+    { id: 'f2', type: 'fcbm', enabled: true, title: 'Forecast · Total Pending by Bookmark', body: 'pct:30 date:2026-12-31' },
     { id: 'f3', type: 'agfc', enabled: true, title: 'Aging Forecast ถึง 31 Dec 26', body: '2026-12-31' },
     { id: 'a1', type: 'title', enabled: true, title: 'NOC Priority 0 Briefing', body: 'NSA3 / NSA4 · ภาคเหนือ' },
     { id: 'a2', type: 'kpi', enabled: true, title: 'ภาพรวม Priority 0', body: '' },
@@ -18084,7 +18084,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     { id: 'a4', type: 'provinces', enabled: true, title: 'P0 รายจังหวัด', body: '' },
     { id: 'a5', type: 'groups', enabled: true, title: 'TRUEOWNERGROUP ที่ต้องเร่ง', body: '' },
     { id: 'a6', type: 'late', enabled: true, title: 'Plan เลยกำหนด / ยังไม่มี Plan', body: '' },
-    { id: 'a7', type: 'closing', enabled: true, title: 'สรุปและขั้นตอนต่อไป', body: '' }
+    { id: 'a7', type: 'closing', enabled: true, title: 'Summary & Next Steps', body: '' }
   ];
   var DEF = { version: 1, autoplay: true, seconds: 9, scope: 'all', topN: 8, accent: 'cyan', insight: true, slides: DEF_SLIDES };
   var TYPES = { strategy: 'กลยุทธ์รายBookmark', fctotal: 'Forecast รวม', fcbm: 'Forecast รายBookmark', agfc: 'Aging Forecast', bkdrill: 'เจาะ Bookmark', bkdetail: 'Ticket Over SLA (ตาราง)', nsasum: 'NSA3/4 จังหวัด', nsaplan: 'NSA3/4 Plan Closed', cover: 'หน้าปก (โลโก้)', aging: 'Aging ทุก Bookmark', oversla: 'Over SLA ทุก Bookmark', title: 'หน้าหัวข้อ', kpi: 'ตัวเลขภาพรวม', trend: 'กราฟเทรนด์', provinces: 'รายจังหวัด', groups: 'รายกลุ่ม', late: 'Plan เลยกำหนด', text: 'ข้อความ', closing: 'สรุป' };
@@ -18158,7 +18158,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       return head(s, 'PLAN CHECK') + '<div class="pr-bars">' + (r.length ? r.map(function (x, i) { var tt = x[1].back + x[1].none; return '<div class="pr-bar" style="animation-delay:' + (i * 0.09) + 's"><span>' + esc(x[0]) + '</span><div class="t"><div class="f s" data-w="' + Math.round(100 * tt / mx) + '"><i style="width:' + (100 * x[1].back / tt) + '%;background:#fb7185"></i><i style="width:' + (100 * x[1].none / tt) + '%;background:#fbbf24"></i></div></div><b data-n="' + tt + '">0</b></div>'; }).join('') : '<div class="sub">ไม่มีใบที่ Plan เลยกำหนดหรือยังไม่มี Plan 🎉</div>') + '</div><div class="pr-leg"><span><i style="background:#fb7185"></i>Plan เลยกำหนด</span><span><i style="background:#fbbf24"></i>ยังไม่มี Plan</span></div>' + ins(s, o);
     },
     text: function (s, o) { return '<div class="pr-tag"><i></i>NOTE</div><h2>' + esc(s.title) + '</h2><div class="pr-body pr-typ" data-t="' + esc(s.body) + '" style="margin-top:14px"></div>'; },
-    closing: function (s, o) { return '<div class="pr-tag"><i></i>SUMMARY</div><h1>' + esc(s.title) + '</h1><div class="pr-body pr-typ" data-t="' + esc(s.body || ('P0 ' + o.p0 + ' ใบ · ใน 7 วัน ' + (o.s13 + o.s47) + ' ใบ · Plan เลยกำหนด ' + o.backAll + ' ใบ · ยังไม่มี Plan ' + o.noneAll + ' ใบ')) + '"></div>'; }
+    closing: function (s, o) { return '<div class="pr-tag"><i></i>SUMMARY</div><h1>' + esc(s.title) + '</h1><div class="pr-body pr-typ" data-t="' + esc(s.body || ('P0 ' + o.p0 + ' tickets · due within 7 days ' + (o.s13 + o.s47) + ' · plan overdue ' + o.backAll + ' · no plan yet ' + o.noneAll)) + '"></div>'; }
   };
 
   // ----- all-bookmark trend slides (real data from /api/p0-daily-trend) -----
@@ -18244,37 +18244,42 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     for (var h = 1; h <= H; h++) { var v = Math.max(0, w[m - 1] + f.b * h), bd = 1.28 * f.sd * Math.sqrt(1 + h / m); fc.push(v); up.push(v + bd); lo.push(Math.max(0, v - bd)); }
     return { w: w, ix: ix, f: f, fc: fc, up: up, lo: lo, H: H };
   }
-  function fcSvg(d, col, tgt, dates) {
-    var L = 40, R = 520, T = 16, B = 150, m = d.w.length, N = m + d.H, i;
-    var mx = Math.max.apply(null, d.w.concat(d.up, tgt != null ? [tgt] : [], [1])) * 1.12;
-    var X = function (k) { return L + k * (R - L) / (N - 1); }, Y = function (v) { return B - (v / mx) * (B - T); }, g = '';
-    [0, .5, 1].forEach(function (q) { var yy = B - q * (B - T); g += '<line x1="40" x2="520" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,.1)"/><text x="34" y="' + (yy + 3) + '" text-anchor="end" style="font-size:10px">' + Math.round(mx * q) + '</text>'; });
-    if (tgt != null) g += '<line x1="40" x2="520" y1="' + Y(tgt) + '" y2="' + Y(tgt) + '" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 5"/><text x="46" y="' + (Y(tgt) - 5) + '" style="font-size:11px;fill:#fbbf24">เป้า ' + tgt + '</text>';
-    var bp = [X(m - 1) + ',' + Y(d.w[m - 1])]; for (i = 0; i < d.H; i++) bp.push(X(m + i) + ',' + Y(d.up[i])); for (i = d.H - 1; i >= 0; i--) bp.push(X(m + i) + ',' + Y(d.lo[i]));
-    g += '<polygon points="' + bp.join(' ') + '" fill="' + col + '" fill-opacity=".2"/>';
+  function totArr(S, k) { var rows = S.ag[k] || [], t = new Array(S.dates.length).fill(null); rows.forEach(function (r) { r.forEach(function (v, i) { if (v != null) t[i] = (t[i] || 0) + v; }); }); return t; }
+  function parseFc(s) { var b = String(s.body || ''), p = /pct\s*[:=]\s*(\d+(?:\.\d+)?)/i.exec(b), d = /(\d{4}-\d{2}-\d{2})/.exec(b); return { pct: p ? Math.min(95, +p[1]) : 30, date: d ? d[1] : '2026-12-31' }; }
+  function fcSvg(d, col, dates) {
+    var L = 44, R = 524, T = 18, B = 148, m = d.w.length, Hn = d.H, AW = (R - L) * 0.26, i;
+    var mx = Math.max.apply(null, d.w.concat([d.plan[0], d.stat[0], 1])) * 1.15;
+    var X = function (k) { return k < m ? L + k * AW / Math.max(1, m - 1) : L + AW + (k - m + 1) * (R - L - AW) / Hn; }, Y = function (v) { return B - (v / mx) * (B - T); }, g = '';
+    [0, .5, 1].forEach(function (q) { var yy = B - q * (B - T); g += '<line x1="44" x2="524" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,.1)"/><text x="38" y="' + (yy + 3) + '" text-anchor="end" style="font-size:10px">' + Math.round(mx * q) + '</text>'; });
+    var pp = [X(m - 1) + ',' + Y(d.w[m - 1])]; d.plan.forEach(function (v, k) { pp.push(X(m + k) + ',' + Y(v)); });
+    var sp = [X(m - 1) + ',' + Y(d.w[m - 1])]; d.stat.forEach(function (v, k) { sp.push(X(m + k) + ',' + Y(v)); });
+    g += '<polyline fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="3 4" points="' + sp.join(' ') + '"/>';
+    g += '<polygon points="' + pp.join(' ') + ' ' + X(m - 1 + Hn) + ',' + B + ' ' + X(m - 1) + ',' + B + '" fill="' + col + '" fill-opacity=".12"/>';
     g += '<polyline fill="none" stroke="#e8f1ff" stroke-width="2.4" stroke-linejoin="round" points="' + d.w.map(function (v, k) { return X(k) + ',' + Y(v); }).join(' ') + '"/>';
-    g += '<polyline fill="none" stroke="' + col + '" stroke-width="2.4" stroke-dasharray="7 5" stroke-linejoin="round" points="' + X(m - 1) + ',' + Y(d.w[m - 1]) + ' ' + d.fc.map(function (v, k) { return X(m + k) + ',' + Y(v); }).join(' ') + '"/>';
+    g += '<polyline fill="none" stroke="' + col + '" stroke-width="2.6" stroke-linejoin="round" points="' + pp.join(' ') + '"/>';
     g += '<line x1="' + X(m - 1) + '" x2="' + X(m - 1) + '" y1="10" y2="' + B + '" stroke="#9fb3cf" stroke-dasharray="2 4"/>';
-    g += '<circle cx="' + X(m - 1) + '" cy="' + Y(d.w[m - 1]) + '" r="4.5" fill="#0b1220" stroke="#e8f1ff" stroke-width="2.2"/><circle cx="' + X(N - 1) + '" cy="' + Y(d.fc[d.H - 1]) + '" r="4.5" fill="' + col + '"/>';
-    g += '<text x="' + (X(m - 1) - 8) + '" y="' + (Y(d.w[m - 1]) - 8) + '" text-anchor="end" style="font-size:12px;fill:#e8f1ff;font-weight:700">วันนี้ ' + Math.round(d.w[m - 1]) + '</text>';
-    g += '<text x="' + (X(N - 1) - 4) + '" y="' + (Y(d.fc[d.H - 1]) - 9) + '" text-anchor="end" style="font-size:12px;font-weight:700;fill:' + col + '">~' + Math.round(d.fc[d.H - 1]) + '</text>';
-    g += '<g style="font-size:10px"><text x="40" y="168" text-anchor="middle">' + dates[0] + '</text><text x="' + X(m - 1) + '" y="168" text-anchor="middle">วันนี้</text><text x="520" y="168" text-anchor="end">' + dates[1] + '</text></g>';
-    return '<svg viewBox="0 0 540 176" preserveAspectRatio="xMidYMid meet">' + g + '</svg>';
+    g += '<circle cx="' + X(m - 1) + '" cy="' + Y(d.w[m - 1]) + '" r="4.5" fill="#0b1220" stroke="#e8f1ff" stroke-width="2.2"/><circle cx="' + X(m - 1 + Hn) + '" cy="' + Y(d.plan[Hn - 1]) + '" r="4.5" fill="' + col + '"/>';
+    g += '<text x="' + (X(m - 1) + 6) + '" y="' + (Y(d.w[m - 1]) - 9) + '" style="font-size:12px;fill:#e8f1ff;font-weight:700">Now ' + Math.round(d.w[m - 1]) + '</text>';
+    g += '<text x="' + (X(m - 1 + Hn) - 2) + '" y="' + (Y(d.plan[Hn - 1]) - 9) + '" text-anchor="end" style="font-size:12px;font-weight:700;fill:' + col + '">' + Math.round(d.plan[Hn - 1]) + '</text>';
+    g += '<text x="' + (X(m - 1 + Hn) - 2) + '" y="' + (Y(d.stat[Hn - 1]) - 7) + '" text-anchor="end" style="font-size:10px;fill:#94a3b8">trend ' + Math.round(d.stat[Hn - 1]) + '</text>';
+    g += '<g style="font-size:10px"><text x="44" y="164" text-anchor="start">' + dates[0] + '</text><text x="' + X(m - 1) + '" y="164" text-anchor="middle">Today</text><text x="524" y="164" text-anchor="end">' + dates[1] + '</text></g>';
+    return '<svg viewBox="0 0 540 172" preserveAspectRatio="xMidYMid meet">' + g + '</svg>';
   }
-  function fcChip(d, tgt) {
-    var last = d.w[d.w.length - 1], end = d.fc[d.H - 1], rel = last > 0 ? (end - last) / last : 0, cls = rel <= -.1 ? ['▼ ลดลง', '#34d399'] : rel >= .1 ? ['▲ เพิ่มขึ้น', '#fb923c'] : ['► ทรงตัว', '#fbbf24'];
-    if (tgt != null) { if (last <= tgt) cls = ['ต่ำกว่าเป้าแล้ว', '#34d399']; else { var hit = -1; d.fc.forEach(function (v, k) { if (hit < 0 && v <= tgt) hit = k + 1; }); cls = hit > 0 ? ['ถึงเป้าใน ~' + hit + ' วัน', '#34d399'] : ['ยังไม่ถึงเป้าใน ' + d.H + ' วัน', '#fb923c']; } }
-    return '<span class="pr-fcc" style="color:' + cls[1] + ';border-color:' + cls[1] + '55">' + cls[0] + '</span>';
+  function fcChip(d, pct) {
+    var ts = d.stat[d.H - 1], last = d.w[d.w.length - 1], rel = last > 0 ? (ts - last) / last : 0;
+    return '<span class="pr-fcc" style="color:#34d399;border-color:#34d39955">Target −' + pct + '% · −' + d.perDay.toFixed(1) + '/day</span>';
   }
   function fcPage(s, keys, tag, sub) {
-    var S = trendSeries(); if (!S) return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">ยังไม่มีข้อมูลย้อนหลัง (ระบบกำลังรวบรวม Trend)</div>';
-    var tg = parseTg(s), full = (P.trend && P.trend.dates) || [], cards = keys.map(function (k, i) {
-      var b = bmeta(k), d = fcOne(S.over[k] || [], 7), col = b[2];
-      if (!d) return '<div class="pr-cp" style="--c:' + col + '"><div class="pr-ph"><b style="color:' + col + '">' + esc(b[1]) + '</b></div><div class="sub">ข้อมูลไม่พอสำหรับพยากรณ์</div></div>';
-      var tgt = tg[k] != null ? tg[k] : null, lastFull = full[d.ix[d.ix.length - 1]] || full[full.length - 1], dts = [S.dates[d.ix[0]] || '', dFmt(dAdd(lastFull, 7))];
-      return '<div class="pr-cp' + (keys.length === 1 ? ' big' : '') + '" style="--c:' + col + ';animation-delay:' + (i * .1) + 's"><div class="pr-ph"><b style="color:' + col + '">' + esc(keys.length === 1 ? 'รวม 4 Bookmark' : b[1]) + '</b>' + fcChip(d, tgt) + '</div><div class="pr-fc">' + fcSvg(d, col, tgt, dts) + '</div></div>';
+    var S = trendSeries(); if (!S) return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">No history yet (trend is being collected)</div>';
+    var cf = parseFc(s), full = (P.trend && P.trend.dates) || [], lastFull = full[full.length - 1], Hn = Math.max(1, dDiff(lastFull, cf.date)), cards = keys.map(function (k, i) {
+      var b = bmeta(k), col = b[2], ser = totArr(S, k), ix = winIdx(ser, 15);
+      if (ix.length < 4) return '<div class="pr-cp" style="--c:' + col + '"><div class="pr-ph"><b style="color:' + col + '">' + esc(b[1]) + '</b></div><div class="sub">Not enough data</div></div>';
+      var w = ix.map(function (j) { return ser[j]; }), m = w.length, last = w[m - 1], f = lin(w), plan = [], stat = [];
+      for (var h = 1; h <= Hn; h++) { plan.push(last * (1 - cf.pct / 100 * h / Hn)); stat.push(Math.max(0, last + (f ? f.b : 0) * h)); }
+      var d = { w: w, plan: plan, stat: stat, H: Hn, perDay: last * cf.pct / 100 / Hn }, dts = [S.dates[ix[0]] || '', dFmt(dAdd(cf.date, 0)) + ' ' + cf.date.slice(2, 4)];
+      return '<div class="pr-cp' + (keys.length === 1 ? ' big' : '') + '" style="--c:' + col + ';animation-delay:' + (i * .1) + 's"><div class="pr-ph"><b style="color:' + col + '">' + esc(keys.length === 1 ? 'All 4 Bookmarks' : b[1]) + '</b>' + fcChip(d, cf.pct) + '</div><div class="pr-st">Total pending ' + Math.round(last) + ' → ' + Math.round(plan[Hn - 1]) + ' by ' + dFmt(dAdd(cf.date, 0)) + ' · stat. trend alone ≈ ' + Math.round(stat[Hn - 1]) + '</div><div class="pr-fc">' + fcSvg(d, col, dts) + '</div></div>';
     }).join('');
-    return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">' + sub + ' · เส้นทึบ = จริง · เส้นประ = พยากรณ์ 7 วัน · แถบ = ช่วง 80% · ตั้งเป้าที่ ⚙ ได้ เช่น MB:35,FBB:30</div><div class="' + (keys.length === 1 ? 'pr-g1' : 'pr-g5') + '">' + cards + '</div>';
+    return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">' + sub + ' · white = actual · colour = daily plan (−' + cf.pct + '% to ' + cf.date + ') · grey dotted = statistical trend · set in ⚙ body: pct:30 date:2026-12-31</div><div class="' + (keys.length === 1 ? 'pr-g1' : 'pr-g5') + '">' + cards + '</div>';
   }
   function agProj(S, k, hs) {
     var rows = S.ag[k] || [], tot = []; rows.forEach(function (r) { r.forEach(function (v, i) { if (v != null) tot[i] = (tot[i] || 0) + v; }); });
@@ -18325,8 +18330,8 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     }).join('');
     return '<div class="pr-tag"><i></i>STRATEGY · ลด TICKET ค้างให้น้อยที่สุด</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">เป้าร่วม: Over SLA (P0) → 0 · เข้าก่อน → ออกเดินทาง ≤ 1 ชม. → ถึงไซต์ → ปิด แล้วลดสาเหตุ "รอ" ที่ไม่ใช่ฝีมือทีม</div><div class="pr-g4">' + cards + '</div>';
   };
-  R.fctotal = function (s, o) { return fcPage(s, ['TOTAL'], 'TREND · FORECAST · OVER SLA', 'Over SLA (P0) รวม 4 Bookmark'); };
-  R.fcbm = function (s, o) { return fcPage(s, ['MB', 'FBB', 'NW_NSA12', 'NSA34'], 'TREND · FORECAST · แยก BOOKMARK', 'Over SLA (P0) รายBookmark'); };
+  R.fctotal = function (s, o) { return fcPage(s, ['TOTAL'], 'FORECAST · TOTAL PENDING', 'Total pending tickets, all Bookmarks'); };
+  R.fcbm = function (s, o) { return fcPage(s, ['MB', 'FBB', 'NW_NSA12', 'NSA34'], 'FORECAST · TOTAL PENDING BY BOOKMARK', 'Total pending tickets per Bookmark'); };
   R.agfc = function (s, o) { return agPage(s); };
 
   // ----- per-Bookmark pages (data: /api/presentation/data + Focus P0 forecast tickets) -----
@@ -18510,7 +18515,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       if (rs[0].error) throw new Error(rs[0].error);
       P.data = rs[0]; P.trend = rs[2] && !rs[2].error ? rs[2] : null; P.pd = rs[3] && !rs[3].error ? rs[3] : null; P.dd = rs[4] && rs[4].tickets ? rs[4] : null; P.can = !!rs[1].can_edit; P.upd = rs[1].config ? (rs[1].updated_at || '') + (rs[1].updated_by ? ' · ' + rs[1].updated_by : '') : '';
       P.cfg = rs[1].config ? rs[1].config : clone(DEF); P.playing = true;
-      (function () { var have = {}; (P.cfg.slides || []).forEach(function (x) { have[x.id] = 1; }); var add = DEF_SLIDES.filter(function (x) { return ['st1', 'f1', 'f2', 'f3'].indexOf(x.id) >= 0 && !have[x.id]; }); if (add.length) { var at = -1; (P.cfg.slides || []).forEach(function (x, i) { if (x.id === 'a1' || x.type === 'title') { if (at < 0) at = i; } }); if (at < 0) at = P.cfg.slides.length; P.cfg.slides = P.cfg.slides.slice(0, at).concat(clone(add), P.cfg.slides.slice(at)); } })();
+      (function () { var have = {}; (P.cfg.slides || []).forEach(function (x) { have[x.id] = 1; if (x.id === 'a7' && x.title === 'สรุปและขั้นตอนต่อไป') x.title = 'Summary & Next Steps'; if ((x.id === 'f1' || x.id === 'f2') && !x.body) x.body = 'pct:30 date:2026-12-31'; if (x.id === 'f1' && /Over SLA/.test(x.title)) x.title = 'Forecast · Total Pending (All Bookmarks)'; if (x.id === 'f2' && /Bookmark/.test(x.title) && /Trend/.test(x.title)) x.title = 'Forecast · Total Pending by Bookmark'; }); var add = DEF_SLIDES.filter(function (x) { return ['st1', 'f1', 'f2', 'f3'].indexOf(x.id) >= 0 && !have[x.id]; }); if (add.length) { var at = -1; (P.cfg.slides || []).forEach(function (x, i) { if (x.id === 'a1' || x.type === 'title') { if (at < 0) at = i; } }); if (at < 0) at = P.cfg.slides.length; P.cfg.slides = P.cfg.slides.slice(0, at).concat(clone(add), P.cfg.slides.slice(at)); } })();
       P.ov.querySelector('[data-pr="gear"]').hidden = !P.can;
       applyCfg(); ld.style.opacity = 0; setTimeout(function () { ld.style.display = 'none'; }, 600);
     } catch (e) { ty.textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message; ty.style.color = '#fb7185'; }
