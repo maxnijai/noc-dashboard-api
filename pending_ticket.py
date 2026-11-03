@@ -1971,8 +1971,19 @@ def _dd_daily_extras(gs_client):
         else:
             st = "wait"
         entry = {"team": get(row, "Team"), "st": st}
+        keys = set()
         for t in tids:
-            key = t.upper()
+            # "A|B" multi-ids; External ids look like "TT202611114115_A24287176"
+            # (suffix after "_") while the live sheet's TICKETID is the bare
+            # "TT202611114115" - index both the full id and the bare part.
+            for part in str(t).replace(",", "|").split("|"):
+                part = part.strip().upper()
+                if not part:
+                    continue
+                keys.add(part)
+                if "_" in part:
+                    keys.add(part.split("_", 1)[0])
+        for key in keys:
             prev = out.get(key)
             if prev is None or _DD_STAGE_RANK[st] > _DD_STAGE_RANK[prev["st"]]:
                 out[key] = entry
