@@ -3487,6 +3487,42 @@ def api_material_stock_import():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/presentation/data')
+def api_presentation_data():
+    """Per-Bookmark numbers/tickets for the Present slideshow (read-only, cached 60 s)."""
+    import presentation_data as _pd
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(_pd.build(gs_client, use_cache=request.args.get('refresh') != '1'))
+    except Exception as e:
+        log.exception("presentation data failed")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/presentation/config', methods=['GET', 'POST'])
+def api_presentation_config():
+    """Settings of the "Present" slideshow. Everyone can read; only presentation_store.PRESENTATION_EDITORS can save."""
+    import presentation_store as _ps
+    email = session.get('user_email')
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        if request.method == 'POST':
+            if not _ps.is_editor(email):
+                return jsonify({'error': 'เฉพาะ %s เท่านั้นที่ตั้งค่า Presentation ได้' % ' / '.join(_ps.PRESENTATION_EDITORS)}), 403
+            try:
+                d = _ps.save(gs_client, request.get_json(silent=True) or {}, email, bangkok_now().strftime('%Y-%m-%d %H:%M'))
+            except ValueError as ve:
+                return jsonify({'error': str(ve)}), 400
+            return jsonify({'status': 'saved', 'config': d['config'], 'updated_at': d['updated_at'], 'updated_by': d['updated_by'], 'can_edit': True})
+        d = _ps.load(gs_client)
+        return jsonify({'config': d['config'], 'updated_at': d['updated_at'], 'updated_by': d['updated_by'], 'can_edit': _ps.is_editor(email)})
+    except Exception as e:
+        log.exception("presentation config failed")
+        if '429' in str(e) or 'Quota' in str(e):
+            return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/kasem-comment/debug')
 def api_kasem_comment_debug():
     """Diagnostics for "Comment By P'Kasem": what the server really reads from the KasemComment tab.
