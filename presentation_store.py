@@ -1,5 +1,5 @@
 """Presentation settings (which slides the "Present" button shows) - one JSON document in the Google Sheet tab
-PresentationConfig (A1 = header, A2 = JSON, B2 = updated_at, C2 = updated_by). Only PRESENTATION_EDITORS may save."""
+PresentationConfig (A1 = header, A2 = JSON, B2 = updated_at, C2 = updated_by). Any signed-in user may save."""
 import json
 import threading
 import time
@@ -9,7 +9,7 @@ from realtime_monitor import REALTIME_SHEET_ID
 
 SHEET = "PresentationConfig"
 PRESENTATION_EDITORS = ["saridphong_n@bbtec.co.th"]
-SLIDE_TYPES = {"strategy", "fctotal", "fcbm", "agfc", "cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing"}
+SLIDE_TYPES = {"plan", "strategy", "fctotal", "fcbm", "agfc", "cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing"}
 ACCENTS = {"cyan", "violet", "emerald", "amber", "rose"}
 SCOPES = {"all", "NSA3", "NSA4"}
 _lock = threading.Lock()
@@ -17,7 +17,8 @@ _cache = {"v": None, "ts": 0.0}
 
 
 def is_editor(email):
-    return str(email or "").strip().lower() in PRESENTATION_EDITORS
+    """Everyone who is signed in (has an email in the session) may edit and save the slides."""
+    return bool(str(email or "").strip())
 
 
 def sanitize(cfg):
@@ -30,6 +31,9 @@ def sanitize(cfg):
             continue
         slides.append({"id": str(s.get("id") or "s%d" % i)[:24], "type": s["type"], "enabled": bool(s.get("enabled", True)),
                        "title": str(s.get("title") or "")[:120], "body": str(s.get("body") or "")[:1500]})
+        if s["type"] == "plan":
+            slides[-1]["ex"] = str(s.get("ex") or "")[:4000]
+            slides[-1]["lock"] = str(s.get("lock") or "")[:4000]
     if not slides:
         raise ValueError("ต้องมีอย่างน้อย 1 สไลด์")
 
