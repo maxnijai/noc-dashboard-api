@@ -18096,7 +18096,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     { id: 'e3', type: 'bkdetail', enabled: true, title: '3. NW Incident · รายละเอียด Ticket Over SLA', body: 'NW_NSA12' },
     { id: 'd4', type: 'bkdrill', enabled: true, title: 'NSA3 / NSA4', body: 'NSA34' },
     { id: 'n1', type: 'nsasum', enabled: true, title: 'สรุป Region × TRUEOWNERGROUP × จังหวัด', body: '' },
-    { id: 'n2', type: 'nsaplan', enabled: true, title: 'TRUEOWNERGROUP × Plan Closed Date', body: '' },
+    { id: 'n2', type: 'nsaplan', enabled: true, title: 'TRUEOWNERGROUP × Plan Closed Date (P0)', body: '' },
     { id: 'a1', type: 'title', enabled: true, title: 'NOC Priority 0 Briefing', body: 'NSA3 / NSA4 · ภาคเหนือ' },
     { id: 'a2', type: 'kpi', enabled: true, title: 'ภาพรวม Priority 0', body: '' },
     { id: 'a3', type: 'trend', enabled: true, title: 'แนวโน้ม P0 รายวัน @ 01:15', body: '' },
@@ -18274,8 +18274,8 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
   R.bkdetail = function (s, o) { var g = pdGroup(s.body); if (!g || !g.over) return noData(s, 'TICKET DETAIL'); s.on = s.on || [0, 1, 1, 1]; return '<div class="pr-tag"><i></i>TICKET DETAIL · OVER SLA</div><h2 style="color:' + bmeta(s.body)[2] + '">' + esc(s.title) + '</h2><div class="pr-dtl" style="display:flex;flex-direction:column;flex:1;min-height:0">' + detailBody(s) + '</div>'; };
   var scr = 0;
   function autoScroll(st) { cancelAnimationFrame(scr); var w = st.querySelector('.pr-tbw'); if (!w) return; var y = 0, dir = 1, hold = 70; (function f() { var mx = w.scrollHeight - w.clientHeight; if (mx > 2) { if (hold > 0) hold--; else { y += dir * .55; if (y >= mx) { y = mx; dir = -1; hold = 90; } else if (y <= 0) { y = 0; dir = 1; hold = 90; } w.scrollTop = y; } } scr = requestAnimationFrame(f); })(); }
-  function nsaRows() {
-    var t = (P.data && P.data.tickets) || [], map = {};
+  function nsaRows(p0only) {
+    var t = ((P.data && P.data.tickets) || []).filter(function (x) { return !p0only || x.k === 0; }), map = {};
     t.forEach(function (x) { var m = /(NOR[12])-([A-Z0-9]+)-/.exec(x.grp || ''); if (!m) return; var id = m[1] + '-' + m[2]; (map[id] = map[id] || { reg: m[1], id: id, prov: x.prov || '', t: [] }).t.push(x); });
     return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.id < b.id ? -1 : 1; });
   }
@@ -18290,14 +18290,14 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     return '<div class="pr-tag"><i></i>SUMMARY · NSA3/NSA4</div><h2 style="color:#22d3ee">' + esc(s.title) + '</h2><div class="pr-tbw" style="margin-top:8px"><table class="pr-t"><tr><th>Region · TRUEOWNERGROUP · จังหวัด</th>' + H.map(function (h) { return '<th class="n">' + h + '</th>'; }).join('') + '<th class="n">รวม</th></tr>' + out + '</table></div>';
   };
   R.nsaplan = function (s, o) {
-    var rows = nsaRows(), today = (P.data && P.data.today) || '', ds = {};
+    var rows = nsaRows(true), today = (P.data && P.data.today) || '', ds = {};
     rows.forEach(function (r) { r.t.forEach(function (x) { if (x.plan) ds[x.plan] = 1; }); });
     var cols = Object.keys(ds).sort().filter(function (d) { return d >= addDays(today, -3) && d <= addDays(today, 9); });
     var hd = '<tr><th>TRUEOWNERGROUP</th>' + cols.map(function (d) { var late = d < today; return '<th class="n"' + (late ? ' style="color:#fb7185"' : '') + '>' + d.slice(8) + '/' + d.slice(5, 7) + (late ? ' ⚠' : '') + '</th>'; }).join('') + '<th class="n">ไม่มี Plan</th><th class="n">รวม</th><th class="n">Back date</th></tr>', body = '', tot = { n: 0, none: 0, back: 0 };
     rows.forEach(function (r, i) { var back = r.t.filter(function (x) { return x.plan && x.plan < today; }).length, none = r.t.filter(function (x) { return !x.plan; }).length; tot.n += r.t.length; tot.none += none; tot.back += back;
       body += '<tr class="pr-ri" style="animation-delay:' + i * .03 + 's"><td>' + esc(r.id) + '</td>' + cols.map(function (d) { var v = r.t.filter(function (x) { return x.plan === d; }).length; return '<td class="n" style="' + (v && d < today ? 'background:rgba(251,113,133,' + Math.min(.85, .3 + .1 * v) + ');color:#fff;font-weight:700' : heat(v, 5)) + '">' + (v || '') + '</td>'; }).join('') + '<td class="n" style="' + (none ? 'color:#fbbf24;font-weight:700' : 'color:rgba(255,255,255,.22)') + '">' + (none || '') + '</td><td class="n">' + r.t.length + '</td><td class="n ' + (back ? 'late' : '') + '">' + (back || '') + '</td></tr>'; });
     body += '<tr class="tt"><td>ผลรวม</td>' + cols.map(function (d) { return '<td class="n">' + rows.reduce(function (a, r) { return a + r.t.filter(function (x) { return x.plan === d; }).length; }, 0) + '</td>'; }).join('') + '<td class="n">' + tot.none + '</td><td class="n">' + tot.n + '</td><td class="n">' + tot.back + '</td></tr>';
-    return '<div class="pr-tag"><i></i>PLAN CLOSED · NSA3/NSA4</div><h2 style="color:#22d3ee">' + esc(s.title) + '</h2><div class="sub">สีแดง = Plan Closed เลยกำหนด (Back date)</div><div class="pr-tbw" style="margin-top:8px"><table class="pr-t">' + hd + body + '</table></div>';
+    return '<div class="pr-tag"><i></i>PLAN CLOSED · NSA3/NSA4</div><h2 style="color:#22d3ee">' + esc(s.title) + '</h2><div class="sub">เฉพาะ P0 (' + rows.reduce(function (a, r) { return a + r.t.length; }, 0) + ' ใบ) · สีแดง = Plan Closed เลยกำหนด (Back date)</div><div class="pr-tbw" style="margin-top:8px"><table class="pr-t">' + hd + body + '</table></div>';
   };
   function addDays(d, n) { var x = new Date(d + 'T00:00:00'); if (isNaN(x)) return d; x.setDate(x.getDate() + n); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); }
 
