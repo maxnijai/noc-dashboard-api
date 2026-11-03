@@ -9,7 +9,7 @@ from realtime_monitor import REALTIME_SHEET_ID
 
 SHEET = "PresentationConfig"
 PRESENTATION_EDITORS = ["saridphong_n@bbtec.co.th"]
-SLIDE_TYPES = {"cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing"}
+SLIDE_TYPES = {"strategy", "fctotal", "fcbm", "agfc", "cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing"}
 ACCENTS = {"cyan", "violet", "emerald", "amber", "rose"}
 SCOPES = {"all", "NSA3", "NSA4"}
 _lock = threading.Lock()
