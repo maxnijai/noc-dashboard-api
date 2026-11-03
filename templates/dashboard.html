@@ -17436,7 +17436,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
+  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17448,7 +17448,7 @@ redraw();
   const st = document.createElement('style');
   st.textContent = `
 #fc7-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9500;display:none;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto}
-#fc7-box{background:var(--bg1);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1320px;padding:16px;display:flex;flex-direction:column;gap:12px}
+#fc7-box{background:var(--bg1);color:var(--text);border:1px solid var(--border);border-radius:14px;width:100%;max-width:min(1860px,98vw);padding:16px;display:flex;flex-direction:column;gap:12px}
 #fc7-box .c7{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 #fc7-box h2{margin:0 0 2px;font-size:15px}#fc7-box .sb{font-size:12px;color:var(--text3)}
 #fc7-box .hd{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
@@ -17465,8 +17465,9 @@ redraw();
 #fc7-box td:first-child,#fc7-box th:first-child{text-align:left;white-space:nowrap}
 #fc7-box tr.tot td{font-weight:800;background:var(--bg3)}
 #fc7-box .sc7{overflow:auto;max-height:620px}
+#fc7-box table.tk.cp7 .xc{display:none}
 #fc7-box .mgrid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;align-items:start}
-#fc7-box .mmain{overflow:auto;max-height:640px;min-width:0}
+#fc7-box .mmain{overflow:auto;max-height:74vh;min-width:0}
 #fc7-box .mdock{position:sticky;top:0;border:2px solid #0e7490;border-radius:12px;padding:12px;background:var(--bg2,#fff);display:flex;flex-direction:column;gap:9px;font-size:12.5px}
 #fc7-box table.tk tr.act td{background:#fff7d6!important}
 @media (max-width:1100px){ #fc7-box .mgrid{grid-template-columns:1fr}#fc7-box .mdock{position:static;order:-1}}
@@ -17520,7 +17521,7 @@ redraw();
 #fc7-box .mm .h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}#fc7-box .mm .h b{font-size:13px}#fc7-box .mm .h span{font-size:11px;font-weight:700;color:#7c3aed}#fc7-box .mm .s2{font-size:10.5px;color:var(--text3)}
 #fc7-box .fl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 #fc7-box select,#fc7-box input[type=text],#fc7-box input[type=date],#fc7-box textarea{border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;font-size:12.5px;background:var(--bg2);color:var(--text)}
-#fc7-box textarea{width:100%;min-width:250px;resize:vertical}
+#fc7-box textarea{width:100%;min-width:0;resize:vertical}
 #fc7-box td.ed{text-align:left}#fc7-box td.kc .ks{flex:none;align-self:flex-end}#fc7-box textarea.kt{min-height:54px;max-height:150px;line-height:1.4}
 #fc7-box .sv{border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
 #fc7-box .sv:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3);cursor:default}
@@ -17755,17 +17756,17 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     el.innerHTML = `<div class="fl"><select id="fc7-fG"><option value="">ทุก Region / TRUEOWNERGROUP</option><option value="NOR1"${F7.fG === 'NOR1' ? ' selected' : ''}>NOR1 รวม</option><option value="NOR2"${F7.fG === 'NOR2' ? ' selected' : ''}>NOR2 รวม</option>${GRPS.map(x => { const key = x[0] + '-' + x[1]; return `<option value="${key}"${F7.fG === key ? ' selected' : ''}>${key}</option>`; }).join('')}</select><select id="fc7-fC"><option value="">ทุก Category</option>${[...new Set(m.T.map(t => t.cat || '(ไม่ระบุ)'))].sort().map(c => `<option value="${esc(c)}"${F7.fC === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
       <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
-      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
-      <table class="tk" style="width:2190px;min-width:2190px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col style="width:120px"><col style="width:150px"><col style="width:160px"><col style="width:190px"><col style="width:140px"><col style="width:290px"><col style="width:270px"><col style="width:140px"><col style="width:86px"><col style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th>Site</th><th>TARGETFINISH</th><th>Flag Logic</th><th>Group Problem</th><th>Action Team</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Comment By P'Kasem</th><th>Plan_Closed_Date</th><th></th><th>อัปเดตล่าสุด</th></tr>` +
+      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><label class="sb" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="fc7-cmp"${F7.compact ? ' checked' : ''}> โหมดประชุม (ซ่อน Site / TARGETFINISH / อัปเดตล่าสุด)</label><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
+      <table class="tk${F7.compact ? ' cp7' : ''}" style="width:${F7.compact ? 1440 : 2190}px;min-width:${F7.compact ? 1440 : 2190}px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col class="xc" style="width:120px"><col class="xc" style="width:150px"><col style="width:120px"><col style="width:180px"><col style="width:100px"><col style="width:220px"><col style="width:190px"><col style="width:128px"><col style="width:70px"><col class="xc" style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th class="xc">Site</th><th class="xc">TARGETFINISH</th><th>Flag Logic</th><th>Group Problem</th><th>Action Team</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Comment By P'Kasem</th><th>Plan_Closed_Date</th><th></th><th class="xc">อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
-        return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
+        return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td class="xc">${esc(t.site)}</td><td class="xc" style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
-        <td style="text-align:left;white-space:normal;font-size:12px">${t.group_problem ? esc(t.group_problem) : '<span style="color:var(--text3)">—</span>'}</td><td style="text-align:left;white-space:normal;font-size:12px">${t.action_team ? esc(t.action_team) : '<span style="color:var(--text3)">—</span>'}</td>
+        <td class="ed"><select class="gp${er.includes('Group') ? ' bad' : ''}" style="width:100%;${String(t.group_problem || '').indexOf('N3/4-') === 0 ? 'background:rgba(245,158,11,.2)' : ''}" title="${esc(t.group_problem || '')}">${selOpts(d.group_problem_options, t.group_problem)}</select></td><td class="ed"><select class="at${er.includes('Action') ? ' bad' : ''}" style="width:100%">${selOpts(d.action_team_options, t.action_team)}</select></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
         <td class="ed kc">${d.can_kasem ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:stretch"><textarea class="kt" rows="2" maxlength="1500" style="min-width:0;width:100%" placeholder="Comment โดย P'Kasem">${esc(t.kasem || '')}</textarea><button type="button" class="sv ks"${F7.kdirty[t.id] && !F7.ksaving[t.id] ? '' : ' disabled'}>${F7.ksaving[t.id] ? '...' : 'Save'}</button></div>${F7.kerr[t.id] ? `<div class="er">${esc(F7.kerr[t.id])}</div>` : ''}` : `<div style="white-space:pre-wrap;font-size:12px;text-align:left;color:${t.kasem ? 'var(--text)' : 'var(--text3)'}">${t.kasem ? esc(t.kasem) : '—'}</div>${t.kasem_at ? `<div class="sb">${esc(t.kasem_at)}</div>` : ''}`}</td>
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
-        <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
+        <td class="xc" style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
     el.innerHTML = '<div class="mgrid"><div class="mmain">' + el.innerHTML + '</div><aside class="mdock"></aside></div>';
     el.style.maxHeight = 'none'; el.style.overflow = 'visible';
     matInit(el.querySelector('.mdock'));
@@ -17778,6 +17779,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     q('fc7-fP').onchange = e => { F7.fP = e.target.value; refreshTickets(); };
     q('fc7-fD').onchange = e => { F7.fD = e.target.value; refreshTickets(); };
     q('fc7-fF').onchange = e => { F7.fF = e.target.value; F7.fPD = ''; refreshTickets(); };
+    q('fc7-cmp').onchange = e => { F7.compact = e.target.checked; refreshTickets(); };
     q('fc7-fQ').oninput = e => { F7.fQ = e.target.value; const pos = e.target.selectionStart; refreshTickets(); const n = q('fc7-fQ'); n.focus(); n.setSelectionRange(pos, pos); };
     el.querySelectorAll('tr[data-id]').forEach(tr => {
       const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv:not(.ks)');
@@ -17785,12 +17787,20 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       tr.addEventListener('focusin', () => matSetRow(t.id));
       if (MAT.rowId === t.id) tr.classList.add('act');
       tr.querySelector('.d').oninput = e => { t.detail = e.target.value; mark(); };
+      const gps = tr.querySelector('select.gp'), ats = tr.querySelector('select.at');
+      if (gps) gps.onchange = e => { t.group_problem = e.target.value; e.target.title = e.target.value; e.target.style.background = e.target.value.indexOf('N3/4-') === 0 ? 'rgba(245,158,11,.2)' : ''; mark(); };
+      if (ats) ats.onchange = e => { t.action_team = e.target.value; mark(); };
       tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : '') + f.s; };
       btn.onclick = () => saveTicket(t);
       const kt = tr.querySelector('.kt'), kb = tr.querySelector('.ks');
       if (kt) autoK(kt);
       if (kt && kb) { kt.oninput = e => { autoK(e.target); t.kasem = e.target.value; F7.kdirty[t.id] = true; F7.kerr[t.id] = ''; kb.disabled = false; kb.textContent = 'Save'; }; kb.onclick = () => saveKasem(t); }
     });
+  }
+  function selOpts(opts, cur) {
+    const list = (opts && opts.length ? opts.slice() : [...new Set((F7.data.tickets || []).map(x => x.group_problem || x.action_team).filter(Boolean))]);
+    if (cur && !list.includes(cur)) list.unshift(cur);
+    return '<option value=""></option>' + list.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}${String(o).indexOf('N3/4-') === 0 ? ' style="background:rgba(245,158,11,.2)"' : ''}>${esc(o)}</option>`).join('');
   }
   function autoK(el) { el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 54), 150) + 'px'; el.scrollTop = 0; }
   // ---------- Material stock lookup dock (right of the ticket table) ----------
@@ -17882,7 +17892,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     if (!String(t.detail || '').trim() || !String(t.detail).includes('/')) er = 'Detail ต้องมี "/" (ปัญหา/วิธีแก้ไข)';
     else if (!t.plan) er = 'Plan_Closed_Date ห้ามว่าง';
     else if (t.plan < d.today) er = 'Plan_Closed_Date ห้ามย้อนหลัง';
-    else if (!t.group_problem || !t.action_team) er = 'ใบนี้ยังไม่มี Group Problem / Action Team — กรอกที่หน้า Pending Ticket ก่อน';
+    else if (!t.group_problem || !t.action_team) er = 'เลือก Group Problem และ Action Team ก่อน Save';
     F7.terr[t.id] = er;
     if (er) { refreshTickets(); return; }
     F7.saving[t.id] = true; refreshTickets();
@@ -17893,7 +17903,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       if (!res.ok) throw new Error(j.error || ('API ' + res.status));
       const row = j.row || [];
       t.updated_at = row[6] || ''; t.updated_by = row[7] || ''; F7.dirty[t.id] = false; F7.terr[t.id] = '';
-      toast('✓ บันทึก ' + t.id + ' แล้ว (Detail + Plan_Closed_Date) · Work Log อัปเดตแล้ว');
+      toast('✓ บันทึก ' + t.id + ' แล้ว (Group Problem + Action Team + Detail + Plan_Closed_Date) · Work Log อัปเดตแล้ว');
     } catch (e) { F7.terr[t.id] = String(e.message || e); }
     F7.saving[t.id] = false; refreshTickets();
   }
