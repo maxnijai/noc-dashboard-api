@@ -7811,8 +7811,9 @@ function renderPivot(ft) {
     const sev = String(t.SEVERITY || '').trim().toUpperCase();
     if (sev !== 'NSA3' && sev !== 'NSA4') return '';
     if (!PTK_IS_KASEM) return t.kasem_comment ? `<div style="white-space:pre-wrap;">${ptkEsc(t.kasem_comment)}</div>` : '<span style="color:var(--text3)">—</span>';
-    return `<div style="display:flex;gap:6px;align-items:flex-start"><textarea class="ptk-field ptk-kasem-text" rows="2" maxlength="1500" placeholder="Comment โดย P'Kasem" oninput="kasemDirty('${safeTid}')" style="flex:1;min-width:0;">${ptkEsc(t.kasem_comment)}</textarea><button class="btn-secondary ptk-kasem-save" style="font-size:11px;padding:3px 8px;flex:none;" onclick="saveKasemRow('${safeTid}')" disabled>Save</button></div><div class="ptk-kasem-msg" style="font-size:11px;"></div>`;
+    return `<div style="display:flex;flex-direction:column;gap:5px;align-items:stretch"><textarea class="ptk-field ptk-kasem-text" rows="2" maxlength="1500" placeholder="Comment โดย P'Kasem" oninput="kasemDirty('${safeTid}');ptkAutoK(this)" style="width:100%;min-width:0;min-height:54px;max-height:150px;">${ptkEsc(t.kasem_comment)}</textarea><button class="btn-secondary ptk-kasem-save" style="font-size:11px;padding:3px 8px;flex:none;align-self:flex-end;" onclick="saveKasemRow('${safeTid}')" disabled>Save</button></div><div class="ptk-kasem-msg" style="font-size:11px;"></div>`;
   }
+  window.ptkAutoK = function (el) { el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 54), 150) + 'px'; el.scrollTop = 0; };
   window.kasemDirty = function (tid) {
     const row = document.querySelector(`#ptk-body tr[data-ticket-id="${tid}"]`); if (!row) return;
     const b = row.querySelector('.ptk-kasem-save'); if (b) { b.disabled = false; b.textContent = 'Save'; }
@@ -7880,6 +7881,7 @@ function renderPivot(ft) {
       </tr>`;
     }).join('') || '<tr><td colspan="25" style="padding:16px; text-align:center; color:var(--text3);">ไม่มีข้อมูล</td></tr>';
     document.querySelectorAll('#ptk-body .ptk-detail').forEach(el => autoGrowDetail(el));
+    document.querySelectorAll('#ptk-body .ptk-kasem-text').forEach(el => window.ptkAutoK(el));
   }
 
   window.checkOverdue = function (input) {
@@ -17497,7 +17499,7 @@ redraw();
 #fc7-box .fl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 #fc7-box select,#fc7-box input[type=text],#fc7-box input[type=date],#fc7-box textarea{border:1px solid var(--border);border-radius:8px;padding:4px 8px;font:inherit;font-size:12.5px;background:var(--bg2);color:var(--text)}
 #fc7-box textarea{width:100%;min-width:250px;resize:vertical}
-#fc7-box td.ed{text-align:left}#fc7-box td.kc .ks{flex:none}
+#fc7-box td.ed{text-align:left}#fc7-box td.kc .ks{flex:none;align-self:flex-end}#fc7-box textarea.kt{min-height:54px;max-height:150px;line-height:1.4}
 #fc7-box .sv{border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:4px 12px;font:inherit;font-size:12px;cursor:pointer}
 #fc7-box .sv:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3);cursor:default}
 #fc7-box .bad{border-color:#dc2626!important;background:#fef2f2!important;color:#7f1d1d!important}
@@ -17737,7 +17739,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
         return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td>${esc(t.site)}</td><td style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
-        <td class="ed kc">${d.can_kasem ? `<div style="display:flex;gap:6px;align-items:flex-start"><textarea class="kt" rows="2" maxlength="1500" style="min-width:0;flex:1" placeholder="Comment โดย P'Kasem">${esc(t.kasem || '')}</textarea><button type="button" class="sv ks"${F7.kdirty[t.id] && !F7.ksaving[t.id] ? '' : ' disabled'}>${F7.ksaving[t.id] ? '...' : 'Save'}</button></div>${F7.kerr[t.id] ? `<div class="er">${esc(F7.kerr[t.id])}</div>` : ''}` : `<div style="white-space:pre-wrap;font-size:12px;text-align:left;color:${t.kasem ? 'var(--text)' : 'var(--text3)'}">${t.kasem ? esc(t.kasem) : '—'}</div>${t.kasem_at ? `<div class="sb">${esc(t.kasem_at)}</div>` : ''}`}</td>
+        <td class="ed kc">${d.can_kasem ? `<div style="display:flex;flex-direction:column;gap:5px;align-items:stretch"><textarea class="kt" rows="2" maxlength="1500" style="min-width:0;width:100%" placeholder="Comment โดย P'Kasem">${esc(t.kasem || '')}</textarea><button type="button" class="sv ks"${F7.kdirty[t.id] && !F7.ksaving[t.id] ? '' : ' disabled'}>${F7.ksaving[t.id] ? '...' : 'Save'}</button></div>${F7.kerr[t.id] ? `<div class="er">${esc(F7.kerr[t.id])}</div>` : ''}` : `<div style="white-space:pre-wrap;font-size:12px;text-align:left;color:${t.kasem ? 'var(--text)' : 'var(--text3)'}">${t.kasem ? esc(t.kasem) : '—'}</div>${t.kasem_at ? `<div class="sb">${esc(t.kasem_at)}</div>` : ''}`}</td>
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
@@ -17758,9 +17760,11 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : '') + f.s; };
       btn.onclick = () => saveTicket(t);
       const kt = tr.querySelector('.kt'), kb = tr.querySelector('.ks');
-      if (kt && kb) { kt.oninput = e => { t.kasem = e.target.value; F7.kdirty[t.id] = true; F7.kerr[t.id] = ''; kb.disabled = false; kb.textContent = 'Save'; }; kb.onclick = () => saveKasem(t); }
+      if (kt) autoK(kt);
+      if (kt && kb) { kt.oninput = e => { autoK(e.target); t.kasem = e.target.value; F7.kdirty[t.id] = true; F7.kerr[t.id] = ''; kb.disabled = false; kb.textContent = 'Save'; }; kb.onclick = () => saveKasem(t); }
     });
   }
+  function autoK(el) { el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 54), 150) + 'px'; el.scrollTop = 0; }
   async function saveKasem(t) {
     F7.ksaving[t.id] = true; refreshTickets();
     try {
