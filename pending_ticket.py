@@ -91,27 +91,31 @@ def _safe_str(v):
     return str(v)
 
 GROUP_PROBLEM_OPTIONS = [
-    "Spare part - Spare part not available",
-    "Spare part - Wait on site to replace",
-    "Budget required - Approve in progress",
-    "Site renovate - area is still closed",
-    "Site permission - Requesting or pending approval",
-    "Site permission - Approved and awaiting site entry",
-    "Site dismantle - Wait for configuration removal",
-    "Improvement - Awarded subcons",
-    "Improvement - Track B",
-    "Wait for other parties - Back office/Vendor support",
-    "Wait for other parties - Other operators/Provider",
-    "Risk Area - Protest/Dangerous area",
-    "Disaster - Strom/Flood/Earthquake",
-    "Difficulte work - Site equipment was stolen",
-    "Difficulte work - Work at high",
-    "Fiber optic - Fire burn/High voltage short circuit",
-    "Fiber optic \u2013 Accident/Constuction",
-    "Fiber optic - PEA/MEA Maintenance transmission line",
-    "Fiber optic - High loss/Degrade/Animal",
-    "In progress - Priority TT management/ Interrupted by urgency TT",
+    # Numbered per the "Dome" mapping (01-20). 12/21/22/23 from that list are not offered here.
+    "01. Spare part - Spare part not available",
+    "02. Spare part - Wait on site to replace",
+    "03. Budget required - Approve in progress",
+    "04. Site renovate - area is still closed",
+    "05. Site permission - Requesting or pending approval",
+    "06. Site permission - Approved and awaiting site entry",
+    "07. Site dismantle - Wait for configuration removal",
+    "08. Improvement - Awarded subcons",
+    "09. Improvement - Track B",
+    "10. Wait for other parties - Back office/Vendor support",
+    "11. Wait for other parties - Other operators/Provider",
+    "13. Risk Area - Protest/Dangerous area",
+    "14. Disaster - Strom/Flood/Earthquake",
+    "15. Difficulte work - Site equipment was stolen",
+    "16. Difficulte work - Work at high",
+    "17. Fiber optic - Fire burn/High voltage short circuit",
+    "18. Fiber optic \u2013 Accident/Constuction",
+    "19. Fiber optic - PEA/MEA Maintenance transmission line",
+    "20. Fiber optic - High loss/Degrade/Animal",
+    # Status-type values (replace the old "Clear" and "In progress - Priority TT ..." options)
+    "In Progress,Update Awaited",
     "Solar Cell - Off Grid",
+    "Rebuild site",
+    "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
     # NSA3/NSA4 specific values (highlighted in the Pending Ticket dropdown by their "N3/4-" prefix)
     "N3/4-Workload",
     "N3/4-W@H",
@@ -121,8 +125,49 @@ GROUP_PROBLEM_OPTIONS = [
     "N3/4-Site Access",
     "N3/4-Solar Cell Off-grid",
     "N3/4-Solar Cell",
-    "Clear",
 ]
+
+# Old stored value -> current value. Applied whenever the work log is read or written, and the sheet
+# itself is rewritten once per process (see _persist_group_problem_migration), so old tickets show the
+# new names immediately.
+_GP_OLD_TO_NEW = {
+    "Spare part - Spare part not available": "01. Spare part - Spare part not available",
+    "Spare part - Wait on site to replace": "02. Spare part - Wait on site to replace",
+    "Budget required - Approve in progress": "03. Budget required - Approve in progress",
+    "Site renovate - area is still closed": "04. Site renovate - area is still closed",
+    "Site permission - Requesting or pending approval": "05. Site permission - Requesting or pending approval",
+    "Site permission - Approved and awaiting site entry": "06. Site permission - Approved and awaiting site entry",
+    "Site dismantle - Wait for configuration removal": "07. Site dismantle - Wait for configuration removal",
+    "Improvement - Awarded subcons": "08. Improvement - Awarded subcons",
+    "Improvement - Track B": "09. Improvement - Track B",
+    "Wait for other parties - Back office/Vendor support": "10. Wait for other parties - Back office/Vendor support",
+    "Wait for other parties - Other operators/Provider": "11. Wait for other parties - Other operators/Provider",
+    "Risk Area - Protest/Dangerous area": "13. Risk Area - Protest/Dangerous area",
+    "Disaster - Strom/Flood/Earthquake": "14. Disaster - Strom/Flood/Earthquake",
+    "Difficulte work - Site equipment was stolen": "15. Difficulte work - Site equipment was stolen",
+    "Difficulte work - Work at high": "16. Difficulte work - Work at high",
+    "Fiber optic - Fire burn/High voltage short circuit": "17. Fiber optic - Fire burn/High voltage short circuit",
+    "Fiber optic \u2013 Accident/Constuction": "18. Fiber optic \u2013 Accident/Constuction",
+    "Fiber optic - PEA/MEA Maintenance transmission line": "19. Fiber optic - PEA/MEA Maintenance transmission line",
+    "Fiber optic - High loss/Degrade/Animal": "20. Fiber optic - High loss/Degrade/Animal",
+    "In progress - Priority TT management/ Interrupted by urgency TT": "In Progress,Update Awaited",
+    "Workload - Assigning team access site": "In Progress,Update Awaited",
+    "Workload - Assigning team access island/border area": "In Progress,Update Awaited",
+    "Clear": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "In Progress": "In Progress,Update Awaited",
+    "Update Awaited": "In Progress,Update Awaited",
+    "Issue Fixed": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "TT Resolved": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "Issue Resolved": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "TT Closed": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+}
+
+
+def normalize_group_problem(v):
+    """Maps an old Group Problem string to its current name; anything else is returned unchanged."""
+    v = "" if v is None else str(v)
+    return _GP_OLD_TO_NEW.get(v.strip(), v)
+
 
 ACTION_TEAM_OPTIONS = ["OFC", "NODE", "SUP", "ENG Zone", "Special Team", "Planwork", "Track 7", "E//", "Other Vendor"]
 
@@ -273,6 +318,22 @@ def _ensure_work_log_tab(spreadsheet):
         return ws
 
 
+_gp_migrated = {"done": False}
+
+
+def _persist_group_problem_migration(ws, updates):
+    """Writes the renamed Group Problem values back to TicketWorkLog in ONE batch (once per process;
+    reads already show the new names regardless, so a failure here is harmless)."""
+    if not updates or _gp_migrated["done"]:
+        return
+    _gp_migrated["done"] = True
+    try:
+        ws.batch_update(updates, value_input_option="RAW")
+        log.info("work log: migrated %d Group Problem value(s) to the new names", len(updates))
+    except Exception:
+        log.exception("work log: Group Problem migration write failed (reads still normalised)")
+
+
 def load_work_log(gs_client, use_cache=True):
     """Returns {ticket_id: {group_problem, action_team, detail, image_link,
     plan_closed_date, updated_at, updated_by}} for every saved row. Also
@@ -289,16 +350,20 @@ def load_work_log(gs_client, use_cache=True):
     records = ws.get_all_values()[1:]  # skip header
     out = {}
     row_index = {}
+    gp_updates = []
     for i, row in enumerate(records):
         if not row or not row[0]:
             continue
         padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
+        if normalize_group_problem(padded[1]) != padded[1]:
+            gp_updates.append({"range": f"B{i + 2}", "values": [[normalize_group_problem(padded[1])]]})
         out[padded[0]] = {
-            "group_problem": padded[1], "action_team": padded[2], "detail": padded[3],
+            "group_problem": normalize_group_problem(padded[1]), "action_team": padded[2], "detail": padded[3],
             "image_link": padded[4], "plan_closed_date": padded[5],
             "updated_at": padded[6], "updated_by": padded[7],
         }
         row_index[padded[0]] = i + 2  # +1 for header, +1 for 1-based sheet rows
+    _persist_group_problem_migration(ws, gp_updates)
     if use_cache:
         with _cache_lock:
             _work_log_cache["data"] = out
@@ -547,7 +612,7 @@ def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
     now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
     row_values = [
         ticket_id,
-        fields.get("group_problem", ""),
+        normalize_group_problem(fields.get("group_problem", "")),
         fields.get("action_team", ""),
         fields.get("detail", ""),
         fields.get("image_link", ""),
@@ -621,7 +686,7 @@ AUTO_FILL_AGING_GROUPS = (
     "6) Within SLA",           # added on request - same rule: only still-untouched tickets get the default plan
 )
 AUTO_FILL_VALUES = {
-    "group_problem": "In progress - Priority TT management/ Interrupted by urgency TT",
+    "group_problem": "In Progress,Update Awaited",
     "action_team": "OFC",
     "detail": "Team on progress fixing/wait update from team",
     "image_link": "",   # deliberately left empty
