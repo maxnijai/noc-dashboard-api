@@ -17465,6 +17465,28 @@ redraw();
 #fc7-box td:first-child,#fc7-box th:first-child{text-align:left;white-space:nowrap}
 #fc7-box tr.tot td{font-weight:800;background:var(--bg3)}
 #fc7-box .sc7{overflow:auto;max-height:620px}
+#fc7-box .mgrid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;align-items:start}
+#fc7-box .mmain{overflow:auto;max-height:640px;min-width:0}
+#fc7-box .mdock{position:sticky;top:0;border:2px solid #0e7490;border-radius:12px;padding:12px;background:var(--bg2,#fff);display:flex;flex-direction:column;gap:9px;font-size:12.5px}
+#fc7-box table.tk tr.act td{background:#fff7d6!important}
+@media (max-width:1100px){ #fc7-box .mgrid{grid-template-columns:1fr}#fc7-box .mdock{position:static;order:-1}}
+#fc7-box .mdock h4{margin:0;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+#fc7-box .mdock .who{background:#fff7d6;color:#10202f;border-radius:8px;padding:4px 9px;font-size:12px}
+#fc7-box .mdock .sbx{position:relative}#fc7-box .mdock .sbx input{width:100%;font-size:14px;padding:8px 10px;border:2px solid var(--border);border-radius:10px}
+#fc7-box .mdock .sbx input:focus{border-color:#0e7490;outline:none}
+#fc7-box .mdock .sg{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--bg2,#fff);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.22);max-height:280px;overflow:auto;z-index:20;display:none}
+#fc7-box .mdock .sg div{padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border)}#fc7-box .mdock .sg div.on,#fc7-box .mdock .sg div:hover{background:rgba(14,116,144,.12)}
+#fc7-box .mdock .sg i{display:block;font-style:normal;font-family:monospace;font-size:11px;color:var(--text3)}#fc7-box .mdock .sg mark{background:#fef3c7;color:inherit}#fc7-box .mdock .sg .no{cursor:default;color:var(--text3)}
+#fc7-box .mdock .mt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#fc7-box .mdock .mt div{border:1px solid var(--border);border-radius:9px;padding:5px 8px;background:var(--bg3)}
+#fc7-box .mdock .mt span{font-size:10.5px;font-weight:700;color:var(--text2)}#fc7-box .mdock .mt b{display:block;font-size:22px;line-height:1.1;color:#9fb0c3}
+#fc7-box .mdock .mt .has{background:rgba(22,163,74,.14);border-color:#16a34a}#fc7-box .mdock .mt .has b{color:#16a34a}#fc7-box .mdock .mt .me{outline:2px solid #0e7490}
+#fc7-box .mdock .mcode{font-family:monospace;font-weight:700;font-size:16px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:2px 9px}
+#fc7-box .mdock .prev{font-size:11.5px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:5px 9px;color:var(--text2);word-break:break-word}
+#fc7-box .mdock .mb{border:1px solid #0e7490;background:#0e7490;color:#fff;border-radius:9px;padding:7px 10px;font:inherit;font-weight:600;cursor:pointer;width:100%}
+#fc7-box .mdock .mb:disabled{background:var(--bg3);border-color:var(--border);color:var(--text3);cursor:default}
+#fc7-box .mdock .mb.o{background:transparent;color:#0e7490;width:auto;padding:3px 10px;font-size:12px}
+#fc7-box .mdock .mm2{font-size:11px;color:var(--text3)}#fc7-box .mdock .ok{color:#16a34a}#fc7-box .mdock .er{color:#dc2626}
 #fc7-box table.tk{table-layout:fixed;border-collapse:separate;border-spacing:0}#fc7-box table.tk td,#fc7-box table.tk th{overflow:hidden;box-sizing:border-box}
 #fc7-box table.tk th.f,#fc7-box table.tk td.f{position:sticky;background:var(--bg2,#fff);z-index:2;box-shadow:inset -1px 0 0 var(--border)}
 #fc7-box table.tk th.f{background:var(--bg3,#f1f5f9);z-index:4}
@@ -17744,6 +17766,9 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
         <td class="ed"><input type="date" class="p${er.includes('Plan') ? ' bad' : ''}" value="${esc(t.plan)}" min="${esc(d.today)}"></td>
         <td><button type="button" class="sv"${F7.dirty[t.id] && !F7.saving[t.id] ? '' : ' disabled'}>${F7.saving[t.id] ? '...' : 'Save'}</button>${er ? `<div class="er">${esc(er)}</div>` : ''}</td>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${t.updated_at ? esc((t.updated_by || '') + ' · ' + t.updated_at) : '—'}</td></tr>`; }).join('') + '</table>';
+    el.innerHTML = '<div class="mgrid"><div class="mmain">' + el.innerHTML + '</div><aside class="mdock"></aside></div>';
+    el.style.maxHeight = 'none'; el.style.overflow = 'visible';
+    matInit(el.querySelector('.mdock'));
     document.getElementById('fc7-tbn').textContent = 'แก้ Detail / Plan_Closed_Date แล้วกด Save — ใช้ API เดิมของหน้า Pending Ticket เขียนลง Work Log · Comment By P\'Kasem: ' +
       (d.can_kasem === undefined ? 'เซิร์ฟเวอร์ยังเป็นเวอร์ชันเก่า (ไม่ส่ง can_kasem) — ต้องอัปโหลด app.py ล่าสุด' : (d.can_kasem ? 'คุณแก้ไขได้' : 'แก้ได้เฉพาะ kasemyanaso@gmail.com / saridphong_n@bbtec.co.th (ตอนนี้ล็อกอินเป็น ' + (CURRENT_USER_EMAIL || '?') + ')')) +
       (d.tickets.length && !('kasem' in d.tickets[0]) ? ' · ⚠ เซิร์ฟเวอร์ยังไม่ส่งข้อมูล Comment (ต้องอัปโหลด p0_forecast.py ล่าสุด)' : ' · มี Comment ' + d.tickets.filter(t => t.kasem).length + ' ใบ (ทั้งหมด ' + d.tickets.length + ' ใบใน 7 วัน)');
@@ -17757,6 +17782,8 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     el.querySelectorAll('tr[data-id]').forEach(tr => {
       const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv:not(.ks)');
       const mark = () => { F7.dirty[t.id] = true; F7.terr[t.id] = ''; btn.disabled = false; btn.textContent = 'Save'; };
+      tr.addEventListener('focusin', () => matSetRow(t.id));
+      if (MAT.rowId === t.id) tr.classList.add('act');
       tr.querySelector('.d').oninput = e => { t.detail = e.target.value; mark(); };
       tr.querySelector('.p').onchange = e => { t.plan = e.target.value; mark(); const f = flagOf(t), c = tr.querySelector('.fc7-fs'); c.setAttribute('style', 'font-size:11px;margin-top:2px;' + stCss(f.k)); c.textContent = (f.k === 'late' ? '⚠ ' : '') + f.s; };
       btn.onclick = () => saveTicket(t);
@@ -17766,6 +17793,78 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     });
   }
   function autoK(el) { el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 54), 150) + 'px'; el.scrollTop = 0; }
+  // ---------- Material stock lookup dock (right of the ticket table) ----------
+  const MAT = { rows: null, upd: '', by: '', loading: false, err: '', cur: null, q: '', rowId: '', all: false, open: true, msg: '', msgCls: '' };
+  const MP = ['CMI', 'CRI', 'NAN', 'PLK', 'TAK'], P2C = { 'เชียงใหม่': 'CMI', 'เชียงราย': 'CRI', 'น่าน': 'NAN', 'พิษณุโลก': 'PLK', 'ตาก': 'TAK' };
+  function matLoad() {
+    if (MAT.rows || MAT.loading) return;
+    MAT.loading = true;
+    fetch('/api/material-stock').then(r => r.json()).then(j => { MAT.rows = j.rows || []; MAT.upd = j.updated_at || ''; MAT.by = j.updated_by || ''; MAT.err = j.warning ? 'โหลดจาก Sheet ไม่ได้ ใช้ข้อมูลตั้งต้นแทน' : ''; })
+      .catch(e => { MAT.err = 'โหลดรายการวัสดุไม่ได้: ' + e.message; MAT.rows = []; }).finally(() => { MAT.loading = false; matPaint(); });
+  }
+  function matFind(q) { const t = q.toLowerCase().split(/\s+/).filter(Boolean); if (!t.length || !MAT.rows) return []; return MAT.rows.filter(r => { const h = (r[1] + ' ' + r[0]).toLowerCase(); return t.every(x => h.includes(x)); }); }
+  function matHl(sv, q) { const t = q.split(/\s+/).filter(Boolean).map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); const e = esc(sv); return t.length ? e.replace(new RegExp('(' + t.map(esc).join('|') + ')', 'ig'), '<mark>$1</mark>') : e; }
+  function matTk() { return F7.data && F7.data.tickets.find(x => x.id === MAT.rowId); }
+  function matProv() { const t = matTk(); return t ? (P2C[t.prov] || '') : ''; }
+  function matText() { const r = MAT.cur, pv = matProv(), parts = []; MP.forEach((k, i) => { if (MAT.all || !pv || k === pv) parts.push(k + ' ' + r[2 + i] + ' ชิ้น'); }); return 'Material ' + r[0] + ' ' + r[1] + ' / คงเหลือ ' + parts.join(', '); }
+  function matDockEl() { return document.querySelector('#fc7-box .mdock'); }
+  function matInit(d) { if (!d) return; matLoad(); matPaint(); }
+  function matSetRow(id) { MAT.rowId = id; document.querySelectorAll('#fc7-box table.tk tr[data-id]').forEach(r => r.classList.toggle('act', r.dataset.id === id)); matRes(); const w = document.querySelector('#fc7-box .mdock .who'); if (w) w.innerHTML = matWho(); }
+  function matWho() { return MAT.rowId ? 'กำลังกรอก: <b>' + esc(MAT.rowId) + '</b>' : 'ยังไม่ได้เลือก Ticket — คลิกช่อง Detail ในตาราง'; }
+  function matRes() {
+    const el = document.querySelector('#fc7-box .mdock .mres'); if (!el) return;
+    const r = MAT.cur; if (!r) { el.innerHTML = '<div class="mm2" style="text-align:center;padding:8px 0">พิมพ์ชื่อวัสดุแล้วเลือกจากรายการ</div>'; return; }
+    const pv = matProv();
+    el.innerHTML = '<div style="font-weight:600">' + esc(r[1]) + '</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:5px 0"><span class="mm2">Material</span><span class="mcode">' + esc(r[0]) + '</span><button type="button" class="mb o" data-mcp="1">คัดลอก</button></div><div class="mt">' +
+      MP.map((k, i) => '<div class="' + (r[2 + i] ? 'has ' : '') + (k === pv ? 'me' : '') + '"><span>' + k + '</span><b>' + r[2 + i] + '</b></div>').join('') + '<div><span>รวม</span><b style="color:var(--text)">' + r[7] + '</b></div></div>' +
+      '<label class="mm2" style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" data-mall="1"' + (MAT.all ? ' checked' : '') + '> ใส่ทุกจังหวัด (ไม่ติ๊ก = เฉพาะจังหวัดของใบที่เลือก)</label><div class="prev">' + esc(matText()) + '</div>' +
+      '<button type="button" class="mb" data-mins="1" style="margin-top:6px"' + (MAT.rowId ? '' : ' disabled') + '>⤵ ใส่ลง Detail' + (MAT.rowId ? ' ของ ' + esc(MAT.rowId.slice(-6)) : ' (เลือก Ticket ก่อน)') + '</button>';
+  }
+  function matPaint() {
+    const d = matDockEl(); if (!d) return;
+    d.innerHTML = '<h4>🔎 ค้นหาวัสดุ <span><button type="button" class="mb o" data-mimp="1">⬆ Import Excel</button><input type="file" accept=".xlsx,.xls" hidden data-mfile="1"></span></h4>' +
+      '<div class="mm2">' + (MAT.rows ? MAT.rows.length.toLocaleString() + ' รายการ · อัปเดต: ' + esc(MAT.upd || '-') + (MAT.by ? ' · ' + esc(MAT.by) : '') : 'กำลังโหลด…') + '</div>' + (MAT.err ? '<div class="mm2 er">' + esc(MAT.err) + '</div>' : '') +
+      '<div class="who">' + matWho() + '</div><div class="sbx"><input type="text" data-mq="1" autocomplete="off" placeholder="พิมพ์ชื่อวัสดุ เช่น esfp 40km" value="' + esc(MAT.q) + '"><div class="sg"></div></div>' +
+      '<div class="mres"></div><div class="mm2 ' + MAT.msgCls + '" data-mmsg="1">' + esc(MAT.msg) + '</div>';
+    matRes(); matBind(d);
+  }
+  function matBind(d) {
+    let hits = [], act = 0; const q = d.querySelector('[data-mq]'), sg = d.querySelector('.sg');
+    const pick = r => { if (!r) return; MAT.cur = r; MAT.q = r[1]; q.value = r[1]; sg.style.display = 'none'; matRes(); };
+    q.oninput = () => { MAT.q = q.value; if (!q.value.trim()) { sg.style.display = 'none'; return; } hits = matFind(q.value); act = 0;
+      sg.innerHTML = hits.length ? hits.slice(0, 25).map((r, i) => '<div data-i="' + i + '" class="' + (i ? '' : 'on') + '">' + matHl(r[1], q.value) + '<i>' + esc(r[0]) + '</i></div>').join('') + (hits.length > 25 ? '<div class="no">…อีก ' + (hits.length - 25) + ' รายการ พิมพ์เพิ่มเพื่อกรอง</div>' : '') : '<div class="no">ไม่พบ "' + esc(q.value) + '"</div>'; sg.style.display = 'block'; };
+    q.onkeydown = e => { const n = Math.min(hits.length, 25); if (!n) return; if (e.key === 'ArrowDown') act = (act + 1) % n; else if (e.key === 'ArrowUp') act = (act - 1 + n) % n; else if (e.key === 'Enter') { pick(hits[act]); e.preventDefault(); return; } else if (e.key === 'Escape') { sg.style.display = 'none'; return; } else return; e.preventDefault(); sg.querySelectorAll('div[data-i]').forEach((x, i) => x.classList.toggle('on', i === act)); };
+    sg.onmousedown = e => { const x = e.target.closest('[data-i]'); if (x) { e.preventDefault(); pick(hits[+x.dataset.i]); } };
+    q.onblur = () => setTimeout(() => { sg.style.display = 'none'; }, 150);
+    d.onclick = e => {
+      if (e.target.closest('[data-mimp]')) { d.querySelector('[data-mfile]').click(); return; }
+      if (e.target.closest('[data-mcp]')) { const b = e.target.closest('[data-mcp]'); const done = () => { b.textContent = 'คัดลอกแล้ว ✓'; setTimeout(() => { b.textContent = 'คัดลอก'; }, 1200); }; if (navigator.clipboard) navigator.clipboard.writeText(MAT.cur[0]).then(done, () => {}); return; }
+      if (e.target.closest('[data-mins]')) matInsert();
+    };
+    d.onchange = e => {
+      if (e.target.matches('[data-mall]')) { MAT.all = e.target.checked; matRes(); return; }
+      if (e.target.matches('[data-mfile]')) matImport(e.target.files[0], e.target);
+    };
+  }
+  function matInsert() {
+    const t = matTk(); if (!t || !MAT.cur) return;
+    const tr = [...document.querySelectorAll('#fc7-box table.tk tr[data-id]')].find(r => r.dataset.id === t.id); const ta = tr && tr.querySelector('textarea.d'); if (!ta) return;
+    ta.value = (ta.value.trim() ? ta.value.trim() + ' // ' : '') + matText(); ta.dispatchEvent(new Event('input', { bubbles: true })); ta.scrollIntoView({ block: 'nearest' });
+    MAT.msg = '✓ ใส่ลง Detail ของ ' + t.id + ' แล้ว — กด Save ในแถวได้เลย'; MAT.msgCls = 'ok'; const m = document.querySelector('#fc7-box .mdock [data-mmsg]'); if (m) { m.textContent = MAT.msg; m.className = 'mm2 ok'; }
+    setTimeout(() => { MAT.msg = ''; const m2 = document.querySelector('#fc7-box .mdock [data-mmsg]'); if (m2) m2.textContent = ''; }, 4000);
+  }
+  async function matImport(f, inp) {
+    if (!f) return; const m = document.querySelector('#fc7-box .mdock [data-mmsg]'); const say = (t, c) => { MAT.msg = t; MAT.msgCls = c; if (m) { m.textContent = t; m.className = 'mm2 ' + c; } };
+    say('กำลัง Import ' + f.name + ' …', '');
+    try {
+      const fd = new FormData(); fd.append('file', f);
+      const res = await fetch('/api/material-stock/import', { method: 'POST', body: fd }); const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || ('API ' + res.status));
+      MAT.rows = null; MAT.cur = null; MAT.q = ''; MAT.loading = false; matLoad();
+      const df = j.diff || {}; say('Import สำเร็จ ' + j.count + ' รายการ — เพิ่มใหม่ ' + df.added + ' · จำนวนเปลี่ยน ' + df.changed + ' · ไม่เปลี่ยน ' + df.same + ' · หายไป ' + df.removed, 'ok');
+    } catch (e) { say('Import ไม่สำเร็จ: ' + e.message, 'er'); }
+    inp.value = '';
+  }
   async function saveKasem(t) {
     F7.ksaving[t.id] = true; refreshTickets();
     try {
