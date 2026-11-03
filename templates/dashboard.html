@@ -997,7 +997,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <button id="ptk-reset-filters" class="btn-secondary">Reset Filters</button>
       <button id="ptk-export-excel" class="btn-secondary" title="ดาวน์โหลดตารางที่กรองอยู่ตอนนี้เป็น Excel">📥 Export Excel</button>
       {% if session.user_email == 'saridphong_n@bbtec.co.th' %}
-      <button id="ptk-migrate-workload" class="btn-secondary" title="เปลี่ยนค่า Group Problem เก่า &quot;Workload - Assigning team access site&quot; (และ &quot;...island/border area&quot;) ของ ticket ที่เคยเลือกไว้ เป็น &quot;In progress - Priority TT management/ Interrupted by urgency TT&quot;">เปลี่ยน Workload → In progress (ครั้งเดียว)</button>
       {% endif %}
       <span id="ptk-status" style="color:var(--text); font-size:15px; font-weight:700;"></span>
     </div>
@@ -8074,36 +8073,6 @@ function renderPivot(ft) {
     const params = buildPendingTicketParams();
     window.location.href = `/api/pending-ticket/export-excel?${params.toString()}`;
   });
-
-  if (el('ptk-migrate-workload')) {
-    el('ptk-migrate-workload').addEventListener('click', async () => {
-      const NEW_GP = 'In progress - Priority TT management/ Interrupted by urgency TT';
-      const OLD_GPS = ['Workload - Assigning team access site', 'Workload - Assigning team access island/border area'];
-      if (!confirm('เปลี่ยนค่า Group Problem เก่า "Workload - Assigning team access site" (และ "...island/border area") เป็น "' + NEW_GP + '" สำหรับ ticket ที่เคยเลือกไว้แล้วทั้งหมด?')) return;
-      const btn = el('ptk-migrate-workload');
-      btn.disabled = true;
-      btn.textContent = 'กำลังเปลี่ยน...';
-      try {
-        let changed = 0;
-        for (const old_value of OLD_GPS) {
-          const res = await fetch('/api/pending-ticket/rename-group-problem', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ old_value, new_value: NEW_GP }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'failed');
-          changed += data.changed || 0;
-        }
-        alert(`เปลี่ยนสำเร็จ ✅ — แก้ไป ${changed} ticket`);
-        reload();
-      } catch (e) {
-        alert('เปลี่ยนไม่สำเร็จ: ' + e.message);
-      }
-      btn.disabled = false;
-      btn.textContent = 'เปลี่ยน Workload → In progress (ครั้งเดียว)';
-    });
-  }
-
 
   window.initPendingTicketTab = function () { if (!loaded) reload(); };
 })();
