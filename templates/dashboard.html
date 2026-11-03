@@ -18081,6 +18081,9 @@ table.pr-t td.dt{white-space:pre-wrap;word-break:break-word;line-height:1.4}.pr-
 table.pr-t td.m{font-family:ui-monospace,Consolas,monospace;white-space:nowrap}table.pr-t td.late{color:#fb7185;font-weight:700}table.pr-t td.n,table.pr-t th.n{text-align:center;font-variant-numeric:tabular-nums}
 table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t tr.tt td{background:rgba(96,165,250,.2);font-weight:800}table.pr-t tr.pr-ri td{animation:prIn .5s both}
 @media (max-width:900px){.pr-dr{grid-template-columns:1fr;overflow:auto}.pr-tv{grid-template-columns:repeat(2,1fr)}}
+.pr-dr.m4{grid-template-columns:minmax(170px,.62fr) minmax(0,1fr) minmax(190px,.62fr) minmax(0,1.05fr)}
+.pr-map{flex:1;min-height:0;border-radius:10px;overflow:hidden;isolation:isolate;z-index:1;border:1px solid rgba(255,255,255,.12)}.pr-map .leaflet-tile-pane{filter:brightness(.8) saturate(.9)}
+.pr-mlg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:#9fb3cf;margin-top:6px;align-items:center}.pr-mlg span{display:inline-flex;gap:4px;align-items:center}
 </style>
 <script>
 (function () {
@@ -18248,6 +18251,17 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
   }
   function dl(a, b) { if (b == null || b === '-') return ''; var d = a - b; return '<b style="color:' + (d > 0 ? '#fb7185' : d < 0 ? '#34d399' : '#9fb3cf') + '">' + (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '± ') + d + '</b>'; }
   function noData(s, tag) { return '<div class="pr-tag"><i></i>' + tag + '</div><h2>' + esc(s.title) + '</h2><div class="sub">ยังโหลดข้อมูลส่วนนี้ไม่ได้ — ลองกด Present ใหม่อีกครั้ง</div>'; }
+  function prMapPts(key) { if (!P.dd || !P.dd.tickets) return null; return P.dd.tickets.filter(function (t) { return t.g === key && t.z === 1 && t.la != null; }); }
+  function prMapKill() { if (P.map) { try { P.map.remove(); } catch (e) { } P.map = null; } }
+  function prMapInit(st) {
+    var el = st.querySelector('#pr-map'); if (!el || typeof L === 'undefined') return; var pts = prMapPts(el.dataset.k) || [];
+    prMapKill(); P.map = L.map(el, { zoomControl: false, attributionControl: false, scrollWheelZoom: false }).setView([18.2, 99.5], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(P.map);
+    L.control.attribution({ prefix: false, position: 'bottomright' }).addAttribution('© OpenStreetMap').addTo(P.map);
+    var seen = {}; pts.forEach(function (t) { if (seen[t.i]) return; seen[t.i] = 1; try { L.marker([t.la, t.lo], { icon: p0ddPinIcon(t, false, '') }).addTo(P.map).bindTooltip('<b>' + esc(t.i) + '</b><br>' + esc(t.c) + '<br>' + esc((P0DD_ST[t.s] || [])[1] || ''), { direction: 'top', offset: [0, -26] }); } catch (e) { } });
+    var fit = function () { if (P.map && pts.length) P.map.fitBounds(L.latLngBounds(pts.map(function (t) { return [t.la, t.lo]; })), { padding: [24, 24], maxZoom: 11 }); };
+    fit(); setTimeout(function () { if (P.map) { P.map.invalidateSize(); fit(); } }, 150); setTimeout(function () { if (P.map) { P.map.invalidateSize(); fit(); } }, 900);
+  }
   R.bkdrill = function (s, o) {
     var key = s.body || 'TOTAL', m = bmeta(key), g = pdGroup(key); if (!g) return noData(s, 'DRILLDOWN');
     var S = trendSeries(), snap = S ? lastOf(S, key, 'ag') : null, snapP = S ? lastOf(S, key, 'ov') : null, mx = g.prov && g.prov.length ? g.prov[0][1] : 1, amx = Math.max.apply(null, g.aging.concat([1]));
@@ -18258,9 +18272,12 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     var c2 = '<div class="pr-cd" style="animation-delay:.1s"><h5>Aging @01:15 รายวัน</h5><div class="pr-cv" data-k="' + key + '" data-m="ag" data-c="' + m[2] + '"></div></div>';
     var c3 = '<div class="pr-cd" style="animation-delay:.2s"><h5>Top 5 จังหวัด (Pending)</h5>' + (g.prov || []).slice(0, 5).map(function (p) { return '<div class="pr-pr"><span>' + esc(p[0]) + '</span><div class="t"><i data-w="' + Math.round(100 * p[1] / mx) + '" style="background:' + m[2] + '"></i></div><b>' + p[1] + '</b></div>'; }).join('') +
       '<h5 style="margin-top:12px">Aging ปัจจุบัน</h5>' + g.aging.map(function (v, i) { return '<div class="pr-pr"><span style="font-size:11px">' + esc(ord[i] || '') + '</span><div class="t"><i data-w="' + Math.round(100 * v / amx) + '" style="background:' + cols[i] + '"></i></div><b>' + v + '</b></div>'; }).join('') + '</div>';
+    var hasMap = key !== 'NSA34' && key !== 'TOTAL', mapCard = '';
+    if (hasMap) { var pts = prMapPts(key), nc = ((P.dd && P.dd.tickets) || []).filter(function (t) { return t.g === key && t.z === 1 && t.la == null; }).length;
+      mapCard = '<div class="pr-cd" style="animation-delay:.3s"><h5>แผนที่งาน Over (ตามสถานะ)</h5>' + (pts === null ? '<div class="d" style="margin:auto">โหลดพิกัดไม่ได้ในตอนนี้</div>' : '<div id="pr-map" class="pr-map" data-k="' + key + '"></div><div class="pr-mlg">' + [['wait', 'ยังไม่เดินทาง'], ['dep', 'เดินทางแล้ว'], ['arr', 'ถึงไซต์แล้ว'], ['done', 'Complete'], ['closed', 'Closed']].map(function (x) { return '<span>' + (window.p0ddLegendIcon ? p0ddLegendIcon(x[0]) : '') + x[1] + '</span>'; }).join('') + (nc ? '<span>· ไม่มีพิกัด ' + nc + ' งาน</span>' : '') + '</div>') + '</div>'; }
     var tvo = g.travel_over || g.travel, tvn = TRV.reduce(function (a, t) { return a + (tvo[t[2]] || 0); }, 0), tv = '<h5 style="margin:10px 0 0;font-size:12px;letter-spacing:.08em;color:#9fb3cf">สถานะการเดินทางของงาน OVER (' + tvn + ' ใบ)</h5><div class="pr-tv" style="margin-top:6px">' + TRV.map(function (t, i) { var v = tvo[t[2]] || 0; return '<div style="border-top:3px solid ' + t[1] + ';animation-delay:' + (.3 + i * .08) + 's"><span>' + t[0] + '</span><b style="color:' + t[1] + '">' + v + '</b><span>ใบ · ' + (tvn ? Math.round(100 * v / tvn) : 0) + '%</span></div>'; }).join('') + '</div>';
     var txt = m[1] + ': Pending ' + g.now + ' ใบ' + (snap != null && snap !== '-' ? ' (' + (g.now - snap >= 0 ? '+' : '') + (g.now - snap) + ' เทียบ @01:15)' : '') + ' · Over SLA ' + g.p0 + ' ใบ' + (g.prov && g.prov[0] ? ' · จังหวัดสูงสุด ' + g.prov[0][0] + ' ' + g.prov[0][1] + ' ใบ' : '') + ' · งาน Over ยังไม่เดินทาง ' + ((g.travel_over || g.travel).wait || 0) + ' ใบ';
-    return '<div class="pr-tag"><i></i>DRILLDOWN</div><h2 style="color:' + m[2] + '">' + esc(s.title) + '</h2><div class="pr-dr">' + c1 + c2 + c3 + '</div>' + tv + (P.cfg.insight ? '<div class="pr-ins" style="margin-top:10px"><em>✦ AUTO INSIGHT</em><span class="pr-typ" data-t="' + esc(txt) + '"></span></div>' : '');
+    return '<div class="pr-tag"><i></i>DRILLDOWN</div><h2 style="color:' + m[2] + '">' + esc(s.title) + '</h2><div class="pr-dr' + (hasMap ? ' m4' : '') + '">' + c1 + c2 + c3 + mapCard + '</div>' + tv + (P.cfg.insight ? '<div class="pr-ins" style="margin-top:10px"><em>✦ AUTO INSIGHT</em><span class="pr-typ" data-t="' + esc(txt) + '"></span></div>' : '');
   };
   function detailBody(s) {
     var key = s.body, m = bmeta(key), g = pdGroup(key), ord = P.pd.aging_order || [], on = s.on || [0, 1, 1, 1], cols = (P.trend && P.trend.aging_total && P.trend.aging_total.colors) || { };
@@ -18307,7 +18324,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
   function show(i) {
     if (!P.slides.length) return; P.idx = (i + P.slides.length) % P.slides.length; var s = P.slides[P.idx], o = derive();
     clearInterval(P.typing); var st = P.ov.querySelector('.pr-stage');
-    st.innerHTML = '<div class="pr-sl' + (WIDE[s.type] ? ' pr-wide' : '') + '">' + (R[s.type] || R.text)(s, o) + '</div>'; cancelAnimationFrame(scr); if (WIDE[s.type]) requestAnimationFrame(function () { drawCharts(st); autoScroll(st); });
+    st.innerHTML = '<div class="pr-sl' + (WIDE[s.type] ? ' pr-wide' : '') + '">' + (R[s.type] || R.text)(s, o) + '</div>'; cancelAnimationFrame(scr); prMapKill(); if (WIDE[s.type]) requestAnimationFrame(function () { drawCharts(st); autoScroll(st); if (s.type === 'bkdrill') prMapInit(st); });
     st.querySelectorAll('[data-n]').forEach(function (e, k) { setTimeout(function () { countUp(e); }, 150 + k * 90); });
     st.querySelectorAll('[data-w]').forEach(function (e, k) { setTimeout(function () { e.style.width = e.dataset.w + '%'; }, 250 + k * 90); });
     var ty = st.querySelectorAll('.pr-typ'), delay = s.type === 'title' || s.type === 'text' || s.type === 'closing' ? 400 : 900;
@@ -18391,7 +18408,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       if (e.key === 'ArrowRight' || e.key === ' ') { show(P.idx + 1); e.preventDefault(); } else if (e.key === 'ArrowLeft') show(P.idx - 1); else if (e.key === 'Escape') close(); else if (e.key === 'p') { P.playing = !P.playing; syncPlay(); restartTimer(); }
     });
   }
-  function close() { clearInterval(P.timer); clearInterval(P.typing); P.ov.classList.remove('on'); cancelAnimationFrame(P.raf); if (document.fullscreenElement) document.exitFullscreen(); document.body.style.overflow = P.bo || ''; }
+  function close() { prMapKill(); clearInterval(P.timer); clearInterval(P.typing); P.ov.classList.remove('on'); cancelAnimationFrame(P.raf); if (document.fullscreenElement) document.exitFullscreen(); document.body.style.overflow = P.bo || ''; }
   window.p0Present = async function () {
     if (!P.ov) build();
     P.bo = document.body.style.overflow; document.body.style.overflow = 'hidden';
@@ -18399,9 +18416,9 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     var ld = P.ov.querySelector('.pr-load'); ld.style.display = 'flex'; ld.style.opacity = 1; bg();
     var ty = ld.querySelector('.pr-typ'); ty.textContent = 'กำลังวิเคราะห์ข้อมูลล่าสุด…';
     try {
-      var rs = await Promise.all([fetch('/api/p0-forecast').then(function (r) { return r.json(); }), fetch('/api/presentation/config').then(function (r) { return r.json(); }).catch(function () { return {}; }), (typeof cachedP0DailyTrendData !== 'undefined' && cachedP0DailyTrendData && cachedP0DailyTrendData.aging_total) ? Promise.resolve(cachedP0DailyTrendData) : fetch('/api/p0-daily-trend').then(function (r) { return r.json(); }).catch(function () { return null; }), fetch('/api/presentation/data').then(function (r) { return r.json(); }).catch(function () { return null; })]);
+      var rs = await Promise.all([fetch('/api/p0-forecast').then(function (r) { return r.json(); }), fetch('/api/presentation/config').then(function (r) { return r.json(); }).catch(function () { return {}; }), (typeof cachedP0DailyTrendData !== 'undefined' && cachedP0DailyTrendData && cachedP0DailyTrendData.aging_total) ? Promise.resolve(cachedP0DailyTrendData) : fetch('/api/p0-daily-trend').then(function (r) { return r.json(); }).catch(function () { return null; }), fetch('/api/presentation/data').then(function (r) { return r.json(); }).catch(function () { return null; }), (typeof p0ddLoad === 'function' ? p0ddLoad().catch(function () { return null; }) : Promise.resolve(null))]);
       if (rs[0].error) throw new Error(rs[0].error);
-      P.data = rs[0]; P.trend = rs[2] && !rs[2].error ? rs[2] : null; P.pd = rs[3] && !rs[3].error ? rs[3] : null; P.can = !!rs[1].can_edit; P.upd = rs[1].config ? (rs[1].updated_at || '') + (rs[1].updated_by ? ' · ' + rs[1].updated_by : '') : '';
+      P.data = rs[0]; P.trend = rs[2] && !rs[2].error ? rs[2] : null; P.pd = rs[3] && !rs[3].error ? rs[3] : null; P.dd = rs[4] && rs[4].tickets ? rs[4] : null; P.can = !!rs[1].can_edit; P.upd = rs[1].config ? (rs[1].updated_at || '') + (rs[1].updated_by ? ' · ' + rs[1].updated_by : '') : '';
       P.cfg = rs[1].config ? rs[1].config : clone(DEF); P.playing = true;
       P.ov.querySelector('[data-pr="gear"]').hidden = !P.can;
       applyCfg(); ld.style.opacity = 0; setTimeout(function () { ld.style.display = 'none'; }, 600);
