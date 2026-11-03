@@ -3443,6 +3443,48 @@ def api_p0_forecast_kasem_comment():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/material-stock')
+def api_material_stock():
+    """Material stock list (Material, Desc, CMI/CRI/NAN/PLK/TAK, Total) for the lookup panel."""
+    import material_stock as _ms
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        d = _ms.load(gs_client)
+        return jsonify({'rows': d['rows'], 'updated_at': d['updated_at'], 'updated_by': d['updated_by'], 'source': d['source']})
+    except Exception as e:
+        log.exception("material stock load failed")
+        d = _ms._seed()
+        return jsonify({'rows': d['rows'], 'updated_at': d['updated_at'], 'updated_by': '', 'source': 'seed', 'warning': str(e)[:200]})
+
+
+@app.route('/api/material-stock/import', methods=['POST'])
+def api_material_stock_import():
+    """Replaces the stock list with an uploaded .xlsx (columns Material, Material Desc, CMI, CRI, NAN, PLK, TAK)."""
+    import material_stock as _ms
+    f = request.files.get('file')
+    if not f:
+        return jsonify({'error': 'ไม่พบไฟล์'}), 400
+    rows, err = _ms.parse_xlsx(f.read())
+    if err:
+        return jsonify({'error': err}), 400
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        try:
+            old = _ms.load(gs_client)['rows']
+        except Exception:
+            old = []
+        who = session.get('user_email') or ''
+        when = bangkok_now().strftime('%Y-%m-%d %H:%M')
+        _ms.save(gs_client, rows, who, when)
+        log.info("material stock imported: %d rows by %s", len(rows), who)
+        return jsonify({'status': 'saved', 'count': len(rows), 'updated_at': when, 'updated_by': who, 'diff': _ms.diff(old, rows)})
+    except Exception as e:
+        log.exception("material stock import failed")
+        if '429' in str(e) or 'Quota' in str(e):
+            return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — รอ 1 นาทีแล้ว Import อีกครั้ง'}), 503
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/kasem-comment/debug')
 def api_kasem_comment_debug():
     """Diagnostics for "Comment By P'Kasem": what the server really reads from the KasemComment tab.
