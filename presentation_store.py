@@ -45,6 +45,7 @@ def sanitize(cfg):
     return {"version": 1, "autoplay": bool(cfg.get("autoplay", True)), "seconds": num(cfg.get("seconds"), 3, 60, 9),
             "scope": cfg.get("scope") if cfg.get("scope") in SCOPES else "all", "topN": num(cfg.get("topN"), 3, 15, 8),
             "accent": cfg.get("accent") if cfg.get("accent") in ACCENTS else "cyan", "insight": bool(cfg.get("insight", True)),
+            "theme": cfg.get("theme") if cfg.get("theme") in ("light", "dark") else "light",
             "slides": slides}
 
 
