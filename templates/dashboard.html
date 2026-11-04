@@ -17487,6 +17487,7 @@ redraw();
 #fc7-box .sl{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2)}
 #fc7-box .mu{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 #fc7-box .mm{border:1px solid var(--border);border-radius:10px;padding:8px 10px 4px;cursor:pointer;background:var(--bg2)}
+#fc7-box .mm .pv{font-size:10px;fill:#475569}#fc7-box .mm .pv.lt{font-size:12px;font-weight:700;fill:#1e3a8a}#fc7-box .mm .tgs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0}#fc7-box .mm .tg{font-size:10.5px;font-weight:700;border-radius:99px;padding:1px 7px;white-space:nowrap}#fc7-box .mm .tg.up{background:#fee2e2;color:#dc2626}#fc7-box .mm .tg.dn{background:#dcfce7;color:#16a34a}#fc7-box .mm .tg.eq{background:#e2e8f0;color:#475569}#fc7-box .mm .tg.na{background:var(--bg3,#f1f5f9);color:var(--text3);font-weight:400}
 #fc7-box .mm:hover{border-color:#a78bfa}#fc7-box .mm.sel{border-color:#7c3aed;box-shadow:0 0 0 2px #ede9fe}
 #fc7-box .mm .h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}#fc7-box .mm .h b{font-size:13px}#fc7-box .mm .h span{font-size:11px;font-weight:700;color:#7c3aed}#fc7-box .mm .s2{font-size:10.5px;color:var(--text3)}
 #fc7-box .fl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
@@ -17581,13 +17582,27 @@ redraw();
       : `<b style="color:#b45309">ยังมีข้อมูล @01:15 แค่ ${have} วัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลแบคอัพจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
     document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
   }
+  function trendTag(lbl, cur, ref) {
+    if (ref == null || cur == null) return '<span class="tg na" title="' + lbl + ' — ยังไม่มีข้อมูลย้อนหลังถึงวันนั้น">' + lbl + ' –</span>';
+    const d = cur - ref, c = d > 0 ? 'up' : d < 0 ? 'dn' : 'eq', ic = d > 0 ? '▲ +' : d < 0 ? '▼ −' : '▬ ';
+    return '<span class="tg ' + c + '" title="' + lbl + ': ' + ref + ' → ' + cur + '">' + lbl + ' ' + ic + Math.abs(d) + '</span>';
+  }
   function renderMulti(m) {
-    const d = F7.data, Wd = 300, H = 100, L = 4, R = 30, T = 8, B = 8;
+    const d = F7.data, Wd = 300, H = 112, L = 14, R = 30, T = 24, B = 8;
     const order = [...m.rows].filter(r => PROVS.includes(r.p)).sort((a, b) => b.now - a.now);
     document.getElementById('fc7-mu').innerHTML = order.map(r => {
       const s = series(r.p, m), mx = Math.max(...s.hist.filter(v => v != null), 1) * 1.15, p = pts(s, Wd, L, R, T, H, B, mx);
+      let li = -1; s.hist.forEach((v, i) => { if (v != null) li = i; });
+      const cur = li >= 0 ? s.hist[li] : null;
+      let pi = -1; for (let i = li - 1; i >= 0; i--) { if (s.hist[i] != null) { pi = i; break; } }
+      const prev = pi >= 0 ? s.hist[pi] : null, w7 = li >= 7 ? s.hist[li - 7] : null;
+      const nn = p.vals.length, mxv = Math.max(...p.vals, 0);
+      let shown = 0;
+      const lb = p.out.map((o, i) => { const v = p.vals[i], last = i === nn - 1, show = nn <= 8 || i === 0 || last || (v === mxv && !shown++); return show ? '<text x="' + o[0].toFixed(1) + '" y="' + (o[1] - 6).toFixed(1) + '" text-anchor="middle" class="pv' + (last ? ' lt' : '') + '">' + v + '</text>' : ''; }).join('');
+      const dots = p.out.map((o, i) => '<circle cx="' + o[0].toFixed(1) + '" cy="' + o[1].toFixed(1) + '" r="' + (i === nn - 1 ? 3.6 : 2.4) + '" fill="' + (i === nn - 1 ? '#2563eb' : '#fff') + '" stroke="#2563eb" stroke-width="1.4"/>').join('');
       return `<div class="mm${F7.sel.has(r.p) ? ' sel' : ''}" data-fc7-p="${esc(r.p)}"><div class="h"><b>${esc(r.p)}</b><span>P0 ${r.now}</span></div>
-        <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}${p.out.length ? `<circle cx="${p.out[p.out.length - 1][0]}" cy="${p.out[p.out.length - 1][1]}" r="3" fill="#2563eb"/>` : ''}</svg>
+        <svg viewBox="0 0 ${Wd} ${H}" width="100%">${poly(p.out, '#2563eb', false, 2)}${dots}${lb}</svg>
+        <div class="tgs">${trendTag('เทียบเมื่อวาน', cur, prev)}${trendTag('เทียบ 7 วัน', cur, w7)}</div>
         <div class="s2">ปัจจุบัน ${r.now} · @01:15 ${r.snap == null ? '–' : r.snap}</div></div>`; }).join('');
   }
 
@@ -17897,7 +17912,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       <div class="kp" id="fc7-kp"></div>
       <div class="c7" id="fc7-lg7"></div>
       <div class="c7"><div class="hd"><div><h2>Trend P0 รายวัน @ 01:15 (ภาพรวม / เลือกจังหวัด)</h2><div class="sb" id="fc7-trnote"></div></div><div class="lg" id="fc7-lg"></div></div><div class="ch" id="fc7-pc" style="margin-bottom:8px"></div><div id="fc7-ct"></div></div>
-      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 (เฉพาะที่เก็บไว้) · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
+      <div class="c7"><div class="hd"><div><h2>Trend P0 แยกรายจังหวัด (ทั้ง 15 จังหวัด)</h2><div class="sb">เส้น = P0 รายวัน @01:15 (เฉพาะที่เก็บไว้) · ▲แดง = P0 เพิ่ม · ▼เขียว = P0 ลด · ▬ = เท่าเดิม · กดที่จังหวัดเพื่อเทียบในกราฟใหญ่ · เรียงตาม P0 ปัจจุบัน</div></div></div><div class="mu" id="fc7-mu"></div></div>
       <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP × จังหวัด</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div>
         <div class="sc7" id="fc7-tbl"></div>
         <div id="fc7-cat" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
