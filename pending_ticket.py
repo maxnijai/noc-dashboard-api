@@ -1177,7 +1177,15 @@ def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowne
     # District counts are faceted on the OTHER active filters (bookmark/trueowner/
     # severity/aging) so the numbers next to each district option stay accurate
     # as those filters change - just not on the district filter itself.
-    pre_district = _multi_filter(all_entries, "Bookmark", bookmark_filter)
+    if bookmark_filter and "NSA3-4" in bookmark_filter:
+        # "NSA3-4" = the catch-all card (anything outside the 3 named bookmarks)
+        _named = set(BOOKMARK_SORT_ORDER)
+        _bf = set(bookmark_filter)
+        pre_district = [e for e in all_entries
+                        if str(e.get("Bookmark", "")).strip() in _bf
+                        or ("NSA3-4" in _bf and str(e.get("Bookmark", "")).strip() not in _named)]
+    else:
+        pre_district = _multi_filter(all_entries, "Bookmark", bookmark_filter)
     pre_district = _multi_filter(pre_district, "TRUEOWNERGROUP", trueowner_filter)
     pre_district = _multi_filter(pre_district, "SEVERITY", severity_filter)
     pre_district = _multi_filter(pre_district, "Aging_Flag_Group", aging_filter)
