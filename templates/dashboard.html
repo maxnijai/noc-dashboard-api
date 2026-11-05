@@ -18009,6 +18009,9 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
 .an-chs{display:flex;gap:4px;flex-wrap:wrap}.an-ch{font-size:10.5px;border-radius:99px;padding:1px 8px;background:var(--blue-bg);color:#1e3a8a}.an-ch.hi{background:#fecaca;color:#991b1b;font-weight:700}
 .an-pv.closed .an-dr{display:none}
 table.an-hm{border-collapse:separate;border-spacing:3px;width:100%;font-size:12px}.an-hm th{font-size:10.5px;color:var(--text2);font-weight:600;padding:2px;vertical-align:bottom}.an-hm td{text-align:center;padding:9px 2px;border-radius:6px;background:var(--bg3)}.an-hm .rl{background:none;text-align:left;font-weight:600;padding-left:0}.an-hm .tt{background:var(--bg4);font-weight:800}
+.an-lv{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:12px;color:var(--text2)}.an-lb{border:1px solid var(--border2);background:var(--bg3);color:var(--text);border-radius:14px;padding:3px 12px;font:inherit;font-size:12px;cursor:pointer}.an-lb.on{background:var(--blue);border-color:var(--blue);color:#fff}.an-ex{margin-left:10px;color:var(--text3)}
+.an-hw{overflow:auto;max-height:68vh}table.an-hm{width:auto;border-spacing:2px}.an-hm th.c div{writing-mode:vertical-rl;transform:rotate(180deg);height:170px;white-space:nowrap;text-align:left;margin:auto}.an-hm td{min-width:42px;height:28px;padding:0;font-weight:700}.an-hm td.rl{text-align:left;white-space:nowrap;padding-right:12px;cursor:pointer}.an-hm td.rl.d{padding-left:22px;font-weight:400;cursor:default}.an-hm tbody.closed tr.dr{display:none}.an-hm thead th,.an-hm tr:first-child th{position:sticky;top:0;background:var(--bg2);z-index:1}
+.an-sc{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);margin-top:10px;flex-wrap:wrap}.an-sc i{display:block;width:220px;height:10px;border-radius:5px;background:linear-gradient(90deg,#1e3a8a,#0e7490,#65a30d,#facc15,#f97316,#dc2626)}
 .an-note{margin-top:10px;font-size:11.5px;color:var(--text2);border-top:1px dashed var(--border2);padding-top:8px}
 </style>
 <div id="an-ov"><div class="an-md" id="an-md"></div></div>
@@ -18016,63 +18019,79 @@ table.an-hm{border-collapse:separate;border-spacing:3px;width:100%;font-size:12p
 (function () {
   var ov = document.getElementById('an-ov'), md = document.getElementById('an-md'), cache = {};
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function agg(rows) {
+  var LV = '3';
+  function seg(c, lv) {
+    c = String(c || '').trim(); if (!c) return '(ไม่ระบุ)'; if (lv === 'full') return c;
+    var a = c.split('\\').map(function (x) { return x.trim(); }).filter(Boolean); if (!a.length) return '(ไม่ระบุ)';
+    return a[Math.min(+lv, a.length) - 1];
+  }
+  function agg(rows, lv) {
     var P = {}, C = {}, N = rows.length;
     rows.forEach(function (t) {
-      var pv = String(t.PROVINCE || t.province || '-').trim() || '-', di = String(t.DISTRICT || '-').trim() || '-', ca = String(t.cat_auto || t.category || 'Other').trim() || 'Other';
+      var pv = String(t.PROVINCE || t.province || '-').trim() || '-', di = String(t.DISTRICT || '-').trim() || '-', ca = seg(t.classification || t.CLASSIFICATION, lv);
       var p = P[pv] || (P[pv] = { n: 0, d: {} }), d = p.d[di] || (p.d[di] = { n: 0, c: {} });
       p.n++; d.n++; d.c[ca] = (d.c[ca] || 0) + 1; C[ca] = (C[ca] || 0) + 1;
     });
     return { P: P, C: C, N: N };
   }
+  var STOPS = [[30, 58, 138], [14, 116, 144], [101, 163, 13], [250, 204, 21], [249, 115, 22], [220, 38, 38]];
+  function heat(v, mx) {
+    if (!v) return 'color:var(--text3)';
+    var a = Math.min(1, v / mx), x = a * 5, i = Math.min(4, Math.floor(x)), f = x - i, c = STOPS[i].map(function (u, k) { return Math.round(u + (STOPS[i + 1][k] - u) * f); });
+    return 'background:rgb(' + c.join(',') + ');color:' + (a > .35 && a < .75 ? '#1b1b1b' : '#fff');
+  }
   function render(bm, A) {
     var provs = Object.keys(A.P).sort(function (a, b) { return A.P[b].n - A.P[a].n || a.localeCompare(b); }), N = A.N;
-    var cats = Object.keys(A.C).sort(function (a, b) { return A.C[b] - A.C[a]; }), shown = cats.slice(0, 7), rest = cats.slice(7);
-    var allD = []; provs.forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { allD.push([A.P[p].d[d].n, p, d]); }); });
-    allD.sort(function (a, b) { return b[0] - a[0]; }); var topSet = {}; allD.slice(0, 3).forEach(function (x) { topSet[x[1] + '|' + x[2]] = 1; });
-    var mxp = Math.max.apply(null, provs.map(function (p) { return A.P[p].n; }).concat([1]));
     if (!N) { md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub">ไม่พบ Ticket ค้างใน Bookmark นี้</div>'; return; }
-    var left = provs.map(function (p, i) {
-      var pv = A.P[p], ds = Object.keys(pv.d).sort(function (a, b) { return pv.d[b].n - pv.d[a].n; });
-      return '<div class="an-pv' + (i === 0 ? ' hot' : '') + '"><div class="an-ph" data-an-t="1"><b>' + esc(p) + '</b><div class="an-bar"><i style="width:' + pv.n / mxp * 100 + '%"></i></div><span class="an-n">' + pv.n + '</span><span class="an-pc">' + Math.round(pv.n / N * 100) + '%</span></div>' + ds.map(function (d) {
-        var dd = pv.d[d], top = topSet[p + '|' + d], cs = Object.keys(dd.c).sort(function (a, b) { return dd.c[b] - dd.c[a]; });
-        return '<div class="an-dr' + (top ? ' top' : '') + '"><span class="an-dn">' + (top ? '🔥 ' : '') + esc(d) + '</span><div class="an-bar sm"><i style="width:' + dd.n / mxp * 100 + '%"></i></div><span class="an-n">' + dd.n + '</span><div class="an-chs">' + cs.map(function (c) { return '<span class="an-ch' + (dd.c[c] >= 2 ? ' hi' : '') + '">' + esc(c) + ' <b>' + dd.c[c] + '</b></span>'; }).join('') + '</div></div>';
-      }).join('') + '</div>';
-    }).join('');
-    var cell = function (p, c) { var v = 0; Object.keys(A.P[p].d).forEach(function (d) { v += A.P[p].d[d].c[c] || 0; }); return v; };
+    var cats = Object.keys(A.C).sort(function (a, b) { return A.C[b] - A.C[a]; }), shown = cats.slice(0, 10), rest = cats.slice(10);
+    var colsAll = shown.concat(rest.length ? ['__rest'] : []);
+    var cv = function (d, c) { return c === '__rest' ? rest.reduce(function (a, r) { return a + (d.c[r] || 0); }, 0) : (d.c[c] || 0); };
+    var pcell = function (p, c) { var v = 0; Object.keys(A.P[p].d).forEach(function (d) { v += cv(A.P[p].d[d], c); }); return v; };
     var colV = function (c) { return c === '__rest' ? rest.reduce(function (a, r) { return a + A.C[r]; }, 0) : A.C[c]; };
-    var colsAll = shown.concat(rest.length ? ['__rest'] : []), mx = 1;
-    provs.forEach(function (p) { colsAll.forEach(function (c) { var v = c === '__rest' ? rest.reduce(function (a, r) { return a + cell(p, r); }, 0) : cell(p, c); if (v > mx) mx = v; }); });
-    var hm = '<table class="an-hm"><tr><th></th>' + colsAll.map(function (c) { return '<th>' + esc(c === '__rest' ? 'อื่นๆ (' + rest.length + ')' : c) + '</th>'; }).join('') + '<th>รวม</th></tr>' + provs.map(function (p) {
-      return '<tr><td class="rl">' + esc(p) + '</td>' + colsAll.map(function (c) {
-        var v = c === '__rest' ? rest.reduce(function (a, r) { return a + cell(p, r); }, 0) : cell(p, c), a = v / mx;
-        return v ? '<td style="background:rgba(220,38,38,' + (.12 + a * .75).toFixed(2) + ');color:' + (a > .55 ? '#fff' : '#7f1d1d') + ';font-weight:700' + (v === mx ? ';outline:2px solid #991b1b' : '') + '">' + v + '</td>' : '<td style="color:#cbd5e1">·</td>';
-      }).join('') + '<td class="tt">' + A.P[p].n + '</td></tr>';
-    }).join('') + '<tr><td class="rl">รวม</td>' + colsAll.map(function (c) { return '<td class="tt">' + colV(c) + '</td>'; }).join('') + '<td class="tt">' + N + '</td></tr></table>';
+    var mx = 1, hot = null, allD = [];
+    provs.forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { allD.push([A.P[p].d[d].n, p, d]); colsAll.forEach(function (c) { var v = cv(A.P[p].d[d], c); if (v > mx) { mx = v; hot = p + '|' + d + '|' + c; } }); }); });
+    allD.sort(function (a, b) { return b[0] - a[0]; });
+    var head = '<tr><th></th>' + colsAll.map(function (c) { var t = c === '__rest' ? 'อื่นๆ (' + rest.length + ')' : c; return '<th class="c" title="' + esc(t) + '"><div>' + esc(t.length > 46 ? t.slice(0, 44) + '…' : t) + '</div></th>'; }).join('') + '<th class="c"><div>รวม</div></th></tr>';
+    var body = provs.map(function (p) {
+      var pv = A.P[p], ds = Object.keys(pv.d).sort(function (a, b) { return pv.d[b].n - pv.d[a].n; });
+      var r = '<tbody class="pvb"><tr class="pr"><td class="rl" data-an-t="1">▼ ' + esc(p) + '</td>' + colsAll.map(function (c) { var v = pcell(p, c); return '<td style="' + heat(v, mx * 2.2) + '">' + (v || '·') + '</td>'; }).join('') + '<td class="tt">' + pv.n + '</td></tr>';
+      r += ds.map(function (d) {
+        var dd = pv.d[d];
+        return '<tr class="dr"><td class="rl d">' + esc(d) + '</td>' + colsAll.map(function (c) { var v = cv(dd, c); return '<td style="' + heat(v, mx) + (hot === p + '|' + d + '|' + c ? ';outline:2px solid var(--text)' : '') + '">' + (v || '·') + '</td>'; }).join('') + '<td class="tt">' + dd.n + '</td></tr>';
+      }).join('');
+      return r + '</tbody>';
+    }).join('');
+    var foot = '<tr><td class="rl">รวม</td>' + colsAll.map(function (c) { return '<td class="tt">' + colV(c) + '</td>'; }).join('') + '<td class="tt">' + N + '</td></tr>';
     var tp = provs[0], td = allD[0];
-    md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><button class="an-x" data-an-csv="1">Export CSV</button><h2>Analysis · ' + esc(bm) + ' · Pending ' + N + ' ใบ</h2><div class="an-sub">จังหวัด → DISTRICT → CATEGORY (จัดหมวดอัตโนมัติจาก SUBJECT) · ข้อมูลสดตอนกดปุ่ม</div>' +
-      '<div class="an-kp"><div class="r">จังหวัดที่มากสุด<b>' + esc(tp) + ' · ' + A.P[tp].n + ' ใบ (' + Math.round(A.P[tp].n / N * 100) + '%)</b></div><div class="r">DISTRICT ที่มากสุด<b>' + esc(td[2]) + ' (' + esc(td[1]) + ') · ' + td[0] + ' ใบ</b></div><div class="r">CATEGORY ที่มากสุด<b>' + esc(cats[0]) + ' · ' + A.C[cats[0]] + ' ใบ</b></div><div>จำนวน DISTRICT / CATEGORY<b>' + allD.length + ' / ' + cats.length + '</b></div></div>' +
-      '<div class="an-g"><div><h3>จังหวัด → DISTRICT (🔥 = 3 DISTRICT ที่มากสุด · ชิปแดง = Category ≥ 2 ใบ · กดชื่อจังหวัดเพื่อพับ/กาง)</h3>' + left + '</div><div><h3>จังหวัด × CATEGORY (สีเข้ม = เยอะ · กรอบแดง = สูงสุด)</h3>' + hm + '<div class="an-note">Category จัดจากข้อความ SUBJECT ด้วยกฎเดียวกับหน้า Pending Ticket (อัตโนมัติ อาจคลาดเคลื่อนบางใบ)</div></div></div>';
-    md._csv = A; md._bm = bm;
+    var lvs = [['1', 'ระดับ 1'], ['2', 'ระดับ 2'], ['3', 'ระดับ 3'], ['full', 'เต็ม']];
+    md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><button class="an-x" data-an-csv="1">Export CSV</button><h2>Analysis · ' + esc(bm) + ' · Pending ' + N + ' ใบ</h2><div class="an-sub">แถว = จังหวัด → DISTRICT · คอลัมน์ = CLASSIFICATION (จากชีต GGS Pending) · สี = จำนวนใบ (เย็น→ร้อน)</div>' +
+      '<div class="an-kp"><div class="r">จังหวัดที่ร้อนสุด<b>' + esc(tp) + ' · ' + A.P[tp].n + ' ใบ (' + Math.round(A.P[tp].n / N * 100) + '%)</b></div><div class="r">DISTRICT ที่ร้อนสุด<b>' + esc(td[2]) + ' (' + esc(td[1]) + ') · ' + td[0] + ' ใบ</b></div><div>CLASSIFICATION ที่มากสุด<b title="' + esc(cats[0]) + '">' + esc(cats[0].length > 40 ? cats[0].slice(0, 38) + '…' : cats[0]) + ' · ' + A.C[cats[0]] + ' ใบ</b></div></div>' +
+      '<div class="an-lv"><span>ระดับ CLASSIFICATION:</span>' + lvs.map(function (l) { return '<button type="button" class="an-lb' + (l[0] === LV ? ' on' : '') + '" data-an-lv="' + l[0] + '">' + l[1] + '</button>'; }).join('') + '<span class="an-ex">ตัวอย่างค่าเต็ม: NOC-NW-BROADBAND \\ FTTH ODN-SPLITTER L2 \\ SERVICE UNAVAILABLE</span></div>' +
+      '<div class="an-hw"><table class="an-hm">' + head + body + foot + '</table></div>' +
+      '<div class="an-sc">เย็น (น้อย) <i></i> ร้อน (มาก) · กรอบ = จุดร้อนสุดของตาราง · กดชื่อจังหวัดเพื่อพับ/กาง DISTRICT · ' + (rest.length ? 'คอลัมน์ที่เล็กรวมเป็น “อื่นๆ” · ' : '') + 'นับ Ticket ค้างทั้งหมดของ Bookmark' + (/ · P0$/.test(bm) ? ' (เฉพาะ P0)' : '') + '</div>';
+    md._rows = md._rows; md._bm = bm;
   }
   function csv() {
-    var A = md._csv; if (!A) return; var out = ['Province,District,Category,Tickets'];
-    Object.keys(A.P).forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { var c = A.P[p].d[d].c; Object.keys(c).forEach(function (k) { out.push([p, d, k, c[k]].map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(',')); }); }); });
+    var R = md._rows || []; if (!R.length) return; var m = {};
+    R.forEach(function (t) { var k = [String(t.PROVINCE || '-'), String(t.DISTRICT || '-'), String(t.classification || t.CLASSIFICATION || '(ไม่ระบุ)')].join('\u0001'); m[k] = (m[k] || 0) + 1; });
+    var out = ['Province,District,Classification,Tickets']; Object.keys(m).forEach(function (k) { out.push(k.split('\u0001').concat([m[k]]).map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(',')); });
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + out.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'analysis_' + (md._bm || 'bookmark').replace(/[^A-Za-z0-9]+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
+  function draw() { render(md._bm, agg(md._rows || [], LV)); }
   async function open(bm, pr) {
     ov.classList.add('on'); md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub">กำลังโหลด…</div>';
     try {
       var r = await fetch('/api/pending-ticket?bookmark=' + encodeURIComponent(bm) + (pr ? '&priority=' + encodeURIComponent(pr) : '')); var j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || r.status);
-      render(bm + (pr ? ' · ' + pr : ''), agg(j.tickets || []));
+      md._rows = j.tickets || []; md._bm = bm + (pr ? ' · ' + pr : ''); draw();
     } catch (e) { md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub" style="color:var(--red)">โหลดไม่สำเร็จ: ' + esc(e.message || e) + '</div>'; }
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-an-bm]'); if (b) { open(b.getAttribute('data-an-bm'), b.getAttribute('data-an-pr')); return; }
     if (e.target.closest('[data-an-x]') || e.target === ov) { ov.classList.remove('on'); return; }
     if (e.target.closest('[data-an-csv]')) { csv(); return; }
-    var t = e.target.closest('[data-an-t]'); if (t) t.parentNode.classList.toggle('closed');
+    var lv = e.target.closest('[data-an-lv]'); if (lv) { LV = lv.getAttribute('data-an-lv'); draw(); return; }
+    var t = e.target.closest('[data-an-t]'); if (t) { var tb = t.closest('tbody'); tb.classList.toggle('closed'); t.textContent = (tb.classList.contains('closed') ? '▶ ' : '▼ ') + t.textContent.slice(2); }
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.classList.remove('on'); });
 })();
