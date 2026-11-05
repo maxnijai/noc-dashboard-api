@@ -3040,6 +3040,7 @@ async function loadP0SnapshotComparison(prefix) {
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
         ${g.key === 'MB' && data.site_type_mb ? '<button type="button" class="p0-stbtn" onclick="p0OpenSiteType()" title="แยก Coverage P0 / Coverage P1 / Capacity ตามจังหวัด">Site Type ▸</button>' : ''}
         ${g.key === 'NSA34' ? '<button type="button" class="p0-stbtn" style="color:#d97706" onclick="p0OpenForecast()" title="NSA3/4 Flag Priority: P0 ปัจจุบัน vs @01:15 + Trend รายจังหวัด + รายใบ (แก้ Detail / Plan ได้)">Flag Priority ▸</button>' : ''}
+        ${({MB:'7.MB with SA1-4',FBB:'4.FBB with SA1-4',NW_NSA12:'3. All NW Incident NSA1-2',NSA34:'NSA3-4'})[g.key] ? '<button type="button" class="fp-an-btn fp-an-card ' + ((g.key === 'MB' || g.key === 'NSA34') ? 'low' : '') + '" data-an-bm="' + ({MB:'7.MB with SA1-4',FBB:'4.FBB with SA1-4',NW_NSA12:'3. All NW Incident NSA1-2',NSA34:'NSA3-4'})[g.key] + '" data-an-pr="P0">🔍 Analysis</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="p0" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_p0}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -3999,6 +4000,7 @@ function renderTotalPendingRow(prefix, data) {
     const accent = TP_ACCENTS[i % TP_ACCENTS.length];
     return `
       <div class="p0eq-card" style="flex:1; min-width:190px; background:var(--bg2); border:1px solid var(--border); border-left:3px solid ${accent}; border-radius:var(--r); padding:12px 14px; position:relative;">
+        ${({MB:'7.MB with SA1-4',FBB:'4.FBB with SA1-4',NW_NSA12:'3. All NW Incident NSA1-2',NSA34:'NSA3-4'})[g.key] ? '<button type="button" class="fp-an-btn fp-an-card" data-an-bm="' + ({MB:'7.MB with SA1-4',FBB:'4.FBB with SA1-4',NW_NSA12:'3. All NW Incident NSA1-2',NSA34:'NSA3-4'})[g.key] + '">🔍 Analysis</button>' : ''}
         <div style="font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${g.label}">${g.label}</div>
         <div class="p0dd-click" data-dd-row="total" data-dd-g="${g.key}" data-dd-p="" title="คลิกเพื่อดูแผนที่ + Analysis ของกลุ่มนี้" style="font-size:32px; font-weight:800; line-height:1; display:inline-block; padding:0 4px; margin-left:-4px;">${g.current_total}</div>
         <div style="font-size:12px; color:var(--text2); margin-top:8px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -17989,7 +17991,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
 })();
 </script>
 <style>
-.fp-an-btn{margin-left:10px;border:0;background:var(--purple);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer}.fp-an-btn:hover{filter:brightness(1.1)}
+.fp-an-btn{margin-left:10px;border:0;background:var(--purple);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer}.fp-an-btn:hover{filter:brightness(1.1)}.fp-an-card{position:absolute;top:8px;right:10px;margin:0;padding:2px 9px;font-size:10.5px;border-radius:12px;z-index:2}.fp-an-card.low{top:32px}
 .fp-prov-bookmark-head .fire-bookmark-title{display:inline-block}
 #an-ov{position:fixed;inset:0;z-index:99990;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}
 #an-ov.on{display:flex}
@@ -18058,16 +18060,16 @@ table.an-hm{border-collapse:separate;border-spacing:3px;width:100%;font-size:12p
     Object.keys(A.P).forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { var c = A.P[p].d[d].c; Object.keys(c).forEach(function (k) { out.push([p, d, k, c[k]].map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(',')); }); }); });
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + out.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'analysis_' + (md._bm || 'bookmark').replace(/[^A-Za-z0-9]+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
-  async function open(bm) {
+  async function open(bm, pr) {
     ov.classList.add('on'); md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub">กำลังโหลด…</div>';
     try {
-      var r = await fetch('/api/pending-ticket?bookmark=' + encodeURIComponent(bm)); var j = await r.json();
+      var r = await fetch('/api/pending-ticket?bookmark=' + encodeURIComponent(bm) + (pr ? '&priority=' + encodeURIComponent(pr) : '')); var j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || r.status);
-      render(bm, agg(j.tickets || []));
+      render(bm + (pr ? ' · ' + pr : ''), agg(j.tickets || []));
     } catch (e) { md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub" style="color:var(--red)">โหลดไม่สำเร็จ: ' + esc(e.message || e) + '</div>'; }
   }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-an-bm]'); if (b) { open(b.getAttribute('data-an-bm')); return; }
+    var b = e.target.closest('[data-an-bm]'); if (b) { open(b.getAttribute('data-an-bm'), b.getAttribute('data-an-pr')); return; }
     if (e.target.closest('[data-an-x]') || e.target === ov) { ov.classList.remove('on'); return; }
     if (e.target.closest('[data-an-csv]')) { csv(); return; }
     var t = e.target.closest('[data-an-t]'); if (t) t.parentNode.classList.toggle('closed');
