@@ -18489,24 +18489,34 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     var b = sxx ? sxy / sxx : 0, a = mz - b * mx;
     return { f: +f.toFixed(2), k: +Math.min(b, -0.0005).toFixed(5), an: +(a + b * (n - 1)).toFixed(4) };
   }
-  function buildLock(S, tdate) {
-    var full = (P.trend && P.trend.dates) || [], o = { d: full[full.length - 1], t: tdate, k: {} };
+  function cutSeries(S, n) {
+    var o = { dates: S.dates.slice(0, n), order: S.order, colors: S.colors, first: S.first, ag: {}, over: {} };
+    Object.keys(S.over).forEach(function (k) { o.over[k] = S.over[k].slice(0, n); });
+    Object.keys(S.ag).forEach(function (k) { o.ag[k] = S.ag[k].map(function (a) { return a.slice(0, n); }); });
+    return o;
+  }
+  function buildLock(S, tdate, asOf) {
+    var full = (P.trend && P.trend.dates) || [], S0 = S, o = { d: full[full.length - 1], t: tdate, k: {} };
     PBK.forEach(function (k) {
+      var n = full.length, want = asOf && (asOf[k] || asOf.all); S = S0;
+      if (want) { var ai = full.indexOf(want); if (ai >= 3) { n = ai + 1; S = cutSeries(S0, n); } }
       var tot = totArr(S, k), ix = winIdx(tot, 15); if (ix.length < 4) return;
       var li = ix[ix.length - 1], fit = expFit(ix.map(function (j) { return tot[j]; })), nclr = k === 'FBB' ? 5 : 4, rows = S.ag[k] || [];
       var b = [0, 1, 2, 3, 4, 5].map(function (g) { return rows[g] && rows[g][li] != null ? rows[g][li] : 0; });
       var tl = 0, r5 = (rows[4] || []).filter(function (v) { return v != null; }).slice(-7); if (r5.length) tl = r5.reduce(function (a, c) { return a + c; }, 0) / r5.length;
-      o.k[k] = { b: b, tl: +tl.toFixed(2), f: fit.f, k: fit.k, an: fit.an };
+      o.k[k] = { d: full[n - 1], b: b, tl: +tl.toFixed(2), f: fit.f, k: fit.k, an: fit.an };
     });
     return o;
   }
   function planAt(L, k, h) {
+    L = Object.assign({}, L, { d: (L.k[k] && L.k[k].d) || L.d });
     var c = L.k[k], Ht = Math.max(1, dDiff(L.d, L.t)), nclr = k === 'FBB' ? 5 : 4, v = [], s = 0, g;
     for (g = 0; g < 5; g++) { var x = g < nclr ? c.b[g] * Math.max(0, 1 - h / Ht) : c.tl; v.push(Math.max(0, x)); s += v[g]; }
     v.push(Math.max(0, c.f + Math.exp(c.an + c.k * h) - s)); return v;
   }
   function getLock(s, S) { var L = null; try { L = s.lock ? JSON.parse(s.lock) : null; } catch (e) { L = null; } return L && L.k && L.d ? { L: L, locked: true } : { L: buildLock(S, pTarget(s)), locked: false }; }
   function planCard(S, k, L, ex, i) {
+    L = Object.assign({}, L, { d: (L.k[k] && L.k[k].d) || L.d });
     var b = bmeta(k), col = b[2], c = L.k[k], tot = totArr(S, k), ix = winIdx(tot, 20), full = (P.trend && P.trend.dates) || [];
     if (!c || ix.length < 2) return '<div class="pr-cp" style="--c:' + col + '"><div class="pr-ph"><b style="color:' + col + '">' + esc(b[1]) + '</b></div><div class="sub">Not enough data</div></div>';
     var n = ix.length, lastD = full[ix[n - 1]], Hf = Math.max(1, dDiff(lastD, L.t)), h0 = dDiff(L.d, lastD), nclr = k === 'FBB' ? 5 : 4;
@@ -18671,7 +18681,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       '<label>แสดงกี่อันดับ (Top N)<input type="number" min="3" max="15" data-f="topN" value="' + c.topN + '" style="width:70px"></label>' +
       '<label>โทนสี<select data-f="theme">' + ['light', 'dark'].map(function (a) { return '<option' + ((c.theme || 'light') === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></label>' + '<label>สีธีม<select data-f="accent">' + ['cyan', 'violet', 'emerald', 'amber', 'rose'].map(function (a) { return '<option' + (c.accent === a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select></label>' +
       '<label>Auto Insight (พิมพ์สรุปให้อัตโนมัติ)<input type="checkbox" data-f="insight"' + (c.insight ? ' checked' : '') + '></label><h3>สไลด์</h3>' +
-      c.slides.map(function (s, i) { return '<div class="pr-row"><div class="h"><input type="checkbox" data-en="' + i + '"' + (s.enabled ? ' checked' : '') + '><input type="text" data-ti="' + i + '" value="' + esc(s.title) + '"><span class="ty">' + (TYPES[s.type] || s.type) + '</span><button class="pr-b" data-up="' + i + '">↑</button><button class="pr-b" data-dn="' + i + '">↓</button><button class="pr-b" data-rm="' + i + '">✕</button></div>' + (s.type === 'plan' ? '<div style="font-size:11px;color:#9fb3cf;margin:4px 0">Remark (bottom strip) — blank = default</div><textarea data-bo="' + i + '" rows="3">' + esc(s.body) + '</textarea><div style="font-size:11px;color:#9fb3cf;margin:4px 0">Strategy text — format: KEY | headline, then "- bullet" lines, then KPI: line (KEY = MB, FBB, NW_NSA12, NSA34; first line TARGET YYYY-MM-DD)</div><textarea data-ex="' + i + '" rows="9">' + esc(s.ex || PLAN_EX) + '</textarea><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0"><button class="pr-b" data-lock="' + i + '">🔒 Lock plan from latest data</button><button class="pr-b" data-unlock="' + i + '">Unlock (live)</button><span style="font-size:11px;color:#9fb3cf">' + (s.lock ? 'Locked — data up to ' + (function () { try { return JSON.parse(s.lock).d; } catch (e) { return '?'; } })() + ' (press Save to keep)' : 'Not locked — plan recalculates every day') + '</span></div>' : '') + (s.type === 'text' || s.type === 'title' || s.type === 'closing' ? '<textarea data-bo="' + i + '" placeholder="ข้อความ (' + (s.type === 'closing' ? 'เว้นว่าง = สรุปอัตโนมัติ' : 'พิมพ์ได้หลายบรรทัด') + ')">' + esc(s.body) + '</textarea>' : '') + '</div>'; }).join('') +
+      c.slides.map(function (s, i) { return '<div class="pr-row"><div class="h"><input type="checkbox" data-en="' + i + '"' + (s.enabled ? ' checked' : '') + '><input type="text" data-ti="' + i + '" value="' + esc(s.title) + '"><span class="ty">' + (TYPES[s.type] || s.type) + '</span><button class="pr-b" data-up="' + i + '">↑</button><button class="pr-b" data-dn="' + i + '">↓</button><button class="pr-b" data-rm="' + i + '">✕</button></div>' + (s.type === 'plan' ? '<div style="font-size:11px;color:#9fb3cf;margin:4px 0">Remark (bottom strip) — blank = default</div><textarea data-bo="' + i + '" rows="3">' + esc(s.body) + '</textarea><div style="font-size:11px;color:#9fb3cf;margin:4px 0">Strategy text — format: KEY | headline, then "- bullet" lines, then KPI: line (KEY = MB, FBB, NW_NSA12, NSA34; first line TARGET YYYY-MM-DD)</div><textarea data-ex="' + i + '" rows="9">' + esc(s.ex || PLAN_EX) + '</textarea><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0"><span style="font-size:11px;color:#9fb3cf">Lock others (MB, NW, NSA3/4) with data up to</span><input type="date" data-lkd="' + i + '" value="' + (((P.trend && P.trend.dates) || []).slice(-1)[0] || '') + '" min="' + (((P.trend && P.trend.dates) || [])[3] || '') + '" max="' + (((P.trend && P.trend.dates) || []).slice(-1)[0] || '') + '" style="background:#0b1730;color:#e8f0ff;border:1px solid #2b3d5e;border-radius:6px;padding:3px 6px"><span style="font-size:11px;color:#9fb3cf">FBB (Online) up to</span><input type="date" data-lkf="' + i + '" value="' + (((P.trend && P.trend.dates) || []).slice(-1)[0] || '') + '" min="' + (((P.trend && P.trend.dates) || [])[3] || '') + '" max="' + (((P.trend && P.trend.dates) || []).slice(-1)[0] || '') + '" style="background:#0b1730;color:#e8f0ff;border:1px solid #2b3d5e;border-radius:6px;padding:3px 6px"><button class="pr-b" data-lock="' + i + '">🔒 Lock plan</button><button class="pr-b" data-unlock="' + i + '">Unlock (live)</button><span style="font-size:11px;color:#9fb3cf">' + (s.lock ? 'Locked — data up to ' + (function () { try { return JSON.parse(s.lock).d; } catch (e) { return '?'; } })() + ' (press Save to keep)' : 'Not locked — plan recalculates every day') + '</span></div>' : '') + (s.type === 'text' || s.type === 'title' || s.type === 'closing' ? '<textarea data-bo="' + i + '" placeholder="ข้อความ (' + (s.type === 'closing' ? 'เว้นว่าง = สรุปอัตโนมัติ' : 'พิมพ์ได้หลายบรรทัด') + ')">' + esc(s.body) + '</textarea>' : '') + '</div>'; }).join('') +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><select data-add="1">' + Object.keys(TYPES).map(function (t) { return '<option value="' + t + '">+ ' + TYPES[t] + '</option>'; }).join('') + '</select><button class="pr-b" data-addb="1">เพิ่มสไลด์</button></div>' +
       '<div style="display:flex;gap:8px"><button class="pr-b" data-pr="save" style="background:var(--ac);color:#04121a;font-weight:700">💾 บันทึกลง Google Sheet</button><button class="pr-b" data-pr="reset">คืนค่าเริ่มต้น</button></div><div class="pr-msg" style="color:#9fb3cf">' + (P.upd ? 'บันทึกล่าสุด: ' + esc(P.upd) : 'ยังไม่เคยบันทึก (ใช้ค่าเริ่มต้น)') + '</div>';
   }
@@ -18702,7 +18712,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
         else if (a === 'save') save(); else if (a === 'reset') { P.cfg = clone(DEF); drawer(); applyCfg(); }
         return; }
       var lk = e.target.closest('[data-lock]'), ul = e.target.closest('[data-unlock]');
-      if (lk || ul) { var ps = P.cfg.slides[+(lk || ul).dataset[lk ? 'lock' : 'unlock']]; if (lk) { var SS = trendSeries(); if (SS) ps.lock = JSON.stringify(buildLock(SS, pTarget(ps))); } else ps.lock = ''; drawer(); applyCfg(true); return; }
+      if (lk || ul) { var ps = P.cfg.slides[+(lk || ul).dataset[lk ? 'lock' : 'unlock']]; if (lk) { var SS = trendSeries(), ai = document.querySelector('[data-lkd]'), af = document.querySelector('[data-lkf]'); if (SS) ps.lock = JSON.stringify(buildLock(SS, pTarget(ps), { all: ai && ai.value, FBB: af && af.value })); } else ps.lock = ''; drawer(); applyCfg(true); return; }
       var up = e.target.closest('[data-up]'), dn = e.target.closest('[data-dn]'), rm = e.target.closest('[data-rm]'), S = P.cfg.slides;
       if (up && +up.dataset.up > 0) { var i = +up.dataset.up; S.splice(i - 1, 0, S.splice(i, 1)[0]); drawer(); applyCfg(true); }
       else if (dn && +dn.dataset.dn < S.length - 1) { var j = +dn.dataset.dn; S.splice(j + 1, 0, S.splice(j, 1)[0]); drawer(); applyCfg(true); }
