@@ -1387,6 +1387,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "TICKETID": ticket_id,
             "SUBJECT": _safe_str(r.get("SUBJECT")),
             "subject_category": _auto_categorize_subject(r.get("SUBJECT", "")),
+            "classification": _safe_str(r.get("CLASSIFICATION")),
             "CINAME": _safe_str(r.get("CINAME")),
             "DISTRICT": _safe_str(r.get("DISTRICT")),
             "PROVINCE": province_from_owner,
