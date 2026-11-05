@@ -1042,6 +1042,7 @@ def _fetch_full_ticket_entries(gs_client):
                 entry["plan_closed_overdue"] = pcd < today
             except ValueError:
                 pass
+        entry["classification"] = _safe_str(r.get("CLASSIFICATION"))  # Analysis heatmap column (GGS Pending)
         return entry
 
     built = [build_entry(r) for r in scoped]
