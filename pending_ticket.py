@@ -1048,6 +1048,8 @@ def _fetch_full_ticket_entries(gs_client):
     site_capacity.annotate_entries(built, gs_client)
     for e in built:  # Pending Ticket table + mirror sheet column "Category" (NSA3/NSA4 only, "" otherwise)
         e["category"] = _category_text(e)
+        # Analysis popup: SUBJECT category for EVERY severity (display only; the "category" column above keeps its NSA3/NSA4-only meaning)
+        e["cat_auto"] = str(e.get("subject_category") or _auto_categorize_subject(e.get("SUBJECT", "")))
     return built
 
 
