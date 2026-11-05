@@ -5958,7 +5958,7 @@ function renderFocusProvinceSummary(){
     const bmTotal = sumRows(bmAllRows);
     let block = `<div class="fp-prov-bookmark-card">
       <div class="fp-prov-bookmark-head">
-        <div class="fp-region-title fire-bookmark-title">${bm}</div>
+        <div class="fp-region-title fire-bookmark-title">${bm}</div><button type="button" class="fp-an-btn" data-an-bm="${bm}">🔍 Analysis</button>
         <div class="rt-meta-note">สรุปแยก Region > TRUEOWNERGROUP พร้อม Total, Plan และ %Plan แยก P0/P1/P2</div>
       </div>
       <div class="fp-prov-wrap">
@@ -6484,7 +6484,7 @@ function renderFocusPriority(){
     return `
       <div class="fp-region-card">
         <div class="fp-region-head ${idx===0?'nor1':idx===1?'nor2':'nor1'}">
-          <div><div class="fp-region-title fire-bookmark-title">${bm}</div><div class="rt-meta-note">แยกเป็น Bookmark ชัดเจน · รวม NOR1+NOR2 / แยก NOR1 / NOR2 / TRUEOWNERGROUP</div></div>
+          <div><div class="fp-region-title fire-bookmark-title">${bm}</div><button type="button" class="fp-an-btn" data-an-bm="${bm}">🔍 Analysis</button><div class="rt-meta-note">แยกเป็น Bookmark ชัดเจน · รวม NOR1+NOR2 / แยก NOR1 / NOR2 / TRUEOWNERGROUP</div></div>
           <div class="rt-meta-note">${fpNum(s.total)} ticket · วางแผนแล้ว ${fpNum(s.planned)} · ยังไม่เจอแผน ${fpNum(s.unplanned)}</div>
         </div>
         <div class="fp-kpi-grid">
@@ -17986,6 +17986,93 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     if (ok) { box.innerHTML = keep; renderAll(); maybeBackfill(); }
     else box.innerHTML = '<div style="padding:22px 28px;font-size:13px;max-width:460px;"><b>โหลดไม่สำเร็จ</b><div style="color:var(--text3);margin:6px 0 12px;">' + esc(F7.err) + '</div><button type="button" class="cp" data-fc7-close="1">ปิด</button></div>';
   };
+})();
+</script>
+<style>
+.fp-an-btn{margin-left:10px;border:0;background:var(--purple);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer}.fp-an-btn:hover{filter:brightness(1.1)}
+.fp-prov-bookmark-head .fire-bookmark-title{display:inline-block}
+#an-ov{position:fixed;inset:0;z-index:99990;background:rgba(15,23,42,.45);display:none;align-items:flex-start;justify-content:center;padding:3vh 2vw;overflow:auto}
+#an-ov.on{display:flex}
+.an-md{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;width:min(1500px,100%);padding:18px 22px;box-shadow:0 10px 40px rgba(15,23,42,.25);color:var(--text)}
+.an-md h2{margin:0;font-size:20px}.an-sub{font-size:12px;color:var(--text2);margin:2px 0 12px}
+.an-x{float:right;border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:4px 12px;cursor:pointer;font:inherit;font-size:13px;margin-left:8px}
+.an-kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:14px}.an-kp div{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--bg3);font-size:12px;color:var(--text2)}.an-kp b{display:block;font-size:17px;color:var(--text)}.an-kp .r b{color:var(--red)}
+.an-g{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}@media(max-width:1000px){.an-g{grid-template-columns:1fr}}
+.an-md h3{margin:0 0 8px;font-size:14px}
+.an-pv{border:1px solid var(--border);border-radius:10px;padding:6px 10px;margin-bottom:8px}.an-pv.hot{border-color:#f3a6a1;background:#fff7f7}
+.an-ph{display:grid;grid-template-columns:120px 1fr 34px 42px;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.an-bar{height:9px;background:var(--bg4);border-radius:6px}.an-bar i{display:block;height:100%;background:var(--purple);border-radius:6px}.an-bar.sm{height:6px}.an-bar.sm i{background:#a78bfa}
+.an-n{text-align:right;font-weight:800}.an-pc{font-size:11px;color:var(--text3);text-align:right}
+.an-dr{display:grid;grid-template-columns:120px 80px 26px 1fr;gap:8px;align-items:center;font-size:12.5px;padding:3px 6px;margin-top:2px;border-radius:6px}.an-dr.top{background:var(--red-bg)}.an-dr.top .an-dn{font-weight:800;color:var(--red)}.an-dr.top .an-bar.sm i{background:var(--red)}
+.an-chs{display:flex;gap:4px;flex-wrap:wrap}.an-ch{font-size:10.5px;border-radius:99px;padding:1px 8px;background:var(--blue-bg);color:#1e3a8a}.an-ch.hi{background:#fecaca;color:#991b1b;font-weight:700}
+.an-pv.closed .an-dr{display:none}
+table.an-hm{border-collapse:separate;border-spacing:3px;width:100%;font-size:12px}.an-hm th{font-size:10.5px;color:var(--text2);font-weight:600;padding:2px;vertical-align:bottom}.an-hm td{text-align:center;padding:9px 2px;border-radius:6px;background:var(--bg3)}.an-hm .rl{background:none;text-align:left;font-weight:600;padding-left:0}.an-hm .tt{background:var(--bg4);font-weight:800}
+.an-note{margin-top:10px;font-size:11.5px;color:var(--text2);border-top:1px dashed var(--border2);padding-top:8px}
+</style>
+<div id="an-ov"><div class="an-md" id="an-md"></div></div>
+<script>
+(function () {
+  var ov = document.getElementById('an-ov'), md = document.getElementById('an-md'), cache = {};
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function agg(rows) {
+    var P = {}, C = {}, N = rows.length;
+    rows.forEach(function (t) {
+      var pv = String(t.PROVINCE || t.province || '-').trim() || '-', di = String(t.DISTRICT || '-').trim() || '-', ca = String(t.cat_auto || t.category || 'Other').trim() || 'Other';
+      var p = P[pv] || (P[pv] = { n: 0, d: {} }), d = p.d[di] || (p.d[di] = { n: 0, c: {} });
+      p.n++; d.n++; d.c[ca] = (d.c[ca] || 0) + 1; C[ca] = (C[ca] || 0) + 1;
+    });
+    return { P: P, C: C, N: N };
+  }
+  function render(bm, A) {
+    var provs = Object.keys(A.P).sort(function (a, b) { return A.P[b].n - A.P[a].n || a.localeCompare(b); }), N = A.N;
+    var cats = Object.keys(A.C).sort(function (a, b) { return A.C[b] - A.C[a]; }), shown = cats.slice(0, 7), rest = cats.slice(7);
+    var allD = []; provs.forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { allD.push([A.P[p].d[d].n, p, d]); }); });
+    allD.sort(function (a, b) { return b[0] - a[0]; }); var topSet = {}; allD.slice(0, 3).forEach(function (x) { topSet[x[1] + '|' + x[2]] = 1; });
+    var mxp = Math.max.apply(null, provs.map(function (p) { return A.P[p].n; }).concat([1]));
+    if (!N) { md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub">ไม่พบ Ticket ค้างใน Bookmark นี้</div>'; return; }
+    var left = provs.map(function (p, i) {
+      var pv = A.P[p], ds = Object.keys(pv.d).sort(function (a, b) { return pv.d[b].n - pv.d[a].n; });
+      return '<div class="an-pv' + (i === 0 ? ' hot' : '') + '"><div class="an-ph" data-an-t="1"><b>' + esc(p) + '</b><div class="an-bar"><i style="width:' + pv.n / mxp * 100 + '%"></i></div><span class="an-n">' + pv.n + '</span><span class="an-pc">' + Math.round(pv.n / N * 100) + '%</span></div>' + ds.map(function (d) {
+        var dd = pv.d[d], top = topSet[p + '|' + d], cs = Object.keys(dd.c).sort(function (a, b) { return dd.c[b] - dd.c[a]; });
+        return '<div class="an-dr' + (top ? ' top' : '') + '"><span class="an-dn">' + (top ? '🔥 ' : '') + esc(d) + '</span><div class="an-bar sm"><i style="width:' + dd.n / mxp * 100 + '%"></i></div><span class="an-n">' + dd.n + '</span><div class="an-chs">' + cs.map(function (c) { return '<span class="an-ch' + (dd.c[c] >= 2 ? ' hi' : '') + '">' + esc(c) + ' <b>' + dd.c[c] + '</b></span>'; }).join('') + '</div></div>';
+      }).join('') + '</div>';
+    }).join('');
+    var cell = function (p, c) { var v = 0; Object.keys(A.P[p].d).forEach(function (d) { v += A.P[p].d[d].c[c] || 0; }); return v; };
+    var colV = function (c) { return c === '__rest' ? rest.reduce(function (a, r) { return a + A.C[r]; }, 0) : A.C[c]; };
+    var colsAll = shown.concat(rest.length ? ['__rest'] : []), mx = 1;
+    provs.forEach(function (p) { colsAll.forEach(function (c) { var v = c === '__rest' ? rest.reduce(function (a, r) { return a + cell(p, r); }, 0) : cell(p, c); if (v > mx) mx = v; }); });
+    var hm = '<table class="an-hm"><tr><th></th>' + colsAll.map(function (c) { return '<th>' + esc(c === '__rest' ? 'อื่นๆ (' + rest.length + ')' : c) + '</th>'; }).join('') + '<th>รวม</th></tr>' + provs.map(function (p) {
+      return '<tr><td class="rl">' + esc(p) + '</td>' + colsAll.map(function (c) {
+        var v = c === '__rest' ? rest.reduce(function (a, r) { return a + cell(p, r); }, 0) : cell(p, c), a = v / mx;
+        return v ? '<td style="background:rgba(220,38,38,' + (.12 + a * .75).toFixed(2) + ');color:' + (a > .55 ? '#fff' : '#7f1d1d') + ';font-weight:700' + (v === mx ? ';outline:2px solid #991b1b' : '') + '">' + v + '</td>' : '<td style="color:#cbd5e1">·</td>';
+      }).join('') + '<td class="tt">' + A.P[p].n + '</td></tr>';
+    }).join('') + '<tr><td class="rl">รวม</td>' + colsAll.map(function (c) { return '<td class="tt">' + colV(c) + '</td>'; }).join('') + '<td class="tt">' + N + '</td></tr></table>';
+    var tp = provs[0], td = allD[0];
+    md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><button class="an-x" data-an-csv="1">Export CSV</button><h2>Analysis · ' + esc(bm) + ' · Pending ' + N + ' ใบ</h2><div class="an-sub">จังหวัด → DISTRICT → CATEGORY (จัดหมวดอัตโนมัติจาก SUBJECT) · ข้อมูลสดตอนกดปุ่ม</div>' +
+      '<div class="an-kp"><div class="r">จังหวัดที่มากสุด<b>' + esc(tp) + ' · ' + A.P[tp].n + ' ใบ (' + Math.round(A.P[tp].n / N * 100) + '%)</b></div><div class="r">DISTRICT ที่มากสุด<b>' + esc(td[2]) + ' (' + esc(td[1]) + ') · ' + td[0] + ' ใบ</b></div><div class="r">CATEGORY ที่มากสุด<b>' + esc(cats[0]) + ' · ' + A.C[cats[0]] + ' ใบ</b></div><div>จำนวน DISTRICT / CATEGORY<b>' + allD.length + ' / ' + cats.length + '</b></div></div>' +
+      '<div class="an-g"><div><h3>จังหวัด → DISTRICT (🔥 = 3 DISTRICT ที่มากสุด · ชิปแดง = Category ≥ 2 ใบ · กดชื่อจังหวัดเพื่อพับ/กาง)</h3>' + left + '</div><div><h3>จังหวัด × CATEGORY (สีเข้ม = เยอะ · กรอบแดง = สูงสุด)</h3>' + hm + '<div class="an-note">Category จัดจากข้อความ SUBJECT ด้วยกฎเดียวกับหน้า Pending Ticket (อัตโนมัติ อาจคลาดเคลื่อนบางใบ)</div></div></div>';
+    md._csv = A; md._bm = bm;
+  }
+  function csv() {
+    var A = md._csv; if (!A) return; var out = ['Province,District,Category,Tickets'];
+    Object.keys(A.P).forEach(function (p) { Object.keys(A.P[p].d).forEach(function (d) { var c = A.P[p].d[d].c; Object.keys(c).forEach(function (k) { out.push([p, d, k, c[k]].map(function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; }).join(',')); }); }); });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + out.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'analysis_' + (md._bm || 'bookmark').replace(/[^A-Za-z0-9]+/g, '_') + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+  async function open(bm) {
+    ov.classList.add('on'); md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub">กำลังโหลด…</div>';
+    try {
+      var r = await fetch('/api/pending-ticket?bookmark=' + encodeURIComponent(bm)); var j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || r.status);
+      render(bm, agg(j.tickets || []));
+    } catch (e) { md.innerHTML = '<button class="an-x" data-an-x="1">ปิด ✕</button><h2>Analysis · ' + esc(bm) + '</h2><div class="an-sub" style="color:var(--red)">โหลดไม่สำเร็จ: ' + esc(e.message || e) + '</div>'; }
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-an-bm]'); if (b) { open(b.getAttribute('data-an-bm')); return; }
+    if (e.target.closest('[data-an-x]') || e.target === ov) { ov.classList.remove('on'); return; }
+    if (e.target.closest('[data-an-csv]')) { csv(); return; }
+    var t = e.target.closest('[data-an-t]'); if (t) t.parentNode.classList.toggle('closed');
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ov.classList.remove('on'); });
 })();
 </script>
 <style>
