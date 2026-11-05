@@ -17408,7 +17408,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
+  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', cfN: '', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17667,6 +17667,26 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     document.getElementById('fc7-catk').onchange = e => { F7.catK = e.target.value; renderCatTable(F7.m); };
   }
 
+  // Category x Flag Logic (P0 now / in 1..7 days). Click a cell -> same ticket drill-down as the other tables.
+  function renderCfTable(m) {
+    const box = document.getElementById('fc7-cf'); if (!box) return;
+    if (F7.tab !== 'sum') { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const N = F7.cfN, T = m.T.filter(t => (N === '' || t.nsa === N) && t.k >= 0 && t.k <= 7), cell = {}, rowT = {}, colT = new Array(8).fill(0);
+    T.forEach(t => { const c = t.cat || '(ไม่ระบุ)'; (cell[c] = cell[c] || new Array(8).fill(0))[t.k]++; rowT[c] = (rowT[c] || 0) + 1; colT[t.k]++; });
+    const cats = Object.keys(rowT).sort((a, b) => (cell[b][0] - cell[a][0]) || (rowT[b] - rowT[a]) || a.localeCompare(b)), grand = T.length;
+    const mx = Math.max(1, ...cats.flatMap(c => cell[c])), mr = Math.max(1, ...cats.map(c => rowT[c])), enc = c => encodeURIComponent(c);
+    const labs = ['P0 แล้ว', 'P0 ใน 1 วัน', 'ใน 2 วัน', 'ใน 3 วัน', 'ใน 4 วัน', 'ใน 5 วัน', 'ใน 6 วัน', 'ใน 7 วัน'];
+    let h = `<table class="ct"><tr><th class="l" style="vertical-align:bottom;min-width:260px">Category</th>${labs.map((l, i) => `<th style="white-space:nowrap;vertical-align:bottom;${i === 0 ? 'color:#b42318' : ''}">${l}</th>`).join('')}<th>รวม</th><th style="min-width:120px">สัดส่วน</th></tr>`;
+    cats.forEach(c => { h += `<tr><td class="n l" data-fc7-dc="|${''}|${enc(c)}" data-cf="1">${esc(c)}</td>${cell[c].map((v, k) => v ? `<td class="n" style="${catHeat(v, mx)}" data-fc7-dc="|${k}|${enc(c)}">${v}</td>` : '<td></td>').join('')}<td class="n" style="font-weight:800" data-fc7-dc="|${''}|${enc(c)}">${rowT[c]}</td><td style="text-align:left"><span style="display:inline-block;width:70px;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:6px"><i style="display:block;height:100%;width:${rowT[c] / mr * 100}%;background:#d97706"></i></span><b>${grand ? Math.round(rowT[c] / grand * 100) : 0}%</b></td></tr>`; });
+    h += `<tr class="sub"><td class="l">ผลรวม</td>${colT.map((v, k) => v ? `<td class="n" data-fc7-dc="|${k}|">${v}</td>` : '<td></td>').join('')}<td class="n"><b>${grand}</b></td><td></td></tr></table>`;
+    const seg = [['', 'NSA3 + NSA4'], ['NSA3', 'NSA3'], ['NSA4', 'NSA4']];
+    box.innerHTML = `<div class="hd"><div><h2>Category × Flag Logic</h2><div class="sb">จำนวนใบ NSA3/NSA4 แยกตามหมวด และขั้น Flag Logic (P0 แล้ว → P0 ใน 1…7 วัน) · สีเข้ม = มาก · เรียงตาม "P0 แล้ว" มาก→น้อย · กดช่องเพื่อดูรายใบข้างล่าง</div></div>
+      <label class="sb">แสดง: ${seg.map(s => `<button type="button" class="fc7-cfb" data-cfn="${s[0]}" style="margin-left:4px;padding:3px 11px;border-radius:7px;border:1px solid var(--border2);cursor:pointer;font:inherit;font-size:12px;${N === s[0] ? 'background:#d97706;border-color:#d97706;color:#fff;font-weight:700' : 'background:var(--bg3);color:var(--text)'}">${s[1]}</button>`).join('')}</label></div>
+      <div class="sc7" style="max-height:none;overflow-x:auto">${cats.length ? h : '<div class="sb" style="padding:12px">ไม่มีใบ</div>'}</div>`;
+    box.querySelectorAll('.fc7-cfb').forEach(b => b.onclick = () => { F7.cfN = b.dataset.cfn; renderCfTable(F7.m); });
+  }
+
   // TRUEOWNERGROUP x Plan_Closed_Date. Dates before today (back date) are red so every province can see what is overdue.
   function renderPlanTable(m) {
     const box = document.getElementById('fc7-plan');
@@ -17719,7 +17739,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
-    renderCatTable(m); renderPlanTable(m); renderDD();
+    renderCatTable(m); renderCfTable(m); renderPlanTable(m); renderDD();
     el.style.maxHeight = F7.tab === 'sum' ? 'none' : '';   // summary shows in full; the page scrolls, not the table
     if (F7.tab === 'sum') { renderSummary(m, el); return; }
     if (F7.tab === 'prov') {
@@ -17918,6 +17938,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       <div class="c7"><div class="hd"><div class="tb"><span class="tab a" data-fc7-tab="sum">สรุป Region × TRUEOWNERGROUP × จังหวัด</span><span class="tab" data-fc7-tab="tk">รายใบ · แก้ Detail / Plan ได้</span></div><div class="sb" id="fc7-tbn"></div></div>
         <div class="sc7" id="fc7-tbl"></div>
         <div id="fc7-cat" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
+        <div id="fc7-cf" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-plan" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-ddw" style="display:none;margin-top:16px;padding-top:12px;border-top:2px solid var(--border)"><div class="hd"><h2 id="fc7-ddt" style="font-size:15px"></h2><button type="button" class="cp" data-fc7-ddx="1">ปิดรายใบ ✕</button></div><div class="sc7" id="fc7-dd"></div></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
