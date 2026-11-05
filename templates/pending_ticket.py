@@ -1,0 +1,2977 @@
+"""
+pending_ticket.py
+------------------
+NOR2026 / BBTEC NOC — "Pending Ticket" tab: an operational worksheet where the
+team logs what's being done about each pending ticket (problem group, action
+team, free-text notes, a work-photo link, a planned close date).
+
+Data flow:
+  - Ticket facts (TICKETID, CREATIONDATE, SEVERITY, ...) are read LIVE from
+    the same raw sheet realtime_monitor.py uses (REALTIME_SHEET_ID, gid=0).
+    That tab is overwritten wholesale by an external export process every
+    hour, so nothing the team types can live there - it would vanish on the
+    next refresh.
+  - Team-entered fields are instead stored in a SEPARATE tab within the SAME
+    spreadsheet, "TicketWorkLog", keyed by TICKETID. Every page load joins
+    live ticket rows with any saved work-log row for that TICKETID. A ticket
+    that's still pending next hour just gets rejoined with the same saved
+    work-log data - nothing is lost. A ticket that clears (stops appearing in
+    the live sheet) simply stops showing up; its old work-log row is left in
+    place (harmless leftover, not actively cleaned up).
+
+Priority (P0/P1/P2): identical formula to realtime_monitor.py.
+NANO flag: NN_ClusterID not empty / not "None" -> "NANO".
+"""
+
+import logging
+import re
+import threading
+import time
+from datetime import datetime, date
+
+from pending_trend import get_drive_and_sheets_clients, bangkok_now, AGING_COLORS, AGING_ORDER, OVER_24H_AGING_KEYS
+from mateline_status import build_mateline_status_lookup
+import site_capacity  # Capacity/Coverage site type (additive, never raises into callers)
+from realtime_monitor import REALTIME_SHEET_ID, REALTIME_WORKSHEET_GID, _parse_dt, _classify_priority
+
+log = logging.getLogger(__name__)
+
+ALLOWED_SEVERITIES = {"SA1", "SA2", "SA3", "SA4", "NSA1", "NSA2", "NSA3", "NSA4"}
+PENDING_TICKET_REGIONS = {"NOR1", "NOR2"}  # narrower than pending_trend's ALLOWED_REGIONS on purpose
+
+# Sort/group order: named bookmarks first (in this exact order), then
+# anything else lumped into "Others".
+BOOKMARK_SORT_ORDER = ["7.MB with SA1-4", "4.FBB with SA1-4", "3. All NW Incident NSA1-2"]
+
+LIVE_COLUMNS = [
+    "TICKETID", "CREATIONDATE", "TARGETFINISH", "SEVERITY", "SUBJECT", "CINAME",
+    "TRUEOWNERGROUP", "Bookmark", "Aging_Flag_Group", "SUBDISTRICT", "DISTRICT",
+    "Tech_Team", "Tech_Status", "CLASSIFICATION", "Subimpact",
+]
+
+# TRUEOWNERGROUP -> Province (explicit request: switch away from the
+# native PROVINCE column here, which produces the literal text "None"
+# for rows this doesn't cover - TRUEOWNERGROUP is confirmed clean).
+# Reused verbatim from sla_improvement._extract_region_province: same
+# pattern, same CMI1/CMI2 merge. A TRUEOWNERGROUP that doesn't end in
+# "-NOP" (a "-CORP" suffix, for example) simply doesn't match and
+# returns None - which is exactly the "not related to my work, exclude
+# entirely" behavior asked for, with no separate CORP-specific check
+# needed. Kept as its own copy rather than importing across modules for
+# one small function - if it's ever updated in sla_improvement.py,
+# update here too.
+_TOG_PATTERN = re.compile(r"TRUE-TH-BBT-(NOR[12])-([A-Z0-9]+)-NOP")
+_PROVINCE_CODE_MERGE = {"CMI1": "CMI", "CMI2": "CMI"}
+
+
+def _extract_region_province(true_owner_group):
+    m = _TOG_PATTERN.match(str(true_owner_group or "").strip())
+    if not m:
+        return None, None
+    region, code = m.group(1), m.group(2)
+    province = _PROVINCE_CODE_MERGE.get(code, code)
+    return region, province
+
+
+def _safe_str(v):
+    """Converts a raw sheet value into a JSON-safe string. Real bug this
+    fixes: a blank cell read through pandas comes back as a NaN float,
+    not an empty string or None - and a bare `r.get("SOME_COL", "")`
+    silently passes that NaN straight through into a response dict.
+    Python's json module happily writes that as the bare token NaN,
+    which is NOT valid JSON (browsers reject it outright, failing
+    res.json() with a SyntaxError on an otherwise-successful 200
+    response - very confusing from the client side, since nothing
+    looks wrong until you inspect the raw response body). None and NaN
+    both become "" here; everything else is stringified as-is."""
+    if v is None:
+        return ""
+    if isinstance(v, float) and v != v:  # the standard v != v NaN check - no math import needed
+        return ""
+    return str(v)
+
+GROUP_PROBLEM_OPTIONS = [
+    # Numbered per the "Dome" mapping (01-20). 12/21/22/23 from that list are not offered here.
+    "01. Spare part - Spare part not available",
+    "02. Spare part - Wait on site to replace",
+    "03. Budget required - Approve in progress",
+    "04. Site renovate - area is still closed",
+    "05. Site permission - Requesting or pending approval",
+    "06. Site permission - Approved and awaiting site entry",
+    "07. Site dismantle - Wait for configuration removal",
+    "08. Improvement - Awarded subcons",
+    "09. Improvement - Track B",
+    "10. Wait for other parties - Back office/Vendor support",
+    "11. Wait for other parties - Other operators/Provider",
+    "13. Risk Area - Protest/Dangerous area",
+    "14. Disaster - Strom/Flood/Earthquake",
+    "15. Difficulte work - Site equipment was stolen",
+    "16. Difficulte work - Work at high",
+    "17. Fiber optic - Fire burn/High voltage short circuit",
+    "18. Fiber optic \u2013 Accident/Constuction",
+    "19. Fiber optic - PEA/MEA Maintenance transmission line",
+    "20. Fiber optic - High loss/Degrade/Animal",
+    # Status-type values (replace the old "Clear" and "In progress - Priority TT ..." options)
+    "In Progress,Update Awaited",
+    "Solar Cell - Off Grid",
+    "Rebuild site",
+    "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    # NSA3/NSA4 specific values (highlighted in the Pending Ticket dropdown by their "N3/4-" prefix)
+    "N3/4-Workload",
+    "N3/4-W@H",
+    "N3/4-Spare part",
+    "N3/4-Improvement",
+    "N3/4-Need Track A Support",
+    "N3/4-Site Access",
+    "N3/4-Solar Cell Off-grid",
+    "N3/4-Solar Cell",
+]
+
+# Old stored value -> current value. Applied whenever the work log is read or written, and the sheet
+# itself is rewritten once per process (see _persist_group_problem_migration), so old tickets show the
+# new names immediately.
+_GP_OLD_TO_NEW = {
+    "Spare part - Spare part not available": "01. Spare part - Spare part not available",
+    "Spare part - Wait on site to replace": "02. Spare part - Wait on site to replace",
+    "Budget required - Approve in progress": "03. Budget required - Approve in progress",
+    "Site renovate - area is still closed": "04. Site renovate - area is still closed",
+    "Site permission - Requesting or pending approval": "05. Site permission - Requesting or pending approval",
+    "Site permission - Approved and awaiting site entry": "06. Site permission - Approved and awaiting site entry",
+    "Site dismantle - Wait for configuration removal": "07. Site dismantle - Wait for configuration removal",
+    "Improvement - Awarded subcons": "08. Improvement - Awarded subcons",
+    "Improvement - Track B": "09. Improvement - Track B",
+    "Wait for other parties - Back office/Vendor support": "10. Wait for other parties - Back office/Vendor support",
+    "Wait for other parties - Other operators/Provider": "11. Wait for other parties - Other operators/Provider",
+    "Risk Area - Protest/Dangerous area": "13. Risk Area - Protest/Dangerous area",
+    "Disaster - Strom/Flood/Earthquake": "14. Disaster - Strom/Flood/Earthquake",
+    "Difficulte work - Site equipment was stolen": "15. Difficulte work - Site equipment was stolen",
+    "Difficulte work - Work at high": "16. Difficulte work - Work at high",
+    "Fiber optic - Fire burn/High voltage short circuit": "17. Fiber optic - Fire burn/High voltage short circuit",
+    "Fiber optic \u2013 Accident/Constuction": "18. Fiber optic \u2013 Accident/Constuction",
+    "Fiber optic - PEA/MEA Maintenance transmission line": "19. Fiber optic - PEA/MEA Maintenance transmission line",
+    "Fiber optic - High loss/Degrade/Animal": "20. Fiber optic - High loss/Degrade/Animal",
+    "In progress - Priority TT management/ Interrupted by urgency TT": "In Progress,Update Awaited",
+    "Workload - Assigning team access site": "In Progress,Update Awaited",
+    "Workload - Assigning team access island/border area": "In Progress,Update Awaited",
+    "Clear": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "In Progress": "In Progress,Update Awaited",
+    "Update Awaited": "In Progress,Update Awaited",
+    "Issue Fixed": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "TT Resolved": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "Issue Resolved": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+    "TT Closed": "Issue Fixed,TT Resolved,Issue Resolved,TT Closed",
+}
+
+
+def normalize_group_problem(v):
+    """Maps an old Group Problem string to its current name; anything else is returned unchanged."""
+    v = "" if v is None else str(v)
+    return _GP_OLD_TO_NEW.get(v.strip(), v)
+
+
+ACTION_TEAM_OPTIONS = ["OFC", "NODE", "SUP", "ENG Zone", "Special Team", "Planwork", "Track 7", "E//", "Other Vendor"]
+
+WORK_LOG_SHEET = "TicketWorkLog"
+WORK_LOG_HEADER = [
+    "ticket_id", "group_problem", "action_team", "detail", "image_link",
+    "plan_closed_date", "updated_at", "updated_by",
+]
+
+# External mirror: every build of the Pending Ticket table also gets written
+# here in full, exactly matching what's shown on the web page, plus an
+# insert_time column stamping when that write happened.
+EXPORT_SHEET_ID = "10Y3Pyp6-MqlrcxiDXdAjTNWWZLgDWp94dZvU51lOxWU"
+EXPORT_WORKSHEET_GID = 1260767128
+EXPORT_HEADER = [
+    "TICKETID", "CINAME", "SUBJECT", "Priority", "CREATIONDATE", "TARGETFINISH",
+    "SEVERITY", "TRUEOWNERGROUP", "Bookmark", "Aging_Flag_Group", "SUBDISTRICT",
+    "DISTRICT", "Tech_Team", "Tech_Status", "NANO", "Group_Problem", "Action_Team",
+    "Detail", "Image_Link", "Plan_Closed_Date", "Updated_At", "Updated_By", "insert_time",
+    "Site Type",  # appended LAST on purpose (never inserted) so existing column positions stay put
+    "Category",   # column Y: SUBJECT category for NSA3/NSA4 tickets (blank for other severities), same rules as the dashboard
+    "Region",     # column Z: NOR1 / NOR2
+    "Flag Logic",  # column AA: NSA3/NSA4 only - exactly one of "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน"; blank if farther than 7 days (was "Flag Priority" = Category lookup)
+    "Comment By P'Kasem",  # column AB: free-text comment written only by KASEM_EMAILS (stored in the KasemComment tab)
+]
+
+# Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
+FLAG_PRIORITY_CATEGORY_LIST = [
+    "Cell Up/Down Alarm: Fiber_cut",
+    "Cell Up/Down Alarm: Fiber_cut / RRU/CPRI/SFP Issue",
+    "Cell Up/Down Alarm: Frequency Input Power Failure",
+    "Cell Up/Down Alarm: High Temperature",
+    "Cell Up/Down Alarm: PEA/MEA",
+    "Cell Up/Down Alarm: Port Down Issue",
+    "Cell Up/Down Alarm: Power equipment",
+    "Cell Up/Down Alarm: Power Related",
+    "Cell Up/Down Alarm: Power System",
+    "Cell Up/Down Alarm: Radio Down",
+    "Cell Up/Down Alarm: RAN Related",
+    "Cell Up/Down Alarm: RRU/CPRI/SFP Issue",
+    "Cell Up/Down Alarm: Transmission",
+    "Cell Up/Down Alarm: Unspecified",
+    "DWDM/Optical Transport Alarm",
+    "Environmental Alarm (Temperature/Smoke)",
+    "Fan Alarm",
+    "FTTX/OLT Alarm",
+    "HW Partial Fault",
+    "Intrusion Alarm (ความปลอดภัยสถานี)",
+    "Manual Request/Coordination (แจ้งประสานงาน)",
+    "Microwave Link Alarm",
+    "Third-Party/Peering Provider Incident",
+    "Transmission Power Alarm",
+]
+FLAG_PRIORITY_CATEGORIES = {c.lower() for c in FLAG_PRIORITY_CATEGORY_LIST}
+
+
+# ---------------------------------------------------------------------------
+# Live ticket rows
+# ---------------------------------------------------------------------------
+
+def _get_worksheet(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    for ws in sh.worksheets():
+        if ws.id == REALTIME_WORKSHEET_GID:
+            return ws
+    return sh.sheet1
+
+
+# Two very different caching needs share this file:
+#
+# - live ticket rows: fed by an EXTERNAL system (SCCD+ITSM) that re-stamps
+#   `insert_time` on its own frequent cadence (every few minutes, as new
+#   tickets stream in) - not the rarely-changing kind of value the
+#   insert_time trick works well for. An earlier version of this function
+#   read that cell first as a "cheap check" before deciding whether to do
+#   the full get_all_records() read, mirroring realtime_monitor.py - but
+#   because insert_time here changes on nearly every load anyway, that
+#   turned one Sheets API round trip into two almost every time (the cheap
+#   check, then the full read right after since insert_time had already
+#   moved on) - net SLOWER, which is what caused the "หน้านี้มันนานไป"
+#   report. Reverted to a plain short-TTL cache below: no extra round trip,
+#   just reuse the same read for anyone loading within the TTL window.
+# - work log: written entirely through save_work_log_entry() in THIS app, so
+#   it explicitly invalidates its cache on every save - safe to cache for a
+#   long time since staleness can only come from someone editing the sheet
+#   directly outside the app.
+#
+# Both caches are safe to rely on only because Gunicorn runs a single worker
+# process (see Procfile) - this in-memory cache is shared by every request.
+# Raising the worker count would split it across processes and let stale
+# reads slip through; use more threads instead if more concurrency is ever
+# needed, not more workers.
+LIVE_ROWS_CACHE_TTL_SECONDS = 45   # this sheet is shared by nearly every feature on the dashboard now
+                                    # (Pending Ticket, P0 Only, Flood NAN, P0 snapshot comparison's "current"
+                                    # count...) - too short a TTL here means cumulative Sheets API reads
+                                    # across everyone's tabs adds up fast and trips the per-minute read quota.
+                                    # 45s keeps data fresh enough for NOC monitoring while cutting call volume ~3x.
+WORK_LOG_CACHE_TTL_SECONDS = 7200   # 2h; save_work_log_entry invalidates explicitly
+_live_rows_cache = {"data": None, "ts": 0}
+_work_log_cache = {"data": None, "ts": 0}
+_work_log_row_index_cache = {}  # ticket_id -> sheet row number, kept alongside _work_log_cache
+_cache_lock = threading.Lock()
+
+
+def fetch_live_rows(gs_client, use_cache=True):
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _live_rows_cache["data"] is not None and (now - _live_rows_cache["ts"]) < LIVE_ROWS_CACHE_TTL_SECONDS:
+                return _live_rows_cache["data"]
+            # Cache is cold/stale - fetch WHILE STILL HOLDING the lock, so a
+            # second thread arriving concurrently blocks here instead of
+            # also deciding independently that a fresh Sheets read is
+            # needed. Without this, N callers hitting a cold cache at once
+            # (e.g. a page that reads this sheet twice in one request, or
+            # two people loading the same tab within the same instant) each
+            # do their own separate read instead of sharing one - a classic
+            # cache-stampede, and the likely cause of a burst of Sheets API
+            # reads tripping the per-minute read quota.
+            ws = _get_worksheet(gs_client)
+            rows = ws.get_all_records()
+            _live_rows_cache["data"] = rows
+            _live_rows_cache["ts"] = time.monotonic()
+            return rows
+
+    ws = _get_worksheet(gs_client)
+    return ws.get_all_records()
+
+
+
+def _bookmark_sort_key(bookmark):
+    try:
+        return BOOKMARK_SORT_ORDER.index(bookmark)
+    except ValueError:
+        return len(BOOKMARK_SORT_ORDER)  # "Others" - sorts after the named ones
+
+
+# ---------------------------------------------------------------------------
+# Work-log persistence (separate tab, survives the live sheet's hourly wipe)
+# ---------------------------------------------------------------------------
+
+def _ensure_work_log_tab(spreadsheet):
+    try:
+        return spreadsheet.worksheet(WORK_LOG_SHEET)
+    except Exception:
+        ws = spreadsheet.add_worksheet(title=WORK_LOG_SHEET, rows=2000, cols=len(WORK_LOG_HEADER))
+        ws.append_row(WORK_LOG_HEADER)
+        return ws
+
+
+_gp_migrated = {"done": False}
+
+
+def _persist_group_problem_migration(ws, updates):
+    """Writes the renamed Group Problem values back to TicketWorkLog in ONE batch (once per process;
+    reads already show the new names regardless, so a failure here is harmless)."""
+    if not updates or _gp_migrated["done"]:
+        return
+    _gp_migrated["done"] = True
+    try:
+        ws.batch_update(updates, value_input_option="RAW")
+        log.info("work log: migrated %d Group Problem value(s) to the new names", len(updates))
+    except Exception:
+        log.exception("work log: Group Problem migration write failed (reads still normalised)")
+
+
+def load_work_log(gs_client, use_cache=True):
+    """Returns {ticket_id: {group_problem, action_team, detail, image_link,
+    plan_closed_date, updated_at, updated_by}} for every saved row. Also
+    populates _work_log_row_index_cache (ticket_id -> sheet row number) as
+    a side effect, so save_work_log_entry can look up whether a ticket
+    already has a row without its own separate read."""
+    now = time.monotonic()
+    if use_cache:
+        with _cache_lock:
+            if _work_log_cache["data"] is not None and (now - _work_log_cache["ts"]) < WORK_LOG_CACHE_TTL_SECONDS:
+                return _work_log_cache["data"]
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_work_log_tab(sh)
+    records = ws.get_all_values()[1:]  # skip header
+    out = {}
+    row_index = {}
+    gp_updates = []
+    for i, row in enumerate(records):
+        if not row or not row[0]:
+            continue
+        padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
+        if normalize_group_problem(padded[1]) != padded[1]:
+            gp_updates.append({"range": f"B{i + 2}", "values": [[normalize_group_problem(padded[1])]]})
+        out[padded[0]] = {
+            "group_problem": normalize_group_problem(padded[1]), "action_team": padded[2], "detail": padded[3],
+            "image_link": padded[4], "plan_closed_date": padded[5],
+            "updated_at": padded[6], "updated_by": padded[7],
+        }
+        row_index[padded[0]] = i + 2  # +1 for header, +1 for 1-based sheet rows
+    _persist_group_problem_migration(ws, gp_updates)
+    if use_cache:
+        with _cache_lock:
+            _work_log_cache["data"] = out
+            _work_log_cache["ts"] = now
+            _work_log_row_index_cache.clear()
+            _work_log_row_index_cache.update(row_index)
+    return out
+
+
+# ── "Comment By P'Kasem" (export column AB) ───────────────────────────────
+# Stored in its own tab so the Work Log layout is untouched. Only KASEM_EMAIL may write (enforced in the API).
+KASEM_EMAILS = ("kasemyanaso@gmail.com", "saridphong_n@bbtec.co.th")   # the only users who may edit the comment
+KASEM_EMAIL = KASEM_EMAILS[0]
+KASEM_SHEET = "KasemComment"
+KASEM_HEADER = ["TICKETID", "Comment", "Updated_At", "Updated_By"]
+KASEM_MAX_LEN = 1500
+KASEM_CACHE_TTL_SECONDS = 60
+_kasem_cache = {"data": None, "rows": {}, "ts": 0.0}
+
+
+def is_kasem(email):
+    return str(email or "").strip().lower() in KASEM_EMAILS
+
+
+_kasem_ws_cache = {"ws": None}
+
+
+def _is_quota_error(e):
+    t = str(e)
+    return "429" in t or "Quota exceeded" in t or "RATE_LIMIT" in t
+
+
+def _with_quota_retry(fn, tries=4):
+    """Runs fn(); on a Sheets 429 (per-minute quota shared with the rest of the dashboard) waits and retries."""
+    for n in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if n == tries - 1 or not _is_quota_error(e):
+                raise
+            time.sleep(2.5 * (n + 1))
+
+
+def _ensure_kasem_tab(sh):
+    try:
+        return sh.worksheet(KASEM_SHEET)
+    except Exception as e:
+        if _is_quota_error(e):
+            raise
+        ws = sh.add_worksheet(title=KASEM_SHEET, rows=2000, cols=len(KASEM_HEADER))
+        _with_quota_retry(lambda: ws.update("A1:D1", [KASEM_HEADER], value_input_option="RAW"))   # fixed row 1, retried on quota
+        return ws
+
+
+def _kasem_ws(gs_client):
+    """The KasemComment worksheet, looked up once and then reused (each lookup is a metadata read against the quota)."""
+    with _cache_lock:
+        ws = _kasem_ws_cache["ws"]
+    if ws is None:
+        ws = _with_quota_retry(lambda: _ensure_kasem_tab(gs_client.open_by_key(REALTIME_SHEET_ID)))
+        with _cache_lock:
+            _kasem_ws_cache["ws"] = ws
+    return ws
+
+
+def load_kasem_comments(gs_client, use_cache=True):
+    """{ticket_id: {"comment", "updated_at", "updated_by"}} from the KasemComment tab (60 s cache).
+    If the sheet can't be read (quota), the last good copy is returned instead of failing."""
+    now = time.monotonic()
+    with _cache_lock:
+        if use_cache and _kasem_cache["data"] is not None and (now - _kasem_cache["ts"]) < KASEM_CACHE_TTL_SECONDS:
+            return _kasem_cache["data"]
+        stale = _kasem_cache["data"]
+    try:
+        ws = _kasem_ws(gs_client)
+        values = _with_quota_retry(lambda: ws.get_all_values())
+    except Exception:
+        if stale is not None:
+            log.warning("KasemComment read failed - serving the last cached copy")
+            return stale
+        raise
+    out, rows = {}, {}
+    for i, row in enumerate(values):
+        # Skip the header only when it really is the header: if the tab was created but the header write
+        # was cut off by a quota error, row 1 is already a real comment and must not be dropped.
+        if not row or not str(row[0]).strip() or str(row[0]).strip().upper() == "TICKETID":
+            continue
+        p = row + [""] * (len(KASEM_HEADER) - len(row))
+        out[str(p[0]).strip()] = {"comment": p[1], "updated_at": p[2], "updated_by": p[3]}
+        rows[str(p[0]).strip()] = i + 1          # 1-based sheet row; a later duplicate row wins
+    with _cache_lock:
+        _kasem_cache.update(data=out, rows=rows, ts=now)
+    return out
+
+
+def save_kasem_comment(gs_client, ticket_id, comment, updated_by=""):
+    """Upserts one comment row. Caller must already have checked is_kasem(). Returns the stored dict.
+    Uses as few Sheets calls as possible: no re-read when the row index is already cached, and a
+    write-only append when it is not (duplicates are harmless - the newest row wins on load)."""
+    with _cache_lock:
+        warm = _kasem_cache["data"] is not None
+    if not warm:
+        try:
+            load_kasem_comments(gs_client)
+        except Exception:
+            log.warning("save_kasem_comment: could not warm the row index - appending a new row instead")
+    ws = _kasem_ws(gs_client)
+    stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    vals = [ticket_id, comment, stamp, updated_by or KASEM_EMAILS[0]]
+    with _cache_lock:
+        row_idx = _kasem_cache["rows"].get(ticket_id)
+    if row_idx:
+        _with_quota_retry(lambda: ws.update(f"A{row_idx}:D{row_idx}", [vals], value_input_option="RAW"))
+    else:
+        resp = _with_quota_retry(lambda: ws.append_row(vals, value_input_option="RAW"))
+        row_idx = _row_number_from_append_response(resp)
+    rec = {"comment": comment, "updated_at": stamp, "updated_by": vals[3]}
+    with _cache_lock:
+        if _kasem_cache["data"] is None:
+            _kasem_cache["data"] = {}
+            _kasem_cache["ts"] = 0.0      # partial copy (this one ticket only) - re-read at the next load
+        _kasem_cache["data"][ticket_id] = rec
+        if row_idx:
+            _kasem_cache["rows"][ticket_id] = row_idx
+    return rec
+
+
+def _invalidate_work_log_cache():
+    with _cache_lock:
+        _work_log_cache["data"] = None
+        _work_log_cache["ts"] = 0
+
+
+# Ordered regex rules for _auto_categorize_subject, matched against the lower-cased SUBJECT. Re-learned on 2026-10-09
+# from the 722 NSA3/NSA4 tickets of TT_Monitoring_P8 (719 match the reference labels exactly; the other 3 are
+# deliberate clean-ups: "Port Down Issue (1)" and the truncated "Input Power Failure. (18:00-20:0" were merged into
+# their normal sub-reason, and the single "IPRAN Alarm (Other)" intrusion ticket became Intrusion Alarm).
+# Order matters: earlier rules win (specific Cell Up/Down reasons first, VSWR before Radio Performance, ...).
+# Patterns are RE2-compatible so the same list is used for the Google Sheet formula.
+SUBJECT_CATEGORY_RULES = [
+    ('Cell Up/Down Alarm: Fiber_cut / Port Down Issue', r"cell up/down.{0,3}fiber_cut / port down"),
+    ('Cell Up/Down Alarm: Fiber_cut / RRU/CPRI/SFP Issue', r"cell up/down.{0,3}fiber_cut / rru"),
+    ('Cell Up/Down Alarm: PEA/MEA / RRU/CPRI/SFP Issue', r"cell up/down.{0,3}pea/mea / rru"),
+    ('Cell Up/Down Alarm: Fiber_cut', r"cell up/down.{0,3}fiber_cut"),
+    ('Cell Up/Down Alarm: PEA/MEA', r"cell up/down.{0,3}pea/mea"),
+    ('Cell Up/Down Alarm: RRU/CPRI/SFP Issue', r"cell up/down.{0,3}rru/cpri"),
+    ('Cell Up/Down Alarm: Port Down Issue', r"cell up/down.{0,3}port down"),
+    ('Cell Up/Down Alarm: Power equipment', r"cell up/down.{0,3}power equipment"),
+    ('Cell Up/Down Alarm: Power Related', r"cell up/down.{0,3}power related"),
+    ('Cell Up/Down Alarm: Power System', r"cell up/down.{0,3}power system"),
+    ('Cell Up/Down Alarm: Transmission', r"cell up/down.{0,3}transmission"),
+    ('Cell Up/Down Alarm: High Temperature', r"cell up/down.{0,3}high temperature"),
+    ('Cell Up/Down Alarm: Radio Down', r"cell up/down.{0,3}radio down"),
+    ('Cell Up/Down Alarm: RAN Related', r"cell up/down.{0,3}ran related"),
+    ('Cell Up/Down Alarm: Frequency Input Power Failure', r"cell up/down.{0,3}frequency input power"),
+    ('Cell Up/Down Alarm: Frequency', r"cell up/down.{0,3}frequency"),
+    ('Cell Up/Down Alarm: Input Power Failure', r"cell up/down.{0,3}input power failure"),
+    ('Cell Up/Down Alarm: Unspecified', r"cell up/down|cell down"),
+    ('External Alarm - Power/Site Infra', r"generator not run"),
+    ('Third-Party/Peering Provider Incident', r"meta incident|akamai|peering|google ggc|netflix"),
+    ('Intrusion Alarm (ความปลอดภัยสถานี)', r"intrusion|open_door|open door|\(ason |fire alarm|alarm_major_open|huawei-tr-rela"),
+    ('CPRI/RRU Fiber Alarm', r"link failure \(cpri\)|fiber loss|port diff|rru port"),
+    ('Link Failure/Degraded', r"link failure|link degraded|ethernet link|link_failure"),
+    ('HW Partial Fault', r"hw partial fault"),
+    ('IPRAN Hardware Alarm (Fan/Board)', r"ipran alarm +board (fail|temperature)"),
+    ('Environmental Alarm (Temperature/Smoke)', r"temperature"),
+    ('VSWR Alarm (สายอากาศ/ฟีดเดอร์)', r"vswr|rf reflected power high"),
+    ('Radio Performance Degraded', r"ul rssi|service degraded|service unavailable|resource allocation failure|sleeping cell|increased ber|internal interference|performance degraded|ออกสลับกัน|node group sync loss|cell sleep"),
+    ('External Alarm - Power/Site Infra', r"external alarm|input power failure|lossofmains|main ac power failure|rectifier|ac_fail|ac power is off|ac mains failure|main breaker|batt backup|powered_off|generator not run"),
+    ('Solar/Inverter Power Alarm', r"solar cell|inverter"),
+    ('Antenna/RET Alarm', r"rx diversity lost|tiltoutofrange|feeder cable|rxdiversitylost|retportcurrenttoohigh|antennasystemproblem|digitalcable_cablefailure|antennabranch|retdevice_retfailure|rx branch imbalance|communicationlostwithret|antenna calibration|current too high"),
+    ('Equipment Fault (RET/Connection)', r"rap no connection|ret not calibrated|ret failure|no_connection"),
+    ('Sync/Timing Alarm', r"timesyncio|sync ptp|time reachability|ntp server|gps receiver"),
+    ('IPRAN Power/Optical Alarm', r"ipran"),
+    ('Fan Alarm', r"fan fail"),
+    ('RF Module Failure', r"rf module failure"),
+    ('Battery/Power Management Alarm', r"paco-casa|energy_cell|swap battery"),
+    ('DWDM/Optical Transport Alarm', r"dwdm|mossman|edfa|voa abnormal"),
+    ('Microwave Link Alarm', r"microwave"),
+    ('Complaint / No Traffic', r"nbtc"),
+    ('CPRI/RRU Fiber Alarm', r"cpri|fan rru"),
+    ('FTTX/OLT Alarm', r"olt|ftth|fiberhome"),
+    ('Transmission Power Alarm', r"input_b power low|input power low|sfp mismatch|power low"),
+    ('Manual Request/Coordination (แจ้งประสานงาน)', r"request check|เข้าแก้ไขปัญหา|dpo request|optimiz|support for check|ชำรุด|remote from|for replace|shelf defect"),
+    ('Hardware/Software Fault (FRU/HW/SW)', r"install sw|rejectsignalfromhardware|fan speed continuously|hw fault|swerror|sw error|resource activation timeout|license key not available|lan switch abnormality|resource configuration failure|fru general problem|mo configuration not consistent"),
+]
+
+# Safety net for wording never seen before: broad families, so a ticket is never left in "Other".
+SUBJECT_CATEGORY_FALLBACKS = [
+    ('Cell Up/Down Alarm: Unspecified', r"cell|rru|sector"),
+    ('External Alarm - Power/Site Infra', r"power|battery|mains|breaker|generator|\bups\b|ac fail|dc "),
+    ('Link Failure/Degraded', r"link|port|fiber|optical|sfp|cpe|pe:|loss"),
+    ('Hardware/Software Fault (FRU/HW/SW)', r"alarm|fault|fail|error|card|board"),
+]
+SUBJECT_CATEGORY_FALLBACK = 'Manual Request/Coordination (แจ้งประสานงาน)'
+SUBJECT_CATEGORY_OTHER = "Other/Uncategorized"  # kept for compatibility; _auto_categorize_subject no longer returns it
+_SUBJECT_RULES_RE = [(c, re.compile(pat)) for c, pat in SUBJECT_CATEGORY_RULES]
+_SUBJECT_FALLBACKS_RE = [(c, re.compile(pat)) for c, pat in SUBJECT_CATEGORY_FALLBACKS]
+
+
+def _auto_categorize_subject(subject):
+    """Groups a ticket SUBJECT line into one of the categories via the ordered regex rules, then the broad
+    fallback families, then SUBJECT_CATEGORY_FALLBACK - so it never returns "Other/Uncategorized"."""
+    s = str(subject or "").lower()
+    for category, rx in _SUBJECT_RULES_RE:
+        if rx.search(s):
+            return category
+    for category, rx in _SUBJECT_FALLBACKS_RE:
+        if rx.search(s):
+            return category
+    return SUBJECT_CATEGORY_FALLBACK
+
+
+def _row_number_from_append_response(resp):
+    """Extracts the row number Sheets actually appended to from
+    append_row()'s raw API response (updates.updatedRange, e.g.
+    'TicketWorkLog!A15:H15') - avoids a follow-up read to find out where
+    the new row landed."""
+    try:
+        updated_range = resp["updates"]["updatedRange"]
+        cell_ref = updated_range.split("!")[1].split(":")[0]  # "A15"
+        return int(re.search(r"\d+", cell_ref).group())
+    except (KeyError, IndexError, AttributeError, ValueError):
+        return None
+
+
+def save_work_log_entry(gs_client, ticket_id, fields, updated_by=None):
+    """fields: dict with any of group_problem/action_team/detail/image_link/
+    plan_closed_date. Upserts the row for ticket_id, stamping updated_at (and
+    updated_by once a login system exists - for now defaults to 'unknown').
+
+    Looks up whether ticket_id already has a row via the cached row-index
+    (populated by load_work_log(), which this calls first to guarantee it's
+    warm) instead of its own ws.col_values(1) read - that used to run
+    uncached on every single save, which under normal multi-person use
+    (several saves in quick succession while working an incident) was
+    enough on its own to trip the Sheets API's per-minute read quota.
+    Updates the cache in place afterward rather than invalidating it, so a
+    burst of consecutive saves stays fully cache-driven - the sheet is only
+    ever actually re-read after WORK_LOG_CACHE_TTL_SECONDS of no saves, or
+    if something edited the sheet directly outside the app."""
+    load_work_log(gs_client)  # ensures _work_log_row_index_cache is warm (cache hit unless >2h idle)
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_work_log_tab(sh)
+
+    now_str = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    row_values = [
+        ticket_id,
+        normalize_group_problem(fields.get("group_problem", "")),
+        fields.get("action_team", ""),
+        fields.get("detail", ""),
+        fields.get("image_link", ""),
+        fields.get("plan_closed_date", ""),
+        now_str,
+        updated_by or "unknown",
+    ]
+
+    with _cache_lock:
+        row_idx = _work_log_row_index_cache.get(ticket_id)
+
+    if row_idx is not None:
+        ws.update(f"A{row_idx}:H{row_idx}", [row_values])
+    else:
+        resp = ws.append_row(row_values)
+        row_idx = _row_number_from_append_response(resp)
+        if row_idx is None:
+            # Couldn't tell where the row landed - don't risk caching a wrong
+            # index (a future save for this ticket would silently append a
+            # duplicate row instead of updating). Force a full re-read next time.
+            _invalidate_work_log_cache()
+            return row_values
+
+    with _cache_lock:
+        if _work_log_cache["data"] is not None:
+            _work_log_cache["data"][ticket_id] = {
+                "group_problem": row_values[1], "action_team": row_values[2], "detail": row_values[3],
+                "image_link": row_values[4], "plan_closed_date": row_values[5],
+                "updated_at": row_values[6], "updated_by": row_values[7],
+            }
+        _work_log_row_index_cache[ticket_id] = row_idx
+    return row_values
+
+
+def rename_group_problem_value(gs_client, old_value, new_value):
+    """One-time cleanup: renames every occurrence of `old_value` in the
+    group_problem column of TicketWorkLog to `new_value` (e.g. consolidating
+    two similar options into one after the dropdown list changes). Returns
+    how many rows were updated."""
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _ensure_work_log_tab(sh)
+    values = ws.get_all_values()
+    if not values:
+        return 0
+    updates = []
+    changed = 0
+    for i, row in enumerate(values[1:], start=2):  # skip header
+        if len(row) > 1 and row[1] == old_value:
+            updates.append({"range": f"B{i}", "values": [[new_value]]})
+            changed += 1
+    if updates:
+        ws.batch_update(updates, value_input_option="RAW")
+        _invalidate_work_log_cache()
+    return changed
+
+
+# ---------------------------------------------------------------------------
+# Nightly auto-fill of untouched tickets (21:30 Bangkok, see app.py)
+# ---------------------------------------------------------------------------
+# Explicit request: every night, a ticket whose Aging_Flag_Group is one of the
+# OverSLA buckets below and whose five work-log fields are ALL still
+# empty (nobody has touched it) gets a default plan filled in, stamped
+# "System automatic". Anything a person already entered - even a single field -
+# is left exactly as it is.
+AUTO_FILL_AGING_GROUPS = (
+    "1) OverSLA : > 30 days",
+    "2) OverSLA : < 30 days",
+    "3) OverSLA : < 7 days",
+    "4) OverSLA : < 3 days",
+    "5) OverSLA : < 1 day",     # added on request - same rule as the four above
+    "6) Within SLA",           # added on request - same rule: only still-untouched tickets get the default plan
+)
+AUTO_FILL_VALUES = {
+    "group_problem": "In Progress,Update Awaited",
+    "action_team": "OFC",
+    "detail": "Team on progress fixing/wait update from team",
+    "image_link": "",   # deliberately left empty
+}
+AUTO_FILL_UPDATED_BY = "System automatic"
+# Bookmark "Other" (= NSA3/NSA4, the catch-all shown as "NSA3-4") is handled by NODE teams,
+# so untouched tickets there get NODE instead of the default OFC.
+AUTO_FILL_ACTION_TEAM_NSA34 = "NODE"
+_auto_fill_run_lock = threading.Lock()
+
+
+def _auto_fill_action_team(entry):
+    """NODE for the catch-all "Other"/NSA3-4 bookmark (anything outside the 3 named bookmarks),
+    OFC (the default) for every other ticket. Uses the same bucket rule as Exclusive Pending."""
+    if _exclusive_bookmark_label(entry.get("Bookmark")) == "NSA3-4":
+        return AUTO_FILL_ACTION_TEAM_NSA34
+    return AUTO_FILL_VALUES["action_team"]
+
+
+def _norm_aging(v):
+    """Whitespace/case-insensitive form, so "1) OverSLA : > 30 days" still
+    matches if the sheet ever has double spaces or different casing."""
+    return re.sub(r"\s+", "", str(v or "")).lower()
+
+
+_AUTO_FILL_AGING_NORM = {_norm_aging(x) for x in AUTO_FILL_AGING_GROUPS}
+_AUTO_FILL_AGING_CANON = {_norm_aging(x): x for x in AUTO_FILL_AGING_GROUPS}
+
+
+def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_ticket_id=None):
+    """Fills the default plan for untouched over-SLA tickets. Returns a
+    summary dict (never raises for "nothing to do").
+
+    Safety rules:
+      * Scope = exactly the tickets the Pending Ticket tab lists
+        (_fetch_full_ticket_entries), so CORP/out-of-scope rows are never touched.
+      * Eligible only if Aging_Flag_Group is one of AUTO_FILL_AGING_GROUPS AND
+        group_problem, action_team, detail, image_link, plan_closed_date are ALL
+        blank in TicketWorkLog (read fresh from the sheet, not from the cache).
+      * Idempotent: once filled, a ticket is no longer blank, so re-running the
+        same night writes nothing.
+      * Writes are batched (one batch_update for existing rows + append_rows for
+        new ones) - per-ticket writes would blow through the Sheets write quota.
+      * dry_run=True reports what WOULD change and writes nothing.
+      * explain_ticket_id (optional) adds an "explain" entry saying why that one
+        ticket was / wasn't picked - a read-only answer to "why didn't ticket X update?"."""
+    if not _auto_fill_run_lock.acquire(blocking=False):
+        return {"skipped": "another auto-fill run is already in progress"}
+    try:
+        from datetime import timedelta as _td
+        if AUTO_FILL_VALUES["group_problem"] not in GROUP_PROBLEM_OPTIONS or AUTO_FILL_VALUES["action_team"] not in ACTION_TEAM_OPTIONS or AUTO_FILL_ACTION_TEAM_NSA34 not in ACTION_TEAM_OPTIONS:
+            raise RuntimeError("auto-fill defaults are not valid dropdown options - refusing to write")
+
+        now_dt = bangkok_now()
+        plan_date = (now_dt.date() + _td(days=1)).strftime("%Y-%m-%d")   # Day+1
+        now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        _invalidate_work_log_cache()                  # never decide from a stale (up to 2h old) cache
+        entries = _fetch_full_ticket_entries(gs_client)
+
+        sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+        ws = _ensure_work_log_tab(sh)
+        sheet_rows = ws.get_all_values()
+        existing = {}                                  # ticket_id -> (sheet row number, [B..F cells])
+        for i, row in enumerate(sheet_rows[1:], start=2):
+            if row and row[0]:
+                padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
+                existing[padded[0]] = (i, padded[1:6])
+
+        summary = {
+            "dry_run": bool(dry_run), "plan_closed_date": plan_date,
+            "tickets_in_scope": len(entries), "in_aging_buckets": 0,
+            "skipped_already_has_data": 0, "to_update_existing_rows": 0, "to_append_new_rows": 0,
+            "written": 0, "to_fill_by_action_team": {}, "to_fill_by_bucket": {g: 0 for g in AUTO_FILL_AGING_GROUPS}, "sample_ticket_ids": [],
+        }
+        target = str(explain_ticket_id or "").strip()
+        explain = None
+        updates, appends, seen = [], [], set()
+        for e in entries:
+            tid = str(e.get("TICKETID", "")).strip()
+            if not tid or tid in seen:
+                continue
+            seen.add(tid)
+            if _norm_aging(e.get("Aging_Flag_Group")) not in _AUTO_FILL_AGING_NORM:
+                if tid == target:
+                    explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": False,
+                               "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                               "reason": "Aging_Flag_Group is not one of the eligible buckets (rule covers only: " + " | ".join(AUTO_FILL_AGING_GROUPS) + ")"}
+                continue
+            summary["in_aging_buckets"] += 1
+            row_no, cells = existing.get(tid, (None, [""] * 5))
+            if any(str(c).strip() for c in cells):
+                summary["skipped_already_has_data"] += 1
+                if tid == target:
+                    explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": False,
+                               "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                               "reason": "already has data in TicketWorkLog - a person's entry is never overwritten",
+                               "current_values": dict(zip(["group_problem", "action_team", "detail", "image_link", "plan_closed_date"], cells))}
+                continue
+            if tid == target:
+                explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": True,
+                           "aging_flag_group": str(e.get("Aging_Flag_Group", "")),
+                           "reason": "eligible: over-SLA bucket and all 5 fields empty" + ("" if not dry_run else " (dry run - nothing written)")}
+            values = [
+                tid, AUTO_FILL_VALUES["group_problem"], _auto_fill_action_team(e),
+                f"{now_dt.strftime('%d/%m')} {AUTO_FILL_VALUES['detail']}",   # dated, so it reads as the first line of the day-by-day detail
+                AUTO_FILL_VALUES["image_link"],
+                plan_date, now_str, AUTO_FILL_UPDATED_BY,
+            ]
+            _at = _auto_fill_action_team(e)
+            summary["to_fill_by_action_team"][_at] = summary["to_fill_by_action_team"].get(_at, 0) + 1
+            summary["to_fill_by_bucket"][_AUTO_FILL_AGING_CANON[_norm_aging(e.get("Aging_Flag_Group"))]] += 1
+            if row_no is not None:
+                updates.append((row_no, values))
+            else:
+                appends.append(values)
+            if len(summary["sample_ticket_ids"]) < 20:
+                summary["sample_ticket_ids"].append(tid)
+
+        summary["to_update_existing_rows"] = len(updates)
+        summary["to_append_new_rows"] = len(appends)
+
+        if target:
+            if explain is None:
+                # Not in the Pending Ticket tab's list at all - look at the raw live sheet to say why.
+                try:
+                    raw = next((r for r in fetch_live_rows(gs_client) if str(r.get("TICKETID", "")).strip() == target), None)
+                    if raw is None:
+                        explain = {"ticket_id": target, "in_pending_ticket_tab": False, "would_fill": False,
+                                   "reason": "not in the live pending sheet right now (already closed, or not synced into the sheet yet)"}
+                    else:
+                        why = []
+                        if str(raw.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+                            why.append(f"Region '{raw.get('Region')}' is outside NOR1/NOR2")
+                        if str(raw.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+                            why.append(f"SEVERITY '{raw.get('SEVERITY')}' is not an allowed severity")
+                        if _extract_region_province(raw.get("TRUEOWNERGROUP"))[1] is None:
+                            why.append(f"TRUEOWNERGROUP '{raw.get('TRUEOWNERGROUP')}' is not a NOR '-NOP' group (e.g. CORP) - excluded from the tab")
+                        explain = {"ticket_id": target, "in_pending_ticket_tab": False, "would_fill": False,
+                                   "aging_flag_group": str(raw.get("Aging_Flag_Group", "")),
+                                   "reason": "; ".join(why) or "in the live sheet but not in the tab's list (unexpected - check filters)"}
+                except Exception as ex:
+                    explain = {"ticket_id": target, "would_fill": False, "reason": f"could not look up the live sheet: {ex}"}
+            summary["explain"] = explain
+
+        if not dry_run and (updates or appends):
+            for i in range(0, len(updates), chunk_size):
+                chunk = updates[i:i + chunk_size]
+                ws.batch_update(
+                    [{"range": f"A{r}:H{r}", "values": [v]} for r, v in chunk],
+                    value_input_option="RAW",
+                )
+                summary["written"] += len(chunk)
+            for i in range(0, len(appends), chunk_size):
+                chunk = appends[i:i + chunk_size]
+                ws.append_rows(chunk, value_input_option="RAW")
+                summary["written"] += len(chunk)
+            _invalidate_work_log_cache()               # next page load re-reads the sheet and shows the new values
+        log.info("Pending auto-fill %s: %s", "DRY RUN" if dry_run else "DONE", summary)
+        return summary
+    finally:
+        _auto_fill_run_lock.release()
+
+
+def _get_export_worksheet(gs_client):
+    sh = gs_client.open_by_key(EXPORT_SHEET_ID)
+    for ws in sh.worksheets():
+        if ws.id == EXPORT_WORKSHEET_GID:
+            return ws
+    return sh.sheet1
+
+
+def _site_type_text(t):
+    """"Capacity" / "Coverage" / "Coverage P0" / "Coverage P1", or "" when the ticket matches no site."""
+    st = str(t.get("site_type", "") or "")
+    if st == "Coverage" and t.get("site_flag"):
+        return "Coverage " + str(t["site_flag"])
+    return st
+
+
+def _flag_priority_text(t):
+    """"Flag" when this ticket's Category (same value as column Y) is in the Priority Flag lookup list."""
+    return "Flag" if _category_text(t).strip().lower() in FLAG_PRIORITY_CATEGORIES else ""
+
+
+# ── Flag Logic (column AA of the export sheet) ────────────────────────────
+# NSA3/NSA4 tickets only: "P0 แล้ว" = already P0 (over SLA > 24h at the 01:15 reference, same formula as the Focus P0
+# cards, reference = tomorrow 01:15); "P0 ใน N วัน" (N = 1..7) = becomes P0 N reference days later. Blank when it is more
+# than 7 days away or the ticket is not NSA3/NSA4.
+FLAG_LOGIC_DAYS = 7
+
+
+def ticket_p0_offset(target_finish_str, ref0):
+    """Whole days from ref0 until the ticket first counts as P0 (0 = P0 at ref0, 1 = P1 now), None when the date can't be parsed."""
+    tf = _parse_dt(target_finish_str)
+    if tf is None:
+        return None
+    diff0 = (ref0 - tf).total_seconds() / 3600
+    if diff0 > 24:
+        return 0
+    return int((24 - diff0) // 24) + 1
+
+
+def flag_logic_text(t, now_dt=None):
+    """Export-sheet column AA for one ticket entry dict: "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน" or ""."""
+    try:
+        if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
+            return ""
+        from datetime import timedelta as _td
+        now_dt = now_dt or bangkok_now()
+        ref0 = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+        k = ticket_p0_offset(t.get("TARGETFINISH"), ref0)
+        if k is None or k > FLAG_LOGIC_DAYS:
+            return ""
+        return "%d. %s" % (k + 1, "P0 แล้ว" if k == 0 else "P0 ใน %d วัน" % k)   # numbered so a pivot sorts 1..8
+    except Exception:
+        log.exception("flag_logic_text failed")
+        return ""
+
+
+def _category_text(t):
+    """SUBJECT category (the same _auto_categorize_subject the dashboard uses) for NSA3/NSA4 tickets - the
+    only severities the categories were learned on - and "" for every other ticket."""
+    if str(t.get("SEVERITY", "") or "").strip().upper() not in ("NSA3", "NSA4"):
+        return ""
+    return str(t.get("subject_category") or _auto_categorize_subject(t.get("SUBJECT", "")))
+
+
+def _ticket_to_export_row(t, insert_time_str="", kasem=None):
+    """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
+    by the external mirror export and the on-demand Excel/Google Sheet
+    export buttons, so all three always produce the same column layout."""
+    return [
+        t.get("TICKETID", ""), t.get("CINAME", ""), t.get("SUBJECT", ""), t.get("priority", ""),
+        t.get("CREATIONDATE", ""), t.get("TARGETFINISH", ""), t.get("SEVERITY", ""),
+        t.get("TRUEOWNERGROUP", ""), t.get("Bookmark", ""), t.get("Aging_Flag_Group", ""),
+        t.get("SUBDISTRICT", ""), t.get("DISTRICT", ""), t.get("Tech_Team", ""), t.get("Tech_Status", ""),
+        t.get("nano", ""), t.get("group_problem", ""), t.get("action_team", ""), t.get("detail", ""),
+        t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
+        insert_time_str,
+        _site_type_text(t),
+        _category_text(t),
+        t.get("Region", ""),
+        flag_logic_text(t),
+        ((kasem or {}).get(str(t.get("TICKETID", "")).strip()) or {}).get("comment", ""),   # column AB
+    ]
+
+
+def export_to_external_sheet(gs_client, tickets, insert_time_str):
+    """Mirrors the full current Pending Ticket table (exactly what's on the
+    web page) into the external sheet, overwriting whatever was there before.
+    Called once per build_pending_ticket_response(), so it stays in sync
+    every time the tab is loaded or refreshed."""
+    ws = _get_export_worksheet(gs_client)
+    try:
+        kasem = load_kasem_comments(gs_client)
+    except Exception:
+        log.exception("export_to_external_sheet: KasemComment tab unreadable - column AB left blank this round")
+        kasem = {}
+    rows = [_ticket_to_export_row(t, insert_time_str, kasem) for t in tickets]
+    # A Sheets write past the grid's edge fails outright, so grow the grid first if the new
+    # right-most column (or more rows than before) doesn't fit. Only ever adds, never removes.
+    try:
+        if ws.col_count < len(EXPORT_HEADER):
+            ws.add_cols(len(EXPORT_HEADER) - ws.col_count)
+        if ws.row_count < len(rows) + 1:
+            ws.add_rows(len(rows) + 1 - ws.row_count)
+    except Exception:
+        log.exception("export_to_external_sheet: could not grow the sheet grid - attempting the write anyway")
+    ws.clear()
+    ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
+    log.info("Exported %d rows to external Pending Ticket mirror sheet", len(rows))
+
+
+# ---------------------------------------------------------------------------
+# Combined response
+# ---------------------------------------------------------------------------
+
+def _multi_filter(entries, key, values):
+    if not values:
+        return entries
+    values_set = set(values)
+    return [e for e in entries if str(e.get(key, "")).strip() in values_set]
+
+
+def _fetch_full_ticket_entries(gs_client):
+    """Builds the full, export-ready ticket entry list (every field
+    EXPORT_HEADER needs) - shared by build_pending_ticket_response and
+    the background-export trigger, so exporting doesn't depend on which
+    page's response function happens to call it."""
+    all_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    today = now_dt.date()
+
+    scoped = []
+    skipped_no_province = 0
+    for r in all_rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        # Explicit request: a TRUEOWNERGROUP that isn't a recognized
+        # "-NOP" NOR province (a "-CORP" suffix, for example) is not
+        # relevant work - excluded entirely here, at the shared source
+        # this tab's ticket table, filter dropdown, district counts, and
+        # export mirror all come from, so none of them can show a CORP
+        # entry no matter which one is checked.
+        _, province_from_owner = _extract_region_province(r.get("TRUEOWNERGROUP"))
+        if province_from_owner is None:
+            skipped_no_province += 1
+            continue
+        scoped.append(r)
+    if skipped_no_province:
+        log.info("_fetch_full_ticket_entries: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
+
+    work_log = load_work_log(gs_client)
+    try:
+        kasem_map = load_kasem_comments(gs_client)
+    except Exception:
+        log.exception("KasemComment tab unreadable - Pending Ticket shows no P'Kasem comments this round")
+        kasem_map = {}
+
+    def build_entry(r):
+        ticket_id = str(r.get("TICKETID", "")).strip()
+        nn_cluster = r.get("NN_ClusterID")
+        nano = "NANO" if nn_cluster not in (None, "", "None") else ""
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+
+        entry = {c: r.get(c) for c in LIVE_COLUMNS}
+        entry["over_sla_day"] = over_sla_day
+        entry["priority"] = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        entry["Region"] = str(r.get("Region", "")).strip()
+        entry["nano"] = nano
+        entry["insert_time"] = r.get("insert_time", "")
+        wl = work_log.get(ticket_id, {})
+        entry["group_problem"] = wl.get("group_problem", "")
+        entry["action_team"] = wl.get("action_team", "")
+        entry["detail"] = wl.get("detail", "")
+        entry["image_link"] = wl.get("image_link", "")
+        entry["plan_closed_date"] = wl.get("plan_closed_date", "")
+        entry["updated_at"] = wl.get("updated_at", "")
+        entry["updated_by"] = wl.get("updated_by", "")
+        # "Comment By P'Kasem": only NSA3/NSA4 tickets carry it on the Pending Ticket page
+        entry["kasem_comment"] = (kasem_map.get(ticket_id) or {}).get("comment", "") if str(r.get("SEVERITY", "")).strip().upper() in ("NSA3", "NSA4") else ""
+        entry["plan_closed_overdue"] = False
+        if entry["plan_closed_date"]:
+            try:
+                pcd = datetime.strptime(entry["plan_closed_date"], "%Y-%m-%d").date()
+                entry["plan_closed_overdue"] = pcd < today
+            except ValueError:
+                pass
+        entry["classification"] = _safe_str(r.get("CLASSIFICATION"))  # Analysis heatmap column (GGS Pending)
+        return entry
+
+    built = [build_entry(r) for r in scoped]
+    site_capacity.annotate_entries(built, gs_client)
+    for e in built:  # Pending Ticket table + mirror sheet column "Category" (NSA3/NSA4 only, "" otherwise)
+        e["category"] = _category_text(e)
+        # Analysis popup: SUBJECT category for EVERY severity (display only; the "category" column above keeps its NSA3/NSA4-only meaning)
+        e["cat_auto"] = str(e.get("subject_category") or _auto_categorize_subject(e.get("SUBJECT", "")))
+    return built
+
+
+_export_throttle = {"last_started": 0.0, "in_flight": False, "last_insert_time": None}
+_export_throttle_lock = threading.Lock()
+EXPORT_MIN_INTERVAL_SECONDS = 45  # export_to_external_sheet does a full clear+rewrite of ~770 rows - real traffic showed several page loads landing close together each spawning their own concurrent rewrite, which is what was actually slowing pages down (thread/API contention on the shared worker), not the reads
+
+
+def trigger_background_export(gs_client, all_entries=None):
+    """Fire-and-forget mirror export to the external tracking sheet, THROTTLED
+    (added after real traffic showed export_to_external_sheet's full
+    clear+rewrite of the ~770-row mirror sheet piling up several times
+    concurrently within the same minute - see EXPORT_MIN_INTERVAL_SECONDS
+    above). Skips silently if an export already ran, or is still running,
+    within EXPORT_MIN_INTERVAL_SECONDS - the mirror sheet doesn't need to
+    be rewritten on every single page load, only kept reasonably fresh.
+    When skipped, returns the LAST ACTUAL export's own timestamp (not
+    "now") so the "export_insert_time" shown on the page still accurately
+    reflects when the mirror sheet itself was really last written.
+
+    Called from EVERY page that shows live ticket data (Pending Ticket,
+    P0 Only) - not just Pending Ticket - so the mirror sheet stays fresh
+    no matter which page people are actually working from."""
+    now = time.monotonic()
+    with _export_throttle_lock:
+        if _export_throttle["in_flight"] or (now - _export_throttle["last_started"]) < EXPORT_MIN_INTERVAL_SECONDS:
+            return _export_throttle["last_insert_time"] or bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        _export_throttle["in_flight"] = True
+        _export_throttle["last_started"] = now
+
+    # Real bug this try/except fixes: _fetch_full_ticket_entries below
+    # runs SYNCHRONOUSLY, before the background thread even exists - if
+    # it throws (any transient Sheets error), in_flight was already set
+    # True above and nothing was left to reset it back to False. Every
+    # future call would then see in_flight still True and silently skip
+    # forever, with no retry and no further log line - exactly what
+    # happened in production: one bad moment permanently wedged the
+    # export until the process was restarted, while the mirror sheet
+    # sat frozen on stale data from whatever last succeeded.
+    try:
+        if all_entries is None:
+            all_entries = _fetch_full_ticket_entries(gs_client)
+        export_insert_time = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        log.exception("trigger_background_export: failed building the ticket list to export - giving up on this attempt")
+        with _export_throttle_lock:
+            _export_throttle["in_flight"] = False
+        return _export_throttle["last_insert_time"] or bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _export_in_background(entries, insert_time_str):
+        try:
+            export_to_external_sheet(gs_client, entries, insert_time_str)
+            with _export_throttle_lock:
+                _export_throttle["last_insert_time"] = insert_time_str
+        except Exception:
+            log.exception("Failed to export Pending Ticket table to external mirror sheet - continuing anyway")
+        finally:
+            with _export_throttle_lock:
+                _export_throttle["in_flight"] = False
+
+    threading.Thread(target=_export_in_background, args=(all_entries, export_insert_time), daemon=True).start()
+    return export_insert_time
+
+
+def build_pending_ticket_xlsx(matched_entries, kasem=None):
+    """Builds an in-memory .xlsx workbook of the given ticket entries (same
+    EXPORT_HEADER columns as the mirror sheet), for the on-demand Excel
+    export button - not written to disk, returned as bytes for a Flask
+    file download response."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pending Ticket"
+    ws.append(EXPORT_HEADER)
+    header_fill = PatternFill(start_color="1F6FEB", end_color="1F6FEB", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    rows = [_ticket_to_export_row(t, "", kasem) for t in matched_entries]
+    for row in rows:
+        ws.append(row)
+    for i, header in enumerate(EXPORT_HEADER, start=1):
+        col_letter = get_column_letter(i)
+        max_len = max([len(str(header))] + [len(str(row[i - 1])) for row in rows] or [10])
+        ws.column_dimensions[col_letter].width = min(max_len + 2, 45)
+    ws.freeze_panes = "A2"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+def build_pending_ticket_response(gs_client=None, bookmark_filter=None, trueowner_filter=None,
+                                   severity_filter=None, district_filter=None, group_problem_filter=None,
+                                   aging_filter=None, category_filter=None, priority_filter=None):
+    """bookmark_filter/trueowner_filter/severity_filter/district_filter/group_problem_filter/
+    aging_filter: each an optional LIST of values (multi-select) - None or empty means "no
+    filter, include everything in that dimension"."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    all_entries = _fetch_full_ticket_entries(gs_client)
+    all_entries.sort(key=lambda t: (_bookmark_sort_key(str(t.get("Bookmark", "")).strip()), -t["over_sla_day"]))
+
+    present_agings = {str(e.get("Aging_Flag_Group", "")).strip() for e in all_entries if e.get("Aging_Flag_Group")}
+    filter_options = {
+        "bookmarks": sorted({str(e.get("Bookmark", "")).strip() for e in all_entries if e.get("Bookmark")}),
+        "trueowners": sorted({str(e.get("TRUEOWNERGROUP", "")).strip() for e in all_entries if e.get("TRUEOWNERGROUP")}),
+        "severities": sorted({str(e.get("SEVERITY", "")).strip() for e in all_entries if e.get("SEVERITY")}),
+        # Kept in canonical Aging_Flag_Group order (not alphabetical) so the
+        # dropdown reads 1)->6) like everywhere else Aging is shown.
+        "agings": [a for a in AGING_ORDER if a in present_agings],
+    }
+    present_prios = {str(e.get("priority", "") or "").strip() for e in all_entries if e.get("priority")}
+    filter_options["priorities"] = ([p for p in ("P0", "P1", "P2") if p in present_prios]
+                                    + sorted(present_prios - {"P0", "P1", "P2"}))
+
+    # District counts are faceted on the OTHER active filters (bookmark/trueowner/
+    # severity/aging) so the numbers next to each district option stay accurate
+    # as those filters change - just not on the district filter itself.
+    if bookmark_filter and "NSA3-4" in bookmark_filter:
+        # "NSA3-4" = the catch-all card (anything outside the 3 named bookmarks)
+        _named = set(BOOKMARK_SORT_ORDER)
+        _bf = set(bookmark_filter)
+        pre_district = [e for e in all_entries
+                        if str(e.get("Bookmark", "")).strip() in _bf
+                        or ("NSA3-4" in _bf and str(e.get("Bookmark", "")).strip() not in _named)]
+    else:
+        pre_district = _multi_filter(all_entries, "Bookmark", bookmark_filter)
+    pre_district = _multi_filter(pre_district, "TRUEOWNERGROUP", trueowner_filter)
+    pre_district = _multi_filter(pre_district, "SEVERITY", severity_filter)
+    pre_district = _multi_filter(pre_district, "Aging_Flag_Group", aging_filter)
+    pre_district = _multi_filter(pre_district, "priority", priority_filter)
+    district_counts = {}
+    for e in pre_district:
+        d = str(e.get("DISTRICT", "")).strip()
+        if d:
+            district_counts[d] = district_counts.get(d, 0) + 1
+    filter_options["districts"] = [
+        {"district": d, "count": c}
+        for d, c in sorted(district_counts.items(), key=lambda kv: kv[1], reverse=True)
+    ]
+
+    matched_entries = _multi_filter(pre_district, "DISTRICT", district_filter)
+    matched_entries = _multi_filter(matched_entries, "group_problem", group_problem_filter)
+    matched_entries = _multi_filter(matched_entries, "category", category_filter)
+
+    cat_counts = {}
+    for e in all_entries:
+        c = str(e.get("category", "") or "").strip()
+        if c:
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+    filter_options["categories"] = [{"category": c, "count": n}
+                                    for c, n in sorted(cat_counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+    filter_options["group_problems"] = sorted({
+        str(e.get("group_problem", "")).strip() for e in all_entries if e.get("group_problem")
+    })
+
+    # Mirrors the full table to an external tracking sheet - shared trigger
+    # used by every page that shows live ticket data, not just this one.
+    export_insert_time = trigger_background_export(gs_client, all_entries)
+
+    # fetch_live_rows is cached (short TTL), so this is cheap - just need
+    # the raw sheet's own insert_time stamp (not part of LIVE_COLUMNS) to
+    # show how fresh the SOURCE data is, separate from export_insert_time
+    # (when THIS export just ran).
+    all_rows = fetch_live_rows(gs_client)
+
+    return {
+        "total": len(matched_entries),
+        "filter_options": filter_options,
+        "group_problem_options": GROUP_PROBLEM_OPTIONS,
+        "action_team_options": ACTION_TEAM_OPTIONS,
+        "aging_colors": AGING_COLORS,
+        "insert_time": all_rows[0].get("insert_time") if all_rows else None,
+        "export_insert_time": export_insert_time,
+        "tickets": matched_entries,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Exclusive Pending — morning-meeting summary: for each Bookmark, a
+# Group Problem x Aging_Flag_Group matrix, plus the ticket-level detail for
+# anything sitting in the four "over SLA" aging buckets (1-4; excludes
+# "< 1 day" and "Within SLA" since those aren't meeting-worthy yet).
+# ---------------------------------------------------------------------------
+
+EXCLUSIVE_BOOKMARK_ORDER = BOOKMARK_SORT_ORDER + ["NSA3-4"]
+UNSPECIFIED_GROUP_PROBLEM = "(ยังไม่ระบุ)"
+UNSPECIFIED_AGING = "(ไม่ระบุ)"
+
+
+def _exclusive_bookmark_label(raw):
+    # Catch-all bucket for anything not in the 3 named Bookmark categories -
+    # in practice this is always NSA3/NSA4 tickets, so the label reflects
+    # that directly instead of the generic "Others" (single source of
+    # truth: this flows through to every page - KPI cards, section
+    # headers, dropdowns, LINE summaries - without needing separate edits).
+    raw = str(raw or "").strip()
+    return raw if raw in BOOKMARK_SORT_ORDER else "NSA3-4"
+
+
+def build_online_remaining_hours_by_province(entries):
+    """For the "4.FBB with SA1-4" (Online) bookmark specifically - groups
+    by Province, and for each: bucket counts by remaining time to
+    TARGETFINISH (already overdue / <=2h / <=6h / <=12h / >12h), plus the
+    single most urgent ticket (soonest TARGETFINISH) as a concrete
+    reference. Sorted so the province with the most urgent situation
+    (soonest TARGETFINISH) appears first - "เรียงจากน้อยไปมาก" per
+    explicit request - so a reader can see at a glance where to focus
+    first for planning. Entries with no parseable TARGETFINISH are
+    excluded (their remaining time genuinely isn't known, not guessed)."""
+    online_entries = [e for e in entries if e["Bookmark"] == "4.FBB with SA1-4" and e["remaining_hours"] is not None]
+    by_province = {}
+    for e in online_entries:
+        by_province.setdefault(e["PROVINCE"], []).append(e)
+
+    rows = []
+    for prov, prov_entries in by_province.items():
+        prov_entries = sorted(prov_entries, key=lambda e: e["remaining_hours"])
+        most_urgent = prov_entries[0]
+        buckets = {"over": 0, "le_2h": 0, "le_6h": 0, "le_12h": 0, "gt_12h": 0}
+        for e in prov_entries:
+            h = e["remaining_hours"]
+            if h < 0:
+                buckets["over"] += 1
+            elif h <= 2:
+                buckets["le_2h"] += 1
+            elif h <= 6:
+                buckets["le_6h"] += 1
+            elif h <= 12:
+                buckets["le_12h"] += 1
+            else:
+                buckets["gt_12h"] += 1
+        rows.append({
+            "region": prov_entries[0]["Region"], "province": prov, "total": len(prov_entries),
+            **buckets,
+            "most_urgent_ticket": most_urgent["TICKETID"],
+            "most_urgent_remaining_hours": most_urgent["remaining_hours"],
+            "most_urgent_subject": most_urgent["SUBJECT"],
+        })
+    rows.sort(key=lambda r: r["most_urgent_remaining_hours"])
+    return rows
+
+
+def build_exclusive_pending_response(gs_client=None, priority_filter=None, restrict_to_over_sla=True):
+    """Morning-meeting view: how many pending tickets per Bookmark are stuck
+    on which Group Problem, broken out by aging bucket - plus the full
+    ticket-level list for anything already over SLA (aging buckets 1-4),
+    so a team lead can answer CNO questions ticket-by-ticket without
+    switching tabs. `priority_filter` (e.g. "P0") restricts EVERYTHING -
+    matrix, province breakdowns, plan-date matrix, detail lists - to just
+    that priority, for a page like "P0 Only" that needs the exact same
+    view scoped down to the most urgent tickets. `restrict_to_over_sla`
+    controls the DETAIL list only: True (default, normal Exclusive
+    Pending) limits it to the four over-SLA aging buckets; False includes
+    every ticket regardless of aging bucket - used by "P0 Only" so it
+    shows literally every P0 ticket, not just the ones already overdue."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    # Also mirrors the full ticket table to the external tracking sheet -
+    # same trigger Pending Ticket uses. Needed here too: P0 Only is where
+    # the team actually spends most of their time now, so if only Pending
+    # Ticket's own load triggered this, the mirror sheet would silently go
+    # stale on days nobody happens to open that specific tab.
+    trigger_background_export(gs_client)
+
+    all_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    scoped = [
+        r for r in all_rows
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
+        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
+    ]
+    work_log = load_work_log(gs_client)
+
+    # GGS Daily mateline status (external field-team tracking sheet) - a
+    # failure here (e.g. the sheet isn't shared with this service account)
+    # shouldn't take down the whole page, so every entry just falls back
+    # to "(ไม่พบใน MatelineX)" if the lookup couldn't be built at all.
+    try:
+        mateline_lookup = build_mateline_status_lookup(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("GGS Daily mateline lookup failed - falling back to empty for this response")
+        mateline_lookup = {}
+
+    entries = []
+    skipped_no_province = 0
+    for r in scoped:
+        ticket_id = str(r.get("TICKETID", "")).strip()
+        true_owner_group = r.get("TRUEOWNERGROUP")
+        region_from_owner, province_from_owner = _extract_region_province(true_owner_group)
+        if province_from_owner is None:
+            # Explicit request: TRUEOWNERGROUP not ending in "-NOP" for a
+            # known NOR province (a "-CORP" suffix, for example) is not
+            # relevant work - excluded entirely, not just shown with a
+            # blank/placeholder province.
+            skipped_no_province += 1
+            continue
+        wl = work_log.get(ticket_id, {})
+        mateline = mateline_lookup.get(ticket_id.upper()) or {
+            "status_mateline": "(ไม่พบใน MatelineX)", "mateline_wo_status": "",
+        }
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+        bookmark_label = _exclusive_bookmark_label(r.get("Bookmark"))
+        priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        if priority_filter:
+            # Explicit exception: on the P0-scoped view (P0 Only), the
+            # "Online" bookmark (4.FBB with SA1-4) specifically shows P0
+            # AND P1 together - every other bookmark still shows exactly
+            # priority_filter, unchanged.
+            if priority_filter == "P0" and bookmark_label == "4.FBB with SA1-4":
+                allowed_priorities = {"P0", "P1"}
+            else:
+                allowed_priorities = {priority_filter}
+            if priority not in allowed_priorities:
+                continue
+        target_dt = _parse_dt(r.get("TARGETFINISH"))
+        remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2) if target_dt else None
+        entries.append({
+            "TICKETID": ticket_id,
+            "SUBJECT": _safe_str(r.get("SUBJECT")),
+            "subject_category": _auto_categorize_subject(r.get("SUBJECT", "")),
+            "classification": _safe_str(r.get("CLASSIFICATION")),
+            "CINAME": _safe_str(r.get("CINAME")),
+            "DISTRICT": _safe_str(r.get("DISTRICT")),
+            "PROVINCE": province_from_owner,
+            "Region": region_from_owner,
+            "TRUEOWNERGROUP": _safe_str(true_owner_group),
+            "priority": priority,
+            "Bookmark": bookmark_label,
+            "SEVERITY": str(r.get("SEVERITY", "")).strip(),
+            "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
+            "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
+            "action_team": wl.get("action_team", ""),
+            "detail": wl.get("detail", ""),
+            "image_link": wl.get("image_link", ""),  # preserved so saving from this page never blanks it out
+            "plan_closed_date": wl.get("plan_closed_date", ""),
+            "over_sla_day": over_sla_day,
+            "status_mateline": mateline["status_mateline"],
+            "mateline_wo_status": mateline["mateline_wo_status"],
+            "TARGETFINISH": _safe_str(r.get("TARGETFINISH")),
+            "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
+        })
+    site_capacity.annotate_entries(entries, gs_client)
+    if skipped_no_province:
+        log.info("build_exclusive_pending_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
+
+    # Summary matrix: bookmark -> group_problem -> aging_key -> count
+    summary = {}
+    for e in entries:
+        (summary.setdefault(e["Bookmark"], {})
+                 .setdefault(e["group_problem"], {})
+                 .setdefault(e["Aging_Flag_Group"], 0))
+        summary[e["Bookmark"]][e["group_problem"]][e["Aging_Flag_Group"]] += 1
+
+    summary_out = []
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        if bm not in summary:
+            continue
+        rows = []
+        for gp, counts in summary[bm].items():
+            # "over_total" normally means just the over-SLA buckets (1-4) -
+            # but when restrict_to_over_sla is off (P0 Only), it should
+            # count every bucket instead, so this number and the detail
+            # list below (and the KPI breakdown card) all agree on the
+            # same total instead of the KPI card silently under-counting.
+            if restrict_to_over_sla:
+                over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            else:
+                over_total = sum(counts.values())
+            row = {"group_problem": gp, "over_total": over_total, "counts": {
+                ag: counts.get(ag, 0) for ag in AGING_ORDER
+            }}
+            rows.append(row)
+        rows.sort(key=lambda r: -r["over_total"])
+        bookmark_total = sum(r["over_total"] for r in rows)
+        summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
+
+    # Province x Aging_Flag_Group matrix - same shape/logic as the Group
+    # Problem matrix above, just grouped by PROVINCE instead. Built from
+    # the same full `entries` set (every aging bucket), independent of
+    # restrict_to_over_sla.
+    province_matrix = {}
+    province_region = {}
+    for e in entries:
+        prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
+        province_region.setdefault(prov, e.get("Region") or "")
+        (province_matrix.setdefault(e["Bookmark"], {})
+                         .setdefault(prov, {})
+                         .setdefault(e["Aging_Flag_Group"], 0))
+        province_matrix[e["Bookmark"]][prov][e["Aging_Flag_Group"]] += 1
+
+    province_summary_out = []
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        if bm not in province_matrix:
+            continue
+        rows = []
+        for prov, counts in province_matrix[bm].items():
+            if restrict_to_over_sla:
+                over_total = sum(counts.get(k, 0) for k in OVER_24H_AGING_KEYS)
+            else:
+                over_total = sum(counts.values())
+            rows.append({"province": prov, "region": province_region.get(prov, ""), "over_total": over_total, "counts": {
+                ag: counts.get(ag, 0) for ag in AGING_ORDER
+            }})
+        rows.sort(key=lambda r: -r["over_total"])
+        bookmark_total = sum(r["over_total"] for r in rows)
+        province_summary_out.append({"bookmark": bm, "rows": rows, "over_total": bookmark_total})
+
+    # Detail: over-SLA aging buckets (1-4) only by default, matching the
+    # normal Exclusive Pending view - unless restrict_to_over_sla is off
+    # (P0 Only), in which case every entry that made it this far (already
+    # priority-filtered above) is included regardless of aging bucket.
+    detail_entries = [e for e in entries if not restrict_to_over_sla or e["Aging_Flag_Group"] in OVER_24H_AGING_KEYS]
+    detail_entries.sort(key=lambda e: -e["over_sla_day"])
+
+    detail_out = []
+    unspecified_by_province_out = []
+    group_problem_by_plan_date_out = []
+    NO_PLAN_DATE = "(ยังไม่วางแผน)"
+    for bm in EXCLUSIVE_BOOKMARK_ORDER:
+        tickets = [e for e in detail_entries if e["Bookmark"] == bm]
+        if not tickets:
+            continue
+        block = {"bookmark": bm, "tickets": tickets, "total": len(tickets)}
+
+        # Category x Aging_Flag_Group matrix - only for the NSA3-4 group,
+        # per request (that bucket's tickets are varied enough, and few
+        # enough people are triaging it by hand, that grouping by
+        # recurring problem pattern actually helps there specifically).
+        # Same shape as the other matrices on this page (Group Problem x
+        # Aging, Province x Aging), so which category is piling up in
+        # which aging bucket is visible at a glance.
+        if bm == "NSA3-4":
+            category_aging_matrix = {}
+            for e in tickets:
+                cat = e["subject_category"]
+                ag = e["Aging_Flag_Group"]
+                category_aging_matrix.setdefault(cat, {}).setdefault(ag, 0)
+                category_aging_matrix[cat][ag] += 1
+            category_aging_rows = []
+            for cat, counts in category_aging_matrix.items():
+                row_total = sum(counts.values())
+                category_aging_rows.append({
+                    "category": cat, "over_total": row_total,
+                    "counts": {ag: counts.get(ag, 0) for ag in AGING_ORDER},
+                })
+            category_aging_rows.sort(key=lambda r: -r["over_total"])
+            block["subject_category_by_aging"] = category_aging_rows
+
+            # Category x Province matrix - same rows (Category), different
+            # column dimension, for the same table's "switch to Province"
+            # toggle (columns swap, rows stay Category either way).
+            category_province_matrix = {}
+            provinces_seen = set()
+            for e in tickets:
+                cat = e["subject_category"]
+                prov = str(e.get("PROVINCE") or "").strip() or "(ไม่ระบุจังหวัด)"
+                provinces_seen.add(prov)
+                category_province_matrix.setdefault(cat, {}).setdefault(prov, 0)
+                category_province_matrix[cat][prov] += 1
+            province_columns = sorted(provinces_seen)
+            category_province_rows = []
+            for cat, counts in category_province_matrix.items():
+                row_total = sum(counts.values())
+                category_province_rows.append({
+                    "category": cat, "over_total": row_total,
+                    "counts": {p: counts.get(p, 0) for p in province_columns},
+                })
+            category_province_rows.sort(key=lambda r: -r["over_total"])
+            block["subject_category_by_province"] = {
+                "provinces": province_columns,
+                "rows": category_province_rows,
+            }
+
+        detail_out.append(block)
+
+        # Among this Bookmark's over-SLA tickets, break down by PROVINCE how
+        # many are still missing each of the four fields a lead needs to
+        # answer CNO with (Group Problem, Action Team, รายละเอียด, Plan
+        # Closed Date) - most affected province first, so gaps in triage
+        # are visible at a glance.
+        province_counts = {}
+        for e in tickets:
+            prov = str(e["PROVINCE"]).strip() or "(ไม่ระบุจังหวัด)"
+            row = province_counts.setdefault(prov, {
+                "missing_group_problem": 0, "missing_action_team": 0,
+                "missing_detail": 0, "missing_plan_closed_date": 0,
+            })
+            if e["group_problem"] == UNSPECIFIED_GROUP_PROBLEM:
+                row["missing_group_problem"] += 1
+            if not str(e["action_team"]).strip():
+                row["missing_action_team"] += 1
+            if not str(e["detail"]).strip():
+                row["missing_detail"] += 1
+            if not str(e["plan_closed_date"]).strip():
+                row["missing_plan_closed_date"] += 1
+        province_rows = sorted(
+            (
+                {"province": p, **counts, "total_missing": sum(counts.values())}
+                for p, counts in province_counts.items()
+                if sum(counts.values()) > 0
+            ),
+            key=lambda x: (-x["missing_group_problem"], -x["total_missing"])
+        )
+        if province_rows:
+            unspecified_by_province_out.append({"bookmark": bm, "provinces": province_rows})
+
+        # Group Problem x Plan Closed Date matrix - who's stuck on what, and
+        # when it's actually planned to close (or not planned at all yet).
+        plan_dates = sorted({t["plan_closed_date"] for t in tickets if t["plan_closed_date"]})
+        date_columns = plan_dates + [NO_PLAN_DATE]
+        gp_plan_matrix = {}
+        for e in tickets:
+            col = e["plan_closed_date"] or NO_PLAN_DATE
+            gp_plan_matrix.setdefault(e["group_problem"], {}).setdefault(col, 0)
+            gp_plan_matrix[e["group_problem"]][col] += 1
+        gp_plan_rows = []
+        for gp, counts in gp_plan_matrix.items():
+            row_total = sum(counts.values())
+            gp_plan_rows.append({
+                "group_problem": gp,
+                "counts": {c: counts.get(c, 0) for c in date_columns},
+                "total": row_total,
+            })
+        gp_plan_rows.sort(key=lambda r: -r["total"])
+        if gp_plan_rows:
+            group_problem_by_plan_date_out.append({
+                "bookmark": bm, "date_columns": date_columns, "rows": gp_plan_rows,
+            })
+
+    return {
+        "aging_order": AGING_ORDER,
+        "over_aging_keys": OVER_24H_AGING_KEYS,
+        "aging_colors": AGING_COLORS,
+        "summary": summary_out,
+        "province_summary": province_summary_out,
+        "detail": detail_out,
+        "unspecified_by_province": unspecified_by_province_out,
+        "group_problem_by_plan_date": group_problem_by_plan_date_out,
+        "online_remaining_hours_by_province": build_online_remaining_hours_by_province(entries),
+        "total_over_sla": len(detail_entries),
+        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        # insert_time is stamped by the EXTERNAL system (SCCD+ITSM) on the raw
+        # sheet each time it syncs - different from generated_at above, which
+        # is just when THIS response was built. Same field Pending Ticket
+        # shows, so people can tell how fresh the underlying ticket data is.
+        "insert_time": all_rows[0].get("insert_time") if all_rows else None,
+        # Needed so Exclusive Pending / P0 Only can offer the same inline
+        # edit dropdowns Pending Ticket uses, for the small set of people
+        # allowed to edit from these pages too.
+        "group_problem_options": GROUP_PROBLEM_OPTIONS,
+        "action_team_options": ACTION_TEAM_OPTIONS,
+    }
+
+
+# ---------------------------------------------------------------------------
+# P0 snapshot comparison: "P0 right now" vs "what P0 looked like at ~01:15
+# today" (from the Drive backup file closest to that time), broken out by
+# the same 4 groups as the Realtime Monitoring view buttons (Mobile SA1-4,
+# Online/FBB SA1-4, NSA1-2, NSA3/4) - NOT the Exclusive Pending Bookmark
+# grouping, which lumps NSA3/4 into "Others".
+# ---------------------------------------------------------------------------
+
+from datetime import time as _dtime, timedelta as _timedelta
+
+_P0_SNAPSHOT_CACHE_TTL_SECONDS = 900  # 15 min - just for the (expensive) backup-file part, which is fixed once written and never changes
+_p0_snapshot_cache = {"data": None, "ts": 0}
+_p0_snapshot_lock = threading.Lock()
+
+P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
+
+# ── Per-day computed snapshot cache (COUNTS ONLY - raw rows are never kept) ──
+# A day's ~01:15 Drive file is ~7k rows / ~5MB. Parking those rows in memory for every
+# past day (the old _day_rows_cache) made Railway memory climb all week. Now each file is
+# downloaded ONCE, both consumers' numbers (Focus P0 trend + NSA3/4 Flag scan) are computed
+# in the same pass, the rows are dropped immediately, and only the small result dicts stay.
+_DAY_CALC = {}          # date_str -> {"trend", "nsa34", "ts", "missing"}
+_DAY_CALC_LOCK = threading.Lock()
+_DAY_DL_LOCK = threading.Lock()   # one Drive download at a time -> no parallel ~5MB spikes
+_DAY_TODAY_TTL = 900    # today's file is rewritten hourly; same 15-min TTL the other cards use
+_DAY_MISSING_TTL = 1800  # "no file found" is retried after 30 min instead of being locked in
+_DAY_CALC_KEEP_DAYS = 45
+
+
+def _release_memory():
+    """Hand freed memory back to the OS (Python/glibc keep it otherwise, and Railway bills what the process holds)."""
+    try:
+        import gc
+        gc.collect()
+    except Exception:
+        pass
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
+
+
+def _compute_trend_part(rows, day, is_today, file_info):
+    """Focus P0 numbers for one day's rows: {"counts","total","aging","debug"} (debug = today only)."""
+    total_counts = {k: None for k in P0_COMPARISON_GROUPS}
+    aging_counts = None
+    try:
+        total_counts = _count_total_by_group(rows)
+    except Exception:
+        log.exception("build_p0_daily_trend: total-pending count failed for %s - P0 series unaffected", day)
+    try:
+        aging_counts = _count_total_aging_by_group(rows)
+    except Exception:
+        log.exception("build_p0_daily_trend: aging split failed for %s - other series unaffected", day)
+    reference_dt = datetime.combine(day, _dtime(1, 15))
+    debug = None
+    if is_today:
+        counts, stage_counts = _count_p0_by_group_diagnostic(rows, reference_dt)
+        _, matched_dt, filename = file_info
+        debug = {"filename": filename, "matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"), "row_count": len(rows),
+                 "counts": counts, "stage_counts": stage_counts}
+    else:
+        counts = _count_p0_by_group(rows, reference_dt)
+    return {"counts": counts, "total": total_counts, "aging": aging_counts, "debug": debug}
+
+
+def _day_calc(drive_service, day, today, need):
+    """Computed snapshot for one day: {"trend": ..|None, "nsa34": ..|None, ...} or None when no file.
+    `need` is "trend" or "nsa34" - the part the caller needs. Past days are cached for good (a finished
+    day's file never changes); today is cached 15 min."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+    ds = day.strftime("%Y-%m-%d")
+    is_today = day == today
+
+    def usable(e):
+        if e is None:
+            return False
+        age = time.monotonic() - e["ts"]
+        if is_today and age >= _DAY_TODAY_TTL:
+            return False
+        if e.get("missing"):
+            return age < _DAY_MISSING_TTL
+        return e.get(need) is not None
+
+    with _DAY_CALC_LOCK:
+        e = _DAY_CALC.get(ds)
+    if usable(e):
+        return e
+    with _DAY_DL_LOCK:
+        with _DAY_CALC_LOCK:
+            e = _DAY_CALC.get(ds)
+        if usable(e):
+            return e
+        file_info = find_nightly_file(drive_service, day)
+        if file_info is None:
+            new = {"trend": None, "nsa34": None, "ts": time.monotonic(), "missing": True}
+        else:
+            rows = download_xlsx_as_rows(drive_service, file_info[0])
+            new = {"trend": None, "nsa34": None, "ts": time.monotonic(), "missing": False}
+            if rows is not None:
+                try:
+                    new["trend"] = _compute_trend_part(rows, day, is_today, file_info)
+                except Exception:
+                    log.exception("day calc: trend part failed for %s", ds)
+                try:
+                    new["nsa34"] = _nsa34_scan(rows, datetime.combine(day, _dtime(1, 15)))
+                except Exception:
+                    log.exception("nsa34 flag: snapshot scan failed for %s", ds)
+            else:
+                new["missing"] = True
+            del rows
+            _release_memory()
+        with _DAY_CALC_LOCK:
+            _DAY_CALC[ds] = new
+            cutoff = (today - _timedelta(days=_DAY_CALC_KEEP_DAYS)).strftime("%Y-%m-%d")
+            for k in [k for k in _DAY_CALC if k < cutoff]:
+                del _DAY_CALC[k]
+    return new
+
+
+# ── Persistent daily Focus P0 numbers (so the 7-day trend survives Drive's ~5-day retention) ──
+# Same rule as FlagDailyActual: a finished day is written ONCE to its own sheet tab and the
+# stored value wins from then on. Only small count dicts are stored (never rows).
+TREND_DAILY_SHEET = "TrendDailySnapshot"
+TREND_DAILY_HEADER = ["Date", "Data (JSON)", "Recorded at"]
+_trend_store = {"data": None, "ts": 0.0}
+_trend_store_lock = threading.Lock()
+_TREND_STORE_TTL = 1800
+
+
+def _trend_store_ws(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    try:
+        return sh.worksheet(TREND_DAILY_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=TREND_DAILY_SHEET, rows=500, cols=len(TREND_DAILY_HEADER))
+        ws.append_row(TREND_DAILY_HEADER)
+        return ws
+
+
+def _trend_store_load(gs_client, force=False):
+    """{date_str: {"counts","total","aging"}} (cached 30 min, best-effort)."""
+    import json
+    with _trend_store_lock:
+        if not force and _trend_store["data"] is not None and (time.monotonic() - _trend_store["ts"]) < _TREND_STORE_TTL:
+            return _trend_store["data"]
+    if gs_client is None:
+        return _trend_store["data"] or {}
+    try:
+        ws = _trend_store_ws(gs_client)
+        data = {}
+        for row in ws.get_all_values()[1:]:
+            if len(row) >= 2 and row[0].strip():
+                try:
+                    v = json.loads(row[1])
+                    if isinstance(v, dict) and isinstance(v.get("counts"), dict):
+                        data[row[0].strip()] = v
+                except ValueError:
+                    continue
+        with _trend_store_lock:
+            _trend_store["data"], _trend_store["ts"] = data, time.monotonic()
+        return data
+    except Exception:
+        log.exception("trend daily store: load failed")
+        return _trend_store["data"] or {}
+
+
+def _trend_store_record(gs_client, new):
+    """new = {date_str: trend part} for finished days. Appends only dates not stored yet."""
+    import json
+    if gs_client is None or not new:
+        return
+    try:
+        store = _trend_store_load(gs_client)
+        new = {ds: t for ds, t in new.items() if ds not in store}
+        if not new:
+            return
+        ws = _trend_store_ws(gs_client)
+        stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        slim = {ds: {"counts": t["counts"], "total": t["total"], "aging": t["aging"]} for ds, t in new.items()}
+        ws.append_rows([[ds, json.dumps(v, ensure_ascii=False, separators=(",", ":")), stamp] for ds, v in sorted(slim.items())],
+                       value_input_option="RAW")
+        with _trend_store_lock:
+            store.update(slim)
+        log.info("trend daily store: recorded %s", sorted(slim))
+    except Exception:
+        log.exception("trend daily store: record failed")
+
+
+def _trend_recordable(t):
+    return t is not None and any(v is not None for v in (t.get("counts") or {}).values())
+
+
+def build_p0_daily_trend(gs_client, drive_service, days=7):
+    """Returns {"dates": [...], "series": {group_key: [...counts...]}} - the
+    same 'P0 count as it stood at ~01:15' snapshot classification the
+    comparison cards already use, extended across the last `days` days
+    instead of just yesterday, so each card can show a trend underneath.
+    Each PAST day's count is cached forever once computed (a written
+    backup file for a completed day never changes). TODAY is never
+    cached at all - re-fetched and re-computed on every call. This is
+    deliberate: an earlier version cached "today" as long as some file
+    was found, but a stale result computed once (whatever its value -
+    None OR a wrong/zero count from a since-fixed bug) would then be
+    served for the rest of the day with no way to self-correct. Today's
+    backup file also gets rewritten hourly by the external job, so unlike
+    a completed past day there's no "final" version to lock in until the
+    day is over anyway - re-fetching every time is both safer and correct.
+    """
+    today = bangkok_now().date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]  # oldest -> newest
+
+    dates = []
+    series = {k: [] for k in P0_COMPARISON_GROUPS}
+    series_total = {k: [] for k in P0_COMPARISON_GROUPS}  # Total Pending per day @01:15 - additive, never mixed into "series"
+    aging_series = {k: {a: [] for a in AGING_ORDER} for k in P0_COMPARISON_GROUPS}  # Total Pending split by Aging_Flag_Group per day - additive
+    debug_today = None
+    store = _trend_store_load(gs_client)
+    to_record = {}
+    none_counts = {k: None for k in P0_COMPARISON_GROUPS}
+    for day in all_days:
+        date_str = day.strftime("%Y-%m-%d")
+        dates.append(date_str)
+        is_today = day == today
+
+        t = None
+        if not is_today and date_str in store:
+            t = store[date_str]  # finished day already stored: no Drive download needed
+        else:
+            e = _day_calc(drive_service, day, today, "trend")
+            t = e.get("trend") if e else None
+            if t is not None and not is_today and _trend_recordable(t):
+                to_record[date_str] = t
+        counts = (t or {}).get("counts") or none_counts
+        total_counts = (t or {}).get("total") or none_counts
+        aging_counts = (t or {}).get("aging")
+        if is_today and t and t.get("debug"):
+            debug_today = t["debug"]
+        for k in P0_COMPARISON_GROUPS:
+            for a in AGING_ORDER:
+                aging_series[k][a].append(aging_counts[k][a] if aging_counts else None)
+            series[k].append(counts.get(k))
+            series_total[k].append(total_counts.get(k))
+
+    _trend_store_record(gs_client, to_record)
+    return {"dates": dates, "series": series, "series_total": series_total, "debug_today": debug_today,
+            "aging_total": {"order": list(AGING_ORDER), "colors": AGING_COLORS, "series": aging_series}}
+
+
+
+def _classify_priority_at(target_finish_str, reference_dt):
+    """Same P0/P1/P2 formula as realtime_monitor._classify_priority, but
+    takes the reference point (normally "tomorrow's 01:15") directly rather
+    than deriving it from "now" - needed here because we're classifying
+    tickets as they stood at a FIXED past moment (a Drive snapshot), not
+    live data."""
+    tf = _parse_dt(target_finish_str)
+    if tf is None:
+        return None
+    diff_hours = (reference_dt - tf).total_seconds() / 3600
+    if diff_hours > 24:
+        return "P0"
+    elif diff_hours > 0:
+        return "P1"
+    else:
+        return "P2"
+
+
+def _rows_have_owner_group(rows):
+    """True if this rowset carries a TRUEOWNERGROUP column at all. Live
+    rows do; a Drive backup snapshot may not - and applying the CORP
+    filter to rows that simply lack the column would drop EVERY row (an
+    absent value can't match the "-NOP" pattern), silently zeroing the
+    whole card. So the filter is only applied when the column exists."""
+    for r in rows:
+        present = "TRUEOWNERGROUP" in r
+        if not present:
+            log.info("P0/Total Pending counters: rowset has no TRUEOWNERGROUP column - CORP filter skipped for this rowset (counts include any CORP rows)")
+        return present
+    return False
+
+
+def _owner_group_ok(r, apply_filter):
+    """Same rule as every other tab (explicit request): a TRUEOWNERGROUP
+    that isn't a recognized NOR "-NOP" province (e.g. "-CORP") is not
+    counted."""
+    if not apply_filter:
+        return True
+    return _extract_region_province(r.get("TRUEOWNERGROUP"))[1] is not None
+
+
+def _count_total_by_group(rows):
+    """Total PENDING per group - every ticket in scope regardless of
+    priority (P0+P1+P2, and tickets whose TARGETFINISH doesn't parse
+    too), same Region/Severity scope, same CORP filter and same group
+    matching as _count_p0_by_group so the two rows of cards are directly
+    comparable. Pure counting - never touches or changes the P0 numbers."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        for key in P0_COMPARISON_GROUPS:
+            if row_matches_view(r, key):
+                counts[key] += 1
+    return counts
+
+
+def _count_total_aging_by_group(rows):
+    """{group: {aging_key: n}} - Total Pending per group split by Aging_Flag_Group, with exactly the
+    scope/CORP filter/group matching of _count_total_by_group (so each group's split adds back up to
+    that group's Total, apart from tickets whose Aging_Flag_Group is blank/unknown, which are left out).
+    None when the rowset has no Aging_Flag_Group column at all (a day is then a gap, never zeros)."""
+    from ticket_views import row_matches_view
+    if not rows or "Aging_Flag_Group" not in rows[0]:
+        return None
+    canon = {_norm_aging(k): k for k in AGING_ORDER}
+    apply_tog = _rows_have_owner_group(rows)
+    out = {k: {a: 0 for a in AGING_ORDER} for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        ag = canon.get(_norm_aging(r.get("Aging_Flag_Group")))
+        if ag is None:
+            continue
+        for key in P0_COMPARISON_GROUPS:
+            if row_matches_view(r, key):
+                out[key][ag] += 1
+    return out
+
+
+def _province_breakdown_by_group(rows, reference_dt):
+    """Per group, per province: (p0_counts, total_counts). Uses exactly the
+    same scope, CORP filter, group matching and FBB P0+P1 rule as
+    _count_p0_by_group / _count_total_by_group, so each group's province
+    counts always add back up to the number on its card (checked by the
+    caller). Live rows only - current snapshot of who has the most."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
+    p0 = {k: {} for k in P0_COMPARISON_GROUPS}
+    total = {k: {} for k in P0_COMPARISON_GROUPS}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            total[key][prov] = total[key].get(prov, 0) + 1
+            allowed = _p0_allowed(key)
+            if priority in allowed:
+                p0[key][prov] = p0[key].get(prov, 0) + 1
+    return p0, total
+
+
+def _top_n_provinces(counts, n=5):
+    """[[province_code, count], ...] highest first, ties broken by code so
+    the order is stable between refreshes."""
+    return [[k, v] for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:n]]
+
+
+# ---------------------------------------------------------------------------
+# Drill down data for the Focus P0 cards (map + team/district/CINAME analysis)
+# ---------------------------------------------------------------------------
+_DD_STAGE_RANK = {"wait": 0, "dep": 1, "arr": 2, "done": 3, "closed": 4}
+
+
+def _dd_daily_extras(gs_client):
+    """{ticket_id_upper: {"team", "st"}} from the GGS Daily sheet (the same
+    sheet and bounded/cached reader the Mateline status column already
+    uses). st = the furthest stage that row has a timestamp for -
+    Closed > Completed > Arrived > Departed, else "wait" - regardless of
+    which day it happened (the map shows where a job IS, not whether it
+    moved today). If a ticket has several Daily rows, the most advanced one
+    wins (ties keep the first). Returns {} if the sheet can't be read, so
+    the drill down still works from the live sheet's own Tech_Team."""
+    from mateline_status import fetch_ggs_daily_rows
+    try:
+        rows = fetch_ggs_daily_rows(gs_client)
+    except Exception:
+        log.exception("drilldown: could not read GGS Daily sheet - falling back to live-sheet Tech_Team only")
+        return {}
+    if not rows:
+        return {}
+    col = {str(n).strip(): i for i, n in enumerate(rows[0]) if str(n).strip()}
+
+    def get(row, name):
+        i = col.get(name)
+        return str(row[i]).strip() if i is not None and i < len(row) and row[i] is not None else ""
+
+    out = {}
+    for row in rows[1:]:
+        if not row or not any(row):
+            continue
+        if get(row, "Status").lower() in ("canceled", "cancelled"):
+            continue
+        tids = [t for t in (get(row, "Source Ticket ID"), get(row, "External TicketID")) if t]
+        if not tids:
+            continue
+        if get(row, "Closed"):
+            st = "closed"
+        elif get(row, "Completed"):
+            st = "done"
+        elif get(row, "Arrived"):
+            st = "arr"
+        elif get(row, "Departed"):
+            st = "dep"
+        elif get(row, "Status").lower().startswith("closed"):
+            st = "closed"
+        else:
+            st = "wait"
+        entry = {"team": get(row, "Team"), "st": st}
+        keys = set()
+        for t in tids:
+            # "A|B" multi-ids; External ids look like "TT202611114115_A24287176"
+            # (suffix after "_") while the live sheet's TICKETID is the bare
+            # "TT202611114115" - index both the full id and the bare part.
+            for part in str(t).replace(",", "|").split("|"):
+                part = part.strip().upper()
+                if not part:
+                    continue
+                keys.add(part)
+                if "_" in part:
+                    keys.add(part.split("_", 1)[0])
+        for key in keys:
+            prev = out.get(key)
+            if prev is None or _DD_STAGE_RANK[st] > _DD_STAGE_RANK[prev["st"]]:
+                out[key] = entry
+    return out
+
+
+def _dd_coord(v, lo, hi):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(f, 5) if lo <= f <= hi else None
+
+
+def build_p0_drilldown(gs_client):
+    """Ticket-level data behind the Focus P0 cards' drill down. One record
+    per (ticket, group) - the same unit the cards count - so the numbers
+    in the drill down add up exactly to the numbers on the cards:
+      z = 1 when this record counts toward that group's Over SLA (P0) card
+      (FBB: P0+P1, others: P0 - the same rule as _count_p0_by_group), and
+      every record counts toward the Total Pending card.
+    Same scope as the cards: NOR1/NOR2, allowed severities, CORP excluded.
+    Read-only; never touches the work log or any existing computation."""
+    from ticket_views import row_matches_view
+    from datetime import timedelta as _td
+    live_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    reference_dt = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    extras = _dd_daily_extras(gs_client)
+    apply_tog = _rows_have_owner_group(live_rows)
+    aging_idx = {k: i for i, k in enumerate(AGING_ORDER)}
+
+    records, counts_p0, counts_total, no_coord = [], {k: 0 for k in P0_COMPARISON_GROUPS}, {k: 0 for k in P0_COMPARISON_GROUPS}, 0
+    for r in live_rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        tid = str(r.get("TICKETID", "")).strip()
+        ex = extras.get(tid.upper(), {})
+        team = ex.get("team") or str(r.get("Tech_Team", "") or "").strip()
+        st = ex.get("st") or "wait"
+        lat, lon = _dd_coord(r.get("LATITUDE"), 5, 21), _dd_coord(r.get("LONGITUDE"), 97, 106)
+        if lat is None or lon is None:
+            lat = lon = None
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            allowed = _p0_allowed(key)
+            z = 1 if priority in allowed else 0
+            counts_total[key] += 1
+            counts_p0[key] += z
+            if lat is None:
+                no_coord += 1
+            records.append({
+                "i": tid, "g": key, "p": prov, "z": z, "la": lat, "lo": lon, "s": st, "t": team,
+                "d": str(r.get("DISTRICT", "") or "").strip(), "c": str(r.get("CINAME", "") or "").strip(),
+                "a": aging_idx.get(str(r.get("Aging_Flag_Group", "")).strip(), -1),
+            })
+    # The drill down must add up to the cards - verify against the existing counters.
+    try:
+        chk_p0, chk_total = _count_p0_by_group(live_rows, reference_dt), _count_total_by_group(live_rows)
+        if chk_p0 != counts_p0 or chk_total != counts_total:
+            log.warning("drilldown counts differ from card counters: p0 %s vs %s, total %s vs %s", counts_p0, chk_p0, counts_total, chk_total)
+    except Exception:
+        log.exception("drilldown: consistency check could not run")
+    return {
+        "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "aging_order": list(AGING_ORDER),
+        "tickets": records,
+        "no_coordinate_records": no_coord,
+        "team_source_note": "GGS Daily 'Team' column, falling back to the live sheet's Tech_Team",
+    }
+
+
+NSA34_COUNTS_AS_P0 = True  # NSA3/NSA4 keep their P0 card number (set False to stop counting them as P0)
+
+
+def _p0_allowed(key):
+    """Priorities that count toward a group's Focus P0 card: FBB = P0+P1, NSA3/4 = none, everything else = P0 only."""
+    if key == "FBB":
+        return {"P0", "P1"}
+    if key == "NSA34" and not NSA34_COUNTS_AS_P0:
+        return set()
+    return {"P0"}
+
+
+def _count_p0_by_group(rows, reference_dt):
+    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    apply_tog = _rows_have_owner_group(rows)  # CORP filter (explicit request), skipped if this rowset has no TRUEOWNERGROUP column
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            # Same exception as the P0 Only detail/matrix view: the FBB
+            # (Online, "4.FBB with SA1-4") group counts P0+P1 together;
+            # every other group stays strict P0-only, unchanged.
+            allowed = _p0_allowed(key)
+            if priority in allowed:
+                counts[key] += 1
+    return counts
+
+
+def _count_p0_by_group_diagnostic(rows, reference_dt):
+    """Same result as _count_p0_by_group, but also reports how many rows
+    survive each stage of the pipeline (Region/Severity filter,
+    TARGETFINISH actually parses, priority lands in P0/P1) - built to
+    pinpoint exactly where rows are being lost the next time a debug_today
+    all-zero result shows up despite a large row_count, rather than
+    guessing which stage is at fault."""
+    from ticket_views import BOOKMARK_VIEWS, row_matches_view
+    counts = {k: 0 for k in P0_COMPARISON_GROUPS}
+    stages = {"total_rows": len(rows), "passed_region_severity": 0, "targetfinish_parsed_ok": 0, "priority_p0_or_p1": 0}
+    apply_tog = _rows_have_owner_group(rows)
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        stages["passed_region_severity"] += 1
+        if _parse_dt(r.get("TARGETFINISH")) is not None:
+            stages["targetfinish_parsed_ok"] += 1
+        priority = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        if priority in ("P0", "P1"):
+            stages["priority_p0_or_p1"] += 1
+        for key in P0_COMPARISON_GROUPS:
+            if not row_matches_view(r, key):
+                continue
+            allowed = _p0_allowed(key)
+            if priority in allowed:
+                counts[key] += 1
+    return counts, stages
+
+
+def _site_type_breakdown_mb(rows, reference_dt, gs_client):
+    """Site Type split of the 7.MB with SA1-4 P0 tickets (the number on that card), per province.
+    Same Region/Severity/CORP scope, group matching and P0 rule as _count_p0_by_group, so the buckets
+    always add back up to the card's count. Current data only. Returns None when the site sheet isn't
+    available - the card then just has no Site Type button."""
+    from ticket_views import row_matches_view
+    data = site_capacity.get_site_data(gs_client, wait_seconds=8)
+    if not data:
+        return None
+    apply_tog = _rows_have_owner_group(rows)
+    totals = {"cp0": 0, "cp1": 0, "cap": 0, "cov": 0, "na": 0}
+    by_prov = {}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "MB"):
+            continue
+        if _classify_priority_at(r.get("TARGETFINISH"), reference_dt) != "P0":
+            continue
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        b = site_capacity.bucket_for(data, r.get("CINAME"), r.get("SUBJECT"), r.get("SEVERITY"))
+        totals[b] += 1
+        row = by_prov.setdefault(prov, {"province": prov, "cp0": 0, "cp1": 0, "cap": 0, "cov": 0, "na": 0})
+        row[b] += 1
+    provinces = list(by_prov.values())
+    for row in provinces:
+        row["total"] = row["cp0"] + row["cp1"] + row["cap"] + row["cov"] + row["na"]
+    provinces.sort(key=lambda x: (-x["total"], x["province"]))
+    return {"types": totals, "total": sum(totals.values()), "provinces": provinces}
+
+
+def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
+    """Returns {"snapshot_date", "snapshot_matched_at", "groups": [{"key",
+    "label", "snapshot_p0", "current_p0", "diff"}, ...]} - P0 count right
+    now vs P0 count as it stood at the ~01:15 Drive backup closest to
+    today, for each of the 4 severity/bookmark groups. Falls back to
+    yesterday's snapshot if today's isn't found yet (e.g. very early in the
+    morning before the day's 01:15 backup has run).
+
+    Only the snapshot half (the Drive backup download+count) is cached -
+    that data is fixed once written and genuinely expensive to redo. The
+    "current" half is recomputed on every call: fetch_live_rows already has
+    its own short-TTL cache, so this stays cheap while never showing a
+    current_p0 that's stale relative to what the ticket detail table shows
+    right below it on the same page - the two used to share one 15-minute
+    cache, which could make this card's count visibly disagree with the
+    live detail list for up to 15 minutes after something changed."""
+    from pending_trend import find_nightly_file, download_xlsx_as_rows
+    from ticket_views import BOOKMARK_VIEWS
+
+    now = time.monotonic()
+    cached_snapshot = None
+    if use_cache:
+        with _p0_snapshot_lock:
+            if _p0_snapshot_cache["data"] is not None and (now - _p0_snapshot_cache["ts"]) < _P0_SNAPSHOT_CACHE_TTL_SECONDS:
+                cached_snapshot = _p0_snapshot_cache["data"]
+
+    snapshot_total_counts = None
+    if cached_snapshot is not None:
+        snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count = cached_snapshot[:5]
+        snapshot_total_counts = cached_snapshot[5] if len(cached_snapshot) > 5 else None
+    else:
+        today = bangkok_now().date()
+        file_info = find_nightly_file(drive_service, today)
+        snapshot_date = today
+        if file_info is None:
+            file_info = find_nightly_file(drive_service, today - _timedelta(days=1))
+            snapshot_date = today - _timedelta(days=1)
+        if file_info is None:
+            raise ValueError(f"No backup snapshot found near 01:15 for {today} or {today - _timedelta(days=1)}")
+
+        file_id, matched_dt, filename = file_info
+        snapshot_rows = download_xlsx_as_rows(drive_service, file_id)
+        snapshot_row_count = len(snapshot_rows)
+        reference_dt = datetime.combine(snapshot_date, _dtime(1, 15))
+        snapshot_counts = _count_p0_by_group(snapshot_rows, reference_dt)
+        try:
+            snapshot_total_counts = _count_total_by_group(snapshot_rows)
+        except Exception:
+            log.exception("build_p0_snapshot_comparison: snapshot total-pending count failed - P0 cards unaffected")
+            snapshot_total_counts = None
+        if use_cache:
+            with _p0_snapshot_lock:
+                _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count, snapshot_total_counts)
+                _p0_snapshot_cache["ts"] = now
+
+    live_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    current_reference_dt = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    current_counts = _count_p0_by_group(live_rows, current_reference_dt)
+    try:
+        current_total_counts = _count_total_by_group(live_rows)
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: live total-pending count failed - P0 cards unaffected")
+        current_total_counts = None
+
+    # Top 5 provinces per group + overall (explicit request; current data
+    # only, no 01:15 comparison per province). Isolated: if this fails the
+    # cards just render without the Top 5 block, nothing else changes.
+    top_p0_by_group = top_total_by_group = overall_top_p0 = overall_top_total = None
+    try:
+        prov_p0, prov_total = _province_breakdown_by_group(live_rows, current_reference_dt)
+        for key in P0_COMPARISON_GROUPS:
+            if sum(prov_p0[key].values()) != current_counts[key] or (current_total_counts and sum(prov_total[key].values()) != current_total_counts[key]):
+                log.warning("Top 5 provinces: group %s province sums (%s p0 / %s total) don't match card counts (%s / %s)",
+                            key, sum(prov_p0[key].values()), sum(prov_total[key].values()), current_counts[key], (current_total_counts or {}).get(key))
+        top_p0_by_group = {k: _top_n_provinces(prov_p0[k]) for k in P0_COMPARISON_GROUPS}
+        top_total_by_group = {k: _top_n_provinces(prov_total[k]) for k in P0_COMPARISON_GROUPS}
+        all_p0, all_total = {}, {}
+        for k in P0_COMPARISON_GROUPS:
+            for prov, n in prov_p0[k].items():
+                all_p0[prov] = all_p0.get(prov, 0) + n
+            for prov, n in prov_total[k].items():
+                all_total[prov] = all_total.get(prov, 0) + n
+        overall_top_p0 = _top_n_provinces(all_p0)
+        overall_top_total = _top_n_provinces(all_total)
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: Top 5 provinces failed - cards render without them")
+        top_p0_by_group = top_total_by_group = overall_top_p0 = overall_top_total = None
+
+    site_type_mb = None
+    try:
+        site_type_mb = _site_type_breakdown_mb(live_rows, current_reference_dt, gs_client)
+        if site_type_mb and site_type_mb["total"] != current_counts["MB"]:
+            log.warning("Site Type breakdown total (%s) != 7.MB card count (%s)", site_type_mb["total"], current_counts["MB"])
+    except Exception:
+        log.exception("build_p0_snapshot_comparison: Site Type breakdown failed - 7.MB card renders without it")
+        site_type_mb = None
+
+    groups = []
+    for key in P0_COMPARISON_GROUPS:
+        s = snapshot_counts[key]
+        c = current_counts[key]
+        g = {
+            "key": key, "label": BOOKMARK_VIEWS[key]["label"],
+            "snapshot_p0": s, "current_p0": c, "diff": c - s,
+        }
+        # Total Pending (additive keys only - the P0 keys above are exactly
+        # what they always were). None on either side = that half couldn't
+        # be computed, and the frontend simply leaves the new row out.
+        st = snapshot_total_counts.get(key) if snapshot_total_counts else None
+        ct = current_total_counts.get(key) if current_total_counts else None
+        g["snapshot_total"] = st
+        g["current_total"] = ct
+        g["total_diff"] = (ct - st) if (st is not None and ct is not None) else None
+        g["top_p0"] = top_p0_by_group.get(key) if top_p0_by_group else None
+        g["top_total"] = top_total_by_group.get(key) if top_total_by_group else None
+        groups.append(g)
+
+    return {
+        "snapshot_date": snapshot_date.strftime("%Y-%m-%d"),
+        "snapshot_matched_at": matched_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "snapshot_filename": filename,
+        "snapshot_row_count": snapshot_row_count,  # diagnostic - if this is 0, the backup file itself had no rows; if >0 but every snapshot_p0 is 0, the issue is in classification/matching, not the file
+        "current_generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "groups": groups,
+        "overall_top_p0": overall_top_p0,          # sum of the 4 groups, per province (matches how the big cards are defined)
+        "overall_top_total": overall_top_total,
+        "site_type_mb": site_type_mb,  # additive: {"types", "total", "provinces"} for the 7.MB card's Site Type button, or None
+    }
+
+
+# ── NSA3/NSA4 Flag Priority breakdown (button on the Total Pending NSA3/NSA4 card) ──
+# Read-only and additive: its own endpoint (/api/p0-nsa34-flag) loaded when the
+# button is pressed, so no existing response or number changes. Scope, CORP
+# filter and group matching are exactly _count_total_by_group's, so
+# flag + non-flag always equals the NSA3 / NSA4 card number (checked + logged).
+def _nsa34_blank():
+    return {"flag": 0, "non": 0, "cats": {}, "p0cats": {}, "prov": {}, "aging": {}, "nonflag": {}}
+
+
+def _nsa34_merge(parts):
+    """Sum several _nsa34_blank()-shaped dicts (used to build the P0+P1 / all views)."""
+    out = _nsa34_blank()
+    for p in parts:
+        out["flag"] += p["flag"]
+        out["non"] += p["non"]
+        for key in ("cats", "p0cats", "prov", "aging", "nonflag"):
+            for k, v in p[key].items():
+                out[key][k] = out[key].get(k, 0) + v
+    return out
+
+
+_NSA34_VIEWS = {"all": ("P0", "P1", "OTHER"), "P0": ("P0",), "P1": ("P1",), "P0P1": ("P0", "P1")}
+
+
+def _nsa34_scan(rows, reference_dt):
+    """One pass over `rows` -> NSA3/4 Total Pending split by Flag Priority AND by
+    ticket Priority: {"P0": blank, "P1": blank, "OTHER": blank} where each blank is
+    {"flag", "non", "cats" {lower-cat: n}, "p0cats", "prov" {prov: flag n},
+     "aging" {aging_key: flag n}, "nonflag" {cat: n}}. OTHER = P2 / unparsable date."""
+    from ticket_views import row_matches_view
+    apply_tog = _rows_have_owner_group(rows)
+    by = {"P0": _nsa34_blank(), "P1": _nsa34_blank(), "OTHER": _nsa34_blank()}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        if str(r.get("SEVERITY", "")).strip() not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "NSA34"):
+            continue
+        pr = _classify_priority_at(r.get("TARGETFINISH"), reference_dt)
+        out = by[pr if pr in ("P0", "P1") else "OTHER"]
+        cat = _category_text(r).strip()
+        key = cat.lower()
+        if key in FLAG_PRIORITY_CATEGORIES:
+            out["flag"] += 1
+            out["cats"][key] = out["cats"].get(key, 0) + 1
+            if pr == "P0":
+                out["p0cats"][key] = out["p0cats"].get(key, 0) + 1
+            prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+            out["prov"][prov] = out["prov"].get(prov, 0) + 1
+            ag = str(r.get("Aging_Flag_Group", "")).strip()
+            if ag:
+                out["aging"][ag] = out["aging"].get(ag, 0) + 1
+        else:
+            out["non"] += 1
+            name = cat or "(ไม่ระบุ Category)"
+            out["nonflag"][name] = out["nonflag"].get(name, 0) + 1
+    return by
+
+
+def _nsa34_day_scan(drive_service, day, today, keep_rows=True):
+    """Snapshot (~01:15 file) scan for one day, or None when no file. Comes from the shared
+    counts-only day cache (_day_calc): a past day is downloaded once for ALL consumers and its
+    raw rows are never kept; today is cached 15 min. `keep_rows` is ignored (kept for callers)."""
+    e = _day_calc(drive_service, day, today, "nsa34")
+    return e.get("nsa34") if e else None
+
+
+# ── Persistent daily Actual (Flag @01:15) ─────────────────────────────────
+# The nightly Drive files only live ~5 days, so the month Forecast's Actual line
+# lost its older days. Every finished day's Flag count is therefore written ONCE
+# to its own sheet tab and then kept: a stored value is never overwritten and wins
+# over a re-count (so the line does not move if the counting rules change later).
+FLAG_DAILY_SHEET = "FlagDailyActual"
+FLAG_DAILY_HEADER = ["Date", "All", "P0", "P1", "P0+P1", "Recorded at", "Source"]
+FLAG_DAILY_VIEWS = ("all", "P0", "P1", "P0P1")
+# Known values supplied by MAX: Flag P0+P1 @01:15 on 11 Oct = 157 (start of the month plan), 12 Oct = 145.
+FLAG_DAILY_SEED = {"2026-10-11": {"P0P1": 157}, "2026-10-12": {"P0P1": 145}}
+_flag_daily = {"data": None, "ts": 0.0}
+_flag_daily_lock = threading.Lock()
+_FLAG_DAILY_TTL = 1800
+
+
+def _flag_daily_ws(gs_client):
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    try:
+        return sh.worksheet(FLAG_DAILY_SHEET)
+    except Exception:
+        ws = sh.add_worksheet(title=FLAG_DAILY_SHEET, rows=500, cols=len(FLAG_DAILY_HEADER))
+        ws.append_row(FLAG_DAILY_HEADER)
+        return ws
+
+
+def _flag_daily_int(v):
+    try:
+        return int(str(v).strip()) if str(v).strip() != "" else None
+    except ValueError:
+        return None
+
+
+def _flag_daily_load(gs_client, force=False):
+    """{date_str: {"all","P0","P1","P0P1": int|None}} from the sheet (cached 30 min, best-effort)."""
+    with _flag_daily_lock:
+        if not force and _flag_daily["data"] is not None and (time.monotonic() - _flag_daily["ts"]) < _FLAG_DAILY_TTL:
+            return _flag_daily["data"]
+    if gs_client is None:
+        return _flag_daily["data"] or {}
+    try:
+        ws = _flag_daily_ws(gs_client)
+        data = {}
+        for row in ws.get_all_values()[1:]:
+            if row and row[0].strip():
+                pad = row + [""] * (len(FLAG_DAILY_HEADER) - len(row))
+                data[pad[0].strip()] = {v: _flag_daily_int(pad[1 + i]) for i, v in enumerate(FLAG_DAILY_VIEWS)}
+        seed_rows = []
+        for ds, vals in FLAG_DAILY_SEED.items():
+            if ds not in data:
+                full = {v: vals.get(v) for v in FLAG_DAILY_VIEWS}
+                data[ds] = full
+                seed_rows.append([ds] + ["" if full[v] is None else full[v] for v in FLAG_DAILY_VIEWS]
+                                 + [bangkok_now().strftime("%Y-%m-%d %H:%M:%S"), "seed (provided by MAX)"])
+        if seed_rows:
+            ws.append_rows(seed_rows, value_input_option="RAW")
+        with _flag_daily_lock:
+            _flag_daily["data"], _flag_daily["ts"] = data, time.monotonic()
+        return data
+    except Exception:
+        log.exception("flag daily store: load failed")
+        return _flag_daily["data"] or {}
+
+
+def _flag_daily_record(gs_client, day_totals):
+    """day_totals = {date_str: {"all","P0","P1","P0P1": int}} for finished days. Appends only dates not stored yet."""
+    if gs_client is None or not day_totals:
+        return
+    try:
+        store = _flag_daily_load(gs_client)
+        new = {ds: t for ds, t in day_totals.items() if ds not in store}
+        if not new:
+            return
+        ws = _flag_daily_ws(gs_client)
+        stamp = bangkok_now().strftime("%Y-%m-%d %H:%M:%S")
+        ws.append_rows([[ds] + [t[v] for v in FLAG_DAILY_VIEWS] + [stamp, "nightly 01:15 file"] for ds, t in sorted(new.items())],
+                       value_input_option="RAW")
+        with _flag_daily_lock:
+            for ds, t in new.items():
+                store[ds] = dict(t)
+        log.info("flag daily store: recorded %s", sorted(new))
+    except Exception:
+        log.exception("flag daily store: record failed")
+
+
+def _scan_day_totals(sc):
+    return {v: sum(sc[k]["flag"] for k in keys) for v, keys in _NSA34_VIEWS.items()}
+
+
+def _flag_daily_merge(days, scans, store):
+    """Per day: the stored value if there is one, else the live count. Returns
+    ({date_str: {view: int|None}}, {date_str: totals to record})."""
+    merged, to_record = {}, {}
+    for d, sc in zip(days, scans):
+        ds = d.strftime("%Y-%m-%d")
+        st = store.get(ds)
+        counted = _scan_day_totals(sc) if sc is not None else None
+        merged[ds] = {v: (st[v] if st and st.get(v) is not None else (counted[v] if counted else None)) for v in FLAG_DAILY_VIEWS}
+        if counted is not None and not st:
+            to_record[ds] = counted
+    return merged, to_record
+
+
+def record_flag_daily_snapshots(drive_service, gs_client, back_days=4):
+    """Nightly job (06:00 Bangkok, app.py): stores today's 01:15 Flag count and catches up on the last
+    `back_days` days that are not stored yet - so Actual is kept even if nobody opens the panel before
+    the Drive file is deleted. Returns the dates written."""
+    today = bangkok_now().date()
+    days = [today - _timedelta(days=i) for i in range(back_days, -1, -1)]
+    store = _flag_daily_load(gs_client, force=True)
+    todo = [d for d in days if not store.get(d.strftime("%Y-%m-%d")) or any(store[d.strftime("%Y-%m-%d")].get(v) is None for v in FLAG_DAILY_VIEWS)]
+    scans = [_nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in todo]
+    rec = {d.strftime("%Y-%m-%d"): _scan_day_totals(sc) for d, sc in zip(todo, scans) if sc is not None and not store.get(d.strftime("%Y-%m-%d"))}
+    _flag_daily_record(gs_client, rec)
+    # Same nightly pass also stores the Focus P0 trend numbers of finished days (tab TrendDailySnapshot).
+    try:
+        tstore = _trend_store_load(gs_client, force=True)
+        trec = {}
+        for d in days:
+            ds = d.strftime("%Y-%m-%d")
+            if d == today or ds in tstore:
+                continue
+            e = _day_calc(drive_service, d, today, "trend")
+            t = e.get("trend") if e else None
+            if _trend_recordable(t):
+                trec[ds] = t
+        _trend_store_record(gs_client, trec)
+    except Exception:
+        log.exception("trend daily store: nightly record failed")
+    return sorted(rec)
+
+
+def _nsa34_view(scans, cur_by, snap_idx, all_days, view, merged=None):
+    """Response body for one Priority view ("all", "P0", "P1", "P0P1")."""
+    keys = _NSA34_VIEWS[view]
+    pick = lambda by: _nsa34_merge([by[k] for k in keys])
+    cur = pick(cur_by)
+    day = [pick(s) if s is not None else None for s in scans]
+    snap = day[snap_idx] if snap_idx is not None else None
+
+    def series(fn):
+        return [fn(s) if s is not None else None for s in day]
+
+    cats = []
+    for name in FLAG_PRIORITY_CATEGORY_LIST:
+        k = name.lower()
+        cats.append({
+            "name": name, "now": cur["cats"].get(k, 0),
+            "snap": snap["cats"].get(k, 0) if snap else None,
+            "p0": cur["p0cats"].get(k, 0),
+            "trend": series(lambda s, k=k: s["cats"].get(k, 0)),
+        })
+    provs = set(cur["prov"])
+    for s in day:
+        if s:
+            provs |= set(s["prov"])
+    prov_rows = [{
+        "code": p, "now": cur["prov"].get(p, 0),
+        "snap": snap["prov"].get(p, 0) if snap else None,
+        "trend": series(lambda s, p=p: s["prov"].get(p, 0)),
+    } for p in provs]
+    prov_rows.sort(key=lambda r: (-r["now"], r["code"]))
+    non_top = sorted(cur["nonflag"].items(), key=lambda kv: (-kv[1], kv[0]))
+    return {
+        "flag_now": cur["flag"], "non_now": cur["non"],
+        "flag_snap": snap["flag"] if snap else None, "non_snap": snap["non"] if snap else None,
+        "flag_p0": sum(cur["p0cats"].values()),
+        "series": {"flag": [(merged.get(d.strftime("%Y-%m-%d"), {}).get(view) if merged else None)
+                            if (merged and merged.get(d.strftime("%Y-%m-%d"), {}).get(view) is not None) else v
+                            for d, v in zip(all_days, series(lambda s: s["flag"]))],
+                   "non": series(lambda s: s["non"])},
+        "categories": cats,
+        "provinces": prov_rows,
+        "aging": {"order": list(AGING_ORDER), "colors": AGING_COLORS,
+                  "counts": {k: cur["aging"].get(k, 0) for k in AGING_ORDER}},
+        "nonflag_top": [[n, c] for n, c in non_top[:8]],
+        "nonflag_other": sum(c for _n, c in non_top[8:]),
+    }
+
+
+def build_nsa34_flag_breakdown(gs_client, drive_service, days=7):
+    """Top level = the unfiltered ("all") view, exactly as before; "views" adds the
+    Priority-filtered versions {"P0", "P1", "P0P1"} with the same shape."""
+    now_dt = bangkok_now()
+    today = now_dt.date()
+    all_days = [today - _timedelta(days=i) for i in range(days - 1, -1, -1)]
+    scans = [_nsa34_day_scan(drive_service, d, today) for d in all_days]
+    snap_idx = next((i for i in range(len(scans) - 1, -1, -1) if scans[i] is not None), None)
+    # Finished days are kept in the sheet (see "Persistent daily Actual"); today's count stays live.
+    merged, to_record = _flag_daily_merge(all_days, scans, _flag_daily_load(gs_client))
+    _flag_daily_record(gs_client, {k: v for k, v in to_record.items() if k != today.strftime("%Y-%m-%d")})
+
+    live_rows = fetch_live_rows(gs_client)
+    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    cur_by = _nsa34_scan(live_rows, ref)
+    try:
+        expect = _count_total_by_group(live_rows).get("NSA34")
+        got = sum(v["flag"] + v["non"] for v in cur_by.values())
+        if expect != got:
+            log.warning("nsa34 flag: flag+non (%s) != NSA3/4 card (%s)", got, expect)
+    except Exception:
+        log.exception("nsa34 flag: card-total cross-check failed")
+
+    out = _nsa34_view(scans, cur_by, snap_idx, all_days, "all", merged)
+    out["generated_at"] = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    # insert_time = stamped by the source system on every row of the current batch ("รอบข้อมูลปัจจุบัน"),
+    # same field Pending Ticket / P0 Only show.
+    out["insert_time"] = live_rows[0].get("insert_time") if live_rows else None
+    out["snapshot_date"] = all_days[snap_idx].strftime("%Y-%m-%d") if snap_idx is not None else None
+    out["dates"] = [d.strftime("%Y-%m-%d") for d in all_days]
+    out["views"] = {v: _nsa34_view(scans, cur_by, snap_idx, all_days, v, merged) for v in ("P0", "P1", "P0P1")}
+    return out
+
+
+def build_nsa34_p2(gs_client):
+    """Flag Priority "P2 - เฝ้าระวัง" tab: NSA3/NSA4 Flag tickets that are still P2 at the reference
+    point (tomorrow 01:15, same as the P0/P1 split), plus the P1 tickets that will turn P0 in the next
+    round. Read-only, live rows + TicketWorkLog only (no Drive download).
+
+    {"meta": {...counts}, "tickets": [P2 flag tickets, `hrs` = hours left before TARGETFINISH counted
+    from the reference point], "p1esc": [P1 flag tickets, `over` = hours already past TARGETFINISH at the
+    reference point - they pass 24h (= P0) in the next round]}. Each ticket carries the work-log plan
+    (detail / team / group problem / planned close date) so the team sees what is already being done."""
+    from ticket_views import row_matches_view
+    now_dt = bangkok_now()
+    ref = (now_dt + _timedelta(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
+    rows = fetch_live_rows(gs_client)
+    apply_tog = _rows_have_owner_group(rows)
+    try:
+        work_log = load_work_log(gs_client)
+    except Exception:
+        log.exception("nsa34 p2: work log read failed - plans left blank")
+        work_log = {}
+    p2, esc = [], []
+    meta = {"p0": 0, "p1": 0, "nonflag_p2": 0, "nsa3_all": 0, "nsa4_all": 0, "unparsed": 0}
+    for r in rows:
+        if str(r.get("Region", "")).strip() not in PENDING_TICKET_REGIONS:
+            continue
+        sev = str(r.get("SEVERITY", "")).strip()
+        if sev not in ALLOWED_SEVERITIES:
+            continue
+        if not _owner_group_ok(r, apply_tog):
+            continue
+        if not row_matches_view(r, "NSA34"):
+            continue
+        meta["nsa3_all" if sev == "NSA3" else "nsa4_all"] += 1
+        tf = _parse_dt(r.get("TARGETFINISH"))
+        pr = _classify_priority_at(r.get("TARGETFINISH"), ref)
+        if pr is None or tf is None:
+            meta["unparsed"] += 1
+            continue
+        cat = _category_text(r).strip()
+        is_flag = cat.lower() in FLAG_PRIORITY_CATEGORIES
+        if pr == "P0":
+            if is_flag:
+                meta["p0"] += 1
+            continue
+        if not is_flag:
+            if pr == "P2":
+                meta["nonflag_p2"] += 1
+            continue
+        tid = str(r.get("TICKETID", "")).strip()
+        prov = (_extract_region_province(r.get("TRUEOWNERGROUP"))[1] if apply_tog else None) or "(ไม่ระบุ)"
+        wl = work_log.get(tid, {})
+        gp = wl.get("group_problem", "") or ""
+        item = {
+            "id": tid, "tt": str(r.get("TT True", "") or tid), "sev": sev, "cat": cat, "prov": prov,
+            "site": _safe_str(r.get("CINAME")), "dist": _safe_str(r.get("DISTRICT")),
+            "tf": _safe_str(r.get("TARGETFINISH")),
+            "detail": wl.get("detail", "") or "", "team": wl.get("action_team", "") or "",
+            "gp": "" if gp.startswith("(") else gp, "plan": wl.get("plan_closed_date", "") or "",
+        }
+        if pr == "P1":
+            meta["p1"] += 1
+            item["over"] = round((ref - tf).total_seconds() / 3600, 1)
+            esc.append(item)
+        else:
+            item["hrs"] = round((tf - ref).total_seconds() / 3600, 1)
+            p2.append(item)
+    p2.sort(key=lambda t: t["hrs"])
+    esc.sort(key=lambda t: -t["over"])
+    meta["p0p1"] = meta["p0"] + meta["p1"]
+    meta["flag_list"] = list(FLAG_PRIORITY_CATEGORY_LIST)
+    return {"meta": meta, "tickets": p2, "p1esc": esc, "reference": ref.strftime("%Y-%m-%d %H:%M"),
+            "generated_at": now_dt.strftime("%Y-%m-%d %H:%M:%S"),
+            "insert_time": rows[0].get("insert_time") if rows else None}
+
+
+def build_nsa34_flag_history(drive_service, start_date, window_days=7, gs_client=None):
+    """Flag totals @01:15 per day for the days BEFORE the 7-day window of
+    build_nsa34_flag_breakdown (start_date .. today-7), for the month Forecast chart.
+    {"dates": [...], "series": {"all"|"P0"|"P1"|"P0P1": [flag count or None]}}.
+    Stored values (sheet tab FlagDailyActual) win; a day only needs its Drive file when it is not stored yet."""
+    today = bangkok_now().date()
+    last = today - _timedelta(days=window_days)
+    days_list = []
+    d = start_date
+    while d <= last:
+        days_list.append(d)
+        d += _timedelta(days=1)
+    store = _flag_daily_load(gs_client)
+    scans = [None if (d.strftime("%Y-%m-%d") in store and all(store[d.strftime("%Y-%m-%d")].get(v) is not None for v in FLAG_DAILY_VIEWS))
+             else _nsa34_day_scan(drive_service, d, today, keep_rows=False) for d in days_list]
+    merged, to_record = _flag_daily_merge(days_list, scans, store)
+    _flag_daily_record(gs_client, to_record)
+    series = {v: [merged[d.strftime("%Y-%m-%d")][v] for d in days_list] for v in FLAG_DAILY_VIEWS}
+    return {"dates": [d.strftime("%Y-%m-%d") for d in days_list], "series": series}
+
+
+# ── Online SA1-4 SLA Monitoring ─────────────────────────────────────────
+# New tab built on the exact same data source, Region/Severity filtering,
+# and P0/P1 priority formula as Focus Priority 0 above (_classify_priority,
+# imported from realtime_monitor - the "tomorrow 01:15" reference point is
+# NOT reimplemented here, just reused) - scoped to the "Online" bookmark
+# ("4.FBB with SA1-4") and P0+P1 together. Adds SLA Progress % (elapsed
+# time / total CREATIONDATE-to-TARGETFINISH duration) and a hazard-hours
+# Early Warning window - neither exists anywhere else in this codebase,
+# since the existing Aging_Flag_Group is a different concept (buckets by
+# how overdue an ALREADY-late ticket is, not by progress toward a
+# not-yet-due deadline). This system has no CLOSEDTIME field anywhere and
+# fetch_live_rows() only ever returns currently-pending tickets, so every
+# entry here is implicitly "still open" by construction - confirmed
+# acceptable, no closed-ticket tracking needed.
+
+ONLINE_BOOKMARK_RAW = "4.FBB with SA1-4"
+
+
+def _format_sla_duration_label(hours):
+    """Displays SLA duration at whatever precision is actually meaningful
+    - a 4-hour or 12-hour SLA needs to show as "4 Hours"/"12 Hours", not
+    get rounded away to "0 Days" (which is what happened when this
+    grouped by whole days only). Clean day-aligned multiples (24h, 72h,
+    ...) show as "N Days" for readability; anything else shows in hours."""
+    if hours is None:
+        return None
+    if hours >= 24 and hours % 24 == 0:
+        return f"{int(hours // 24)} Days"
+    return f"{int(hours)} Hours"
+
+
+def _sla_risk_bucket(now_dt, target_dt, progress_pct):
+    """🔴 over / 🟠 >=75% / 🟡 >=50% / 🔵 normal (<50%) - Over is decided
+    by the clock (now past TARGETFINISH), matching how priority P0/P1
+    already treat lateness; the other 3 buckets split the SLA Progress %
+    range. Returns None if progress_pct couldn't be computed (missing/
+    invalid CREATIONDATE or TARGETFINISH) - never guesses a bucket for
+    that ticket rather than misclassifying it."""
+    if target_dt and now_dt > target_dt:
+        return "over"
+    if progress_pct is None:
+        return None
+    if progress_pct >= 75:
+        return "risk75"
+    if progress_pct >= 50:
+        return "risk50"
+    return "normal"
+
+
+def build_online_sla_response(gs_client=None):
+    """Online SA1-4 SLA Monitoring - see module-level comment above for
+    what's reused vs new. Returns entries (ticket-level, sorted by
+    remaining SLA time ascending - most urgent first) for EVERY priority
+    (P0/P1/P2 all included, not just P0+P1), KPI counts (including a
+    priority breakdown so "everything together" stays readable), a
+    Region->Province risk table, and an SLA-Duration distribution (+ x
+    Province) table. SLA Duration groups are DISCOVERED from real data at
+    HOUR precision (never hardcoded, never rounded away to whole days -
+    a 4h or 12h SLA needs to stay visible as such)."""
+    if gs_client is None:
+        _, gs_client = get_drive_and_sheets_clients()
+
+    all_rows = fetch_live_rows(gs_client)
+    now_dt = bangkok_now()
+    scoped = [
+        r for r in all_rows
+        if str(r.get("Region", "")).strip() in PENDING_TICKET_REGIONS
+        and str(r.get("SEVERITY", "")).strip() in ALLOWED_SEVERITIES
+        and str(r.get("Bookmark", "")).strip() == ONLINE_BOOKMARK_RAW
+    ]
+    work_log = load_work_log(gs_client)
+    try:
+        mateline_lookup = build_mateline_status_lookup(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("GGS Daily mateline lookup failed for Online SLA - falling back to empty for this response")
+        mateline_lookup = {}
+
+    entries = []
+    skipped_no_province = 0
+    for r in scoped:
+        region_from_owner, province_from_owner = _extract_region_province(r.get("TRUEOWNERGROUP"))
+        if province_from_owner is None:
+            # Same rule as build_exclusive_pending_response above - a
+            # TRUEOWNERGROUP that isn't a recognized "-NOP" NOR province
+            # (e.g. "-CORP") is excluded entirely, not shown with a
+            # placeholder province.
+            skipped_no_province += 1
+            continue
+
+        priority = _classify_priority(r.get("TARGETFINISH"), now_dt)
+        if priority is None:
+            continue  # unparseable TARGETFINISH - can't classify at all, not even as P2
+
+        creation_dt = _parse_dt(r.get("CREATIONDATE"))
+        target_dt = _parse_dt(r.get("TARGETFINISH"))
+
+        sla_duration_hours = None
+        sla_duration_label = None
+        sla_progress_pct = None
+        remaining_hours = None
+        if creation_dt and target_dt:
+            total_seconds = (target_dt - creation_dt).total_seconds()
+            if total_seconds > 0:
+                sla_duration_hours = round(total_seconds / 3600)
+                sla_duration_label = _format_sla_duration_label(sla_duration_hours)
+                elapsed_seconds = (now_dt - creation_dt).total_seconds()
+                sla_progress_pct = round(max(0, elapsed_seconds) / total_seconds * 100, 1)
+            remaining_hours = round((target_dt - now_dt).total_seconds() / 3600, 2)
+
+        sla_risk = _sla_risk_bucket(now_dt, target_dt, sla_progress_pct)
+
+        ticket_id = str(r.get("TICKETID", "")).strip()
+        wl = work_log.get(ticket_id, {})
+        mateline = mateline_lookup.get(ticket_id.upper()) or {
+            "status_mateline": "(ไม่พบใน MatelineX)", "mateline_wo_status": "",
+        }
+        over_sla_day = r.get("Over_SLA_Day")
+        try:
+            over_sla_day = float(over_sla_day)
+        except (TypeError, ValueError):
+            over_sla_day = 0
+
+        entries.append({
+            "TICKETID": ticket_id,
+            "SUBJECT": r.get("SUBJECT", ""),
+            "CINAME": r.get("CINAME", ""),
+            "DISTRICT": r.get("DISTRICT", ""),
+            "PROVINCE": province_from_owner,
+            "Region": region_from_owner,
+            "TRUEOWNERGROUP": r.get("TRUEOWNERGROUP", ""),
+            "priority": priority,
+            "Aging_Flag_Group": str(r.get("Aging_Flag_Group", "")).strip() or UNSPECIFIED_AGING,
+            "CREATIONDATE": r.get("CREATIONDATE", ""),
+            "TARGETFINISH": r.get("TARGETFINISH", ""),
+            "sla_duration_hours": sla_duration_hours,
+            "sla_duration_label": sla_duration_label,
+            "sla_progress_pct": sla_progress_pct,
+            "sla_risk": sla_risk,  # 'over' | 'risk75' | 'risk50' | 'normal' | None
+            "remaining_hours": remaining_hours,
+            "early_warning_2h": remaining_hours is not None and 0 <= remaining_hours <= 2,
+            "early_warning_6h": remaining_hours is not None and 0 <= remaining_hours <= 6,
+            "early_warning_12h": remaining_hours is not None and 0 <= remaining_hours <= 12,
+            "over_sla_day": over_sla_day,
+            "status_mateline": mateline["status_mateline"],
+            "mateline_wo_status": mateline["mateline_wo_status"],
+            "group_problem": wl.get("group_problem") or UNSPECIFIED_GROUP_PROBLEM,
+            "action_team": wl.get("action_team", ""),
+        })
+    if skipped_no_province:
+        log.info("build_pending_ticket_response: excluded %d rows with no matching NOR province in TRUEOWNERGROUP (CORP or unrecognized)", skipped_no_province)
+
+    # Most urgent (soonest TARGETFINISH / least remaining time) first -
+    # entries with no computable remaining_hours sort last, not first.
+    entries.sort(key=lambda e: e["remaining_hours"] if e["remaining_hours"] is not None else float("inf"))
+
+    total = len(entries)
+    risk_counts = {"over": 0, "risk75": 0, "risk50": 0, "normal": 0}
+    priority_counts = {"P0": 0, "P1": 0, "P2": 0}
+    for e in entries:
+        if e["sla_risk"] in risk_counts:
+            risk_counts[e["sla_risk"]] += 1
+        if e["priority"] in priority_counts:
+            priority_counts[e["priority"]] += 1
+    ew_counts = {
+        "2h": sum(1 for e in entries if e["early_warning_2h"]),
+        "6h": sum(1 for e in entries if e["early_warning_6h"]),
+        "12h": sum(1 for e in entries if e["early_warning_12h"]),
+    }
+
+    # Region -> Province risk table.
+    province_stats = {}
+    for e in entries:
+        p = province_stats.setdefault(e["PROVINCE"], {
+            "province": e["PROVINCE"], "region": e["Region"],
+            "total": 0, "over": 0, "risk75": 0, "risk50": 0, "normal": 0,
+        })
+        p["total"] += 1
+        if e["sla_risk"] in p:
+            p[e["sla_risk"]] += 1
+    province_table = sorted(province_stats.values(), key=lambda r: -r["total"])
+    critical_province = max(province_table, key=lambda r: r["over"])["province"] if any(r["over"] for r in province_table) else None
+
+    # SLA Duration distribution - groups DISCOVERED from real data at HOUR
+    # precision, not a hardcoded list, and not rounded away to whole days.
+    duration_counts = {}
+    for e in entries:
+        key = e["sla_duration_label"] or "(ไม่ระบุ)"
+        duration_counts[key] = duration_counts.get(key, 0) + 1
+    duration_table = sorted(
+        [{"sla_duration": k, "ticket_count": v} for k, v in duration_counts.items()],
+        key=lambda r: -r["ticket_count"],
+    )
+
+    # SLA Duration x Province.
+    dp_stats = {}
+    for e in entries:
+        dkey = e["sla_duration_label"] or "(ไม่ระบุ)"
+        key = (dkey, e["PROVINCE"])
+        dp = dp_stats.setdefault(key, {
+            "sla_duration": dkey, "province": e["PROVINCE"],
+            "total": 0, "over": 0, "risk75": 0, "risk50": 0,
+        })
+        dp["total"] += 1
+        if e["sla_risk"] in dp:
+            dp[e["sla_risk"]] += 1
+    duration_province_table = sorted(dp_stats.values(), key=lambda r: -r["total"])
+
+    return {
+        "entries": entries,
+        "kpi": {
+            "total": total,
+            "over_sla": risk_counts["over"], "risk_75": risk_counts["risk75"],
+            "risk_50": risk_counts["risk50"], "normal": risk_counts["normal"],
+            "early_warning_2h": ew_counts["2h"], "early_warning_6h": ew_counts["6h"], "early_warning_12h": ew_counts["12h"],
+            "critical_province": critical_province,
+            "priority_p0": priority_counts["P0"], "priority_p1": priority_counts["P1"], "priority_p2": priority_counts["P2"],
+        },
+        "province_table": province_table,
+        "duration_table": duration_table,
+        "duration_province_table": duration_province_table,
+        "insert_time": scoped[0].get("insert_time") if scoped else None,
+    }
