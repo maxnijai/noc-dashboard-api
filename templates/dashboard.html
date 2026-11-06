@@ -17560,23 +17560,48 @@ redraw();
     const now = prov == null ? m.tot.now : (m.rows.find(x => x.p === prov) || { now: 0 }).now;
     return { hist: hist.slice(f0), now };
   }
-  function pts(s, W, L, R, T, H, B, mx) {
-    const n = Math.max(1, s.hist.length - 1), x = i => L + (W - L - R) * i / n, y = v => T + (H - T - B) * (1 - v / mx), out = [];
+  function pts(s, W, L, R, T, H, B, mx, nOv) {
+    const n = nOv || Math.max(1, s.hist.length - 1), x = i => L + (W - L - R) * i / n, y = v => T + (H - T - B) * (1 - v / mx), out = [];
     const vals = []; s.hist.forEach((v, i) => { if (v != null) { out.push([x(i), y(v)]); vals.push(v); } });
     return { out, vals, x, y, n };
   }
   function renderTrend(m) {
     const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 30, T = 18, B = 30;
     const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : p, s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
-    const mx = Math.max(1, ...ser.flatMap(z => z.s.hist.filter(v => v != null))) * 1.15, dts = d.trend.dates.slice(Math.max(0, d.trend.all.findIndex(v => v != null))), n = Math.max(1, dts.length - 1), x = i => L + (W - L - R) * i / n;
+    const dts = d.trend.dates.slice(Math.max(0, d.trend.all.findIndex(v => v != null))), PS = '2026-11-03', PE = '2026-12-01';
+    const dd = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
+    const n = Math.max(1, dts.length ? Math.max(dts.length - 1, dd(dts[0], PE)) : 1), x = i => L + (W - L - R) * i / n;
+    const mx = Math.max(1, ...ser.flatMap(z => z.s.hist.filter(v => v != null))) * 1.15;
     let g = grid(L, W, R, T, H, B, mx);
-    dts.forEach((dt, i) => { if (dts.length <= 10 || i % 7 === 0 || i === dts.length - 1) g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(dt))}</text>`; });
-    let body = '', lg = '';
-    ser.forEach(z => { const p = pts(z.s, W, L, R, T, H, B, mx);
+    const si = dts.findIndex(t => t >= PS), labs = new Set([dts.length - 1, n]); if (si < 0 || si > 2) labs.add(0); if (si >= 0) { labs.add(si); for (let i = si + 7; i < n; i += 7) labs.add(i); }
+    const lab = [...labs].sort((a, b) => a - b).filter((i, k, a) => k === 0 || i - a[k - 1] > 2 || i === n);
+    lab.forEach(i => { const dt = i < dts.length ? dts[i] : new Date(Date.UTC(+dts[0].slice(0, 4), +dts[0].slice(5, 7) - 1, +dts[0].slice(8, 10) + i)).toISOString().slice(0, 10); g += `<text x="${x(i)}" y="${H - 8}" font-size="11" fill="var(--text2)" text-anchor="middle">${esc(dShort(dt))}</text>`; });
+    let body = '', lg = '', pnote = '', tbls = '';
+    const dAt = i => i < dts.length ? dts[i] : new Date(Date.UTC(+dts[0].slice(0, 4), +dts[0].slice(5, 7) - 1, +dts[0].slice(8, 10) + i)).toISOString().slice(0, 10);
+    ser.forEach(z => { const p = pts(z.s, W, L, R, T, H, B, mx, n);
       body += poly(p.out, z.c, false) + p.out.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.8" fill="${z.c}"/>`).join('')  + p.out.map((q, j) => `<text x="${q[0]}" y="${q[1] - 8}" font-size="11" font-weight="700" fill="${z.c}" text-anchor="middle">${p.vals[j]}</text>`).join('');
+      // plan: from the 3 Nov value straight down to 0 on 1 Dec 2026
+      const sIdx = z.s.hist.findIndex((v, i) => v != null && dts[i] >= PS);
+      if (sIdx >= 0) {
+        const v0 = z.s.hist[sIdx], i0 = sIdx, yv = v => T + (H - T - B) * (1 - v / mx), pl = i => v0 * (1 - (i - i0) / Math.max(1, n - i0)), pp = [];
+        for (let i = i0; i <= n; i++) pp.push([x(i), yv(pl(i))]);
+        body += `<polygon points="${x(i0)},${yv(0)} ${pp.map(q => q.join(',')).join(' ')} ${x(n)},${yv(0)}" fill="${z.c}" opacity=".07"/>` + poly(pp, z.c, true, 2.2);
+        const marks = [i0]; for (let i = i0 + 7; i < n; i += 7) marks.push(i); marks.push(n);
+        marks.forEach((i, k) => { body += `<circle cx="${x(i)}" cy="${yv(pl(i))}" r="3.6" fill="var(--bg)" stroke="${z.c}" stroke-width="2"/>` + (k > 0 && ser.length === 1 ? `<text x="${x(i) + (i === n ? -12 : 0)}" y="${yv(pl(i)) - 10}" font-size="11" font-weight="700" fill="${z.c}" text-anchor="middle">${Math.round(pl(i))}</text>` : ''); });
+        { let lastA = z.s.hist.length - 1; while (lastA > i0 && z.s.hist[lastA] == null) lastA--;
+          const cols = []; for (let i = i0; i <= lastA; i++) cols.push(i); for (let i = i0 + 7; i < n; i += 7) if (i > lastA) cols.push(i); if (cols[cols.length - 1] !== n) cols.push(n);
+          const th = cols.map(i => `<th style="${i > lastA ? 'background:var(--bg3);color:var(--text3)' : 'background:var(--bg4)'}">${esc(dShort(dAt(i)))}${i === lastA ? '<br><span style="font-weight:400;font-size:10px">ล่าสุด</span>' : (i > lastA ? '<br><span style="font-weight:400;font-size:10px">เช็กพอยท์</span>' : '')}</th>`).join('');
+          const tr = cols.map(i => `<td style="${i > lastA ? 'color:var(--text3);background:var(--bg3)' : ''}">${Math.round(pl(i))}</td>`).join('');
+          const ta = cols.map(i => i <= lastA && z.s.hist[i] != null ? `<td style="font-weight:800;color:${z.c}">${z.s.hist[i]}</td>` : '<td style="color:var(--text3)">–</td>').join('');
+          const td = cols.map(i => { if (!(i <= lastA && z.s.hist[i] != null)) return '<td style="color:var(--text3)">–</td>'; const r = Math.round(z.s.hist[i] - pl(i)); return `<td style="font-weight:800;color:${r > 0 ? '#b91c1c' : (r < 0 ? '#15803d' : 'var(--text3)')};background:${r > 0 ? 'rgba(220,38,38,.12)' : (r < 0 ? 'rgba(22,163,74,.13)' : 'var(--bg3)')}">${r > 0 ? '+' + r : (r === 0 ? '±0' : r)}</td>`; }).join('');
+          const rem = z.s.hist[lastA] / Math.max(1, n - lastA);
+          tbls += `<div class="fc7-tad" style="margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--bg2)"><div style="font-weight:700;font-size:13px;margin-bottom:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${z.c};margin-right:6px"></span>Target / Actual / Diff — ${esc(z.n)}</div><div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:3px;width:100%;text-align:center;font-size:13px"><tr><th></th>${th}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Target (แผน)</td>${tr}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Actual @01:15</td>${ta}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Diff (Actual − Target)</td>${td}</tr></table></div><div class="sb" style="margin-top:4px">Diff ติดลบ (เขียว) = จริงน้อยกว่าแผน ดี · เป็นบวก (แดง) = ยังเกินแผน · จากล่าสุดต้องลดเฉลี่ย ≈ ${rem.toFixed(1)} ใบ/วัน จึงจะถึง 0 ในวันที่ 1 ธ.ค.</div></div>`; }
+        if (ser.length === 1) { let li = z.s.hist.length - 1; while (li > i0 && z.s.hist[li] == null) li--; const pv = Math.round(pl(li)), av = z.s.hist[li], df = av - pv; pnote = `<div class="sb" style="margin-top:4px">แผนลดเป็น 0 ในวันที่ 1 ธ.ค. 2026 (ลดเท่ากันทุกวัน เริ่มจากค่า ${esc(dShort(dts[i0]))} = ${v0}, ต้องลดเฉลี่ย ≈ ${(v0 / Math.max(1, n - i0)).toFixed(1)} ใบ/วัน) · ล่าสุด ${esc(dShort(dts[li]))}: แผน ${pv} · จริง ${av} → <b style="color:${df > 0 ? '#b91c1c' : '#15803d'}">${df > 0 ? 'ช้ากว่าแผน +' + df : (df < 0 ? 'ดีกว่าแผน ' + df : 'ตรงแผน')}</b></div>`; }
+      }
       lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)}</span>`; });
+    lg += '<span><i class="sw" style="background:none;border-top:2px dashed var(--text2);height:0"></i>แผนลด → 0 (1 ธ.ค.)</span>';
     const have = d.trend.all.filter(v => v != null).length;
-    document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>`;
+    document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>` + pnote + tbls;
     document.getElementById('fc7-lg').innerHTML = lg;
     const bf = d.backfill || {}, running = !!bf.running;
     document.getElementById('fc7-trnote').innerHTML = running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจากไฟล์ Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเองเมื่อเสร็จ`
