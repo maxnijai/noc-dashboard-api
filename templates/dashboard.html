@@ -17553,8 +17553,16 @@ redraw();
         • ตัวเลขเป็นค่าสูงสุด: ไม่หักใบที่จะถูกปิดงานก่อนถึงวันนั้น</div>`;
   }
 
+  const NOR1_TH = ['เชียงใหม่', 'เชียงราย', 'ลำปาง', 'ลำพูน', 'น่าน', 'พะเยา', 'แพร่', 'แม่ฮ่องสอน'];
+  const regOf = (p, m) => { const t = ((m && m.T) || []).find(x => x.prov === p && x.region); return t ? String(t.region).slice(0, 4) : (NOR1_TH.indexOf(p) >= 0 ? 'NOR1' : 'NOR2'); };
   function series(prov, m) {
     const tr = F7.data.trend, sfx = F7.grp === 'all' ? '' : (F7.grp === 'n3' ? '_n3' : '_n4');
+    if (typeof prov === 'string' && prov.indexOf('R:') === 0) {    // region = sum of its provinces
+      const rg = prov.slice(2), ps = PROVS.filter(q => regOf(q, m) === rg), pv = tr['prov' + sfx] || {};
+      const hist = tr.dates.map((_, i) => { let s = 0, any = false; ps.forEach(q => { const v = (pv[q] || [])[i]; if (v != null) { s += v; any = true; } }); return any ? s : null; });
+      const f0 = Math.max(0, tr.all.findIndex(v => v != null));
+      return { hist: hist.slice(f0), now: m.rows.filter(x => ps.indexOf(x.p) >= 0).reduce((a, x) => a + x.now, 0) };
+    }
     const hist = prov == null ? tr['all' + sfx] : ((tr['prov' + sfx] || {})[prov] || tr.dates.map(() => null));
     const f0 = Math.max(0, tr.all.findIndex(v => v != null));   // drop empty days before the first stored snapshot
     const now = prov == null ? m.tot.now : (m.rows.find(x => x.p === prov) || { now: 0 }).now;
@@ -17567,7 +17575,7 @@ redraw();
   }
   function renderTrend(m) {
     const d = F7.data, show = F7.sel.size ? [...F7.sel] : [null], W = 1200, H = 300, L = 44, R = 30, T = 18, B = 30;
-    const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : p, s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
+    const ser = show.map((p, i) => ({ n: p == null ? 'ภาพรวม' : (String(p).indexOf('R:') === 0 ? String(p).slice(2) : p), s: series(p, m), c: p == null ? '#dc2626' : COLORS[i % COLORS.length] }));
     const dts = d.trend.dates.slice(Math.max(0, d.trend.all.findIndex(v => v != null))), PS = '2026-11-03', PE = '2026-12-01';
     const dd = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
     const n = Math.max(1, dts.length ? Math.max(dts.length - 1, dd(dts[0], PE)) : 1), x = i => L + (W - L - R) * i / n;
@@ -17588,17 +17596,26 @@ redraw();
         body += `<polygon points="${x(i0)},${yv(0)} ${pp.map(q => q.join(',')).join(' ')} ${x(n)},${yv(0)}" fill="${z.c}" opacity=".07"/>` + poly(pp, z.c, true, 2.2);
         const marks = [i0]; for (let i = i0 + 7; i < n; i += 7) marks.push(i); marks.push(n);
         marks.forEach((i, k) => { body += `<circle cx="${x(i)}" cy="${yv(pl(i))}" r="3.6" fill="var(--bg)" stroke="${z.c}" stroke-width="2"/>` + (k > 0 && ser.length === 1 ? `<text x="${x(i) + (i === n ? -12 : 0)}" y="${yv(pl(i)) - 10}" font-size="11" font-weight="700" fill="${z.c}" text-anchor="middle">${Math.round(pl(i))}</text>` : ''); });
-        { let lastA = z.s.hist.length - 1; while (lastA > i0 && z.s.hist[lastA] == null) lastA--;
-          const cols = []; for (let i = i0; i <= lastA; i++) cols.push(i); for (let i = i0 + 7; i < n; i += 7) if (i > lastA) cols.push(i); if (cols[cols.length - 1] !== n) cols.push(n);
-          const th = cols.map(i => `<th style="${i > lastA ? 'background:var(--bg3);color:var(--text3)' : 'background:var(--bg4)'}">${esc(dShort(dAt(i)))}${i === lastA ? '<br><span style="font-weight:400;font-size:10px">ล่าสุด</span>' : (i > lastA ? '<br><span style="font-weight:400;font-size:10px">เช็กพอยท์</span>' : '')}</th>`).join('');
-          const tr = cols.map(i => `<td style="${i > lastA ? 'color:var(--text3);background:var(--bg3)' : ''}">${Math.round(pl(i))}</td>`).join('');
-          const ta = cols.map(i => i <= lastA && z.s.hist[i] != null ? `<td style="font-weight:800;color:${z.c}">${z.s.hist[i]}</td>` : '<td style="color:var(--text3)">–</td>').join('');
-          const td = cols.map(i => { if (!(i <= lastA && z.s.hist[i] != null)) return '<td style="color:var(--text3)">–</td>'; const r = Math.round(z.s.hist[i] - pl(i)); return `<td style="font-weight:800;color:${r > 0 ? '#b91c1c' : (r < 0 ? '#15803d' : 'var(--text3)')};background:${r > 0 ? 'rgba(220,38,38,.12)' : (r < 0 ? 'rgba(22,163,74,.13)' : 'var(--bg3)')}">${r > 0 ? '+' + r : (r === 0 ? '±0' : r)}</td>`; }).join('');
-          const rem = z.s.hist[lastA] / Math.max(1, n - lastA);
-          tbls += `<div class="fc7-tad" style="margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--bg2)"><div style="font-weight:700;font-size:13px;margin-bottom:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${z.c};margin-right:6px"></span>Target / Actual / Diff — ${esc(z.n)}</div><div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:3px;width:100%;text-align:center;font-size:13px"><tr><th></th>${th}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Target (แผน)</td>${tr}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Actual @01:15</td>${ta}</tr><tr><td style="text-align:left;font-weight:700;white-space:nowrap">Diff (Actual − Target)</td>${td}</tr></table></div><div class="sb" style="margin-top:4px">Diff ติดลบ (เขียว) = จริงน้อยกว่าแผน ดี · เป็นบวก (แดง) = ยังเกินแผน · จากล่าสุดต้องลดเฉลี่ย ≈ ${rem.toFixed(1)} ใบ/วัน จึงจะถึง 0 ในวันที่ 1 ธ.ค.</div></div>`; }
         if (ser.length === 1) { let li = z.s.hist.length - 1; while (li > i0 && z.s.hist[li] == null) li--; const pv = Math.round(pl(li)), av = z.s.hist[li], df = av - pv; pnote = `<div class="sb" style="margin-top:4px">แผนลดเป็น 0 ในวันที่ 1 ธ.ค. 2026 (ลดเท่ากันทุกวัน เริ่มจากค่า ${esc(dShort(dts[i0]))} = ${v0}, ต้องลดเฉลี่ย ≈ ${(v0 / Math.max(1, n - i0)).toFixed(1)} ใบ/วัน) · ล่าสุด ${esc(dShort(dts[li]))}: แผน ${pv} · จริง ${av} → <b style="color:${df > 0 ? '#b91c1c' : '#15803d'}">${df > 0 ? 'ช้ากว่าแผน +' + df : (df < 0 ? 'ดีกว่าแผน ' + df : 'ตรงแผน')}</b></div>`; }
       }
       lg += `<span><i class="sw" style="background:${z.c}"></i>${esc(z.n)}</span>`; });
+    // Daily Target / Actual / Diff tables: overall + NOR1 + NOR2 (always), then any other selected province
+    const tadList = [['รวมทั้งหมด', '#dc2626', series(null, m)], ['NOR1', '#2563eb', series('R:NOR1', m)], ['NOR2', '#d97706', series('R:NOR2', m)]];
+    show.forEach((p, i) => { if (p != null && String(p).indexOf('R:') !== 0) tadList.push([p, COLORS[i % COLORS.length], series(p, m)]); });
+    const todayStr = d.today || '';
+    tadList.forEach(([nm, c, s]) => {
+      const i0 = s.hist.findIndex((v, i) => v != null && dts[i] >= PS); if (i0 < 0) return;
+      let lastA = s.hist.length - 1; while (lastA > i0 && s.hist[lastA] == null) lastA--;
+      const v0 = s.hist[i0], pl = i => v0 * (1 - (i - i0) / Math.max(1, n - i0)), cols = []; for (let i = i0; i <= n; i++) cols.push(i);
+      const cs = 'min-width:42px;padding:2px 3px';
+      const th = cols.map(i => `<th style="${cs};${i > lastA ? 'background:var(--bg3);color:var(--text3)' : 'background:var(--bg4)'}${i === lastA ? ';outline:2px solid ' + c : ''}">${esc(dShort(dAt(i)))}</th>`).join('');
+      const tr = cols.map(i => `<td style="${cs};${i > lastA ? 'color:var(--text3);background:var(--bg3)' : ''}">${Math.round(pl(i))}</td>`).join('');
+      const ta = cols.map(i => i <= lastA && s.hist[i] != null ? `<td style="${cs};font-weight:800;color:${c}">${s.hist[i]}</td>` : `<td style="${cs};color:var(--text3)">–</td>`).join('');
+      const td = cols.map(i => { if (!(i <= lastA && s.hist[i] != null)) return `<td style="${cs};color:var(--text3)">–</td>`; const r = Math.round(s.hist[i] - pl(i)); return `<td style="${cs};font-weight:800;color:${r > 0 ? '#b91c1c' : (r < 0 ? '#15803d' : 'var(--text3)')};background:${r > 0 ? 'rgba(220,38,38,.12)' : (r < 0 ? 'rgba(22,163,74,.13)' : 'var(--bg3)')}">${r > 0 ? '+' + r : (r === 0 ? '±0' : r)}</td>`; }).join('');
+      const lab = 'text-align:left;font-weight:700;white-space:nowrap;position:sticky;left:0;background:var(--bg2);z-index:1;padding:2px 8px 2px 4px';
+      const lr = Math.round(s.hist[lastA] - pl(lastA)), rem = s.hist[lastA] / Math.max(1, n - lastA);
+      tbls += `<div class="fc7-tad" style="margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--bg2)"><div style="font-weight:700;font-size:13px;margin-bottom:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:6px"></span>Target / Actual / Diff รายวัน — ${esc(nm)} <span style="font-weight:400;font-size:12px;color:var(--text2)">· ล่าสุด ${esc(dShort(dAt(lastA)))}: แผน ${Math.round(pl(lastA))} · จริง ${s.hist[lastA]} → <b style="color:${lr > 0 ? '#b91c1c' : '#15803d'}">${lr > 0 ? 'ช้ากว่าแผน +' + lr : (lr < 0 ? 'ดีกว่าแผน ' + lr : 'ตรงแผน')}</b></span></div><div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:2px;text-align:center;font-size:12px"><tr><th style="${lab}"></th>${th}</tr><tr><td style="${lab}">Target (แผน)</td>${tr}</tr><tr><td style="${lab}">Actual @01:15</td>${ta}</tr><tr><td style="${lab}">Diff (Actual − Target)</td>${td}</tr></table></div><div class="sb" style="margin-top:4px">Diff ติดลบ (เขียว) = จริงน้อยกว่าแผน ดี · เป็นบวก (แดง) = ยังเกินแผน · วันที่ล้อมกรอบ = วันล่าสุดที่มีข้อมูล · จากล่าสุดต้องลดเฉลี่ย ≈ ${rem.toFixed(1)} ใบ/วัน จึงจะถึง 0 ในวันที่ 1 ธ.ค.</div></div>`;
+    });
     lg += '<span><i class="sw" style="background:none;border-top:2px dashed var(--text2);height:0"></i>แผนลด → 0 (1 ธ.ค.)</span>';
     const have = d.trend.all.filter(v => v != null).length;
     document.getElementById('fc7-ct').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}${body}</svg>` + pnote + tbls;
@@ -17607,7 +17624,7 @@ redraw();
     document.getElementById('fc7-trnote').innerHTML = running ? `<b style="color:#2563eb">กำลังดึงข้อมูลแบคอัพจากไฟล์ Drive อยู่ (ได้แล้ว ${(bf.done || []).length} วัน)</b> — กราฟจะเติมเองเมื่อเสร็จ`
       : have > 1 ? `จุดบนเส้น = P0 @01:15 ที่เก็บไว้ ${have} วัน (เก็บเองทุกคืน 01:20 + ข้อมูลแบคอัพ Drive)`
       : `<b style="color:#b45309">ยังมีข้อมูล @01:15 แค่ ${have} วัน</b>${(bf.missing || []).length ? ' · ไม่พบไฟล์แบคอัพ ' + bf.missing.length + ' วัน' : ''}${bf.error ? ' · ' + esc(bf.error) : ''} <button type="button" class="cp" data-fc7-bf="1">ดึงข้อมูลแบคอัพจาก Drive</button> <button type="button" class="cp" data-fc7-snap="1">บันทึก Snapshot วันนี้</button>`;
-    document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
+    document.getElementById('fc7-pc').innerHTML = `<span class="cp${F7.sel.size ? '' : ' pa'}" data-fc7-p="">ภาพรวมทั้งหมด</span>` + ['NOR1', 'NOR2'].map(r => `<span class="cp${F7.sel.has('R:' + r) ? ' pa' : ''}" data-fc7-p="R:${r}" style="font-weight:700;border-color:#7c3aed">${r}</span>`).join('') + '<span style="border-left:1px solid var(--border2);margin:0 2px"></span>' + PROVS.map(p => `<span class="cp${F7.sel.has(p) ? ' pa' : ''}" data-fc7-p="${esc(p)}">${esc(p)}</span>`).join('');
   }
   function trendTag(lbl, cur, ref) {
     if (ref == null || cur == null) return '<span class="tg na" title="' + lbl + ' — ยังไม่มีข้อมูลย้อนหลังถึงวันนั้น">' + lbl + ' –</span>';
