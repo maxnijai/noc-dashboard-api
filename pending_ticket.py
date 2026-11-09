@@ -208,13 +208,19 @@ NSA34_CUSTOMER_GROUP_PROBLEM = {
     "NSA3/4-Solar Cell Off-Grid": "Solar Cell - Off Grid",
     "NSA3/4-Solar Cell": "14.Disaster - Strom/Flood/Earthquake",  # as specified by the owner (trailing space in the request is ignored)
 }
-_NSA34_CUSTOMER_LOOKUP = {k.strip().lower(): v for k, v in NSA34_CUSTOMER_GROUP_PROBLEM.items()}
+def _nsa34_key(v):
+    """Lookup key: stripped, lower-case, and the sheet's real prefix "N3/4-" treated the same as "NSA3/4-"."""
+    k = " ".join(str(v).split()).lower()
+    return "n3/4-" + k[len("nsa3/4-"):] if k.startswith("nsa3/4-") else k
+
+
+_NSA34_CUSTOMER_LOOKUP = {_nsa34_key(k): v for k, v in NSA34_CUSTOMER_GROUP_PROBLEM.items()}
 
 
 def export_group_problem_pair(value):
     """(column P value, column AC value) for a ticket's team-chosen Group Problem."""
     v = "" if value is None else str(value)
-    mapped = _NSA34_CUSTOMER_LOOKUP.get(v.strip().lower())
+    mapped = _NSA34_CUSTOMER_LOOKUP.get(_nsa34_key(v))
     return (mapped, v.strip()) if mapped is not None else (v, "")
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
