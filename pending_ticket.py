@@ -192,7 +192,30 @@ EXPORT_HEADER = [
     "Region",     # column Z: NOR1 / NOR2
     "Flag Logic",  # column AA: NSA3/NSA4 only - exactly one of "1. P0 แล้ว", "2. P0 ใน 1 วัน" ... "8. P0 ใน 7 วัน"; blank if farther than 7 days (was "Flag Priority" = Category lookup)
     "Comment By P'Kasem",  # column AB: free-text comment written only by KASEM_EMAILS (stored in the KasemComment tab)
+    "Group_Problem (Team)",  # column AC: the NSA3/4-* value the team picked; column P then carries the customer-template wording
 ]
+
+# Customer template (NSA3/4): the team keeps picking the "NSA3/4-*" values on the web page; the export
+# writes the customer's wording into column P (Group_Problem) and keeps the team's own value in column AC.
+# Keys are compared stripped + case-insensitive; anything not listed passes through to P unchanged (AC blank).
+NSA34_CUSTOMER_GROUP_PROBLEM = {
+    "NSA3/4-Workload": "In Progress,Update Awaited",
+    "NSA3/4-W@H": "16.Difficulte work - Work at high",
+    "NSA3/4-Spare part": "1.Spare part - Spare part not available",
+    "NSA3/4-Improvement": "8.Improvement - Awarded subcons",
+    "NSA3/4-Need Track A Support": "10.Wait for other parties - Back office/Vendor support",
+    "NSA3/4-Site Access": "5.Site permission - Requesting or pending approval",
+    "NSA3/4-Solar Cell Off-Grid": "Solar Cell - Off Grid",
+    "NSA3/4-Solar Cell": "14.Disaster - Strom/Flood/Earthquake",  # as specified by the owner (trailing space in the request is ignored)
+}
+_NSA34_CUSTOMER_LOOKUP = {k.strip().lower(): v for k, v in NSA34_CUSTOMER_GROUP_PROBLEM.items()}
+
+
+def export_group_problem_pair(value):
+    """(column P value, column AC value) for a ticket's team-chosen Group Problem."""
+    v = "" if value is None else str(value)
+    mapped = _NSA34_CUSTOMER_LOOKUP.get(v.strip().lower())
+    return (mapped, v.strip()) if mapped is not None else (v, "")
 
 # Lookup list (from the "Priority Flag" table): Category values that get "Flag" in column AA.
 FLAG_PRIORITY_CATEGORY_LIST = [
@@ -919,12 +942,13 @@ def _ticket_to_export_row(t, insert_time_str="", kasem=None):
     """Builds one EXPORT_HEADER-shaped row from a ticket entry dict - shared
     by the external mirror export and the on-demand Excel/Google Sheet
     export buttons, so all three always produce the same column layout."""
+    gp_p, gp_team = export_group_problem_pair(t.get("group_problem", ""))
     return [
         t.get("TICKETID", ""), t.get("CINAME", ""), t.get("SUBJECT", ""), t.get("priority", ""),
         t.get("CREATIONDATE", ""), t.get("TARGETFINISH", ""), t.get("SEVERITY", ""),
         t.get("TRUEOWNERGROUP", ""), t.get("Bookmark", ""), t.get("Aging_Flag_Group", ""),
         t.get("SUBDISTRICT", ""), t.get("DISTRICT", ""), t.get("Tech_Team", ""), t.get("Tech_Status", ""),
-        t.get("nano", ""), t.get("group_problem", ""), t.get("action_team", ""), t.get("detail", ""),
+        t.get("nano", ""), gp_p, t.get("action_team", ""), t.get("detail", ""),
         t.get("image_link", ""), t.get("plan_closed_date", ""), t.get("updated_at", ""), t.get("updated_by", ""),
         insert_time_str,
         _site_type_text(t),
@@ -932,6 +956,7 @@ def _ticket_to_export_row(t, insert_time_str="", kasem=None):
         t.get("Region", ""),
         flag_logic_text(t),
         ((kasem or {}).get(str(t.get("TICKETID", "")).strip()) or {}).get("comment", ""),   # column AB
+        gp_team,   # column AC
     ]
 
 
