@@ -242,41 +242,125 @@ def build_ticket_mapping(gs_client, use_cache=True):
     ONLY to drive the Province filter dropdown; DISTRICT above still
     drives OWS Mapping Coverage, and Daily's own Owner (elsewhere in
     this module) still drives the Work Order by Province grouping - all
-    three are deliberately kept independent, not merged into one."""
+    three are deliberately kept independent, not merged into one.
+
+    Hardening (explicit report: every Bookmark showed "N/A"):
+      * header names are matched exactly first, then ignoring case/spaces/underscores;
+      * a ticket is also reachable by its EXTERNALSYSTEM_TICKETID (the linked INC/TT
+        number) - a TICKETID match always wins, this only adds keys, so a Daily
+        "Source Ticket ID" that is the other system's number still finds its row;
+      * if the "data" tab yields no usable Bookmark at all (empty tab, header
+        renamed, column blank), the same mapping is rebuilt from the live pending
+        sheet (the one Pending Ticket / Focus P0 already read) instead of
+        silently marking every ticket N/A. Which source was used is reported in
+        _mapping_info (shown in Diagnostics)."""
+    info = {"source": "data tab", "data_tab_data_rows": 0, "data_tab_entries": 0, "columns": {}, "external_id_keys_added": 0, "fallback_reason": None}
+    mapping, header = _mapping_from_data_tab(gs_client, use_cache, info)
+    if not any(v["bookmark"] for v in mapping.values()):
+        reason = "แท็บ data ว่างเปล่า" if not info["data_tab_data_rows"] else ("ไม่พบคอลัมน์ TICKETID/Bookmark" if None in (info["columns"].get("TICKETID"), info["columns"].get("Bookmark")) else "คอลัมน์ Bookmark ว่างทุกแถว")
+        try:
+            fb = _mapping_from_live_rows(gs_client, use_cache)
+            if any(v["bookmark"] for v in fb.values()):
+                log.warning("OFC mapping: data tab unusable (%s) - using the live pending sheet instead", reason)
+                mapping, info["source"], info["fallback_reason"] = fb, "live pending sheet (fallback)", reason
+        except Exception:
+            log.exception("OFC mapping: live-sheet fallback failed too")
+    info["entries_total"] = len(mapping)
+    prefixes = {}
+    for k in mapping:
+        pre = re.match(r"[A-Z]+", k)
+        pre = pre.group(0) if pre else "(อื่นๆ)"      # "INC", "TT", ... - tells which system's numbers the mapping is keyed by
+        prefixes[pre] = prefixes.get(pre, 0) + 1
+    info["key_prefix_counts"] = dict(sorted(prefixes.items(), key=lambda kv: -kv[1])[:6])
+    _mapping_info.clear()
+    _mapping_info.update(info)
+    return mapping, header
+
+
+_mapping_info = {}   # filled by build_ticket_mapping on every call; read by build_ofc_monitor_response for Diagnostics
+
+
+def _norm_header(name):
+    return re.sub(r"[\s_\-]+", "", str(name)).lower()
+
+
+def _mapping_from_data_tab(gs_client, use_cache, info):
     rows = fetch_mapping_rows(gs_client, use_cache=use_cache)
     if not rows:
         return {}, []
     header = rows[0]
     col = {name.strip(): i for i, name in enumerate(header) if name.strip()}
-    district_idx = col.get("DISTRICT", MAPPING_DISTRICT_COL_INDEX)
-    ticket_idx = col.get("TICKETID")
-    bookmark_idx = col.get("Bookmark")
+    norm = {_norm_header(name): i for i, name in enumerate(header) if str(name).strip()}
+
+    def idx(name, *fallback):
+        if name in col:
+            return col[name]
+        return norm.get(_norm_header(name), fallback[0] if fallback else None)
+
+    district_idx = idx("DISTRICT", MAPPING_DISTRICT_COL_INDEX)
+    ticket_idx = idx("TICKETID")
+    bookmark_idx = idx("Bookmark")
+    ext_idx = idx("EXTERNALSYSTEM_TICKETID")
     # "Owner" isn't a header this sheet actually has (per its known
     # column list) - TRUEOWNERGROUP is the field that holds this
     # TRUEOWNERGROUP-style data here, so that's checked first. Column AX
     # is only a last-resort position fallback, and on this sheet's real
     # layout lands on Tech_timestamp, not an Owner-style field - kept
     # only in case the header row is ever reshuffled without warning.
-    owner_idx = col.get("TRUEOWNERGROUP", col.get("Owner", MAPPING_OWNER_COL_INDEX))
+    owner_idx = idx("TRUEOWNERGROUP", idx("Owner", MAPPING_OWNER_COL_INDEX))
+    info["columns"] = {"TICKETID": ticket_idx, "Bookmark": bookmark_idx, "EXTERNALSYSTEM_TICKETID": ext_idx, "DISTRICT": district_idx, "owner": owner_idx}
 
-    def get(row, idx):
-        if idx is None or idx >= len(row):
+    def get(row, i):
+        if i is None or i >= len(row):
             return ""
-        return row[idx]
+        return row[i]
 
-    mapping = {}
+    mapping, ext_entries = {}, []
     for row in rows[1:]:
         if not row or not any(row):
             continue
+        info["data_tab_data_rows"] += 1
         tid = _safe_str(get(row, ticket_idx))
         if not tid:
             continue
-        mapping[tid.upper()] = {
+        entry = {
             "bookmark": _safe_str(get(row, bookmark_idx)),
             "district": _safe_str(get(row, district_idx)),
             "filter_province": _extract_province_from_owner(get(row, owner_idx)) or "",
         }
+        mapping[tid.upper()] = entry
+        ext = _safe_str(get(row, ext_idx))
+        if ext:
+            ext_entries.append((ext.upper(), entry))
+    for key, entry in ext_entries:      # added AFTER the loop: a direct TICKETID match is never replaced
+        if key not in mapping:
+            mapping[key] = entry
+            info["external_id_keys_added"] += 1
+    info["data_tab_entries"] = len(mapping)
     return mapping, header
+
+
+def _mapping_from_live_rows(gs_client, use_cache):
+    """Same mapping, built from the live pending sheet's dict rows (pending_ticket.fetch_live_rows).
+    Imported here, not at module level, to keep the modules free of an import cycle."""
+    from pending_ticket import fetch_live_rows
+    mapping, ext_entries = {}, []
+    for r in fetch_live_rows(gs_client, use_cache=use_cache):
+        tid = _safe_str(r.get("TICKETID"))
+        if not tid:
+            continue
+        entry = {
+            "bookmark": _safe_str(r.get("Bookmark")),
+            "district": _safe_str(r.get("DISTRICT")),
+            "filter_province": _extract_province_from_owner(r.get("TRUEOWNERGROUP")) or "",
+        }
+        mapping[tid.upper()] = entry
+        ext = _safe_str(r.get("EXTERNALSYSTEM_TICKETID"))
+        if ext:
+            ext_entries.append((ext.upper(), entry))
+    for key, entry in ext_entries:
+        mapping.setdefault(key, entry)
+    return mapping
 
 
 def build_ofc_monitor_response(gs_client, force_refresh=False):
@@ -285,7 +369,7 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
     # without this, clicking Refresh within the same 5-minute window
     # would silently re-serve the same cached data, making the button
     # look broken even though a real HTTP round-trip did happen.
-    daily_rows = mateline_status.fetch_ggs_daily_rows(gs_client, use_cache=not force_refresh)
+    daily_rows = mateline_status.fetch_legacy_daily_rows(gs_client, use_cache=not force_refresh)   # old GGS Daily sheet on purpose - see mateline_status.fetch_legacy_daily_rows
     mapping, mapping_header = build_ticket_mapping(gs_client, use_cache=not force_refresh)
     try:
         remarks = load_ofc_remarks(gs_client, use_cache=not force_refresh)
@@ -331,6 +415,7 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
     diag_skill_values = {}
     diag_region_values = {}
     diag_bookmark_values = {}
+    diag_unmatched_sample = []     # first Daily "Source Ticket ID"s that found no row in the mapping (shows WHY a join fails)
     diag_severity_values = {}
     diag_total_daily_data_rows = 0
     diag_after_skill_region = 0
@@ -371,6 +456,8 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
         seen_ticket_ids.add(tid_upper)
 
         m = mapping.get(tid_upper)
+        if m is None and len(diag_unmatched_sample) < 8:
+            diag_unmatched_sample.append(source_tid)
         bookmark = (m or {}).get("bookmark") or ""
         district = (m or {}).get("district") or ""
         filter_province = (m or {}).get("filter_province") or ""
@@ -479,6 +566,8 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
         "require_finish_time_presence_by_status": diag_finish_time_by_status,
         "mapping_sheet_headers_found": mapping_header,
         "mapping_sheet_entry_count": len(mapping),
+        "mapping_info": dict(_mapping_info),
+        "daily_ticket_ids_without_mapping_sample": diag_unmatched_sample,
         "mapping_sheet_sample": dict(list(mapping.items())[:3]),
         "mapping_filter_province_success_count": sum(1 for m in mapping.values() if m.get("filter_province")),
         "mapping_filter_province_blank_count": sum(1 for m in mapping.values() if not m.get("filter_province")),

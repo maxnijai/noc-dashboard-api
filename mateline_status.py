@@ -228,3 +228,54 @@ def build_mateline_status_lookup(gs_client, today_str):
             if tid:
                 lookup[tid.strip().upper()] = entry
     return lookup
+
+
+
+# ---------------------------------------------------------------------------
+# Legacy "GGS Daily" sheet - kept ONLY for OFC Monitor.
+# OFC Monitor filters on Skill == "OFC" and Region == "NOR", values that exist in the old "Daily" tab but not in the
+# new "Console OWS APIs" data tab (there Skill is e.g. "NOP" and Region looks like "NOE_NKR"). Until that page is
+# ported to the new source it keeps reading the old sheet, with its own cache so the two never mix.
+# ---------------------------------------------------------------------------
+LEGACY_DAILY_SHEET_ID = "1PsJnXf8X7rBbA6G96L0ojE_ioby4mKqYcJQLp7fFiOw"
+LEGACY_DAILY_TAB = "Daily"
+_legacy_cache = {"data": None, "ts": 0.0}
+_legacy_lock = threading.Lock()
+
+
+def fetch_legacy_daily_rows(gs_client, use_cache=True):
+    def _raw():
+        return gs_client.open_by_key(LEGACY_DAILY_SHEET_ID).worksheet(LEGACY_DAILY_TAB).get_all_values()
+
+    def _bounded():
+        result, error, done = {}, {}, threading.Event()
+
+        def _run():
+            try:
+                result["rows"] = _raw()
+            except Exception as e:
+                error["exc"] = e
+            finally:
+                done.set()
+        threading.Thread(target=_run, daemon=True, name="ggs-legacy-fetch").start()
+        if not done.wait(timeout=GGS_FETCH_TIMEOUT_SECONDS):
+            raise TimeoutError(f"legacy GGS Daily fetch timed out after {GGS_FETCH_TIMEOUT_SECONDS}s")
+        if "exc" in error:
+            raise error["exc"]
+        return result["rows"]
+
+    if not use_cache:
+        return _bounded()
+    with _legacy_lock:
+        now = time.monotonic()
+        if _legacy_cache["data"] is not None and now - _legacy_cache["ts"] < GGS_CACHE_TTL_SECONDS:
+            return _legacy_cache["data"]
+        try:
+            rows = _bounded()
+        except Exception:
+            log.exception("legacy GGS Daily fetch failed")
+            if _legacy_cache["data"] is not None:   # stale-if-error, same as the main reader
+                return _legacy_cache["data"]
+            raise
+        _legacy_cache["data"], _legacy_cache["ts"] = rows, time.monotonic()
+        return rows
