@@ -346,6 +346,15 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
     except Exception:
         log.exception("KasemComment tab unreadable")
         kasem = {}
+    # Mateline status per ticket (GGS Daily) - same lookup/rules as the P0 tab's "Mateline Status" column.
+    # wait = Wait Action AND Back Date (merged on request), nf = not found in GGS Daily / lookup unavailable.
+    try:
+        from mateline_status import build_mateline_status_lookup
+        ml_lookup = build_mateline_status_lookup(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("forecast: Mateline lookup failed - ticket 'ml' left as not-found this round")
+        ml_lookup = {}
+    ml_map = {"Departed": "dep", "Arrived": "arr", "Completed": "done", "Closed": "closed", "Wait Action": "wait", "⚠️ Back Date": "wait"}
     tickets = []
     for r, code in _scoped_nsa34_rows(gs_client):
         k = pt.ticket_p0_offset(r.get("TARGETFINISH"), ref0)
@@ -364,6 +373,7 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
             "group_problem": wl.get("group_problem", ""), "action_team": wl.get("action_team", ""),
             "image_link": wl.get("image_link", ""), "updated_at": wl.get("updated_at", ""), "updated_by": wl.get("updated_by", ""),
             "flag": pt.flag_logic_text(entry, now_dt),
+            "ml": ml_map.get((ml_lookup.get(tid.upper()) or {}).get("status_mateline", ""), "nf"),
             "kasem": (kasem.get(tid) or {}).get("comment", ""), "kasem_at": (kasem.get(tid) or {}).get("updated_at", ""),
         })
     tickets.sort(key=lambda t: (t["k"], t["prov"], t["id"]))
