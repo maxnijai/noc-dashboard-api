@@ -18498,6 +18498,7 @@ table.an-hm{border-collapse:separate;border-spacing:3px;width:100%;font-size:12p
 .pr-isl{border:1px dashed rgba(255,255,255,.3);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center;font-size:12px;color:#9fb3cf;cursor:pointer}.pr-isl.sel{border-color:var(--ac);background:rgba(255,255,255,.05)}.pr-isl.dg{border-color:var(--ac);background:rgba(56,189,248,.12)}
 .pr-isl img{max-width:100%;max-height:90px;border-radius:6px;object-fit:contain}
 @media (max-width:700px){.pr-im.n2{grid-template-columns:1fr}}
+.pr-ov.exp .pr-top,.pr-ov.exp .pr-nav,.pr-ov.exp .pr-bot,.pr-ov.exp .pr-drawer{visibility:hidden}
 .pr-sl.pr-wide{height:100%;max-width:1800px;display:flex;flex-direction:column}
 .pr-sl h2.pr-gr{background:linear-gradient(90deg,#fb3b64,#a855f7 55%,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent;width:fit-content}
 .pr-g5{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;flex:1;min-height:0;margin-top:8px}
@@ -19123,10 +19124,46 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     } catch (e) { msg('บันทึกไม่สำเร็จ: ' + e.message, 'er'); }
   }
 
+  // ----- export the whole deck as a PowerPoint (.pptx): every slide is rendered by the browser and placed as a full-slide picture -----
+  function loadLib(urls, test) {
+    return new Promise(function (ok, bad) {
+      if (test()) return ok(); var i = 0;
+      (function next() { if (i >= urls.length) return bad(new Error('โหลดไลบรารีสร้าง PowerPoint ไม่ได้ (เครือข่ายอาจบล็อก CDN)')); var sc = document.createElement('script'); sc.src = urls[i++]; sc.onload = function () { test() ? ok() : next(); }; sc.onerror = next; document.head.appendChild(sc); })();
+    });
+  }
+  function nap(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  async function exportPpt(btn) {
+    if (P.exporting || !P.slides.length) return; P.exporting = true;
+    var o = P.ov, old = btn.textContent, keep = P.idx, was = P.playing, W = 13.333;
+    function say(t) { btn.textContent = t; }
+    try {
+      say('กำลังโหลดตัวสร้างไฟล์…');
+      await loadLib(['https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js', 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js'], function () { return !!window.htmlToImage; });
+      await loadLib(['https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js', 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'], function () { return !!window.PptxGenJS; });
+      P.playing = false; syncPlay(); clearInterval(P.timer); o.querySelector('.pr-drawer').classList.remove('on'); P.edit = false; o.classList.add('exp');
+      var w = o.clientWidth, h = o.clientHeight, H = Math.round(W * h / w * 1000) / 1000, px = Math.min(2, Math.max(1, 2400 / w)), x = new window.PptxGenJS();
+      x.defineLayout({ name: 'NOC', width: W, height: H }); x.layout = 'NOC'; x.title = 'NOC Present ' + (P.data.today || '');
+      var blank = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', bgc = getComputedStyle(o).backgroundColor || '#eef2f9';
+      for (var i = 0; i < P.slides.length; i++) {
+        say('สร้างสไลด์ ' + (i + 1) + '/' + P.slides.length + '…'); show(i); var st = P.slides[i], map = st.type === 'bkdrill';
+        await nap(map ? 4200 : 2300);
+        o.querySelectorAll('.pr-typ').forEach(function (e) { clearInterval(e._t); e.textContent = e.dataset.t || ''; });
+        o.querySelectorAll('[data-n]').forEach(function (e) { e.textContent = e.dataset.n; }); o.querySelectorAll('[data-w]').forEach(function (e) { e.style.width = e.dataset.w + '%'; });
+        await nap(350);
+        var img = await window.htmlToImage.toJpeg(o, { quality: 0.92, pixelRatio: px, backgroundColor: bgc, imagePlaceholder: blank, filter: function (n) { return !(n.classList && n.classList.contains('pr-load')); } });
+        var sl = x.addSlide(); sl.addImage({ data: img, x: 0, y: 0, w: W, h: H }); sl.addNotes((st.title || '') + ' · ' + (P.data.today || ''));
+      }
+      say('กำลังบันทึกไฟล์…');
+      await x.writeFile({ fileName: 'NOC_Present_' + (P.data.today || new Date().toISOString().slice(0, 10)) + '.pptx' });
+      say('✓ เสร็จแล้ว'); setTimeout(function () { btn.textContent = old; }, 2500);
+    } catch (e) { say(old); alert('สร้าง PowerPoint ไม่สำเร็จ: ' + (e && e.message ? e.message : e)); }
+    o.classList.remove('exp'); P.exporting = false; P.playing = was; syncPlay(); show(keep);
+  }
+
   // ----- shell -----
   function build() {
     var o = document.createElement('div'); o.className = 'pr-ov'; o.innerHTML = '<canvas class="pr-bg"></canvas><div class="pr-glow"></div>' +
-      '<div class="pr-top"><b>✦ NOC · PRESENT</b><div class="pr-btns"><button class="pr-b" data-pr="play">⏸ หยุด</button><button class="pr-b" data-pr="gear" hidden>⚙ ตั้งค่า</button><button class="pr-b" data-pr="full">⛶</button><button class="pr-b" data-pr="close">ปิด ✕</button></div></div>' +
+      '<div class="pr-top"><b>✦ NOC · PRESENT</b><div class="pr-btns"><button class="pr-b" data-pr="play">⏸ หยุด</button><button class="pr-b" data-pr="ppt" title="ดาวน์โหลดเป็น PowerPoint (.pptx)">⬇ PowerPoint</button><button class="pr-b" data-pr="gear" hidden>⚙ ตั้งค่า</button><button class="pr-b" data-pr="full">⛶</button><button class="pr-b" data-pr="close">ปิด ✕</button></div></div>' +
       '<button class="pr-nav" style="left:6px" data-pr="prev">‹</button><button class="pr-nav" style="right:6px" data-pr="next">›</button><div class="pr-stage"></div>' +
       '<div class="pr-bot"><div class="pr-prog"><div></div></div><div class="pr-dots"></div></div><div class="pr-drawer"></div><div class="pr-load"><div class="ring"></div><div class="pr-typ" style="color:#9fb3cf;letter-spacing:.12em">กำลังวิเคราะห์ข้อมูลล่าสุด…</div></div>';
     document.body.appendChild(o); P.ov = o; P.cv = o.querySelector('canvas');
@@ -19142,6 +19179,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
         else if (a === 'play') { P.playing = !P.playing; if (P.playing && !P.cfg.autoplay) P.cfg.autoplay = true; syncPlay(); restartTimer(); }
         else if (a === 'full') { if (document.fullscreenElement) document.exitFullscreen(); else o.requestFullscreen && o.requestFullscreen().catch(function () { }); }
         else if (a === 'gear') { P.edit = !P.edit; o.querySelector('.pr-drawer').classList.toggle('on', P.edit); if (P.edit) { P.playing = false; syncPlay(); drawer(); } }
+        else if (a === 'ppt') exportPpt(b);
         else if (a === 'save') save(); else if (a === 'reset') { P.cfg = clone(DEF); drawer(); applyCfg(); }
         return; }
       var lk = e.target.closest('[data-lock]'), ul = e.target.closest('[data-unlock]');
