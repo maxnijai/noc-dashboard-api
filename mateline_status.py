@@ -12,8 +12,13 @@ from datetime import datetime
 
 log = logging.getLogger(__name__)
 
-GGS_DAILY_SHEET_ID = "1PsJnXf8X7rBbA6G96L0ojE_ioby4mKqYcJQLp7fFiOw"
-GGS_DAILY_TAB = "Daily"
+# Source switched (2026-11-10) from the old "GGS Daily" sheet to the "Console OWS APIs" sheet (tab "data"),
+# which its owner refreshes about every 5 minutes. Same column names for everything read here and in ofc_monitor.
+# Old source for rollback: sheet "1PsJnXf8X7rBbA6G96L0ojE_ioby4mKqYcJQLp7fFiOw", tab "Daily" (gid 1504893566).
+GGS_DAILY_SHEET_ID = "1oJYXghJTbdtg_eRxLizZQ9sENcloU-dXWeSGSUBgBIE"
+GGS_DAILY_TAB = "data"
+GGS_DAILY_GID = 1486319159   # preferred over the tab name, so a renamed tab keeps working
+GGS_REQUIRED_HEADERS = ("Source Ticket ID", "External TicketID", "Status", "Departed", "Arrived", "Completed", "Closed")
 
 # The 4 milestone columns checked for "did something happen today", in the
 # order their timestamps would naturally occur (Departed -> Arrived ->
@@ -24,10 +29,11 @@ MATELINE_DIMENSIONS = ["Departed", "Arrived", "Completed", "Closed"]
 WAIT_ACTION_LABEL = "Wait Action"
 BACK_DATE_LABEL = "⚠️ Back Date"
 
-_ggs_cache = {"data": None, "ts": 0}
+_ggs_cache = {"data": None, "ts": 0, "retry_after": 0}  # retry_after: after a failed refresh, serve the old copy until then instead of re-waiting on a slow sheet
 _ggs_lock = threading.Lock()
 GGS_CACHE_TTL_SECONDS = 300  # 5 min - external field-ops sheet, doesn't need second-by-second freshness
 GGS_FETCH_TIMEOUT_SECONDS = 15
+GGS_RETRY_BACKOFF_SECONDS = 60  # after a failed/timed-out refresh, keep serving the last good copy this long before trying the slow sheet again
 
 
 def _parse_ggs_dt(s):
@@ -44,8 +50,21 @@ def _parse_ggs_dt(s):
 
 def _fetch_ggs_daily_rows_raw(gs_client):
     sh = gs_client.open_by_key(GGS_DAILY_SHEET_ID)
-    ws = sh.worksheet(GGS_DAILY_TAB)
-    return ws.get_all_values()
+    try:
+        ws = sh.get_worksheet_by_id(GGS_DAILY_GID)
+    except Exception:
+        ws = sh.worksheet(GGS_DAILY_TAB)
+    rows = ws.get_all_values()
+    # The source is rewritten every ~5 min: a read that lands mid-rewrite can come back empty or half-written.
+    # Reject those so the last good copy keeps being served (stale-if-error below) instead of showing every ticket as "not found".
+    header = [str(h).strip() for h in (rows[0] if rows else [])]
+    missing = [h for h in GGS_REQUIRED_HEADERS if h not in header]
+    if len(rows) < 2 or missing:
+        raise ValueError(f"GGS source looks incomplete (rows={len(rows)}, missing headers={missing})")
+    prev = _ggs_cache.get("data")
+    if prev and len(prev) > 200 and len(rows) < 0.5 * len(prev):
+        raise ValueError(f"GGS source shrank from {len(prev)} to {len(rows)} rows - treating it as a partial write")
+    return rows
 
 
 def _fetch_ggs_daily_rows_bounded(gs_client, timeout_seconds):
@@ -59,6 +78,7 @@ def _fetch_ggs_daily_rows_bounded(gs_client, timeout_seconds):
     times out here, it keeps running quietly in the background and is
     simply abandoned; the interpreter can still exit normally around it."""
     result, error, done = {}, {}, threading.Event()
+    state = {"abandoned": False}
 
     def _run():
         try:
@@ -67,9 +87,26 @@ def _fetch_ggs_daily_rows_bounded(gs_client, timeout_seconds):
             error["exc"] = e
         finally:
             done.set()
+        # The caller gave up waiting (timed out) but this read kept going and has now
+        # finished: store it, so the very next request is served instantly from cache
+        # instead of waiting on the slow sheet all over again. (Only after done.set(),
+        # and only if abandoned - the waiting caller holds _ggs_lock while it waits, so
+        # taking the lock before done.set() would deadlock.)
+        if "rows" in result and state["abandoned"]:
+            if _ggs_lock.acquire(timeout=10):
+                try:
+                    _ggs_cache["data"] = result["rows"]
+                    _ggs_cache["ts"] = time.monotonic()
+                    _ggs_cache["retry_after"] = 0
+                    log.info("GGS Daily: late fetch finished after the caller timed out - cache refreshed")
+                finally:
+                    _ggs_lock.release()
 
     threading.Thread(target=_run, daemon=True, name="ggs-fetch").start()
     if not done.wait(timeout=timeout_seconds):
+        state["abandoned"] = True
+        if done.is_set() and "rows" in result:   # finished in the instant between the timeout and this line
+            return result["rows"]
         raise TimeoutError(f"GGS Daily sheet fetch timed out after {timeout_seconds}s")
     if "exc" in error:
         raise error["exc"]
@@ -81,6 +118,10 @@ def fetch_ggs_daily_rows(gs_client, use_cache=True):
     if use_cache:
         with _ggs_lock:
             if _ggs_cache["data"] is not None and (now - _ggs_cache["ts"]) < GGS_CACHE_TTL_SECONDS:
+                return _ggs_cache["data"]
+            # A recent refresh failed: keep serving the last good copy for a minute rather than
+            # making every request wait out the same slow sheet (up to 15s each).
+            if _ggs_cache["data"] is not None and now < _ggs_cache.get("retry_after", 0):
                 return _ggs_cache["data"]
             # Fetch WHILE STILL HOLDING the lock (see pending_ticket.fetch_live_rows
             # for the full rationale) - a concurrent caller hitting a cold cache
@@ -99,11 +140,21 @@ def fetch_ggs_daily_rows(gs_client, use_cache=True):
             # rather than joining a queue that never moves.
             try:
                 rows = _fetch_ggs_daily_rows_bounded(gs_client, GGS_FETCH_TIMEOUT_SECONDS)
-            except TimeoutError:
-                log.error("GGS Daily sheet fetch timed out after %ss - giving up on this attempt", GGS_FETCH_TIMEOUT_SECONDS)
+            except Exception as e:
+                if isinstance(e, TimeoutError):
+                    log.error("GGS Daily sheet fetch timed out after %ss - giving up on this attempt", GGS_FETCH_TIMEOUT_SECONDS)
+                else:
+                    log.exception("GGS Daily sheet fetch failed")
+                # Stale-if-error: an out-of-date copy beats an error page for a field-ops sheet.
+                # Only when there has never been a successful read does the error still surface.
+                if _ggs_cache["data"] is not None:
+                    _ggs_cache["retry_after"] = time.monotonic() + GGS_RETRY_BACKOFF_SECONDS
+                    log.warning("GGS Daily: serving the last good copy (%.0fs old) after a failed refresh", time.monotonic() - _ggs_cache["ts"])
+                    return _ggs_cache["data"]
                 raise
             _ggs_cache["data"] = rows
             _ggs_cache["ts"] = time.monotonic()
+            _ggs_cache["retry_after"] = 0
             return rows
     return _fetch_ggs_daily_rows_raw(gs_client)
 
