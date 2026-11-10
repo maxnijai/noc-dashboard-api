@@ -63,7 +63,7 @@ def build(gs_client, use_cache=True):
             if key != "NSA34" and ai in OVER_GROUPS and len(det[str(ai)]) < MAX_PER_GROUP:
                 det[str(ai)].append({"id": _s(e.get("TICKETID")), "ci": _s(e.get("CINAME")), "sj": _s(e.get("SUBJECT")),
                                      "st": _s(e.get("site_type")), "dt": _s(e.get("detail")),
-                                     "pl": _s(e.get("plan_closed_date")), "a": ai, "od": bool(e.get("plan_closed_overdue")),
+                                     "pl": _s(e.get("plan_closed_date")), "cd": _s(e.get("CREATIONDATE")), "a": ai, "od": bool(e.get("plan_closed_overdue")),
                                      "d": float(e.get("over_sla_day") or 0)})
         for g in det.values():
             g.sort(key=lambda t: -t["d"])
