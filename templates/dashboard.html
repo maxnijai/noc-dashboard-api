@@ -17579,7 +17579,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', cfN: '', planK: '0', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
+  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', cfN: '', planK: '0', fM: '', fPT: '', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17930,6 +17930,41 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     document.getElementById('fc7-plank').onchange = e => { F7.planK = e.target.value; renderPlanTable(F7.m); };
   }
 
+
+  // TRUEOWNERGROUP x Mateline Status (GGS Daily) - same statuses as the P0 tab's Mateline Status column.
+  // Back Date is merged into Wait Action. Table 1: Plan_Closed_Date = today. Table 2: P0 now (k = 0).
+  const GGS_COLS = [['wait', 'Wait Action', '#fb7185'], ['dep', 'Departed', '#60a5fa'], ['arr', 'Arrived', '#fbbf24'], ['done', 'Completed', '#34d399'], ['closed', 'Closed', '#94a3b8'], ['nf', '(ไม่พบใน MatelineX)', '#cbd5e1']];
+  function ggsTable(boxId, which, title, sb, pred, m) {
+    const box = document.getElementById(boxId);
+    if (F7.tab !== 'sum') { box.style.display = 'none'; return; }
+    box.style.display = '';
+    const cnt = {};
+    m.T.filter(pred).forEach(t => { const g = gkey(t) || '#none', c = cnt[g] || (cnt[g] = {}), s = t.ml || 'nf'; c[s] = (c[s] || 0) + 1; });
+    const agg = f => { const o = {}; Object.keys(cnt).filter(f).forEach(g => Object.keys(cnt[g]).forEach(s => { o[s] = (o[s] || 0) + cnt[g][s]; })); return o; };
+    const tot = o => GGS_COLS.reduce((a, c) => a + (o[c[0]] || 0), 0);
+    let mx = 1; Object.keys(cnt).forEach(g => GGS_COLS.forEach(c => { if ((cnt[g][c[0]] || 0) > mx) mx = cnt[g][c[0]]; }));
+    const hex = a => Math.round(Math.max(0, Math.min(1, a)) * 255).toString(16).padStart(2, '0');
+    const td = (v, g, c, sub) => !v ? '<td></td>' : `<td class="n" data-fc7-gm="${esc(g)}|${c[0]}|${which}" style="cursor:pointer;${sub ? 'font-weight:800' : ''}"><span style="display:inline-block;min-width:30px;border-radius:5px;padding:1px 7px;font-weight:700;background:${c[2]}${hex(.2 + .6 * v / mx)}">${v}</span></td>`;
+    const line = (cls, c1, c2, c3, o, g, sub) => `<tr class="${cls}">${c1}${c2}${c3}${GGS_COLS.map(c => td(o[c[0]] || 0, g, c, sub)).join('')}<td class="n" data-fc7-gm="${esc(g)}||${which}" style="font-weight:700;cursor:pointer">${tot(o) || ''}</td></tr>`;
+    let h = `<table class="pt"><tr><th>Region</th><th>TRUEOWNERGROUP</th><th>จังหวัด</th>${GGS_COLS.map(c => `<th style="border-top:4px solid ${c[2]}">${c[1]}</th>`).join('')}<th>รวม</th></tr>`;
+    ['NOR1', 'NOR2'].forEach(rg => {
+      const gs = GRPS.filter(x => x[0] === rg);
+      gs.forEach((x, i) => { const key = x[0] + '-' + x[1];
+        h += line('', i === 0 ? `<td class="rg" rowspan="${gs.length}">${rg}</td>` : '', `<td class="n l">TRUE-TH-BBT-${key}-NOP</td>`, `<td class="l">${esc(G2P[key])}</td>`, cnt[key] || {}, key, false); });
+      h += line('sub', `<td class="l" colspan="3">${rg} รวม</td>`, '', '', agg(g => g.indexOf(rg + '-') === 0), rg, true);
+    });
+    if (cnt['#none']) h += line('', '<td></td>', '<td class="l">(ไม่ระบุกลุ่ม)</td>', '<td></td>', cnt['#none'], '#none', false);
+    h += line('sub', `<td class="l" colspan="3">ผลรวม</td>`, '', '', agg(() => true), '', true);
+    const all = agg(() => true);
+    box.innerHTML = `<div class="hd"><div><h2>${title}</h2><div class="sb">${sb}</div></div></div>
+      <div class="sc7" style="max-height:none;overflow-x:auto">${tot(all) ? h : '<div class="sb" style="padding:12px">ไม่มีใบ</div>'}</table></div>`;
+  }
+  function renderGgsTables(m) {
+    const d = F7.data;
+    ggsTable('fc7-ggs1', 't', 'TRUEOWNERGROUP × Mateline Status — ใบที่ Plan Closed Date = วันนี้', `Plan_Closed_Date = วันนี้ (${esc(dLong(d.today))}) · คอลัมน์ = Mateline Status จาก GGS Daily (ชุดเดียวกับแท็บ P0) · Wait Action รวมใบ Back Date แล้ว · กดช่องเพื่อดูรายใบข้างล่าง`, t => t.plan === d.today, m);
+    ggsTable('fc7-ggs2', 'p', 'TRUEOWNERGROUP × Mateline Status — ใบที่ P0 แล้ว', 'ใบ NSA3/NSA4 ที่เป็น P0 ณ ตอนนี้ (Flag Logic "P0 แล้ว") · คอลัมน์ = Mateline Status จาก GGS Daily · กดช่องเพื่อดูรายใบข้างล่าง', t => t.k === 0, m);
+  }
+
   // drill-down: ticket table opens right under the summary
   function refreshTickets() { if (F7.tab === 'sum') renderDD(); else renderTable(); }
   function renderDD() {
@@ -17939,20 +17974,20 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     const fl = [];
     if (F7.fG) fl.push(F7.fG === '#none' ? '(ไม่ระบุกลุ่ม)' : F7.fG);
     if (F7.fC) fl.push(F7.fC);
-    if (F7.fPD) fl.push('Plan ' + dShort(F7.fPD)); else if (F7.fF === 'late') fl.push('Plan เลยกำหนด'); else if (F7.fF === 'no') fl.push('ไม่มี Plan');
+    if (F7.fPT) fl.push('Plan วันนี้'); if (F7.fM) fl.push('Mateline: ' + (GGS_COLS.filter(c => c[0] === F7.fM)[0] || [0, F7.fM])[1]); if (F7.fPD) fl.push('Plan ' + dShort(F7.fPD)); else if (F7.fF === 'late') fl.push('Plan เลยกำหนด'); else if (F7.fF === 'no') fl.push('ไม่มี Plan');
     if (F7.fD !== '') fl.push(F7.fD === '0' ? 'P0 แล้ว' : 'P0 ใน ' + F7.fD + ' วัน');
     document.getElementById('fc7-ddt').textContent = 'รายใบ · แก้ Detail / Plan ได้' + (fl.length ? ' — ' + fl.join(' · ') : ' — ทุกใบ');
     renderTickets(el); sumNote();
   }
   function openDD(g, k, c, x) {
     x = x || {};
-    F7.tab = 'sum'; F7.dd = true; F7.fG = g; F7.fD = k; F7.fC = c || ''; F7.fP = ''; F7.fF = x.fF || ''; F7.fPD = x.fPD || ''; F7.fQ = '';
+    F7.tab = 'sum'; F7.dd = true; F7.fG = g; F7.fD = k; F7.fC = c || ''; F7.fP = ''; F7.fF = x.fF || ''; F7.fPD = x.fPD || ''; F7.fM = x.fM || ''; F7.fPT = x.fPT || ''; F7.fQ = '';
     renderTable(); const w = document.getElementById('fc7-ddw'); if (w) w.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function renderTable() {
     const m = F7.m, d = F7.data, el = document.getElementById('fc7-tbl');
     document.querySelectorAll('#fc7-box .tab').forEach(x => x.classList.toggle('a', x.dataset.fc7Tab === F7.tab));
-    renderCatTable(m); renderCfTable(m); renderPlanTable(m); renderDD();
+    renderCatTable(m); renderCfTable(m); renderPlanTable(m); renderGgsTables(m); renderDD();
     el.style.maxHeight = F7.tab === 'sum' ? 'none' : '';   // summary shows in full; the page scrolls, not the table
     if (F7.tab === 'sum') { renderSummary(m, el); return; }
     if (F7.tab === 'prov') {
@@ -17969,7 +18004,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   function renderTickets(el) {
     const m = F7.m, d = F7.data;
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
-    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (!F7.fC || (t.cat || '(ไม่ระบุ)') === F7.fC) && (!F7.fPD || t.plan === F7.fPD) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
+    const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (!F7.fC || (t.cat || '(ไม่ระบุ)') === F7.fC) && (!F7.fPD || t.plan === F7.fPD) && (!F7.fPT || t.plan === d.today) && (!F7.fM || (t.ml || 'nf') === F7.fM) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
       (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())))
       .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
     const shown = list.slice(0, 100);
@@ -18153,6 +18188,8 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
         <div id="fc7-cat" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-cf" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-plan" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
+        <div id="fc7-ggs1" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
+        <div id="fc7-ggs2" style="display:none;margin-top:18px;padding-top:12px;border-top:2px solid var(--border)"></div>
         <div id="fc7-ddw" style="display:none;margin-top:16px;padding-top:12px;border-top:2px solid var(--border)"><div class="hd"><h2 id="fc7-ddt" style="font-size:15px"></h2><button type="button" class="cp" data-fc7-ddx="1">ปิดรายใบ ✕</button></div><div class="sc7" id="fc7-dd"></div></div></div>
       <div class="nt"><b>เก็บ Snapshot อย่างไร:</b> ทุกวัน 01:20 ระบบเขียน 1 แถวต่อจังหวัดลงแท็บ <b>P0DailyTrend</b> (Date | Province | NSA3_P0 | NSA4_P0 | P0 | P1 | Total) — Trend อ่านจากแท็บนี้อย่างเดียว ไม่เปิดไฟล์ Drive ขนาดใหญ่</div></div>`;
     ov.addEventListener('click', e => {
@@ -18160,6 +18197,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
       const dd = e.target.closest('[data-fc7-dd]'); if (dd) { const pr = dd.dataset.fc7Dd.split('|'); openDD(pr[0], pr[1]); return; }
       const dp = e.target.closest('[data-fc7-dp]'); if (dp) { const pr = dp.dataset.fc7Dp.split('|'); openDD(pr[0], pr[1], '', pr[2] === 'none' ? { fF: 'no' } : pr[2] === 'late' ? { fF: 'late' } : pr[2] === 'date' ? { fPD: pr[3] } : {}); return; }
+      const gm = e.target.closest('[data-fc7-gm]'); if (gm) { const pr = gm.dataset.fc7Gm.split('|'); openDD(pr[0], pr[2] === 'p' ? '0' : '', '', { fM: pr[1], fPT: pr[2] === 't' ? '1' : '' }); return; }
       const dc = e.target.closest('[data-fc7-dc]'); if (dc) { const pr = dc.dataset.fc7Dc.split('|'); openDD(pr[0], pr[1], decodeURIComponent(pr[2] || '')); return; }
       if (e.target.closest('[data-fc7-ddx]')) { F7.dd = false; renderDD(); return; }
       const kt = e.target.closest('[data-fc7-k]'); if (kt) { openDD('', kt.dataset.fc7K); return; }
