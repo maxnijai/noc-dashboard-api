@@ -3522,6 +3522,25 @@ def api_presentation_config():
             return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ticket-log')
+def api_ticket_log():
+    """Work-order event log (Summary Details column of the GGS "data" tab) for one ticket - used by the Log button."""
+    if not session.get('user_email'):
+        return jsonify({'error': 'กรุณาเข้าสู่ระบบก่อน'}), 403
+    tid = (request.args.get('ticket') or '').strip()
+    if not tid:
+        return jsonify({'error': 'missing ticket'}), 400
+    try:
+        from mateline_status import build_ticket_log
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify({'ticket': tid, 'items': build_ticket_log(gs_client, tid)})
+    except Exception as e:
+        log.exception("ticket log failed")
+        if '429' in str(e) or 'Quota' in str(e):
+            return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/presentation/images', methods=['GET', 'POST'])
 def api_presentation_images():
     """Pictures of the manual image slide of "Present" (max 2). Any signed-in user may read / upload / delete."""

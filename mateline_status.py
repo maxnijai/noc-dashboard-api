@@ -231,6 +231,33 @@ def build_mateline_status_lookup(gs_client, today_str):
 
 
 
+def build_ticket_log(gs_client, ticket_id):
+    """Summary Details (the work-order event log) of every Work Order whose Source Ticket ID / External TicketID /
+    Work Order ID equals ticket_id, from the same cached copy of the new GGS "data" tab used for Mateline Status.
+    -> list of {wo, status, team, subject, summary}; [] when the ticket is not in the sheet (e.g. already closed)."""
+    tid = str(ticket_id or "").strip().upper()
+    if not tid:
+        return []
+    rows = fetch_ggs_daily_rows(gs_client)
+    if not rows:
+        return []
+    col = {name.strip(): i for i, name in enumerate(rows[0]) if name.strip()}
+
+    def get(row, name):
+        i = col.get(name)
+        return row[i] if i is not None and i < len(row) else ""
+
+    out = []
+    for row in rows[1:]:
+        if not row:
+            continue
+        keys = {get(row, "Source Ticket ID").strip().upper(), get(row, "External TicketID").strip().upper(), get(row, "Work Order ID").strip().upper()}
+        if tid in keys:
+            out.append({"wo": get(row, "Work Order ID").strip(), "status": get(row, "Status").strip(), "team": get(row, "Team Full Name").strip(),
+                        "subject": get(row, "Subject").strip(), "summary": get(row, "Summary Details")})
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Legacy "GGS Daily" sheet - kept ONLY for OFC Monitor.
 # OFC Monitor filters on Skill == "OFC" and Region == "NOR", values that exist in the old "Daily" tab but not in the
