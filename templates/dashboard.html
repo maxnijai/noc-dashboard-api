@@ -3232,13 +3232,16 @@ window.p0RenderSiteType = function () {
 // Button on the 7.MB with SA1-4 P0 card. Read-only: /api/exclusive-pending?all_aging=1 (block "7.MB with SA1-4",
 // every priority). Projects Over_SLA_Day forward to the next 01:15 (Bangkok) and lists tickets that will sit in
 // aging groups 1)-4) at that snapshot - those crossing into an older group are flagged and sorted first.
-const MBFP = { rows: null, ts: 0, inflight: null, f: 'all', onlyCross: false, prov: '', reg: '', closed: {}, err: '' };
+const MBFP = { rows: null, ts: 0, inflight: null, f: 'all', onlyCross: false, prov: '', reg: '', m: '', closed: {}, err: '' };
 const MBFP_GROUPS = [
   { n: 1, name: '1) OverSLA : > 30 days', short: '> 30 days', thr: 30, bg: '#7f1d1d', fg: '#fff', bar: '#7f1d1d' },
   { n: 2, name: '2) OverSLA : < 30 days', short: '< 30 days', thr: 7, bg: '#f4b6b6', fg: '#7f1d1d', bar: '#d9534f' },
   { n: 3, name: '3) OverSLA : < 7 days', short: '< 7 days', thr: 3, bg: '#fcd9a8', fg: '#7c2d12', bar: '#e08a1e' },
   { n: 4, name: '4) OverSLA : < 3 days', short: '< 3 days', thr: 1, bg: '#fde9b8', fg: '#7a5200', bar: '#c9a400' },
 ];
+const MBFP_ML = [['wait', 'Wait Action', '#fb7185', '#7f1d1d'], ['dep', 'Departed', '#60a5fa', '#10202f'], ['arr', 'Arrived', '#fbbf24', '#10202f'], ['done', 'Completed', '#34d399', '#064e3b'], ['closed', 'Closed', '#94a3b8', '#fff'], ['nf', '(ไม่พบใน MatelineX)', '#cbd5e1', '#334155']];
+// same statuses as the P0 tab's Mateline Status column; Back Date is merged into Wait Action
+function mbfpMl(t) { const v = String(t.status_mateline || ''); return /Departed/i.test(v) ? 'dep' : /Arrived/i.test(v) ? 'arr' : /Completed/i.test(v) ? 'done' : /Closed/i.test(v) ? 'closed' : (/Wait Action/i.test(v) || /Back Date/i.test(v)) ? 'wait' : 'nf'; }
 function mbfpBucket(d) { return d > 30 ? 1 : d >= 7 ? 2 : d >= 3 ? 3 : d >= 1 ? 4 : 0; }
 function mbfpFromSheet(s) { const m = /^\s*(\d)\)/.exec(String(s || '')); return m ? +m[1] : 0; }
 function mbfpNextSnap() {
@@ -3254,7 +3257,7 @@ function mbfpCompute(tickets) {
     if (!to) return;
     const from = mbfpFromSheet(t.Aging_Flag_Group) || mbfpBucket(cur) || 5;
     const cross = to < from;
-    out.push({ t, cur, proj, to, from, cross, hrs: cross ? Math.max(0, (MBFP_GROUPS[to - 1].thr - cur) * 24) : null });
+    out.push({ t, ml: mbfpMl(t), back: /Back Date/i.test(String(t.status_mateline || '')), cur, proj, to, from, cross, hrs: cross ? Math.max(0, (MBFP_GROUPS[to - 1].thr - cur) * 24) : null });
   });
   out.sort((a, b) => (b.cross - a.cross) || (a.cross ? a.hrs - b.hrs : b.cur - a.cur));
   return { rows: out, snap };
@@ -3269,9 +3272,11 @@ window.mbfpOpen = async function () {
       if (e.target === ov || e.target.closest('[data-mbfp-close]')) { ov.style.display = 'none'; return; }
       const c = e.target.closest('[data-mbfp-f]'); if (c) { MBFP.f = c.dataset.mbfpF; window.mbfpRender(); return; }
       const cc = e.target.closest('[data-mbfp-c]');
-      if (cc) { const g = cc.dataset.mbfpG, p = cc.dataset.mbfpP || '', r = cc.dataset.mbfpR || ''; const same = MBFP.f === g && MBFP.prov === p && MBFP.reg === r; MBFP.f = same ? 'all' : g; MBFP.prov = same ? '' : p; MBFP.reg = same ? '' : r; window.mbfpRender(); if (!same) setTimeout(() => { const d = document.getElementById('mbfp-det'); if (d) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30); return; }
+      if (cc) { const g = cc.dataset.mbfpG, p = cc.dataset.mbfpP || '', r = cc.dataset.mbfpR || ''; const same = MBFP.f === g && MBFP.prov === p && MBFP.reg === r && !MBFP.m; MBFP.m = ''; MBFP.f = same ? 'all' : g; MBFP.prov = same ? '' : p; MBFP.reg = same ? '' : r; window.mbfpRender(); if (!same) setTimeout(() => { const d = document.getElementById('mbfp-det'); if (d) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30); return; }
+      const mc = e.target.closest('[data-mbfp-mc]');
+      if (mc) { const m = mc.dataset.mbfpM || '', p = mc.dataset.mbfpP || '', r = mc.dataset.mbfpR || ''; const same = MBFP.m === m && MBFP.prov === p && MBFP.reg === r && MBFP.f === 'all'; MBFP.f = 'all'; MBFP.m = same ? '' : m; MBFP.prov = same ? '' : p; MBFP.reg = same ? '' : r; window.mbfpRender(); if (!same) setTimeout(() => { const d = document.getElementById('mbfp-det'); if (d) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30); return; }
       const rt = e.target.closest('[data-mbfp-rt]'); if (rt) { MBFP.closed[rt.dataset.mbfpRt] = !MBFP.closed[rt.dataset.mbfpRt]; window.mbfpRender(); return; }
-      if (e.target.closest('[data-mbfp-clear]')) { MBFP.f = 'all'; MBFP.prov = ''; MBFP.reg = ''; window.mbfpRender(); return; }
+      if (e.target.closest('[data-mbfp-clear]')) { MBFP.f = 'all'; MBFP.prov = ''; MBFP.reg = ''; MBFP.m = ''; window.mbfpRender(); return; }
       if (e.target.closest('[data-mbfp-x]')) { MBFP.onlyCross = !MBFP.onlyCross; window.mbfpRender(); return; }
       if (e.target.closest('[data-mbfp-csv]')) { window.mbfpCsv(); return; }
       if (e.target.closest('[data-mbfp-line]')) { window.mbfpLine(e.target.closest('[data-mbfp-line]')); return; }
@@ -3296,7 +3301,7 @@ window.mbfpOpen = async function () {
 window.mbfpView = function () {
   const c = mbfpCompute(MBFP.rows || []);
   const provs = Array.from(new Set(c.rows.map(r => String(r.t.PROVINCE || '').trim() || '(ไม่ระบุ)'))).sort();
-  let rows = c.rows.filter(r => (!MBFP.onlyCross || r.cross) && (!MBFP.prov || (String(r.t.PROVINCE || '').trim() || '(ไม่ระบุ)') === MBFP.prov) && (!MBFP.reg || (String(r.t.Region || '').trim() || '(ไม่ระบุ)') === MBFP.reg));
+  let rows = c.rows.filter(r => (!MBFP.onlyCross || r.cross) && (!MBFP.prov || (String(r.t.PROVINCE || '').trim() || '(ไม่ระบุ)') === MBFP.prov) && (!MBFP.reg || (String(r.t.Region || '').trim() || '(ไม่ระบุ)') === MBFP.reg) && (!MBFP.m || r.ml === MBFP.m));
   const base = rows;
   if (MBFP.f !== 'all') rows = rows.filter(r => String(r.to) === MBFP.f);
   return { all: c.rows, base, rows, provs, snap: c.snap };
@@ -3340,6 +3345,40 @@ window.mbfpSummaryHtml = function (all) {
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="border-collapse:collapse;width:100%;table-layout:fixed;font-size:12.5px;min-width:900px;"><thead><tr><th style="width:21%;padding:7px 14px;text-align:left;font-size:11.5px;text-transform:none;background:var(--bg3);color:var(--text2);">Region / จังหวัด</th>${th}<th style="width:8%;padding:7px 14px;text-align:right;font-size:11.5px;background:var(--bg3);color:var(--text2);">รวม</th><th style="width:11%;padding:7px 14px;text-align:right;font-size:11.5px;background:var(--bg3);color:var(--text2);">ข้ามเข้าใหม่</th></tr></thead><tbody>${body}</tbody></table></div>
     <div style="font-size:11.5px;color:var(--text3);margin-top:6px;">ตัวเลขใหญ่ = จำนวน Ticket ที่จะอยู่ในกลุ่มนั้น @01:15 · <b style="color:#b42318;">▲n</b> = ใบที่ข้ามเข้ามาใหม่ · แถบสีและความเข้มของพื้นเพิ่มตามจำนวน · แถวรวมตรงกับ 4 การ์ดด้านบน</div></div>`;
 };
+window.mbfpMlHtml = function (all) {
+  const esc = p0T5Esc, reg = {};
+  all.forEach(r => {
+    const rg = String(r.t.Region || '').trim() || '(ไม่ระบุ)', pv = String(r.t.PROVINCE || '').trim() || '(ไม่ระบุ)';
+    const o = ((reg[rg] = reg[rg] || {})[pv] = reg[rg][pv] || [0, 0, 0, 0, 0, 0]);
+    o[MBFP_ML.findIndex(c => c[0] === r.ml)]++;
+  });
+  const add = (a, b) => a.map((v, i) => v + b[i]), zero = () => [0, 0, 0, 0, 0, 0], tot = o => o.reduce((a, b) => a + b, 0);
+  const rgNames = Object.keys(reg).sort((a, b) => (a.startsWith('(') - b.startsWith('(')) || a.localeCompare(b));
+  let mx = 1; rgNames.forEach(rg => Object.values(reg[rg]).forEach(o => o.forEach(v => { if (v > mx) mx = v; })));
+  const sel = (k, p, r) => MBFP.m === k && MBFP.prov === p && MBFP.reg === r;
+  const cell = (n, i, p, r, isRg) => {
+    if (!n) return '<td style="padding:6px 14px;text-align:right;color:var(--text3);">·</td>';
+    const c = MBFP_ML[i];
+    const bar = isRg ? '' : `<span style="flex:1;max-width:150px;height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;"><i style="display:block;height:100%;width:${Math.max(6, n / mx * 100)}%;background:${c[2]};"></i></span>`;
+    return `<td style="padding:5px 14px;"><div data-mbfp-mc data-mbfp-m="${c[0]}" data-mbfp-p="${esc(p)}" data-mbfp-r="${esc(r)}" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;cursor:pointer;">${bar}<span style="min-width:38px;text-align:center;border-radius:5px;padding:2px 8px;font-weight:700;font-size:13.5px;background:color-mix(in srgb, ${c[2]} ${Math.min(14 + n * 4, 60)}%, transparent);${sel(c[0], p, r) ? 'outline:2px solid #2563eb;outline-offset:-2px;' : ''}">${n}</span></div></td>`;
+  };
+  const row = (label, o, p, r, kind) => {
+    const bg = kind === 'tot' ? 'background:var(--bg3);border-top:2px solid var(--border2);' : kind === 'rg' ? 'background:var(--bg3);' : '';
+    return `<tr style="border-top:1px solid var(--border);${bg}${kind ? 'font-weight:800;' : ''}"><td style="padding:6px 14px;${kind === 'rg' ? 'cursor:pointer;' : ''}" ${kind === 'rg' ? `data-mbfp-rt="${esc(r)}"` : ''}>${kind === 'rg' ? (MBFP.closed[r] ? '▶ ' : '▼ ') : kind ? '' : '&nbsp;&nbsp;&nbsp;'}${esc(label)}</td>` + o.map((n, i) => cell(n, i, p, r, kind === 'rg' || kind === 'tot')).join('') + `<td style="padding:6px 14px;text-align:right;font-weight:800;">${tot(o)}</td></tr>`;
+  };
+  let body = '', grand = zero();
+  rgNames.forEach(rg => {
+    const pvs = Object.keys(reg[rg]).sort((a, b) => (a.startsWith('(') - b.startsWith('(')) || (tot(reg[rg][b]) - tot(reg[rg][a])) || a.localeCompare(b));
+    const sub = pvs.reduce((a, p) => add(a, reg[rg][p]), zero()); grand = add(grand, sub);
+    body += row(rg, sub, '', rg, 'rg');
+    if (!MBFP.closed[rg]) pvs.forEach(pv => { body += row(pv, reg[rg][pv], pv, rg, ''); });
+  });
+  body += row('รวมทั้งหมด', grand, '', '', 'tot');
+  const th = MBFP_ML.map(c => `<th style="padding:7px 10px;text-align:right;font-size:12px;text-transform:none;white-space:nowrap;background:var(--bg3);color:var(--text2);border-top:4px solid ${c[2]};">${esc(c[1])}</th>`).join('');
+  return `<div><div style="font-weight:700;margin-bottom:6px;font-size:13px;">สรุปแยกตาม Region / จังหวัด × Mateline Status (OWS GGS) <span style="font-weight:400;font-size:12px;color:var(--text3);">(คลิกตัวเลขเพื่อกรองตาราง Detail)</span></div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:6px;"><table style="border-collapse:collapse;width:100%;table-layout:fixed;font-size:12.5px;min-width:900px;"><thead><tr><th style="width:21%;padding:7px 14px;text-align:left;font-size:11.5px;text-transform:none;background:var(--bg3);color:var(--text2);">Region / จังหวัด</th>${th}<th style="width:8%;padding:7px 14px;text-align:right;font-size:11.5px;text-transform:none;background:var(--bg3);color:var(--text2);">รวม</th></tr></thead><tbody>${body}</tbody></table></div>
+    <div style="font-size:11.5px;color:var(--text3);margin-top:6px;">คอลัมน์ = Mateline Status จาก GGS Daily (ชุดเดียวกับแท็บ P0) · Wait Action รวมใบ Back Date แล้ว · แถวรวมตรงกับตารางกลุ่ม Aging ด้านบน</div></div>`;
+};
 window.mbfpRender = function () {
   const ov = document.getElementById('mbfp-overlay'); if (!ov) return;
   const esc = p0T5Esc;
@@ -3358,6 +3397,7 @@ window.mbfpRender = function () {
     return `<tr style="border-top:1px solid var(--border);vertical-align:top;"><td style="padding:6px 8px;color:var(--text3);">${i + 1}</td>` +
       `<td style="padding:6px 8px;font-weight:700;white-space:nowrap;">${esc(t.TICKETID)}</td>` +
       `<td style="padding:6px 8px;"><span style="display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:700;white-space:nowrap;background:${g.bg};color:${g.fg};">${r.cross ? '→ ' : ''}${esc(g.name)}</span><div style="font-size:11px;color:var(--text3);margin-top:2px;">${r.cross ? 'จาก ' + esc(fg ? fg.name : (t.Aging_Flag_Group || '-')) : 'คงเดิม'}</div></td>` +
+      `<td style="padding:6px 8px;white-space:nowrap;">${(() => { const c = MBFP_ML.filter(x => x[0] === r.ml)[0]; return `<span style="display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:700;background:${c[2]}cc;color:${c[3]};">${esc(c[1])}</span>${r.back ? '<div style="font-size:10.5px;color:var(--text3);">(Back Date)</div>' : ''}`; })()}</td>` +
       `<td style="padding:6px 8px;white-space:nowrap;">${r.cur.toFixed(2)} → ${r.proj.toFixed(2)}<div style="font-size:11px;">${hh}</div></td>` +
       `<td style="padding:6px 8px;min-width:170px;">${esc(t.SUBJECT || '')}</td>` +
       `<td style="padding:6px 8px;white-space:nowrap;">${site}</td>` +
@@ -3366,7 +3406,7 @@ window.mbfpRender = function () {
       `<td style="padding:6px 8px;min-width:200px;">${esc(t.detail || '')}</td>` +
       `<td style="padding:6px 8px;white-space:nowrap;${pcd && t.plan_closed_overdue ? 'color:#b42318;font-weight:700;' : ''}">${esc(pcd)}</td></tr>`;
   }).join('');
-  const th = ['#', 'TICKETID', 'กลุ่ม Aging @01:15', 'Over SLA (วัน)<br>ตอนนี้ → @01:15', 'SUBJECT', 'Site Type', 'จังหวัด / อำเภอ', 'Group Problem', 'Action Team', 'รายละเอียด', 'Plan Closed Date']
+  const th = ['#', 'TICKETID', 'กลุ่ม Aging @01:15', 'Mateline Status<br>(OWS GGS)', 'Over SLA (วัน)<br>ตอนนี้ → @01:15', 'SUBJECT', 'Site Type', 'จังหวัด / อำเภอ', 'Group Problem', 'Action Team', 'รายละเอียด', 'Plan Closed Date']
     .map(h => `<th style="padding:7px 8px;text-align:left;font-size:11px;color:var(--text2);white-space:nowrap;position:sticky;top:0;background:var(--bg3);">${h}</th>`).join('');
   const crossTot = v.base.filter(r => r.cross).length;
   ov.innerHTML = `<div role="dialog" aria-modal="true" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(1500px,100%);max-height:94vh;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
@@ -3376,25 +3416,26 @@ window.mbfpRender = function () {
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">${tiles}</div>
     ${window.mbfpSummaryHtml(v.all)}
+    ${window.mbfpMlHtml(v.all)}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;">
       ${chip('all', 'ทั้งหมด ' + v.base.length, MBFP.f === 'all')}${MBFP_GROUPS.map(g => chip(String(g.n), '→ ' + g.short + ' · ' + cnt(g.n), MBFP.f === String(g.n))).join('')}
       <label style="margin-left:10px;display:flex;gap:4px;align-items:center;cursor:pointer;"><input type="checkbox" data-mbfp-x ${MBFP.onlyCross ? 'checked' : ''}> เฉพาะใบที่จะข้ามกลุ่ม</label>
-      ${(MBFP.f !== 'all' || MBFP.prov || MBFP.reg) ? '<span style="color:var(--text3);">กำลังกรอง: <b style="color:var(--text);">' + esc([MBFP.reg, MBFP.prov, MBFP.f !== 'all' ? MBFP_GROUPS[+MBFP.f - 1].name : ''].filter(Boolean).join(' · ')) + '</b></span> <button type="button" data-mbfp-clear style="border:0;background:none;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;">ล้างตัวกรอง</button>' : ''}<span style="color:var(--text3);">จังหวัด:</span><select data-mbfp-prov style="font:inherit;font-size:12px;padding:2px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);"><option value="">ทั้งหมด</option>${v.provs.map(p => `<option value="${esc(p)}" ${MBFP.prov === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
+      ${(MBFP.f !== 'all' || MBFP.prov || MBFP.reg || MBFP.m) ? '<span style="color:var(--text3);">กำลังกรอง: <b style="color:var(--text);">' + esc([MBFP.reg, MBFP.prov, MBFP.f !== 'all' ? MBFP_GROUPS[+MBFP.f - 1].name : '', MBFP.m ? 'Mateline: ' + MBFP_ML.filter(x => x[0] === MBFP.m)[0][1] : ''].filter(Boolean).join(' · ')) + '</b></span> <button type="button" data-mbfp-clear style="border:0;background:none;color:#2563eb;text-decoration:underline;cursor:pointer;font:inherit;">ล้างตัวกรอง</button>' : ''}<span style="color:var(--text3);">จังหวัด:</span><select data-mbfp-prov style="font:inherit;font-size:12px;padding:2px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--bg3);color:var(--text);"><option value="">ทั้งหมด</option>${v.provs.map(p => `<option value="${esc(p)}" ${MBFP.prov === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
     </div>
-    <div id="mbfp-det" style="flex:0 0 auto;overflow:auto;border:1px solid var(--border);border-radius:6px;max-height:62vh;"><table style="border-collapse:collapse;width:100%;font-size:12.5px;min-width:1250px;"><thead><tr>${th}</tr></thead><tbody>${body || '<tr><td colspan="11" style="padding:18px;text-align:center;color:var(--text3);">ไม่มี Ticket ตามเงื่อนไข</td></tr>'}</tbody></table></div>
+    <div id="mbfp-det" style="flex:0 0 auto;overflow:auto;border:1px solid var(--border);border-radius:6px;max-height:62vh;"><table style="border-collapse:collapse;width:100%;font-size:12.5px;min-width:1350px;"><thead><tr>${th}</tr></thead><tbody>${body || '<tr><td colspan="12" style="padding:18px;text-align:center;color:var(--text3);">ไม่มี Ticket ตามเงื่อนไข</td></tr>'}</tbody></table></div>
     <div style="font-size:11.5px;color:var(--text3);line-height:1.7;">วิธีคิด: Over SLA (วัน) ตอนนี้ + เวลาที่เหลือถึง 01:15 รอบถัดไป แล้วจัดกลุ่ม &gt;30 / 7–30 / 3–7 / 1–3 วัน · "→" = ใบที่จะข้ามเข้ากลุ่มที่เก่ากว่าเดิม (เรียงใบที่ใกล้ข้ามที่สุดก่อน) · ใบที่อยู่ในกลุ่มนั้นอยู่แล้วแสดง "คงเดิม" · ขอบเขตเดียวกับ Bookmark 7.MB with SA1-4 ทุก Priority (ไม่ใช่เฉพาะ P0) · ข้อมูลสดจากชีต อัปเดตทุก 60 วินาที</div>
   </div>`;
 };
 window.mbfpCsv = function () {
   const v = window.mbfpView(), q = x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"';
-  const out = [['TICKETID', 'SUBJECT', 'Site Type', 'PROVINCE', 'DISTRICT', 'Aging_Flag_Group ปัจจุบัน', 'Aging_Flag_Group @01:15', 'ข้ามกลุ่ม', 'ข้ามเส้นใน (ชม.)', 'Over SLA ตอนนี้', 'Over SLA @01:15', 'Group Problem', 'Action Team', 'รายละเอียด', 'Plan Closed Date'].map(q).join(',')];
-  v.rows.forEach(r => { const t = r.t; out.push([t.TICKETID, t.SUBJECT, t.site_type, t.PROVINCE, t.DISTRICT, t.Aging_Flag_Group, MBFP_GROUPS[r.to - 1].name, r.cross ? 'Y' : '', r.cross ? r.hrs.toFixed(1) : '', r.cur.toFixed(2), r.proj.toFixed(2), t.group_problem, t.action_team, t.detail, t.plan_closed_date].map(q).join(',')); });
+  const out = [['TICKETID', 'SUBJECT', 'Site Type', 'PROVINCE', 'DISTRICT', 'Aging_Flag_Group ปัจจุบัน', 'Aging_Flag_Group @01:15', 'Mateline Status', 'ข้ามกลุ่ม', 'ข้ามเส้นใน (ชม.)', 'Over SLA ตอนนี้', 'Over SLA @01:15', 'Group Problem', 'Action Team', 'รายละเอียด', 'Plan Closed Date'].map(q).join(',')];
+  v.rows.forEach(r => { const t = r.t; out.push([t.TICKETID, t.SUBJECT, t.site_type, t.PROVINCE, t.DISTRICT, t.Aging_Flag_Group, MBFP_GROUPS[r.to - 1].name, MBFP_ML.filter(x => x[0] === r.ml)[0][1] + (r.back ? ' (Back Date)' : ''), r.cross ? 'Y' : '', r.cross ? r.hrs.toFixed(1) : '', r.cur.toFixed(2), r.proj.toFixed(2), t.group_problem, t.action_team, t.detail, t.plan_closed_date].map(q).join(',')); });
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + out.join('\n')], { type: 'text/csv;charset=utf-8' })); a.download = 'mb_flag_priority.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 };
 window.mbfpLine = function (btn) {
   const v = window.mbfpView(), snap = new Date(v.snap.at + 7 * 3600000);
   let s = '7.MB Flag Priority @01:15 ' + snap.getUTCDate() + '/' + (snap.getUTCMonth() + 1) + ' (' + v.rows.length + ' ใบ)\n';
-  MBFP_GROUPS.forEach(g => { const L = v.rows.filter(r => r.to === g.n); if (!L.length) return; s += '\n' + g.name + ' (' + L.length + ')\n'; L.forEach(r => { const t = r.t; s += '- ' + t.TICKETID + ' ' + String(t.PROVINCE || '').trim() + '/' + (t.DISTRICT || '') + (r.cross ? ' [ข้ามใน ' + r.hrs.toFixed(1) + ' ชม.]' : '') + (t.action_team ? ' · ' + t.action_team : '') + '\n'; }); });
+  MBFP_GROUPS.forEach(g => { const L = v.rows.filter(r => r.to === g.n); if (!L.length) return; s += '\n' + g.name + ' (' + L.length + ')\n'; L.forEach(r => { const t = r.t; s += '- ' + t.TICKETID + ' ' + String(t.PROVINCE || '').trim() + '/' + (t.DISTRICT || '') + (r.cross ? ' [ข้ามใน ' + r.hrs.toFixed(1) + ' ชม.]' : '') + ' · ' + MBFP_ML.filter(x => x[0] === r.ml)[0][1] + (t.action_team ? ' · ' + t.action_team : '') + '\n'; }); });
   const done = () => { const o = btn.textContent; btn.textContent = 'คัดลอกแล้ว ✓'; setTimeout(() => { btn.textContent = o; }, 1500); };
   try { navigator.clipboard.writeText(s).then(done, () => { window.prompt && 0; }); } catch (e) { /* clipboard refused */ }
 };
