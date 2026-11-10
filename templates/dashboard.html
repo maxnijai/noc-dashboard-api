@@ -18721,7 +18721,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     var S = trendSeries();
     if (!S) return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">ยังไม่มีข้อมูลย้อนหลัง (ระบบกำลังรวบรวม Trend)</div>';
     return '<div class="pr-tag"><i></i>' + tag + '</div><h2 class="pr-gr">' + esc(s.title) + '</h2><div class="sub">' + sub + ' · ' + (S.dates.length - S.first) + ' วันล่าสุด @01:15 · อัปเดต ' + esc(P.data.insert_time || P.data.today || '') + '</div><div class="pr-g5">' +
-      BKS.filter(function (b) { return !b[3]; }).map(function (b, i) { return '<div class="pr-cp" data-i="' + i + '"' + '" style="--c:' + b[2] + ';animation-delay:' + (i * .1) + 's"><div class="pr-ph"><b style="color:' + b[2] + '">' + esc(b[1]) + '</b><em>ล่าสุด ' + lastOf(S, b[0], mode) + '</em></div>' + legend(S, mode) + '<div class="pr-cv" data-k="' + b[0] + '" data-m="' + mode + '" data-c="' + b[2] + '"></div></div>'; }).join('') + '</div>';
+      BKS.filter(function (b) { return !b[3]; }).map(function (b, i) { return '<div class="pr-cp" data-i="' + i + '" style="--c:' + b[2] + ';animation-delay:' + (i * .1) + 's"><div class="pr-ph"><b style="color:' + b[2] + '">' + esc(b[1]) + '</b><em>ล่าสุด ' + lastOf(S, b[0], mode) + '</em></div>' + legend(S, mode) + '<div class="pr-cv" data-k="' + b[0] + '" data-m="' + mode + '" data-c="' + b[2] + '"></div></div>'; }).join('') + '</div>';
   }
   var cvRO = null;
   function drawCharts(st) { var S = trendSeries(); if (!S) return; if (cvRO) cvRO.disconnect(); var paint = function (e) { var w = e.clientWidth, h = e.clientHeight; if (w > 50 && h > 50 && (e._w !== w || e._h !== h)) { e._w = w; e._h = h; e.innerHTML = chartSvg(S, e.dataset.k, e.dataset.m, w, h, e.dataset.c); } };
@@ -19132,6 +19132,16 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     });
   }
   function nap(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // Rendering a slide can fail for one engine on some pages (fonts / cross-origin pictures), so try a lighter setup, then html2canvas.
+  async function snap(o, px, bgc, blank) {
+    var flt = function (n) { return !(n.classList && n.classList.contains('pr-load')); }, tries = [
+      function () { return window.htmlToImage.toJpeg(o, { quality: 0.92, pixelRatio: px, backgroundColor: bgc, imagePlaceholder: blank, filter: flt }); },
+      function () { return window.htmlToImage.toJpeg(o, { quality: 0.92, pixelRatio: Math.min(px, 1.5), backgroundColor: bgc, imagePlaceholder: blank, filter: flt, skipFonts: true }); },
+      function () { return window.html2canvas ? window.html2canvas(o, { scale: Math.min(px, 1.5), backgroundColor: bgc, useCORS: true, logging: false, ignoreElements: function (n) { return n.classList && n.classList.contains('pr-load'); } }).then(function (c) { return c.toDataURL('image/jpeg', 0.92); }) : Promise.reject(new Error('html2canvas missing')); }
+    ], last = null;
+    for (var i = 0; i < tries.length; i++) { try { var r = await tries[i](); if (r && r.length > 2000) return r; } catch (e) { last = e; } }
+    throw new Error((last && last.message) || (last && last.type) || 'ถ่ายภาพสไลด์ไม่สำเร็จ');
+  }
   async function exportPpt(btn) {
     if (P.exporting || !P.slides.length) return; P.exporting = true;
     var o = P.ov, old = btn.textContent, keep = P.idx, was = P.playing, W = 13.333;
@@ -19150,13 +19160,13 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
         o.querySelectorAll('.pr-typ').forEach(function (e) { clearInterval(e._t); e.textContent = e.dataset.t || ''; });
         o.querySelectorAll('[data-n]').forEach(function (e) { e.textContent = e.dataset.n; }); o.querySelectorAll('[data-w]').forEach(function (e) { e.style.width = e.dataset.w + '%'; });
         await nap(350);
-        var img = await window.htmlToImage.toJpeg(o, { quality: 0.92, pixelRatio: px, backgroundColor: bgc, imagePlaceholder: blank, filter: function (n) { return !(n.classList && n.classList.contains('pr-load')); } });
+        var img = await snap(o, px, bgc, blank);
         var sl = x.addSlide(); sl.addImage({ data: img, x: 0, y: 0, w: W, h: H }); sl.addNotes((st.title || '') + ' · ' + (P.data.today || ''));
       }
       say('กำลังบันทึกไฟล์…');
       await x.writeFile({ fileName: 'NOC_Present_' + (P.data.today || new Date().toISOString().slice(0, 10)) + '.pptx' });
       say('✓ เสร็จแล้ว'); setTimeout(function () { btn.textContent = old; }, 2500);
-    } catch (e) { say(old); alert('สร้าง PowerPoint ไม่สำเร็จ: ' + (e && e.message ? e.message : e)); }
+    } catch (e) { say(old); alert('สร้าง PowerPoint ไม่สำเร็จ (สไลด์ที่ ' + (typeof i === 'number' ? i + 1 : '-') + '): ' + (e && (e.message || e.type) ? (e.message || e.type) : e)); }
     o.classList.remove('exp'); P.exporting = false; P.playing = was; syncPlay(); show(keep);
   }
 
