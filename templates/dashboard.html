@@ -17961,7 +17961,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
   }
   function renderGgsTables(m) {
     const d = F7.data;
-    ggsTable('fc7-ggs1', 't', 'TRUEOWNERGROUP × Mateline Status — ใบที่ Plan Closed Date = วันนี้', `Plan_Closed_Date = วันนี้ (${esc(dLong(d.today))}) · คอลัมน์ = Mateline Status จาก GGS Daily (ชุดเดียวกับแท็บ P0) · Wait Action รวมใบ Back Date แล้ว · กดช่องเพื่อดูรายใบข้างล่าง`, t => t.plan === d.today, m);
+    ggsTable('fc7-ggs1', 't', 'TRUEOWNERGROUP × Mateline Status — ใบที่ P0 แล้ว และ Plan Closed Date = วันนี้', `เฉพาะใบ P0 แล้ว ที่ Plan_Closed_Date = วันนี้ (${esc(dLong(d.today))}) · คอลัมน์ = Mateline Status จาก GGS Daily (ชุดเดียวกับแท็บ P0) · Wait Action รวมใบ Back Date แล้ว · กดช่องเพื่อดูรายใบข้างล่าง`, t => t.k === 0 && t.plan === d.today, m);
     ggsTable('fc7-ggs2', 'p', 'TRUEOWNERGROUP × Mateline Status — ใบที่ P0 แล้ว', 'ใบ NSA3/NSA4 ที่เป็น P0 ณ ตอนนี้ (Flag Logic "P0 แล้ว") · คอลัมน์ = Mateline Status จาก GGS Daily · กดช่องเพื่อดูรายใบข้างล่าง', t => t.k === 0, m);
   }
 
@@ -18197,7 +18197,7 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
       const g = e.target.closest('[data-fc7-g]'); if (g) { F7.grp = g.dataset.fc7G; renderAll(); return; }
       const dd = e.target.closest('[data-fc7-dd]'); if (dd) { const pr = dd.dataset.fc7Dd.split('|'); openDD(pr[0], pr[1]); return; }
       const dp = e.target.closest('[data-fc7-dp]'); if (dp) { const pr = dp.dataset.fc7Dp.split('|'); openDD(pr[0], pr[1], '', pr[2] === 'none' ? { fF: 'no' } : pr[2] === 'late' ? { fF: 'late' } : pr[2] === 'date' ? { fPD: pr[3] } : {}); return; }
-      const gm = e.target.closest('[data-fc7-gm]'); if (gm) { const pr = gm.dataset.fc7Gm.split('|'); openDD(pr[0], pr[2] === 'p' ? '0' : '', '', { fM: pr[1], fPT: pr[2] === 't' ? '1' : '' }); return; }
+      const gm = e.target.closest('[data-fc7-gm]'); if (gm) { const pr = gm.dataset.fc7Gm.split('|'); openDD(pr[0], '0', '', { fM: pr[1], fPT: pr[2] === 't' ? '1' : '' }); return; }
       const dc = e.target.closest('[data-fc7-dc]'); if (dc) { const pr = dc.dataset.fc7Dc.split('|'); openDD(pr[0], pr[1], decodeURIComponent(pr[2] || '')); return; }
       if (e.target.closest('[data-fc7-ddx]')) { F7.dd = false; renderDD(); return; }
       const kt = e.target.closest('[data-fc7-k]'); if (kt) { openDD('', kt.dataset.fc7K); return; }
