@@ -8509,7 +8509,6 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.mateline_wo_status) || '-'}</td>
         <td style="padding:6px 8px; white-space:nowrap; color:${matelineColor}; ${isBackDateMateline ? 'font-weight:700;' : ''}">${escapeHtml(t.status_mateline)}</td>
-        <td style="padding:6px 8px; white-space:nowrap;"><button class="btn-secondary" style="font-size:11px; padding:3px 9px;" onclick="showP0SummaryLog('${tid}')">📋 Log</button></td>
         ${editCells}
       </tr>`;
     }).join('');
@@ -8528,7 +8527,6 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:right;">Over SLA</th>
               <th style="padding:6px 8px; text-align:left;">WO Status (Mateline)</th>
               <th style="padding:6px 8px; text-align:left;">Status Mateline</th>
-              <th style="padding:6px 8px; text-align:left;">Log</th>
               <th style="padding:6px 8px; text-align:left;">Group Problem</th>
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
@@ -19282,8 +19280,14 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     var cells = root.nodeType === 1 ? (root.matches('td,th') ? [root] : []).concat([].slice.call(root.querySelectorAll('td'))) : [];
     for (var i = 0; i < cells.length; i++) {
       var c = cells[i]; if (c.childElementCount > 2 || c.querySelector('.noc-lg') || c.closest('.pr-ov,#nl-ov')) continue;
-      var tx = (c.textContent || '').trim(); if (tx.length < 12 || tx.length > 24 || !TKT.test(tx)) continue;
-      var b = document.createElement('button'); b.type = 'button'; b.className = 'noc-lg'; b.dataset.lg = tx; b.title = 'ดู Log (Summary Details) ของ ' + tx; c.appendChild(b);
+      var tx = (c.textContent || '').trim(), anchor = null;
+      if (tx.length >= 12 && tx.length <= 24 && TKT.test(tx)) anchor = c.lastChild;
+      else if (tx.length >= 12 && tx.length < 300) {
+        var f = c.firstChild; while (f && f.nodeType === 3 && !f.textContent.trim()) f = f.nextSibling;
+        if (f && (f.nodeType === 3 || f.nodeType === 1) && TKT.test((f.textContent || '').trim())) { tx = f.textContent.trim(); anchor = f; }
+      }
+      if (!anchor) continue;
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'noc-lg'; b.dataset.lg = tx; b.title = 'ดู Log (Summary Details) ของ ' + tx; if (anchor === c.lastChild) c.appendChild(b); else anchor.parentNode.insertBefore(b, anchor.nextSibling);
     }
   }
   var q = [], tm = 0;
