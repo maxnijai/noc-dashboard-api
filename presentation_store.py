@@ -9,7 +9,7 @@ from realtime_monitor import REALTIME_SHEET_ID
 
 SHEET = "PresentationConfig"
 PRESENTATION_EDITORS = ["saridphong_n@bbtec.co.th"]
-SLIDE_TYPES = {"plan", "strategy", "fctotal", "fcbm", "agfc", "cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing"}
+SLIDE_TYPES = {"plan", "strategy", "fctotal", "fcbm", "agfc", "cover", "aging", "oversla", "bkdrill", "bkdetail", "nsasum", "nsaplan", "title", "kpi", "trend", "provinces", "groups", "late", "text", "closing", "images"}
 ACCENTS = {"cyan", "violet", "emerald", "amber", "rose"}
 SCOPES = {"all", "NSA3", "NSA4"}
 _lock = threading.Lock()
@@ -90,3 +90,81 @@ def save(gs_client, cfg, who, when):
     with _lock:
         _cache.update(v=out, ts=time.monotonic())
     return out
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Manual image slide: up to IMG_SLOTS pictures kept in the Sheet tab PresentationImages.
+# One row per slot (row 2..): A=slot, B=updated_at, C=updated_by, D=chunk count, E..=base64 data-URL split in
+# <=45 000-char pieces (a Sheet cell holds max 50 000 chars). The browser shrinks every picture to <=1600 px first.
+# ---------------------------------------------------------------------------------------------------------------
+IMG_SHEET = "PresentationImages"
+IMG_SLOTS = 2
+IMG_MAX_CHARS = 1100000
+IMG_CHUNK = 45000
+_img_cache = {"v": None, "ts": 0.0}
+
+
+def _img_ws(sh, create):
+    try:
+        return _with_quota_retry(lambda: sh.worksheet(IMG_SHEET))
+    except Exception as e:
+        if _is_quota_error(e):
+            raise
+        if not create:
+            return None
+        return _with_quota_retry(lambda: sh.add_worksheet(title=IMG_SHEET, rows=10, cols=4 + IMG_MAX_CHARS // IMG_CHUNK + 2))
+
+
+def images_load(gs_client, use_cache=True):
+    """-> list of {slot, src, updated_at, updated_by} for slots that hold a picture."""
+    now = time.monotonic()
+    with _lock:
+        if use_cache and _img_cache["v"] is not None and now - _img_cache["ts"] < 120:
+            return _img_cache["v"]
+        stale = _img_cache["v"]
+    try:
+        sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+        ws = _img_ws(sh, False)
+        vals = _with_quota_retry(lambda: ws.get_all_values()) if ws is not None else []
+    except Exception:
+        if stale is not None:
+            return stale
+        raise
+    out = []
+    for row in vals[1:]:
+        row = row + [""] * 5
+        try:
+            slot = int(row[0])
+        except ValueError:
+            continue
+        src = "".join(row[4:])
+        if 1 <= slot <= IMG_SLOTS and src.startswith("data:image/"):
+            out.append({"slot": slot, "src": src, "updated_at": row[1], "updated_by": row[2]})
+    out.sort(key=lambda x: x["slot"])
+    with _lock:
+        _img_cache.update(v=out, ts=now)
+    return out
+
+
+def image_save(gs_client, slot, data_url, who, when):
+    """data_url=None/'' deletes the picture of that slot."""
+    slot = int(slot)
+    if not 1 <= slot <= IMG_SLOTS:
+        raise ValueError("slot ต้องเป็น 1-%d" % IMG_SLOTS)
+    data_url = str(data_url or "")
+    if data_url:
+        if not data_url.startswith(("data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,")):
+            raise ValueError("รองรับเฉพาะรูป JPEG / PNG / WebP")
+        if len(data_url) > IMG_MAX_CHARS:
+            raise ValueError("รูปใหญ่เกินไป (จำกัด ~800 KB หลังย่อ)")
+    sh = gs_client.open_by_key(REALTIME_SHEET_ID)
+    ws = _img_ws(sh, True)
+    chunks = [data_url[i:i + IMG_CHUNK] for i in range(0, len(data_url), IMG_CHUNK)]
+    width = 4 + max(len(chunks), 1)
+    row = [str(slot), when if data_url else "", who if data_url else "", str(len(chunks))] + chunks
+    row += [""] * (4 + IMG_MAX_CHARS // IMG_CHUNK + 1 - len(row))  # blank old tail so a shorter picture leaves nothing behind
+    _with_quota_retry(lambda: ws.update("A1:D1", [["slot", "updated_at", "updated_by", "chunks"]], value_input_option="RAW"))
+    _with_quota_retry(lambda: ws.update("A%d" % (slot + 1), [row], value_input_option="RAW"))
+    with _lock:
+        _img_cache.update(v=None, ts=0.0)
+    return images_load(gs_client, use_cache=False)

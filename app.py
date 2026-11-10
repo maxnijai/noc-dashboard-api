@@ -3522,6 +3522,29 @@ def api_presentation_config():
             return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/presentation/images', methods=['GET', 'POST'])
+def api_presentation_images():
+    """Pictures of the manual image slide of "Present" (max 2). Any signed-in user may read / upload / delete."""
+    import presentation_store as _ps
+    email = session.get('user_email')
+    try:
+        _, gs_client = get_drive_and_sheets_clients()
+        if request.method == 'POST':
+            if not _ps.is_editor(email):
+                return jsonify({'error': 'กรุณาเข้าสู่ระบบก่อน'}), 403
+            b = request.get_json(silent=True) or {}
+            try:
+                imgs = _ps.image_save(gs_client, b.get('slot'), '' if b.get('delete') else b.get('data'), email, bangkok_now().strftime('%Y-%m-%d %H:%M'))
+            except (ValueError, TypeError) as ve:
+                return jsonify({'error': str(ve)}), 400
+            return jsonify({'status': 'saved', 'images': imgs})
+        return jsonify({'images': _ps.images_load(gs_client)})
+    except Exception as e:
+        log.exception("presentation images failed")
+        if '429' in str(e) or 'Quota' in str(e):
+            return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/kasem-comment/debug')
 def api_kasem_comment_debug():
