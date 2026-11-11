@@ -383,6 +383,14 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
     if not daily_rows:
         return {"entries": [], "integrity": {}, "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
+    # Pause/Resume Time, Latest Progress (Departed/Arrived/Completed/Closed): read from the NEW GGS sheet (tab data) - the old Daily
+    # sheet stays only as the list of OFC work orders (Skill / Region filter). Tickets the new sheet does not hold keep the old values.
+    try:
+        new_progress = mateline_status.build_ggs_progress_lookup(gs_client)
+    except Exception:
+        log.exception("OFC monitor: new GGS progress lookup failed - keeping the old sheet's values")
+        new_progress = {}
+
     header = daily_rows[0]
     col = {name.strip(): i for i, name in enumerate(header) if name.strip()}
 
@@ -491,12 +499,12 @@ def build_ofc_monitor_response(gs_client, force_refresh=False):
             "site_id": _safe_str(get(row, "Site ID")),
             "subject": _safe_str(get(row, "Subject")),
             "alarm_description": _safe_str(get(row, "Alarm Description")),
-            "pause_resume_time": _safe_str(get(row, "Pause/Resume Time")),
+            "pause_resume_time": (new_progress.get(tid_upper) or {}).get("pause_resume", _safe_str(get(row, "Pause/Resume Time"))),
             "remark": remarks.get(tid_upper, ""),
-            "departed": _safe_str(get(row, "Departed")),
-            "arrived": _safe_str(get(row, "Arrived")),
-            "completed": _safe_str(get(row, "Completed")),
-            "closed": _safe_str(get(row, "Closed")),
+            "departed": (new_progress.get(tid_upper) or {}).get("departed", _safe_str(get(row, "Departed"))),
+            "arrived": (new_progress.get(tid_upper) or {}).get("arrived", _safe_str(get(row, "Arrived"))),
+            "completed": (new_progress.get(tid_upper) or {}).get("completed", _safe_str(get(row, "Completed"))),
+            "closed": (new_progress.get(tid_upper) or {}).get("closed", _safe_str(get(row, "Closed"))),
             "require_finish_time": require_finish_time,
             "status": status,
             "region": region,

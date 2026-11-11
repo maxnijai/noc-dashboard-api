@@ -267,6 +267,72 @@ def ggs_source_info(gs_client):
             "legacy_sheet_in_use": False, "legacy_only_for": "OFC Monitor (Skill/Region filter)"}
 
 
+_LOG_BLOCK_SPLIT = re.compile(r"\n-{20,}[ \t]*\n?")
+_LOG_HEAD = re.compile(r"^\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - (.+?) ?: ?(.*)$")
+
+
+def _log_events(text):
+    """[(datetime, action, reason)] of a Summary Details log, in the order written (action e.g. 'Depart', 'Pause SLA')."""
+    out = []
+    for blk in _LOG_BLOCK_SPLIT.split(str(text or "").replace("\r", "")):
+        lines = blk.strip().split("\n")
+        m = _LOG_HEAD.match(lines[0]) if lines and lines[0] else None
+        if not m:
+            continue
+        dt = _parse_ggs_dt(m.group(1))
+        if dt is None:
+            continue
+        reason = ""
+        for l in lines[1:]:
+            l = l.strip()
+            if l.startswith("Reason :"):
+                reason = l[8:].strip()
+        out.append((dt, m.group(2).strip(), reason))
+    return out
+
+
+def build_ggs_progress_lookup(gs_client):
+    """{TICKET_ID_UPPER: {"departed","arrived","completed","closed","pause_resume"}} from the new GGS "data" tab.
+    The date columns win unless the work-order log (Summary Details) holds a later stamp of the same step; pause_resume is the
+    sheet's own Pause/Resume Time column, else the last "Pause SLA"/"Resume SLA" event of the log."""
+    try:
+        rows = fetch_ggs_daily_rows(gs_client)
+    except Exception:
+        log.exception("build_ggs_progress_lookup: could not read the GGS sheet")
+        return {}
+    if not rows:
+        return {}
+    col = {name.strip(): i for i, name in enumerate(rows[0]) if name.strip()}
+
+    def get(row, name):
+        i = col.get(name)
+        return row[i] if i is not None and i < len(row) else ""
+
+    stamp = lambda dt: dt.strftime("%Y-%m-%d %H:%M:%S")
+    step = {"Depart": "departed", "Arrive": "arrived", "Complete": "completed", "Close": "closed"}
+    out, newest = {}, {}
+    for row in rows[1:]:
+        if not row or not any(row):
+            continue
+        res = {k: get(row, c).strip() for k, c in (("departed", "Departed"), ("arrived", "Arrived"), ("completed", "Completed"), ("closed", "Closed"))}
+        pause = ""
+        last = None
+        for dt, act, reason in _log_events(get(row, "Summary Details")):
+            key = next((v for k, v in step.items() if act.startswith(k)), None)
+            if key and (not _parse_ggs_dt(res[key]) or dt > _parse_ggs_dt(res[key])):
+                res[key] = stamp(dt)
+            if act in ("Pause SLA", "Resume SLA"):
+                pause = ("⏸ พัก SLA " if act == "Pause SLA" else "▶ เริ่ม SLA ต่อ ") + dt.strftime("%Y-%m-%d %H:%M") + (" · " + reason if reason and act == "Pause SLA" else "")
+            last = dt if last is None or dt > last else last
+        res["pause_resume"] = get(row, "Pause/Resume Time").strip() or pause
+        rank = last or datetime.min
+        for tid in (get(row, "Source Ticket ID"), get(row, "External TicketID")):
+            tid = tid.strip().upper()
+            if tid and (tid not in out or rank >= newest[tid]):
+                out[tid], newest[tid] = res, rank
+    return out
+
+
 def build_ticket_log(gs_client, ticket_id):
     """Summary Details (the work-order event log) of every Work Order whose Source Ticket ID / External TicketID /
     Work Order ID equals ticket_id, from the same cached copy of the new GGS "data" tab used for Mateline Status.
