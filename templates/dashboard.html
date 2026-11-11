@@ -8507,8 +8507,7 @@ function renderPivot(ft) {
         <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.DISTRICT)}</td>
         <td style="padding:6px 8px; white-space:nowrap; background:${agColor}55; font-weight:600;">${escapeHtml(t.Aging_Flag_Group)}</td>
         <td style="padding:6px 8px; text-align:right; white-space:nowrap;">${(t.over_sla_day || 0).toFixed(1)} วัน</td>
-        <td style="padding:6px 8px; white-space:nowrap;">${escapeHtml(t.mateline_wo_status) || '-'}</td>
-        <td style="padding:6px 8px; white-space:nowrap; color:${matelineColor}; ${isBackDateMateline ? 'font-weight:700;' : ''}">${escapeHtml(t.status_mateline)}</td>
+        <td style="padding:6px 8px; white-space:nowrap; color:${matelineColor}; ${isBackDateMateline ? 'font-weight:700;' : ''}" title="สถานะ WO ในชีต: ${escapeHtml(t.mateline_wo_status) || '-'}">${escapeHtml(t.status_mateline)}</td>
         ${editCells}
       </tr>`;
     }).join('');
@@ -8525,8 +8524,7 @@ function renderPivot(ft) {
               <th style="padding:6px 8px; text-align:left;">DISTRICT</th>
               <th style="padding:6px 8px; text-align:left;">Aging_Flag_Group</th>
               <th style="padding:6px 8px; text-align:right;">Over SLA</th>
-              <th style="padding:6px 8px; text-align:left;">WO Status (Mateline)</th>
-              <th style="padding:6px 8px; text-align:left;">Status Mateline</th>
+              <th style="padding:6px 8px; text-align:left;">Status</th>
               <th style="padding:6px 8px; text-align:left;">Group Problem</th>
               <th style="padding:6px 8px; text-align:left;">Action Team</th>
               <th style="padding:6px 8px; text-align:left;">รายละเอียด</th>
@@ -10975,7 +10973,7 @@ function renderPivot(ft) {
   const DETAIL_COLS = [
     ['TICKETID', 'TICKETID'], ['Priority', 'priority'], ['SUBJECT', 'SUBJECT'], ['DISTRICT', 'DISTRICT'],
     ['Aging_Flag_Group', 'Aging_Flag_Group'], ['Over SLA', 'over_sla_day'], ['⏱️ Remaining Time', '_remaining'],
-    ['Team', 'team'], ['WO Status (Mateline)', 'mateline_wo_status'], ['Status Mateline', 'status_mateline'],
+    ['Team', 'team'], ['Status', 'status_mateline'],
     ['Group Problem', 'group_problem'], ['Action Team', 'action_team'], ['รายละเอียด', 'detail'], ['Plan Closed Date', 'plan_closed_date'],
   ];
 
