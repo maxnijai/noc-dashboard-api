@@ -367,6 +367,7 @@ def build_forecast(gs_client, days=FORECAST_DAYS):
             "id": tid, "prov": _prov_name(code), "grp": str(r.get("TRUEOWNERGROUP", "") or "").strip(),
             "region": str(r.get("Region", "") or "").strip(), "nsa": str(r.get("SEVERITY", "")).strip(),
             "cat": pt._category_text({"SEVERITY": r.get("SEVERITY"), "SUBJECT": r.get("SUBJECT")}),
+            "dist": str(r.get("DISTRICT", "") or "").strip(),
             "site": str(r.get("CINAME", "") or ""), "subject": str(r.get("SUBJECT", "") or ""),
             "tf": str(r.get("TARGETFINISH", "") or ""), "k": k,
             "detail": wl.get("detail", ""), "plan": wl.get("plan_closed_date", ""),
