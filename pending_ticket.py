@@ -2034,16 +2034,16 @@ def _top_n_provinces(counts, n=5):
 _DD_STAGE_RANK = {"wait": 0, "dep": 1, "arr": 2, "done": 3, "closed": 4}
 
 
-def _dd_daily_extras(gs_client):
+def _dd_daily_extras(gs_client, today_str=None):
     """{ticket_id_upper: {"team", "st"}} from the GGS Daily sheet (the same
     sheet and bounded/cached reader the Mateline status column already
-    uses). st = the furthest stage that row has a timestamp for -
-    Closed > Completed > Arrived > Departed, else "wait" - regardless of
-    which day it happened (the map shows where a job IS, not whether it
-    moved today). If a ticket has several Daily rows, the most advanced one
+    uses). st = the furthest stage that row has a timestamp for TODAY -
+    Closed > Completed > Arrived > Departed, else "wait"; an action from
+    an earlier day counts as "wait" (same rule as the Status column). If a ticket has several Daily rows, the most advanced one
     wins (ties keep the first). Returns {} if the sheet can't be read, so
     the drill down still works from the live sheet's own Tech_Team."""
     from mateline_status import fetch_ggs_daily_rows
+    today_str = today_str or bangkok_now().strftime("%Y-%m-%d")
     try:
         rows = fetch_ggs_daily_rows(gs_client)
     except Exception:
@@ -2066,18 +2066,22 @@ def _dd_daily_extras(gs_client):
         tids = [t for t in (get(row, "Source Ticket ID"), get(row, "External TicketID")) if t]
         if not tids:
             continue
-        if get(row, "Closed"):
-            st = "closed"
-        elif get(row, "Completed"):
-            st = "done"
-        elif get(row, "Arrived"):
-            st = "arr"
-        elif get(row, "Departed"):
-            st = "dep"
-        elif get(row, "Status").lower().startswith("closed"):
-            st = "closed"
-        else:
-            st = "wait"
+        # Only an action stamped TODAY counts (Departed/Arrived/Completed/Closed column or an event in the Summary Details
+        # log); anything older leaves the job under "wait" (ยังไม่เดินทาง), same rule as the Status column.
+        from mateline_status import _parse_ggs_dt, _log_events_today
+        _lab = {"Departed": "dep", "Arrived": "arr", "Completed": "done", "Closed": "closed"}
+        st = "wait"
+        for _name, _s in _lab.items():
+            _d = _parse_ggs_dt(get(row, _name))
+            if _d is not None and _d.strftime("%Y-%m-%d") == today_str and _DD_STAGE_RANK[_s] > _DD_STAGE_RANK[st]:
+                st = _s
+        try:
+            for _dt, _label in _log_events_today(get(row, "Summary Details"), today_str):
+                _s = _lab.get(_label)
+                if _s and _DD_STAGE_RANK[_s] > _DD_STAGE_RANK[st]:
+                    st = _s
+        except Exception:
+            pass
         entry = {"team": get(row, "Team"), "st": st}
         keys = set()
         for t in tids:
@@ -2120,7 +2124,7 @@ def build_p0_drilldown(gs_client):
     live_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
     reference_dt = (now_dt + _td(days=1)).replace(hour=1, minute=15, second=0, microsecond=0)
-    extras = _dd_daily_extras(gs_client)
+    extras = _dd_daily_extras(gs_client, now_dt.strftime("%Y-%m-%d"))
     apply_tog = _rows_have_owner_group(live_rows)
     aging_idx = {k: i for i, k in enumerate(AGING_ORDER)}
 
