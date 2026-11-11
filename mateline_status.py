@@ -7,6 +7,7 @@ Departed/Arrived/Completed/Closed timestamp columns.
 
 import logging
 import threading
+import re
 import time
 from datetime import datetime
 
@@ -159,6 +160,21 @@ def fetch_ggs_daily_rows(gs_client, use_cache=True):
     return _fetch_ggs_daily_rows_raw(gs_client)
 
 
+_LOG_EVENT_RE = re.compile(r"(?m)^\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) - (Depart|Arrive|Complete|Close)\w* ?:")
+_LOG_EVENT_LABEL = {"Depart": "Departed", "Arrive": "Arrived", "Complete": "Completed", "Close": "Closed"}
+
+
+def _log_events_today(text, today_str):
+    """[(datetime, 'Departed'|'Arrived'|'Completed'|'Closed')] for the events of today found in a Summary Details log."""
+    out = []
+    for m in _LOG_EVENT_RE.finditer(text or ""):
+        if m.group(1)[:10] == today_str:
+            dt = _parse_ggs_dt(m.group(1))
+            if dt is not None:
+                out.append((dt, _LOG_EVENT_LABEL[m.group(2)]))
+    return out
+
+
 def build_mateline_status_lookup(gs_client, today_str):
     """Returns {ticket_id_upper: {"status_mateline", "mateline_wo_status"}},
     keyed by both Source Ticket ID and External TicketID (whichever a NOC
@@ -193,6 +209,7 @@ def build_mateline_status_lookup(gs_client, today_str):
         return row[i]
 
     lookup = {}
+    best_dt_by_key = {}
     for row in rows[1:]:
         if not row or not any(row):
             continue
@@ -202,33 +219,52 @@ def build_mateline_status_lookup(gs_client, today_str):
             continue
 
         today_candidates = []  # (dt, label) - only entries dated today
-        latest_any_dt = None
         for label in MATELINE_DIMENSIONS:
             dt = _parse_ggs_dt(get(row, label))
-            if dt is None:
-                continue
-            if latest_any_dt is None or dt > latest_any_dt:
-                latest_any_dt = dt
-            if dt.strftime("%Y-%m-%d") == today_str:
+            if dt is not None and dt.strftime("%Y-%m-%d") == today_str:
                 today_candidates.append((dt, label))
-
+        # The work-order event log (Summary Details) is the field team's own record: use its events of today too,
+        # so a stamp that the Departed/Arrived/... columns miss (or hold from an earlier trip) cannot hide today's progress.
+        for dt, label in _log_events_today(get(row, "Summary Details"), today_str):
+            today_candidates.append((dt, label))
+        best_dt = None
         if today_candidates:
             today_candidates.sort(key=lambda c: c[0], reverse=True)
-            status_mateline = today_candidates[0][1]
-        elif latest_any_dt is not None:
-            status_mateline = BACK_DATE_LABEL
+            best_dt, status_mateline = today_candidates[0]
         else:
-            status_mateline = WAIT_ACTION_LABEL
+            status_mateline = WAIT_ACTION_LABEL   # nothing today (a past-date stamp counts as Wait Action too - "Back Date" is merged into it)
 
         entry = {
             "status_mateline": status_mateline,
             "mateline_wo_status": get(row, "Status").strip(),
         }
         for tid in (source_tid, external_tid):
-            if tid:
-                lookup[tid.strip().upper()] = entry
+            if not tid:
+                continue
+            key = tid.strip().upper()
+            prev = best_dt_by_key.get(key)
+            # several work orders for one ticket: keep the one with the most recent move today, otherwise the later row
+            if prev is None or (best_dt is not None and best_dt >= prev) or (best_dt is None and prev is None):
+                lookup[key] = entry
+                if best_dt is not None:
+                    best_dt_by_key[key] = best_dt
+            elif key not in lookup:
+                lookup[key] = entry
     return lookup
 
+
+
+def ggs_source_info(gs_client):
+    """Which sheet the Mateline columns (WO Status / Status Mateline, Pending Ticket, Online SLA, Flag Priority, Log) are read from right now."""
+    rows = fetch_ggs_daily_rows(gs_client)
+    header = [str(h).strip() for h in (rows[0] if rows else [])]
+    ins = header.index("insert_time") if "insert_time" in header else None
+    times = [r[ins] for r in rows[1:] if ins is not None and ins < len(r) and r[ins]]
+    with _ggs_lock:
+        age = round(time.monotonic() - _ggs_cache["ts"]) if _ggs_cache.get("data") is not None else None
+    return {"sheet_id": GGS_DAILY_SHEET_ID, "tab": GGS_DAILY_TAB, "gid": GGS_DAILY_GID, "rows": max(len(rows) - 1, 0),
+            "newest_insert_time": max(times) if times else "", "oldest_insert_time": min(times) if times else "", "cache_age_seconds": age,
+            "legacy_sheet_in_use": False, "legacy_only_for": "OFC Monitor (Skill/Region filter)"}
 
 
 def build_ticket_log(gs_client, ticket_id):
