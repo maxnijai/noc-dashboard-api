@@ -17616,7 +17616,7 @@ redraw();
   const TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const TH_D = ['อา','จ','อ','พ','พฤ','ศ','ส'];
   const COLORS = ['#2563eb','#d97706','#16a34a','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'];
-  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', cfN: '', planK: '0', fM: '', fPT: '', fG: '', fP: '', fD: '', fF: '', fQ: '', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
+  const F7 = { compact: true, data: null, ts: 0, inflight: null, err: '', grp: 'all', sel: new Set(), tab: 'sum', dd: false, cs: 'ALL', fC: '', fPD: '', catK: '0', cfN: '', planK: '0', fM: '', fPT: '', fG: '', fP: '', fD: '', fF: '', fQ: '', sortD: 'dist', terr: {}, dirty: {}, saving: {}, kdirty: {}, ksaving: {}, kerr: {} };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sum = a => a.reduce((x, y) => x + y, 0);
   const pd = ds => { const p = ds.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); };
@@ -17672,8 +17672,8 @@ redraw();
 #fc7-box table.tk th.f,#fc7-box table.tk td.f{position:sticky;background:var(--bg2,#fff);z-index:2;box-shadow:inset -1px 0 0 var(--border)}
 #fc7-box table.tk th.f{background:var(--bg3,#f1f5f9);z-index:4}
 #fc7-box table.tk td.ed{overflow:visible}
-#fc7-box table.tk .f1{left:0;min-width:150px;max-width:150px}#fc7-box table.tk .f2{left:150px;min-width:90px;max-width:90px}
-#fc7-box table.tk .f3{left:240px;min-width:62px;max-width:62px}#fc7-box table.tk .f4{left:302px;min-width:130px;max-width:130px;white-space:normal;text-align:left}
+#fc7-box table.tk .f1{left:0;min-width:150px;max-width:150px}#fc7-box table.tk .f2{left:150px;min-width:110px;max-width:110px}
+#fc7-box table.tk .f3{left:260px;min-width:62px;max-width:62px}#fc7-box table.tk .f4{left:322px;min-width:130px;max-width:130px;white-space:normal;text-align:left}
 #fc7-box .sc7 .fl{position:sticky;left:0;z-index:6;width:100%;box-sizing:border-box;background:var(--bg2,#fff)}
 #fc7-box table.gs th,#fc7-box table.gs td{border:1px solid var(--border)}#fc7-box table.gs td.n{cursor:pointer}
 #fc7-box table.gs td.n:hover{outline:2px solid #7c3aed;outline-offset:-2px;background:#ede9fe;color:#4c1d95}
@@ -18043,15 +18043,15 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     const cnt = k => m.T.filter(t => flagOf(t).k === k).length;
     const list = m.T.filter(t => (!F7.fP || t.prov === F7.fP) && (F7.fG === '#none' ? !gkey(t) : gOk(t, F7.fG)) && (!F7.fC || (t.cat || '(ไม่ระบุ)') === F7.fC) && (!F7.fPD || t.plan === F7.fPD) && (!F7.fPT || t.plan === d.today) && (!F7.fM || (t.ml || 'nf') === F7.fM) && (F7.fD === '' || t.k === +F7.fD) && (!F7.fF || flagOf(t).k === F7.fF) &&
       (!F7.fQ || (t.id + ' ' + t.site + ' ' + t.subject).toLowerCase().includes(F7.fQ.toLowerCase())))
-      .sort((a, b) => a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th'));
+      .sort((a, b) => F7.sortD === 'dist' ? (a.prov.localeCompare(b.prov, 'th') || (a.dist || '￿').localeCompare(b.dist || '￿', 'th') || a.k - b.k || a.id.localeCompare(b.id)) : (a.k - b.k || (flagOf(a).k === 'no' ? 0 : 1) - (flagOf(b).k === 'no' ? 0 : 1) || a.prov.localeCompare(b.prov, 'th')));
     const shown = list.slice(0, 100);
     el.innerHTML = `<div class="fl"><select id="fc7-fG"><option value="">ทุก Region / TRUEOWNERGROUP</option><option value="NOR1"${F7.fG === 'NOR1' ? ' selected' : ''}>NOR1 รวม</option><option value="NOR2"${F7.fG === 'NOR2' ? ' selected' : ''}>NOR2 รวม</option>${GRPS.map(x => { const key = x[0] + '-' + x[1]; return `<option value="${key}"${F7.fG === key ? ' selected' : ''}>${key}</option>`; }).join('')}</select><select id="fc7-fC"><option value="">ทุก Category</option>${[...new Set(m.T.map(t => t.cat || '(ไม่ระบุ)'))].sort().map(c => `<option value="${esc(c)}"${F7.fC === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><select id="fc7-fP"><option value="">ทุกจังหวัด</option>${PROVS.map(p => `<option${p === F7.fP ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
       <select id="fc7-fD"><option value="">Flag Logic: ทั้งหมด</option><option value="0"${F7.fD === '0' ? ' selected' : ''}>P0 แล้ว (${m.tot.ks[0]})</option>${[1, 2, 3, 4, 5, 6, 7].map(k => `<option value="${k}"${F7.fD === String(k) ? ' selected' : ''}>P0 ใน ${k} วัน (${m.tot.ks[k]})</option>`).join('')}</select>
       <select id="fc7-fF"><option value="">Plan: ทั้งหมด</option><option value="no"${F7.fF === 'no' ? ' selected' : ''}>ไม่มี Plan (${cnt('no')})</option><option value="late"${F7.fF === 'late' ? ' selected' : ''}>Plan เลยกำหนด (${cnt('late')})</option><option value="ok"${F7.fF === 'ok' ? ' selected' : ''}>มี Plan (${cnt('ok')})</option></select>
-      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><label class="sb" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="fc7-cmp"${F7.compact ? ' checked' : ''}> โหมดประชุม (ซ่อน Site / TARGETFINISH / อัปเดตล่าสุด)</label><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span></div>
-      <table class="tk${F7.compact ? ' cp7' : ''}" style="width:${F7.compact ? 1440 : 2190}px;min-width:${F7.compact ? 1440 : 2190}px"><colgroup><col style="width:150px"><col style="width:90px"><col style="width:62px"><col style="width:130px"><col class="xc" style="width:120px"><col class="xc" style="width:150px"><col style="width:120px"><col style="width:180px"><col style="width:100px"><col style="width:220px"><col style="width:190px"><col style="width:128px"><col style="width:70px"><col class="xc" style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th class="xc">Site</th><th class="xc">TARGETFINISH</th><th>Flag Logic</th><th>Group Problem</th><th>Action Team</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Comment By P'Kasem</th><th>Plan_Closed_Date</th><th></th><th class="xc">อัปเดตล่าสุด</th></tr>` +
+      <input type="text" id="fc7-fQ" placeholder="ค้นหา Ticket / Site" value="${esc(F7.fQ)}"><label class="sb" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="fc7-cmp"${F7.compact ? ' checked' : ''}> โหมดประชุม (ซ่อน Site / TARGETFINISH / อัปเดตล่าสุด)</label><span class="sb">แสดง ${shown.length} จาก ${list.length} ใบ · คอลัมน์ AA ของชีตส่งออก (Flag Logic) = "P0 ใน N วัน" 1-7 วัน</span><label class="sb" style="display:inline-flex;gap:5px;align-items:center">เรียงตาม <select id="fc7-sd"><option value="dist"${F7.sortD === 'dist' ? ' selected' : ''}>อำเภอ (จังหวัด › อำเภอ)</option><option value="old"${F7.sortD === 'old' ? ' selected' : ''}>เดิม (ใกล้ P0 ก่อน)</option></select></label><button type="button" id="fc7-cp" class="sv" style="background:#06a35a;color:#fff;border-color:#06a35a;padding:5px 12px;cursor:pointer" title="คัดลอกรายการที่กรองอยู่ เรียงตามอำเภอ เพื่อวางใน LINE">Copy ส่ง LINE</button></div>
+      <table class="tk${F7.compact ? ' cp7' : ''}" style="width:${F7.compact ? 1460 : 2210}px;min-width:${F7.compact ? 1460 : 2210}px"><colgroup><col style="width:150px"><col style="width:110px"><col style="width:62px"><col style="width:130px"><col class="xc" style="width:120px"><col class="xc" style="width:150px"><col style="width:120px"><col style="width:180px"><col style="width:100px"><col style="width:220px"><col style="width:190px"><col style="width:128px"><col style="width:70px"><col class="xc" style="width:212px"></colgroup><tr><th class="f f1">Ticket</th><th class="f f2">จังหวัด</th><th class="f f3">NSA</th><th class="f f4">Category</th><th class="xc">Site</th><th class="xc">TARGETFINISH</th><th>Flag Logic</th><th>Group Problem</th><th>Action Team</th><th style="min-width:260px">Detail <span class="sb">(ปัญหา/วิธีแก้ไข)</span></th><th>Comment By P'Kasem</th><th>Plan_Closed_Date</th><th></th><th class="xc">อัปเดตล่าสุด</th></tr>` +
       shown.map(t => { const f = flagOf(t), er = F7.terr[t.id] || '';
-        return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td class="xc">${esc(t.site)}</td><td class="xc" style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
+        return `<tr data-id="${esc(t.id)}"><td class="f f1"><b>${esc(t.id)}</b><div class="sb" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.subject)}">${esc(t.subject)}</div></td><td class="f f2">${esc(t.prov)}${t.dist ? `<div class="sb" style="margin-top:2px">อ.${esc(t.dist.replace(/^อ\.\s*/, ''))}</div>` : ''}</td><td class="f f3">${esc(t.nsa)}</td><td class="f f4">${esc(t.cat)}</td><td class="xc">${esc(t.site)}</td><td class="xc" style="white-space:nowrap">${esc(t.tf.slice(0, 16))}</td>
         <td style="text-align:left;white-space:nowrap;min-width:150px"><span class="pl ${f.cls}">${f.text}</span><div class="fc7-fs" style="font-size:11px;margin-top:2px;${stCss(f.k)}">${f.k === 'late' ? '⚠ ' : ''}${esc(f.s)}</div></td>
         <td class="ed"><select class="gp${er.includes('Group') ? ' bad' : ''}" style="width:100%;${String(t.group_problem || '').indexOf('N3/4-') === 0 ? 'background:rgba(245,158,11,.2)' : ''}" title="${esc(t.group_problem || '')}">${selOpts(d.group_problem_options, t.group_problem)}</select></td><td class="ed"><select class="at${er.includes('Action') ? ' bad' : ''}" style="width:100%">${selOpts(d.action_team_options, t.action_team)}</select></td>
         <td class="ed"><textarea class="d${er.includes('Detail') ? ' bad' : ''}" rows="2" placeholder="ปัญหาจากการตรวจสอบ/วิธีแก้ไข">${esc(t.detail)}</textarea></td>
@@ -18072,6 +18072,23 @@ const G2P = { 'NOR1-CMI1': 'เชียงใหม่', 'NOR1-CMI2': 'เช�
     q('fc7-fD').onchange = e => { F7.fD = e.target.value; refreshTickets(); };
     q('fc7-fF').onchange = e => { F7.fF = e.target.value; F7.fPD = ''; refreshTickets(); };
     q('fc7-cmp').onchange = e => { F7.compact = e.target.checked; refreshTickets(); };
+    q('fc7-sd').onchange = e => { F7.sortD = e.target.value; refreshTickets(); };
+    q('fc7-cp').onclick = e => {
+      const btn = e.currentTarget, g = {}, ord = [];
+      list.forEach(t => { const k = t.prov + ' / อ.' + ((t.dist || 'ไม่ระบุ').replace(/^อ\.\s*/, '')); (g[k] = g[k] || (ord.push(k), [])).push(t); });
+      const now = new Date(), p2 = n => String(n).padStart(2, '0');
+      const ttl = ['fc7-fG', 'fc7-fD'].map(i => q(i)).filter(s => s.value).map(s => s.selectedOptions[0].text.replace(/\s*\(\d+\)$/, '')).join(' · ') || 'Flag Priority NSA3-4';
+      const out = [ttl + ' (' + list.length + ' ใบ)', 'อัปเดต ' + p2(now.getDate()) + '/' + p2(now.getMonth() + 1) + ' ' + p2(now.getHours()) + ':' + p2(now.getMinutes()), ''];
+      ord.sort((a, b) => a.localeCompare(b, 'th')).forEach(k => {
+        out.push('📍 ' + k + ' (' + g[k].length + ')');
+        g[k].forEach((t, i) => out.push((i + 1) + '. ' + [t.id, t.nsa, t.site, t.subject].filter(Boolean).join(' · ')));
+        out.push('');
+      });
+      const txt = out.join('\n').trim();
+      const done = () => { btn.textContent = 'คัดลอกแล้ว ✓'; setTimeout(() => { btn.textContent = 'Copy ส่ง LINE'; }, 2000); };
+      const fb = () => { const ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (x) { alert('คัดลอกไม่สำเร็จ'); } ta.remove(); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fb); else fb();
+    };
     q('fc7-fQ').oninput = e => { F7.fQ = e.target.value; const pos = e.target.selectionStart; refreshTickets(); const n = q('fc7-fQ'); n.focus(); n.setSelectionRange(pos, pos); };
     el.querySelectorAll('tr[data-id]').forEach(tr => {
       const t = d.tickets.find(x => x.id === tr.dataset.id), btn = tr.querySelector('.sv:not(.ks)');
