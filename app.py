@@ -3522,6 +3522,20 @@ def api_presentation_config():
             return jsonify({'error': 'Google Sheets ติดโควต้าชั่วคราว — ลองใหม่อีกครั้งใน 1 นาที'}), 503
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/ggs-source')
+def api_ggs_source():
+    """Shows which OWS GGS sheet the Mateline columns are using (open this URL in the browser to check)."""
+    if not session.get('user_email'):
+        return jsonify({'error': 'กรุณาเข้าสู่ระบบก่อน'}), 403
+    try:
+        from mateline_status import ggs_source_info
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(ggs_source_info(gs_client))
+    except Exception as e:
+        log.exception("ggs source info failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/ticket-log')
 def api_ticket_log():
     """Work-order event log (Summary Details column of the GGS "data" tab) for one ticket - used by the Log button."""
@@ -4118,6 +4132,12 @@ def api_rename_group_problem():
     except Exception as e:
         log.exception("rename-group-problem failed")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/site-alarm')
+def site_alarm_page():
+    """Site Alarm Analyzer (3D site model + rule-based root cause). Static page: all analysis runs in the browser, no API/AI calls."""
+    return send_from_directory(TEMPLATE_DIR, 'site_alarm.html')
+
 
 @app.route('/')
 @app.route('/dashboard')
