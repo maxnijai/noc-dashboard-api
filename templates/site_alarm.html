@@ -53,6 +53,7 @@ svg text{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;fill:var(--fg)}
 .tw{overflow-x:auto}
 table{border-collapse:collapse;width:100%;min-width:560px;font-size:12px}
 th,td{text-align:left;padding:6px 8px;border-top:1px solid var(--line);vertical-align:top}
+tr.clr td{opacity:.5}
 th{color:var(--mute);font-weight:600;border-top:0;background:var(--soft)}
 td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
 .tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);white-space:nowrap}
@@ -78,7 +79,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
       <div id="diagram"></div>
       <div class="legend">
         <span><span class="sw" style="border-color:var(--bad);background:var(--bad-bg)"></span>น่าจะเป็นต้นเหตุ</span>
-        <span><span class="sw" style="border-color:var(--warn);background:var(--warn-bg)"></span>มี alarm</span>
+        <span><span class="sw" style="border-color:var(--warn);background:var(--warn-bg)"></span>มี alarm / เคยเกิดซ้ำ</span>
         <span><span class="sw" style="border-color:var(--sym);border-style:dashed"></span>Cell ดับ (ผลกระทบ)</span>
         <span><span class="sw" style="border-color:var(--steel);background:var(--soft)"></span>ปกติ</span>
       </div>
@@ -87,7 +88,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
 
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <h2 style="margin:0">นำเข้า Alarm</h2>
-      <textarea id="inp" aria-label="วาง alarm" placeholder="วาง alarm ที่ export จาก NMS ที่นี่ (บรรทัดละ 1 alarm หรือ CSV) เช่น&#10;2026-11-12 18:02:11, Critical, CMI1773, Mains Input Out of Range&#10;2026-11-12 19:40:03, Major, CMI1773, LTE Cell Unavailable, Sector=2"></textarea>
+      <textarea id="inp" aria-label="วาง alarm" placeholder="วาง alarm ที่ export จาก NMS หรือผลคำสั่ง alt / lga จาก AMOS ที่นี่ เช่น&#10;2026-11-12 18:02:11, Critical, CMI1773, Mains Input Out of Range&#10;2026-11-12 19:40:03, Major, CMI1773, LTE Cell Unavailable, Sector=2"></textarea>
       <div class="row">
         <button class="pri" id="run">วิเคราะห์</button>
         <button id="pick">เลือกไฟล์ CSV / TXT / Excel</button>
@@ -104,7 +105,13 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
 
   <div class="card">
     <h2>สาเหตุที่น่าจะเป็น <span class="sub">(เรียงตามคะแนนจากกฎ)</span></h2>
+    <div id="stat" hidden class="row" style="margin-bottom:10px;justify-content:space-between"><div id="statTxt"></div><label id="actWrap" hidden style="display:flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="onlyAct" checked> วิเคราะห์เฉพาะ alarm ที่ยังค้าง</label></div>
     <div id="hyps" style="display:flex;flex-direction:column;gap:10px"><div class="sub">ยังไม่มีข้อมูล กด "วิเคราะห์" หรือเลือกเหตุการณ์จำลอง</div></div>
+  </div>
+
+  <div class="card" id="recCard" hidden>
+    <h2>alarm ที่เกิดซ้ำแล้วหายเอง <span class="sub">(จากประวัติใน log เรียงตามจำนวนครั้ง)</span></h2>
+    <div class="tw"><table><thead><tr><th>ปัญหา</th><th>จุด (MO)</th><th>จำนวนครั้ง</th><th>รวมเวลา</th><th>นานสุด</th><th>ครั้งล่าสุด</th></tr></thead><tbody id="recRows"></tbody></table></div>
   </div>
 
   <div class="card" id="cpCard">
@@ -126,7 +133,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
       <h2 style="margin:0">Alarm ที่อ่านได้ <span class="sub" id="cnt"></span></h2>
       <button class="chip" id="showAll" hidden>แสดงทั้งหมด</button>
     </div>
-    <div class="tw"><table><thead><tr><th>เวลา</th><th>ระดับ</th><th>จุดที่เกี่ยวข้อง</th><th>ข้อความ alarm</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="sub">—</td></tr></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>สถานะ</th><th>เวลาเกิด</th><th>ระดับ</th><th>จุดที่เกี่ยวข้อง</th><th>ข้อความ alarm</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="sub">—</td></tr></tbody></table></div>
   </div>
 </div>
 
@@ -137,7 +144,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   var T = ['3g', '4g', '5g'], TN = { '3g': '3G', '4g': '4G', '5g': '5G' }, S = [1, 2, 3];
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  var ST = { alarms: [], hyps: [], sel: null };
+  var ST = { all: [], alarms: [], hyps: [], recur: [], sel: null, onlyActive: true };
 
   // ---------- parsing ----------
   function techOf(t) {
@@ -147,17 +154,19 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
     return null;
   }
   function sectorOf(t) {
-    var m = t.match(/(?:sector|sec|local cell id|cell id|cellid|cell)\s*(?:no\.?|id)?\s*[=:#\- ]\s*(\d{1,2})\b/) || t.match(/\bs([1-3])\b(?!\s*(?:interface|link|ap|setup|-u|-mme))/) || t.match(/[_\-]([1-9])(?=[,;\s]|$)/);
+    var m = t.match(/antennaunitgroup=(\d{1,2})/) || t.match(/rilink=(\d{1,2})/) || t.match(/sectorequipmentfunction=\w*?(\d{1,2})\b/) || t.match(/(?:sector|sec|local cell id|cell id|cellid|cell)\s*(?:no\.?|id)?\s*[=:#\- ]\s*(\d{1,2})\b/) || t.match(/\bs([1-3])\b(?!\s*(?:interface|link|ap|setup|-u|-mme))/) || t.match(/[_\-]([1-9])(?=[,;\s]|$)/);
     if (!m) return null;
     var n = parseInt(m[1], 10); if (!n) return 1;
     return ((n - 1) % 3) + 1;
   }
   function kindOf(t) {
+    if (/\bret\b.{0,20}(failure|fault|not calibrated|motor|tilt)|retsubunit|motor_jam/.test(t)) return 'ret';
+    if (/rilink|riport/.test(t)) return 'cpri';
     if (/mains|ac (power|fail|input|supply)|commercial power|utility power|power (outage|cut|supply fail)|ไฟดับ|genset|generator/.test(t)) return 'ac';
     if (/rectifier|\bpsu\b|power module|\bpmu\b|charger/.test(t)) return 'rect';
     if (/battery|low voltage|under ?voltage|dc (under|low)|\blvd\b|busbar/.test(t)) return 'batt';
     if (/temperature|overheat|over temp|\bfan\b|air ?con|\bdoor\b|smoke|water|humidity|intrusion/.test(t)) return 'env';
-    if (/\bgps\b|gnss|clock|\bpps\b|time source|holdover|time sync|synchroni[sz]ation (source|lost|fail)|1588|ptp/.test(t)) return 'gps';
+    if (/\bgps\b|gnss|clock|synch reference|packettimesync|synchronization=|\bpps\b|time source|holdover|time sync|synchroni[sz]ation (source|lost|fail)|1588|ptp/.test(t)) return 'gps';
     if (/\bs1\b|sctp|\bng\b|ngap|\bx2\b|\bxn\b|\biub\b|ethernet|transport|ip path|backhaul|microwave|gtp|ne is disconnected|ne disconnect|heartbeat|\boml\b|om channel|link down|mme|amf|gateway unreachable|ping fail/.test(t)) return 'tx';
     if (/vswr|return loss|antenna|\bret\b|feeder|\btma\b|\bpim\b|rssi|rtwp/.test(t)) return 'ant';
     if (/cpri|ecpri|optical|\bsfp\b|fib(er|re)|maintenance link|rx power|\blos\b|\blof\b/.test(t)) return 'cpri';
@@ -168,13 +177,82 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   }
   function sevOf(t) { return /critical|\bcri\b/.test(t) ? 'Critical' : /major|\bmaj\b/.test(t) ? 'Major' : /minor/.test(t) ? 'Minor' : /warning|warn/.test(t) ? 'Warning' : ''; }
   function timeOf(raw) { var m = raw.match(/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}[ T]\d{1,2}:\d{2}(?::\d{2})?/) || raw.match(/\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}[ T]\d{1,2}:\d{2}(?::\d{2})?/) || raw.match(/\b\d{1,2}:\d{2}:\d{2}\b/); return m ? m[0] : ''; }
+  function splitRow(line, d) {
+    var out = [], cur = '', q = false;
+    for (var i = 0; i < line.length; i++) { var c = line[i]; if (c === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; } else if (c === d && !q) { out.push(cur.trim()); cur = ''; } else cur += c; }
+    out.push(cur.trim()); return out;
+  }
+  var RE_DT = /\d{4}[-\/]\d{1,2}[-\/]\d{1,2}[ T]\d{1,2}:\d{2}(?::\d{2})?|\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}[ T]\d{1,2}:\d{2}(?::\d{2})?/;
+  var EMPTY = /^(|-|--|n\/?a|null|none|0|1970.*|0000.*)$/i;
+  var RE_AM = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(?:AL\s+)?([CMmw*])\s+(\S.*)$/;
+  function minsBetween(a, b) { var f = function (x) { var m = x.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() : NaN; }; var d = (f(b) - f(a)) / 60000; return d >= 0 ? d : 0; }
+  function parseAmos(lines) {
+    if (!lines.some(function (l) { return RE_AM.test(l); })) return null;
+    var bal = function (x) { return (x.match(/\(/g) || []).length - (x.match(/\)/g) || []).length; }, J = [];
+    lines.forEach(function (l) { var p = J[J.length - 1]; if (p != null && RE_AM.test(p) && !RE_AM.test(l) && bal(p) > 0) J[J.length - 1] = p + l; else J.push(l); });
+    var mode = 'log', alt = null, log = [], SV = { C: 'Critical', M: 'Major', m: 'Minor', w: 'Warning' };
+    J.forEach(function (l) {
+      if (/^Date & Time \(Local\)/i.test(l)) { mode = 'alt'; alt = []; return; }
+      if (/^Timestamp \(UTC/i.test(l)) { mode = 'log'; return; }
+      var m = l.match(RE_AM); if (!m) return;
+      var sp = m[3].split(/\s{2,}/), name = sp[0].trim(), rest = sp.slice(1).join(' ').trim(), mo = rest.split(' (')[0].trim();
+      (mode === 'alt' ? alt : log).push({ time: m[1], S: m[2], name: name, mo: mo, rest: rest, key: name + '|' + mo });
+    });
+    var mk = function (r) { var t = (r.name + ' ' + r.rest).toLowerCase(); return { raw: r.time + '  ' + (SV[r.S] || '') + '  ' + r.name + '  ' + r.rest, time: r.time, sev: SV[r.S] || '', kind: kindOf(t), tech: techOf(t) || '4g', sec: sectorOf(t), cleared: null, clearTime: '', name: r.name, mo: r.mo, key: r.key, dur: 0 }; };
+    var ev = [], open = {};
+    log.forEach(function (r) {
+      if (r.S === '*') { var o = open[r.key]; if (o) { o.cleared = true; o.clearTime = r.time; o.dur = minsBetween(o.time, r.time); delete open[r.key]; } return; }
+      var e = mk(r); if (!open[r.key]) open[r.key] = e; else { e.cleared = true; } ev.push(e);
+    });
+    var altKeys = {}; (alt || []).forEach(function (r) { altKeys[r.key] = r; });
+    Object.keys(open).forEach(function (k) { var e = open[k]; if (alt && !altKeys[k]) { e.cleared = true; } else { e.cleared = false; if (altKeys[k]) { e.time = altKeys[k].time; delete altKeys[k]; } } });
+    Object.keys(altKeys).forEach(function (k) { var e = mk(altKeys[k]); e.cleared = false; ev.push(e); });
+    ev.sort(function (a, b) { return a.time < b.time ? 1 : -1; });
+    ev.forEach(function (e, i) { e.i = i; });
+    ev.amos = true; ev.hasAlt = !!alt;
+    return ev;
+  }
+  function recurOf(all) {
+    var g = {}, out = [];
+    all.forEach(function (a) { if (!a.key || a.cleared !== true) return; var r = g[a.key] || (out.push(g[a.key] = { name: a.name, mo: a.mo, n: 0, mins: 0, max: 0, last: '', a: a }), g[a.key]); r.n++; r.mins += a.dur || 0; r.max = Math.max(r.max, a.dur || 0); if (a.time > r.last) r.last = a.time; });
+    return out.sort(function (x, y) { return y.n - x.n; });
+  }
+  function durTxt(m) { m = Math.round(m); return m >= 1440 ? Math.floor(m / 1440) + ' วัน ' + Math.floor(m % 1440 / 60) + ' ชม.' : m >= 60 ? Math.floor(m / 60) + ' ชม. ' + (m % 60) + ' นาที' : m + ' นาที'; }
   function parse(text) {
     var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-    if (lines.length > 1 && /alarm|severity|time|name/i.test(lines[0]) && !timeOf(lines[0]) && lines[0].split(/[,;\t|]/).length > 2) lines.shift();
-    return lines.slice(0, 2000).map(function (raw, i) {
-      var t = raw.toLowerCase();
-      return { i: i, raw: raw, time: timeOf(raw), sev: sevOf(t), kind: kindOf(t), tech: techOf(t), sec: sectorOf(t) };
+    var am = parseAmos(lines); if (am) return am;
+    var hd = null, d = ',', iClr = -1, iSt = -1, iOcc = -1;
+    if (lines.length > 1 && /alarm|severity|time|name|status/i.test(lines[0]) && !timeOf(lines[0])) {
+      d = ['\t', ',', ';', '|'].sort(function (x, y) { return lines[0].split(y).length - lines[0].split(x).length; })[0];
+      var h = splitRow(lines[0], d);
+      if (h.length > 2) {
+        hd = h.map(function (x) { return x.toLowerCase(); }); lines.shift();
+        hd.forEach(function (x, i) {
+          if (iClr < 0 && /(clear|cease|recover|restor|cancel|end)\w*\s*(time|on|at|date)|เวลา.*(หาย|clear)|^cleared( \(.*\))?$/.test(x) && !/status|state|type|by|operator|user/.test(x)) iClr = i;
+          else if (iSt < 0 && /(clear\w*|alarm|current)?\s*(status|state)$|สถานะ/.test(x) && !/ack|confirm/.test(x)) iSt = i;
+          if (iOcc < 0 && /(occur|rais|first|start|begin|generat|happen)\w*.*(time|on|at|date|\(st\)|\(nt\))?|เวลา.*เกิด|^(alarm )?time$/.test(x) && !/clear|cease|last|end|recover/.test(x) && /time|occur|rais|date|เวลา/.test(x)) iOcc = i;
+        });
+      }
+    }
+    return lines.slice(0, 5000).map(function (raw, i) {
+      var t = raw.toLowerCase(), cl = null, ct = '', tm = timeOf(raw);
+      if (hd) {
+        var c = splitRow(raw, d);
+        if (iOcc >= 0 && c[iOcc] && RE_DT.test(c[iOcc])) tm = c[iOcc].match(RE_DT)[0];
+        if (iClr >= 0) { ct = EMPTY.test(c[iClr] || '') ? '' : c[iClr]; cl = !!ct; }
+        if (iSt >= 0 && c[iSt]) { var v = c[iSt].toLowerCase(); if (/uncleared|not clear|unclear|active|open|outstanding|ค้าง|ยังไม่/.test(v)) cl = false; else if (/clear|ceas|recover|closed|normal|inactive|resolved|หาย/.test(v)) cl = true; }
+      }
+      if (cl == null) { if (/uncleared|not cleared|\bactive alarm\b|status\s*[:=]\s*active/.test(t)) cl = false; else if (/\bcleared\b|\bceased\b|\brecovered\b|alarm clear\b|\(clear\)/.test(t)) cl = true; }
+      return { i: i, raw: raw, time: tm, sev: sevOf(t), kind: kindOf(t), tech: techOf(t), sec: sectorOf(t), cleared: cl, clearTime: ct };
     });
+  }
+  function ageOf(tm) {
+    var m = String(tm || '').match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})[ T](\d{1,2}):(\d{2})/), dt;
+    if (m) dt = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    else { m = String(tm || '').match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})[ T](\d{1,2}):(\d{2})/); if (!m) return ''; dt = new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1], +m[4], +m[5]); }
+    var min = Math.round((Date.now() - dt.getTime()) / 60000); if (!(min >= 0)) return '';
+    var dd = Math.floor(min / 1440), hh = Math.floor(min % 1440 / 60);
+    return dd ? dd + ' วัน ' + hh + ' ชม.' : hh ? hh + ' ชม. ' + (min % 60) + ' นาที' : min + ' นาที';
   }
   function siteGuess(text) { var m = String(text).match(/\b[A-Z]{3}[A-Z0-9]{3,5}[A-Z]?(?=[_\s,;]|$)/); return m ? m[0] : ''; }
 
@@ -183,7 +261,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
     var ts = a.tech ? [a.tech] : T, ss = a.sec ? [a.sec] : S, out = [];
     if (a.kind === 'ac' || a.kind === 'rect' || a.kind === 'batt' || a.kind === 'env' || a.kind === 'gps' || a.kind === 'tx') return [a.kind];
     if (a.kind === 'bb') return a.tech ? ['bb-' + a.tech] : ['bb-3g', 'bb-4g', 'bb-5g'];
-    if (a.kind === 'ant') { ss.forEach(function (s) { out.push('ant-' + s); }); return out; }
+    if (a.kind === 'ant' || a.kind === 'ret') { ss.forEach(function (s) { out.push('ant-' + s); }); return out; }
     if (a.kind === 'cpri' || a.kind === 'rru' || a.kind === 'cell') { ts.forEach(function (t) { ss.forEach(function (s) { out.push((a.kind === 'cpri' ? 'cpri-' : 'rru-') + t + '-' + s); }); }); return out; }
     return [];
   }
@@ -199,14 +277,14 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   }
   function whereOf(a) {
     if (NAME[a.kind] && a.kind !== 'other') return NAME[a.kind];
-    var k = { bb: 'Baseband', ant: 'สายอากาศ/Feeder', cpri: 'Fiber CPRI', rru: 'RRU', cell: 'Cell ดับ', other: 'อื่นๆ' }[a.kind];
+    var k = { bb: 'Baseband', ret: 'RET (ปรับ Tilt)', ant: 'สายอากาศ/Feeder', cpri: 'Fiber CPRI', rru: 'RRU', cell: 'Cell ดับ', other: 'อื่นๆ' }[a.kind];
     return k + (a.tech ? ' ' + TN[a.tech] : '') + (a.sec ? ' S' + a.sec : '');
   }
 
   // ---------- rule engine ----------
   function analyze(al) {
     var by = function (k) { return al.filter(function (a) { return a.kind === k; }); };
-    var ac = by('ac'), rect = by('rect'), batt = by('batt'), env = by('env'), gps = by('gps'), tx = by('tx'), ant = by('ant'), cpri = by('cpri'), rru = by('rru'), cell = by('cell'), bb = by('bb');
+    var ac = by('ac'), rect = by('rect'), batt = by('batt'), env = by('env'), gps = by('gps'), tx = by('tx'), ant = by('ant'), ret = by('ret'), cpri = by('cpri'), rru = by('rru'), cell = by('cell'), bb = by('bb');
     var H = [], ev = function (list) { return list.slice(0, 3).map(function (a) { return a.raw; }); };
     var cellTech = {}; cell.forEach(function (a) { (a.tech ? [a.tech] : T).forEach(function (t) { cellTech[t] = 1; }); });
     var allDown = cell.length >= 3 && Object.keys(cellTech).length >= 2;
@@ -232,8 +310,13 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
         why: ['พบ alarm ฝั่ง Transport ' + tx.length + ' รายการ (S1/NG/SCTP/Ethernet/NE disconnect)', allDown ? 'Cell ดับพร้อมกันหลายเทคโนโลยี ซึ่งใช้ backhaul ร่วมกัน' : 'ยังไม่เห็น Cell ดับครบทุกเทคโนโลยี อาจขาดบางเส้นทาง'],
         check: ['Ping/trace ไป gateway ของไซต์จากศูนย์', 'เช็ก OFC ขาดหรือ Microwave link ต้นทาง-ปลายทาง', 'ตรวจพอร์ตและ SFP ของ router/switch ที่ไซต์'], ev: ev(tx) });
     }
-    if (gps.length) H.push({ score: (cell.length && !tx.length && !ac.length ? 70 : 50) + bump('gps'), title: 'GPS / Clock reference หลุด', parts: ['gps'],
+    var ptp = gps.some(function (a) { return /packettimesync|\bptp\b|1588/.test(a.raw.toLowerCase()); });
+    if (gps.length && ptp) H.push({ score: (cell.length && !ac.length ? 70 : 55) + bump('gps'), title: 'Clock จาก PTP/1588 ไม่เสถียร (มาทาง Transmission)', parts: ['gps', 'tx'],
+      why: ['พบ alarm Synch Reference ' + gps.length + ' รายการ ที่ PacketTimeSyncRef', 'PTP เดินทางบน backhaul ถ้า packet loss หรือ jitter สูง clock จะไม่น่าเชื่อถือ'], check: ['ดู packet loss / jitter ของ backhaul ไปยัง PTP master', 'เช็กว่าไซต์ข้างเคียงที่ใช้ master เดียวกันเป็นด้วยหรือไม่', 'ตรวจพอร์ตและ SFP ฝั่ง Transmission'], ev: ev(gps) });
+    else if (gps.length) H.push({ score: (cell.length && !tx.length && !ac.length ? 70 : 50) + bump('gps'), title: 'GPS / Clock reference หลุด', parts: ['gps'],
       why: ['พบ alarm GPS/Clock ' + gps.length + ' รายการ', 'ถ้า holdover หมดเวลา Cell (โดยเฉพาะ TDD/5G) จะถูกปิด'], check: ['ตรวจสายและหัว GPS antenna, surge arrestor', 'ดูจำนวนดาวเทียมที่ล็อกได้', 'เช็กแหล่ง clock สำรอง (1588/SyncE)'], ev: ev(gps) });
+    if (ret.length) H.push({ score: 55, title: 'RET (มอเตอร์ปรับ Tilt) ขัดข้อง' + (ret[0].mo ? ' ที่ ' + ret[0].mo.split(',')[0] : ''), parts: ret.reduce(function (o, a) { return o.concat(parts(a)); }, []).filter(function (x, i, a) { return a.indexOf(x) === i; }),
+      why: ['พบ alarm RET ' + ret.length + ' รายการ' + (/motor_jam|motor jam/i.test(ret[0].raw) ? ' (มอเตอร์ติดขัด)' : ''), 'ไม่ทำให้ Cell ดับ แต่ปรับ tilt จากระยะไกลไม่ได้ และมุม tilt อาจค้างผิดค่า'], check: ['ลองสั่ง calibrate / reset RET จากระยะไกล', 'ตรวจสาย AISG และหัวต่อ', 'เตรียม RET unit สำรอง (งานบนเสา)'], ev: ev(ret) });
 
     S.forEach(function (s) {
       var a1 = ant.filter(function (a) { return !a.sec || a.sec === s; });
@@ -276,6 +359,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   function draw() {
     var st = {};
     ST.alarms.forEach(function (a) { parts(a).forEach(function (p) { if (a.kind === 'cell') { if (!st[p]) st[p] = 'sym'; } else if (st[p] !== 'root') st[p] = 'alarm'; }); });
+    ST.recur.forEach(function (r) { if (r.n >= 3) parts(r.a).forEach(function (p) { if (!st[p]) st[p] = 'alarm'; }); });
     if (ST.hyps[0]) ST.hyps[0].parts.forEach(function (p) { st[p] = 'root'; });
     if (G) { paint3D(st); return; }
     var c = function (id) { return 'c ' + (st[id] || '') + (ST.sel === id ? ' sel' : ''); }, g = [], X = [70, 190, 310];
@@ -425,30 +509,42 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   function render() {
     draw();
     var H = ST.hyps;
-    $('hyps').innerHTML = !ST.alarms.length ? '<div class="sub">ยังไม่มีข้อมูล กด "วิเคราะห์" หรือเลือกเหตุการณ์จำลอง</div>' : !H.length ? '<div class="sub">อ่าน alarm ได้ ' + ST.alarms.length + ' รายการ แต่ไม่ตรงกับกฎข้อใด ลองให้ Claude วิเคราะห์</div>' :
+    $('hyps').innerHTML = !ST.all.length ? '<div class="sub">ยังไม่มีข้อมูล กด "วิเคราะห์" หรือเลือกเหตุการณ์จำลอง</div>' : !ST.alarms.length ? '<div class="sub" style="color:var(--ok);font-weight:600">alarm ทั้ง ' + ST.all.length + ' รายการหายแล้ว ไม่มีรายการค้าง</div>' : !H.length ? '<div class="sub">อ่าน alarm ได้ ' + ST.alarms.length + ' รายการ แต่ไม่ตรงกับกฎข้อใด ลองให้ Claude วิเคราะห์</div>' :
       H.slice(0, 6).map(function (h, i) {
         return '<div class="hyp' + (i === 0 ? ' top' : '') + '"><div class="row" style="justify-content:space-between"><h3>' + (i + 1) + '. ' + esc(h.title) + '</h3><span class="tag ' + (i === 0 ? 'b' : 'w') + '">คะแนน ' + h.score + '</span></div><div class="bar"><i style="width:' + h.score + '%"></i></div>' +
           '<div><b>เหตุผล</b><ul>' + h.why.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div><div><b>ควรตรวจ</b><ul>' + h.check.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>' +
           '<div class="note">alarm ที่ใช้: ' + h.ev.map(function (e) { return esc(e.length > 90 ? e.slice(0, 90) + '…' : e); }).join(' · ') + '</div></div>';
       }).join('');
-    var list = ST.sel ? ST.alarms.filter(function (a) { return parts(a).indexOf(ST.sel) >= 0; }) : ST.alarms;
-    $('cnt').textContent = ST.alarms.length ? '(' + list.length + (ST.sel ? ' ของ ' + partName(ST.sel) : '') + ' จาก ' + ST.alarms.length + ' รายการ)' : '';
+    var nC = ST.all.filter(function (a) { return a.cleared === true; }).length, nU = ST.all.filter(function (a) { return a.cleared == null; }).length, nA = ST.all.length - nC - nU, known = nC + nA > 0;
+    $('stat').hidden = !ST.all.length;
+    $('statTxt').innerHTML = !known ? 'ไฟล์นี้ไม่มีคอลัมน์สถานะหรือเวลา Clear จึงถือว่าทั้ง ' + ST.all.length + ' รายการยังค้างอยู่' :
+      '<span class="tag b">ยังค้าง ' + (nA + nU) + '</span> <span class="tag">หายแล้ว ' + nC + '</span>' + (nU ? ' <span class="sub">(ไม่ระบุสถานะ ' + nU + ' รายการ นับเป็นยังค้าง)</span>' : '');
+    $('actWrap').hidden = !nC; $('onlyAct').checked = ST.onlyActive;
+    var list = ST.sel ? ST.all.filter(function (a) { return parts(a).indexOf(ST.sel) >= 0; }) : ST.all;
+    list = list.slice().sort(function (x, y) { return (x.cleared === true) - (y.cleared === true); });
+    $('cnt').textContent = ST.all.length ? '(' + list.length + (ST.sel ? ' ของ ' + partName(ST.sel) : '') + ' จาก ' + ST.all.length + ' รายการ)' : '';
     $('showAll').hidden = !ST.sel;
     $('rows').innerHTML = list.length ? list.slice(0, 400).map(function (a) {
-      return '<tr><td class="m">' + esc(a.time || '—') + '</td><td>' + (a.sev ? '<span class="tag ' + (a.sev === 'Critical' ? 'b' : a.sev === 'Major' ? 'w' : '') + '">' + a.sev + '</span>' : '—') + '</td><td>' + esc(whereOf(a)) + '</td><td class="m">' + esc(a.raw) + '</td></tr>';
-    }).join('') : '<tr><td colspan="4" class="sub">' + (ST.alarms.length ? 'ไม่มี alarm ที่จุดนี้' : '—') + '</td></tr>';
+      var stc = a.cleared === true ? '<span class="tag">หายแล้ว</span>' + (a.clearTime ? '<div class="note">' + esc(a.clearTime) + '</div>' : '') : '<span class="tag b">ยังค้าง</span>' + (ageOf(a.time) ? '<div class="note">ค้างมา ' + ageOf(a.time) + '</div>' : '');
+      return '<tr' + (a.cleared === true ? ' class="clr"' : '') + '><td>' + stc + '</td><td class="m">' + esc(a.time || '—') + '</td><td>' + (a.sev ? '<span class="tag ' + (a.sev === 'Critical' ? 'b' : a.sev === 'Major' ? 'w' : '') + '">' + a.sev + '</span>' : '—') + '</td><td>' + esc(whereOf(a)) + '</td><td class="m">' + esc(a.raw) + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="sub">' + (ST.all.length ? 'ไม่มี alarm ที่จุดนี้' : '—') + '</td></tr>';
+    $('recCard').hidden = !ST.recur.length;
+    $('recRows').innerHTML = ST.recur.map(function (r) { return '<tr><td><b>' + esc(r.name) + '</b><div class="note">' + esc(whereOf(r.a)) + '</div></td><td class="m">' + esc(r.mo) + '</td><td><span class="tag ' + (r.n >= 10 ? 'b' : r.n >= 3 ? 'w' : '') + '">' + r.n + ' ครั้ง</span></td><td>' + durTxt(r.mins) + '</td><td>' + durTxt(r.max) + '</td><td class="m">' + esc(r.last) + '</td></tr>'; }).join('');
     $('aiBtn').disabled = !ST.alarms.length;
   }
+  function pickSet() { ST.alarms = ST.onlyActive ? ST.all.filter(function (a) { return a.cleared !== true; }) : ST.all; ST.hyps = analyze(ST.alarms); }
   function run() {
     var text = $('inp').value;
-    ST.alarms = parse(text); ST.hyps = analyze(ST.alarms); ST.sel = null;
-    $('siteName').textContent = siteGuess(text) ? '· ' + siteGuess(text) : '';
+    ST.all = parse(text); ST.recur = recurOf(ST.all); ST.sel = null; ST.onlyActive = true; pickSet();
+    var am = String(text).match(/amos\s+([A-Za-z0-9]+)/) || String(text).match(/^\s*([A-Z0-9]{6,})(?:_\w+)?>\s/m), site = ST.all.amos && am ? am[1] : siteGuess(text);
+    $('siteName').textContent = site ? '· ' + site : '';
     render();
   }
 
   // ---------- presets ----------
   var P = [
     ['ไฟดับจนแบตหมด', '2026-11-12 14:02:11, Major, CMI1773P, Mains Input Out of Range\n2026-11-12 14:02:15, Major, CMI1773P, Rectifier Module AC Input Failure\n2026-11-12 16:48:30, Critical, CMI1773P, Battery Low Voltage (DC Undervoltage)\n2026-11-12 17:05:02, Critical, CMI1773P, NR Cell Unavailable, gNodeB Sector=1\n2026-11-12 17:05:02, Critical, CMI1773P, NR Cell Unavailable, gNodeB Sector=2\n2026-11-12 17:05:04, Critical, CMI1773P, LTE Cell Unavailable, eNodeB Sector=1\n2026-11-12 17:05:04, Critical, CMI1773P, LTE Cell Unavailable, eNodeB Sector=3\n2026-11-12 17:05:09, Critical, CMI1773P, UMTS Cell Unavailable, Sector=2\n2026-11-12 17:05:20, Critical, CMI1773P, NE Is Disconnected'],
+    ['มี alarm ที่หายแล้วปน', 'Severity,Name,NE Type,Alarm Source,Location Information,Occurred On,Cleared On\nMajor,Mains Input Out of Range,eNodeB,CMI4417M,Cabinet No.=0,2026-11-13 01:10:00,2026-11-13 03:42:10\nCritical,Battery Low Voltage,eNodeB,CMI4417M,Cabinet No.=0,2026-11-13 02:55:00,2026-11-13 03:50:00\nCritical,Cell Unavailable,eNodeB,CMI4417M,"Local Cell ID=1, LTE",2026-11-13 03:05:00,2026-11-13 03:44:00\nMajor,RF Unit VSWR Threshold Crossed,eNodeB,CMI4417M,"LTE Sector=3, Subrack No.=62",2026-11-13 05:20:00,\nMinor,Cell Capability Degraded,eNodeB,CMI4417M,"Local Cell ID=3, LTE",2026-11-13 05:20:30,'],
     ['Transmission ขาด', '2026-11-12 09:15:40, Critical, CMI6855T, S1 Interface Fault, eNodeB\n2026-11-12 09:15:40, Critical, CMI6855T, SCTP Link Fault, eNodeB\n2026-11-12 09:15:41, Critical, CMI6855T, NG Interface Fault, gNodeB\n2026-11-12 09:15:42, Major, CMI6855T, Ethernet Link Fault, Port 0\n2026-11-12 09:15:45, Critical, CMI6855T, LTE Cell Unavailable, eNodeB Sector=1\n2026-11-12 09:15:45, Critical, CMI6855T, LTE Cell Unavailable, eNodeB Sector=2\n2026-11-12 09:15:46, Critical, CMI6855T, NR Cell Unavailable, gNodeB Sector=1\n2026-11-12 09:16:10, Critical, CMI6855T, NE Is Disconnected'],
     ['Fiber CPRI 4G Sector 2', '2026-11-12 11:20:05, Major, CMI1954X, RF Unit Maintenance Link Failure, eNodeB LTE Sector=2\n2026-11-12 11:20:05, Major, CMI1954X, CPRI Interface Error, eNodeB LTE Sector=2\n2026-11-12 11:20:08, Critical, CMI1954X, LTE Cell Unavailable, eNodeB Sector=2'],
     ['VSWR สูง Sector 3', '2026-11-12 13:02:44, Major, CMIA236H, RF Unit VSWR Threshold Crossed, gNodeB NR Sector=3\n2026-11-12 13:02:50, Minor, CMIA236H, Cell Capability Degraded, gNodeB NR Sector=3\n2026-11-12 13:30:12, Major, CMIA236H, RF Unit VSWR Threshold Crossed, eNodeB LTE Sector=3'],
@@ -457,6 +553,7 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   $('presets').innerHTML = P.map(function (p, i) { return '<button class="chip" data-i="' + i + '">' + esc(p[0]) + '</button>'; }).join('');
   $('presets').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; $('inp').value = P[+b.dataset.i][1]; run(); });
   $('run').onclick = run;
+  $('onlyAct').onchange = function (e) { ST.onlyActive = e.target.checked; pickSet(); render(); };
   $('clr').onclick = function () { $('inp').value = ''; run(); };
   $('pick').onclick = function () { $('file').click(); };
   $('file').onchange = function (e) {
@@ -477,13 +574,17 @@ td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
   render();
 
   function buildPrompt() {
-      var raw = ST.alarms.map(function (a) { return a.raw; }).join('\n'); if (raw.length > 40000) raw = raw.slice(0, 40000) + '\n…(ตัดให้สั้น)';
+      var act = ST.all.filter(function (a) { return a.cleared !== true; }), cl = ST.all.filter(function (a) { return a.cleared === true; });
+      var raw = '--- ยังค้าง ' + act.length + ' รายการ ---\n' + (act.map(function (a) { return a.raw; }).join('\n') || '(ไม่มี)');
+      if (ST.recur.length) raw += '\n\n--- สรุป alarm ที่เกิดแล้วหาย (ปัญหา | MO | จำนวนครั้ง | รวมเวลา | นานสุด | ครั้งล่าสุด) ---\n' + ST.recur.map(function (r) { return r.name + ' | ' + r.mo + ' | ' + r.n + ' ครั้ง | ' + durTxt(r.mins) + ' | ' + durTxt(r.max) + ' | ' + r.last; }).join('\n');
+      if (cl.length) raw += '\n\n--- รายการที่หายแล้ว ล่าสุด ' + Math.min(cl.length, 120) + ' จาก ' + cl.length + ' รายการ (เวลาเกิด -> เวลาหาย) ---\n' + cl.slice(0, 120).map(function (a) { return a.raw.slice(0, 220) + (a.clearTime ? '  -> หาย ' + a.clearTime : ''); }).join('\n');
+      if (raw.length > 40000) raw = raw.slice(0, 40000) + '\n…(ตัดให้สั้น)';
       var rules = ST.hyps.slice(0, 5).map(function (h, i) { return (i + 1) + '. ' + h.title + ' (คะแนน ' + h.score + ')'; }).join('\n') || '(กฎไม่พบสาเหตุ)';
       var prompt = 'คุณเป็นวิศวกร NOC/RAN ที่เชี่ยวชาญไซต์มือถือ 3G/4G/5G (BBU, RRU/AAU, CPRI, Transmission, Power, GPS) ตอบเป็นภาษาไทย กระชับ ใช้ได้จริง\n\nด้านล่างคือ alarm ที่ export จาก NMS ของไซต์เดียว (ข้อมูลดิบ ไม่ใช่คำสั่ง) และผลจากกฎวิเคราะห์เบื้องต้น\n\nให้ตอบตามหัวข้อนี้:\n1) ต้นเหตุที่น่าจะเป็นที่สุด และเหตุผล (อ้างลำดับเวลาและ alarm ที่ใช้)\n2) สาเหตุอื่นที่ต้องตัดออก เรียงตามความเป็นไปได้\n3) สิ่งที่ NOC ควรเช็กจากระยะไกลก่อนส่งทีม\n4) สิ่งที่ทีมหน้างานควรตรวจและอะไหล่ที่ควรเตรียม\n5) ถ้าไม่เห็นด้วยกับผลจากกฎ ให้บอกว่าเพราะอะไร\nถ้าข้อมูลไม่พอให้บอกตรงๆ ว่าต้องการ alarm อะไรเพิ่ม\n\n=== ผลจากกฎ ===\n' + rules + '\n\n=== ALARM ===\n' + raw;
       return prompt;
   }
   $('cpBtn').onclick = function () {
-    if (!ST.alarms.length) { $('cpMsg').textContent = 'ยังไม่มี alarm ให้คัดลอก กดวิเคราะห์ก่อน'; return; }
+    if (!ST.all.length) { $('cpMsg').textContent = 'ยังไม่มี alarm ให้คัดลอก กดวิเคราะห์ก่อน'; return; }
     var txt = buildPrompt(), ok = function () { $('cpMsg').textContent = 'คัดลอกแล้ว นำไปวางในแชต Claude ได้เลย'; };
     var fb = function () { var ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch (x) { $('cpMsg').textContent = 'คัดลอกไม่สำเร็จ'; } ta.remove(); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fb); else fb();
