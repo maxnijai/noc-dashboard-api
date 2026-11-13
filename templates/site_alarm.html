@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html{color-scheme:light}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Site Alarm Analyzer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#eef2f6;--panel:#ffffff;--soft:#f3f6fa;--line:#d3dce6;--fg:#15212e;--mute:#566779;--accent:#0b6bcb;--ok:#2f8f5b;--warn:#b86e00;--warn-bg:#fdefd2;--bad:#c62828;--bad-bg:#fde3e1;--sym:#7a8796;--steel:#9aa8b6}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0c1219;--panel:#141d28;--soft:#1a2634;--line:#2a394b;--fg:#e4ecf4;--mute:#93a4b6;--accent:#5aa9f5;--ok:#58c08a;--warn:#f0b354;--warn-bg:#3a2c10;--bad:#ff7b72;--bad-bg:#42191a;--sym:#8493a3;--steel:#5f7184;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0c1219;--panel:#141d28;--soft:#1a2634;--line:#2a394b;--fg:#e4ecf4;--mute:#93a4b6;--accent:#5aa9f5;--ok:#58c08a;--warn:#f0b354;--warn-bg:#3a2c10;--bad:#ff7b72;--bad-bg:#42191a;--sym:#8493a3;--steel:#5f7184;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:'IBM Plex Sans Thai',system-ui,'Segoe UI',Tahoma,sans-serif;font-size:14px;line-height:1.55}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:22px;font-weight:700;text-wrap:balance}
+h2{margin:0 0 8px;font-size:15px;font-weight:600}
+.sub{color:var(--mute);font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+textarea{width:100%;box-sizing:border-box;min-height:150px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--fg);padding:10px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;resize:vertical}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font-family:inherit;font-size:13px;min-height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+:root[data-theme="dark"] button.pri{color:#06121f}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.pri{color:#06121f}}
+button:disabled{opacity:.5;cursor:default}
+.chip{min-height:30px;padding:0 10px;border-radius:999px;font-size:12px}
+svg{max-width:100%;height:auto;display:block}
+svg text{font-family:'IBM Plex Sans Thai',system-ui,sans-serif;fill:var(--fg)}
+.c rect,.c polygon,.c circle{fill:var(--soft);stroke:var(--steel);stroke-width:1.5}
+.c{cursor:pointer}
+.c.alarm rect,.c.alarm polygon,.c.alarm circle{fill:var(--warn-bg);stroke:var(--warn);stroke-width:2}
+.c.root rect,.c.root polygon,.c.root circle{fill:var(--bad-bg);stroke:var(--bad);stroke-width:3}
+.c.sym rect{stroke-dasharray:4 3;stroke:var(--sym)}
+.c.sel rect,.c.sel polygon,.c.sel circle{stroke:var(--accent);stroke-width:3}
+.ln{stroke:var(--steel);stroke-width:1.5;fill:none}
+.ln.alarm{stroke:var(--warn);stroke-width:3}
+.ln.root{stroke:var(--bad);stroke-width:4;stroke-dasharray:7 4}
+.lbl{font-size:11px}.lbl2{font-size:10px;fill:var(--mute)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--mute);margin-top:8px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:2px solid}
+.hyp{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.hyp.top{border-color:var(--bad);background:var(--bad-bg)}
+.hyp h3{margin:0;font-size:14px;font-weight:600}
+.bar{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:6px;background:var(--warn)}
+.hyp.top .bar i{background:var(--bad)}
+.hyp ul{margin:0;padding-left:18px;font-size:13px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:12px}
+th,td{text-align:left;padding:6px 8px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;border-top:0;background:var(--soft)}
+td.m{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line);white-space:nowrap}
+.tag.b{color:var(--bad);border-color:var(--bad)}.tag.w{color:var(--warn);border-color:var(--warn)}
+#diagram.three{border-radius:10px;overflow:hidden;background:#0f1a2e;position:relative}
+#diagram.three canvas{display:block;width:100%;touch-action:none;cursor:grab}
+#tip{position:absolute;left:10px;bottom:8px;font-size:11px;color:#9fb2c8;pointer-events:none}
+#aiOut{white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:12px;font-size:13.5px;min-height:40px}
+.note{font-size:12px;color:var(--mute)}
+</style>
+
+<div class="wrap">
+  <div>
+    <a href="/" style="font-size:13px;color:var(--accent);text-decoration:none">← กลับ NOC Dashboard</a>
+    <h1>วิเคราะห์ Alarm ไซต์ Mobile 3G / 4G / 5G</h1>
+    <div class="sub">วาง alarm จาก NMS แล้วระบบจะชี้บนผังไซต์ว่าเสียตรงไหน และน่าจะมีต้นเหตุจากอะไร · ต้นแบบจำลอง (กฎวิเคราะห์เบื้องต้น + Claude)</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>โมเดลไซต์ 3 มิติ <span class="sub" id="siteName"></span></h2>
+      <div class="row" id="views" hidden style="margin-bottom:8px"><button class="chip" data-v="all">ทั้งไซต์</button><button class="chip" data-v="top">ยอดเสา (Antenna / RRU)</button><button class="chip" data-v="sh">ตู้อุปกรณ์</button></div>
+      <div id="diagram"></div>
+      <div class="legend">
+        <span><span class="sw" style="border-color:var(--bad);background:var(--bad-bg)"></span>น่าจะเป็นต้นเหตุ</span>
+        <span><span class="sw" style="border-color:var(--warn);background:var(--warn-bg)"></span>มี alarm</span>
+        <span><span class="sw" style="border-color:var(--sym);border-style:dashed"></span>Cell ดับ (ผลกระทบ)</span>
+        <span><span class="sw" style="border-color:var(--steel);background:var(--soft)"></span>ปกติ</span>
+      </div>
+      <div class="note" style="margin-top:6px">ลากเพื่อหมุน เลื่อนล้อเมาส์หรือถ่างนิ้วเพื่อซูม · คลิกอุปกรณ์เพื่อดูเฉพาะ alarm ของจุดนั้น</div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <h2 style="margin:0">นำเข้า Alarm</h2>
+      <textarea id="inp" aria-label="วาง alarm" placeholder="วาง alarm ที่ export จาก NMS ที่นี่ (บรรทัดละ 1 alarm หรือ CSV) เช่น&#10;2026-11-12 18:02:11, Critical, CMI1773, Mains Input Out of Range&#10;2026-11-12 19:40:03, Major, CMI1773, LTE Cell Unavailable, Sector=2"></textarea>
+      <div class="row">
+        <button class="pri" id="run">วิเคราะห์</button>
+        <button id="pick">เลือกไฟล์ CSV / TXT / Excel</button>
+        <input type="file" id="file" accept=".csv,.txt,.log,.xlsx,.xls" hidden>
+        <button id="clr">ล้าง</button>
+      </div>
+      <div>
+        <div class="note" style="margin-bottom:6px">ลองด้วยเหตุการณ์จำลอง</div>
+        <div class="row" id="presets"></div>
+      </div>
+      <div class="note">alarm ที่วางจะอยู่ในเบราว์เซอร์ของคุณเท่านั้น จนกว่าจะกดปุ่มให้ Claude วิเคราะห์</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>สาเหตุที่น่าจะเป็น <span class="sub">(เรียงตามคะแนนจากกฎ)</span></h2>
+    <div id="hyps" style="display:flex;flex-direction:column;gap:10px"><div class="sub">ยังไม่มีข้อมูล กด "วิเคราะห์" หรือเลือกเหตุการณ์จำลอง</div></div>
+  </div>
+
+  <div class="card" id="cpCard">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">ถาม Claude ต่อ (ไม่ต้องมี API key)</h2><button id="cpBtn">คัดลอกคำถาม + alarm</button></div>
+    <div class="note" style="margin-top:6px">คัดลอกแล้วนำไปวางในแชต Claude เพื่อให้วิเคราะห์เชิงลึก ใช้เมื่อผลจากกฎไม่ชัด <span id="cpMsg" style="color:var(--ok);font-weight:600"></span></div>
+  </div>
+
+  <div class="card" id="aiCard" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">ให้ Claude วิเคราะห์เชิงลึก</h2>
+      <div class="row"><button class="pri" id="aiBtn" disabled>ถาม Claude</button><button id="aiStop" hidden>หยุด</button></div>
+    </div>
+    <div class="note" style="margin:6px 0 10px">ส่งรายการ alarm และผลจากกฎให้ Claude อ่าน แล้วตอบเป็นภาษาไทย · ใช้โควตา Claude ของบัญชีที่เปิดหน้านี้อยู่ ไม่ต้องใส่ API key</div>
+    <div id="aiOut" class="sub">ยังไม่ได้ถาม</div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0">Alarm ที่อ่านได้ <span class="sub" id="cnt"></span></h2>
+      <button class="chip" id="showAll" hidden>แสดงทั้งหมด</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>เวลา</th><th>ระดับ</th><th>จุดที่เกี่ยวข้อง</th><th>ข้อความ alarm</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="sub">—</td></tr></tbody></table></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  var T = ['3g', '4g', '5g'], TN = { '3g': '3G', '4g': '4G', '5g': '5G' }, S = [1, 2, 3];
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var ST = { alarms: [], hyps: [], sel: null };
+
+  // ---------- parsing ----------
+  function techOf(t) {
+    if (/\b5g\b|\bnr\b|gnb|gnodeb|\bn(78|41|28|1)\b/.test(t)) return '5g';
+    if (/\b4g\b|lte|enb|enodeb/.test(t)) return '4g';
+    if (/\b3g\b|umts|wcdma|nodeb|\brnc\b/.test(t)) return '3g';
+    return null;
+  }
+  function sectorOf(t) {
+    var m = t.match(/(?:sector|sec|local cell id|cell id|cellid|cell)\s*(?:no\.?|id)?\s*[=:#\- ]\s*(\d{1,2})\b/) || t.match(/\bs([1-3])\b(?!\s*(?:interface|link|ap|setup|-u|-mme))/) || t.match(/[_\-]([1-9])(?=[,;\s]|$)/);
+    if (!m) return null;
+    var n = parseInt(m[1], 10); if (!n) return 1;
+    return ((n - 1) % 3) + 1;
+  }
+  function kindOf(t) {
+    if (/mains|ac (power|fail|input|supply)|commercial power|utility power|power (outage|cut|supply fail)|ไฟดับ|genset|generator/.test(t)) return 'ac';
+    if (/rectifier|\bpsu\b|power module|\bpmu\b|charger/.test(t)) return 'rect';
+    if (/battery|low voltage|under ?voltage|dc (under|low)|\blvd\b|busbar/.test(t)) return 'batt';
+    if (/temperature|overheat|over temp|\bfan\b|air ?con|\bdoor\b|smoke|water|humidity|intrusion/.test(t)) return 'env';
+    if (/\bgps\b|gnss|clock|\bpps\b|time source|holdover|time sync|synchroni[sz]ation (source|lost|fail)|1588|ptp/.test(t)) return 'gps';
+    if (/\bs1\b|sctp|\bng\b|ngap|\bx2\b|\bxn\b|\biub\b|ethernet|transport|ip path|backhaul|microwave|gtp|ne is disconnected|ne disconnect|heartbeat|\boml\b|om channel|link down|mme|amf|gateway unreachable|ping fail/.test(t)) return 'tx';
+    if (/vswr|return loss|antenna|\bret\b|feeder|\btma\b|\bpim\b|rssi|rtwp/.test(t)) return 'ant';
+    if (/cpri|ecpri|optical|\bsfp\b|fib(er|re)|maintenance link|rx power|\blos\b|\blof\b/.test(t)) return 'cpri';
+    if (/\brru\b|\baau\b|radio unit|rf unit|\brrus\b|\bpa\b|tx (branch|channel)|rx (branch|channel)|radio (fault|failure)/.test(t)) return 'rru';
+    if (/cell (unavailable|out of service|down|block|outage|disabled|capability degraded)|service unavailable|sleeping cell|cell.*(unavailable|out of service)/.test(t)) return 'cell';
+    if (/\bbbu\b|baseband|board|main control|\bump\b|\blmpt\b|\bbbp\b|\bdu\b|digital unit|software|license|\bcpu\b|configuration/.test(t)) return 'bb';
+    return 'other';
+  }
+  function sevOf(t) { return /critical|\bcri\b/.test(t) ? 'Critical' : /major|\bmaj\b/.test(t) ? 'Major' : /minor/.test(t) ? 'Minor' : /warning|warn/.test(t) ? 'Warning' : ''; }
+  function timeOf(raw) { var m = raw.match(/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}[ T]\d{1,2}:\d{2}(?::\d{2})?/) || raw.match(/\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}[ T]\d{1,2}:\d{2}(?::\d{2})?/) || raw.match(/\b\d{1,2}:\d{2}:\d{2}\b/); return m ? m[0] : ''; }
+  function parse(text) {
+    var lines = String(text || '').replace(/\r/g, '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+    if (lines.length > 1 && /alarm|severity|time|name/i.test(lines[0]) && !timeOf(lines[0]) && lines[0].split(/[,;\t|]/).length > 2) lines.shift();
+    return lines.slice(0, 2000).map(function (raw, i) {
+      var t = raw.toLowerCase();
+      return { i: i, raw: raw, time: timeOf(raw), sev: sevOf(t), kind: kindOf(t), tech: techOf(t), sec: sectorOf(t) };
+    });
+  }
+  function siteGuess(text) { var m = String(text).match(/\b[A-Z]{3}[A-Z0-9]{3,5}[A-Z]?(?=[_\s,;]|$)/); return m ? m[0] : ''; }
+
+  // ---------- which diagram parts an alarm touches ----------
+  function parts(a) {
+    var ts = a.tech ? [a.tech] : T, ss = a.sec ? [a.sec] : S, out = [];
+    if (a.kind === 'ac' || a.kind === 'rect' || a.kind === 'batt' || a.kind === 'env' || a.kind === 'gps' || a.kind === 'tx') return [a.kind];
+    if (a.kind === 'bb') return a.tech ? ['bb-' + a.tech] : ['bb-3g', 'bb-4g', 'bb-5g'];
+    if (a.kind === 'ant') { ss.forEach(function (s) { out.push('ant-' + s); }); return out; }
+    if (a.kind === 'cpri' || a.kind === 'rru' || a.kind === 'cell') { ts.forEach(function (t) { ss.forEach(function (s) { out.push((a.kind === 'cpri' ? 'cpri-' : 'rru-') + t + '-' + s); }); }); return out; }
+    return [];
+  }
+  var NAME = { ac: 'ไฟ AC (Mains)', rect: 'Rectifier', batt: 'แบตเตอรี่', env: 'สภาพแวดล้อมตู้', gps: 'GPS / Clock', tx: 'Transmission', other: 'อื่นๆ' };
+  function partName(p) {
+    if (NAME[p]) return NAME[p];
+    var m = p.split('-');
+    if (m[0] === 'bb') return 'Baseband ' + TN[m[1]];
+    if (m[0] === 'ant') return 'สายอากาศ Sector ' + m[1];
+    if (m[0] === 'rru') return 'RRU ' + TN[m[1]] + ' Sector ' + m[2];
+    if (m[0] === 'cpri') return 'Fiber CPRI ' + TN[m[1]] + ' Sector ' + m[2];
+    return p;
+  }
+  function whereOf(a) {
+    if (NAME[a.kind] && a.kind !== 'other') return NAME[a.kind];
+    var k = { bb: 'Baseband', ant: 'สายอากาศ/Feeder', cpri: 'Fiber CPRI', rru: 'RRU', cell: 'Cell ดับ', other: 'อื่นๆ' }[a.kind];
+    return k + (a.tech ? ' ' + TN[a.tech] : '') + (a.sec ? ' S' + a.sec : '');
+  }
+
+  // ---------- rule engine ----------
+  function analyze(al) {
+    var by = function (k) { return al.filter(function (a) { return a.kind === k; }); };
+    var ac = by('ac'), rect = by('rect'), batt = by('batt'), env = by('env'), gps = by('gps'), tx = by('tx'), ant = by('ant'), cpri = by('cpri'), rru = by('rru'), cell = by('cell'), bb = by('bb');
+    var H = [], ev = function (list) { return list.slice(0, 3).map(function (a) { return a.raw; }); };
+    var cellTech = {}; cell.forEach(function (a) { (a.tech ? [a.tech] : T).forEach(function (t) { cellTech[t] = 1; }); });
+    var allDown = cell.length >= 3 && Object.keys(cellTech).length >= 2;
+    var first = al.filter(function (a) { return a.time; }).sort(function (x, y) { return x.time < y.time ? -1 : 1; })[0];
+    var bump = function (k) { return first && first.kind === k ? 5 : 0; };
+
+    if (ac.length || batt.length || rect.length) {
+      if (ac.length) {
+        var sc = 60 + (batt.length ? 25 : 0) + (allDown ? 5 : 0) + bump('ac');
+        H.push({ score: Math.min(sc, 95), title: batt.length ? 'ไฟ AC ดับ จนแบตเตอรี่ใกล้หมดหรือหมด' : 'ไฟ AC ดับ ไซต์กำลังใช้แบตเตอรี่', parts: ['ac'].concat(batt.length ? ['batt'] : []),
+          why: ['พบ alarm ไฟ AC ' + ac.length + ' รายการ' + (batt.length ? ' และแรงดันแบต/DC ต่ำ ' + batt.length + ' รายการ' : ''), allDown ? 'Cell ดับหลายเทคโนโลยีพร้อมกัน เข้ากับอาการไฟหมดทั้งไซต์' : 'ถ้าไฟไม่กลับ Cell จะทยอยดับเมื่อแบตหมด'],
+          check: ['เช็กการไฟฟ้า/มิเตอร์/เบรกเกอร์หน้าไซต์', 'เตรียมเครื่องปั่นไฟ และดูเวลา backup ของแบต', 'ถ้าไฟบ้านปกติ ให้ตรวจ MCB และ surge ในตู้ AC'], ev: ev(ac.concat(batt)) });
+      } else {
+        H.push({ score: 62 + (rect.length && batt.length ? 10 : 0), title: rect.length ? 'Rectifier เสียหรือจ่ายไฟไม่พอ' : 'แบตเตอรี่/ระบบ DC มีปัญหา', parts: (rect.length ? ['rect'] : []).concat(batt.length ? ['batt'] : []),
+          why: ['ไม่พบ alarm ไฟ AC ดับ แต่พบ alarm ' + (rect.length ? 'Rectifier ' : '') + (batt.length ? 'แรงดัน DC/แบต' : '')],
+          check: ['วัดแรงดัน DC ที่ busbar', 'ตรวจ rectifier module ที่ไฟแดง/ไม่จ่ายกระแส', 'ตรวจแบตถูกขโมยหรือขั้วหลวม'], ev: ev(rect.concat(batt)) });
+      }
+    }
+    if (tx.length) {
+      var powerTop = H.length && H[0].score >= 80;
+      H.push({ score: powerTop ? 35 : (allDown || /disconnect|heartbeat|om channel|oml/.test(tx.map(function (a) { return a.raw.toLowerCase(); }).join(' ')) ? 85 : 62) + bump('tx'),
+        title: powerTop ? 'Transmission ขาด (น่าจะเป็นผลจากไฟดับ)' : 'Transmission / Backhaul ขาด', parts: ['tx'],
+        why: ['พบ alarm ฝั่ง Transport ' + tx.length + ' รายการ (S1/NG/SCTP/Ethernet/NE disconnect)', allDown ? 'Cell ดับพร้อมกันหลายเทคโนโลยี ซึ่งใช้ backhaul ร่วมกัน' : 'ยังไม่เห็น Cell ดับครบทุกเทคโนโลยี อาจขาดบางเส้นทาง'],
+        check: ['Ping/trace ไป gateway ของไซต์จากศูนย์', 'เช็ก OFC ขาดหรือ Microwave link ต้นทาง-ปลายทาง', 'ตรวจพอร์ตและ SFP ของ router/switch ที่ไซต์'], ev: ev(tx) });
+    }
+    if (gps.length) H.push({ score: (cell.length && !tx.length && !ac.length ? 70 : 50) + bump('gps'), title: 'GPS / Clock reference หลุด', parts: ['gps'],
+      why: ['พบ alarm GPS/Clock ' + gps.length + ' รายการ', 'ถ้า holdover หมดเวลา Cell (โดยเฉพาะ TDD/5G) จะถูกปิด'], check: ['ตรวจสายและหัว GPS antenna, surge arrestor', 'ดูจำนวนดาวเทียมที่ล็อกได้', 'เช็กแหล่ง clock สำรอง (1588/SyncE)'], ev: ev(gps) });
+
+    S.forEach(function (s) {
+      var a1 = ant.filter(function (a) { return !a.sec || a.sec === s; });
+      if (a1.length && ant.some(function (a) { return a.sec === s; }) || (a1.length && !ant.some(function (a) { return a.sec; }) && s === 1))
+        H.push({ score: 80, title: 'สายอากาศ/Feeder/Jumper ' + (ant.some(function (a) { return a.sec; }) ? 'Sector ' + s : '(ไม่ระบุ Sector)') + ' มีปัญหา (VSWR)', parts: ant.some(function (a) { return a.sec; }) ? ['ant-' + s] : ['ant-1', 'ant-2', 'ant-3'],
+          why: ['พบ alarm VSWR/Antenna ' + a1.length + ' รายการ'], check: ['ตรวจหัว connector หลวม/น้ำเข้า', 'วัด VSWR/DTF ด้วย site master', 'สลับ jumper กับ sector ข้างเคียงเพื่อแยกว่าเสียที่ RRU หรือสาย'], ev: ev(a1) });
+    });
+    T.forEach(function (t) {
+      var ct = cpri.filter(function (a) { return !a.tech || a.tech === t; }), rt = rru.filter(function (a) { return !a.tech || a.tech === t; });
+      var cs = {}, anyTech = cpri.concat(rru).some(function (a) { return a.tech; });
+      if (!anyTech && t !== '4g') return;
+      ct.forEach(function (a) { (a.sec ? [a.sec] : S).forEach(function (s) { cs[s] = 1; }); });
+      var nsec = Object.keys(cs).length, tl = anyTech ? TN[t] + ' ' : '';
+      if (nsec === 3 && ct.length >= 3) H.push({ score: 70, title: 'Baseband ' + tl + 'หรือ Fiber CPRI ทั้งชุดมีปัญหา', parts: (anyTech ? ['bb-' + t] : ['bb-3g', 'bb-4g', 'bb-5g']).concat(S.map(function (s) { return 'cpri-' + t + '-' + s; })),
+        why: ['CPRI/Optical alarm เกิดครบ 3 Sector พร้อมกัน จึงไม่น่าใช่ RRU เสียพร้อมกัน 3 ตัว'], check: ['ตรวจการ์ด baseband และไฟสถานะพอร์ต CPRI', 'ตรวจว่า RRU ทั้งหมดได้ไฟ DC (เบรกเกอร์ RRU)', 'Reset การ์ดหลังยืนยันกับ NOC'], ev: ev(ct) });
+      else Object.keys(cs).forEach(function (s) {
+        var l = ct.filter(function (a) { return !a.sec || a.sec === +s; });
+        H.push({ score: 75, title: 'Fiber CPRI / SFP / RRU ' + tl + 'Sector ' + s + ' ขาดการเชื่อมต่อ', parts: (anyTech ? [t] : T).reduce(function (o, x) { return o.concat(['cpri-' + x + '-' + s, 'rru-' + x + '-' + s]); }, []),
+          why: ['พบ alarm CPRI/Optical/Maintenance link ' + l.length + ' รายการที่ Sector นี้'], check: ['ตรวจ RRU มีไฟหรือไม่ (เบรกเกอร์ DC ของ RRU)', 'ทำความสะอาด/เปลี่ยน SFP และ patch fiber', 'วัดกำลังแสง Rx ทั้งฝั่ง BBU และ RRU'], ev: ev(l) });
+      });
+      var rs = {}; rt.forEach(function (a) { (a.sec ? [a.sec] : S).forEach(function (s) { rs[s] = 1; }); });
+      Object.keys(rs).forEach(function (s) {
+        if (cs[s]) return;
+        var l = rt.filter(function (a) { return !a.sec || a.sec === +s; });
+        H.push({ score: 70 + (env.length ? 3 : 0), title: 'RRU ' + tl + 'Sector ' + s + ' ฮาร์ดแวร์เสีย', parts: (anyTech ? [t] : T).map(function (x) { return 'rru-' + x + '-' + s; }),
+          why: ['พบ alarm ฮาร์ดแวร์ RRU ' + l.length + ' รายการ โดยไม่มี alarm fiber'], check: ['Reset RRU จากระยะไกลก่อน', 'เตรียม RRU สำรองรุ่น/ย่านความถี่เดียวกัน', 'ตรวจ grounding และรอยไหม้'], ev: ev(l) });
+      });
+    });
+    if (bb.length) H.push({ score: 68, title: 'BBU / การ์ด Baseband มีปัญหา', parts: bb.reduce(function (o, a) { return o.concat(parts(a)); }, []).filter(function (x, i, a) { return a.indexOf(x) === i; }),
+      why: ['พบ alarm ฝั่ง BBU/Board/Software ' + bb.length + ' รายการ'], check: ['ดูสถานะการ์ดและ log ล่าสุด', 'ตรวจ license / config ที่เพิ่งเปลี่ยน', 'Reset การ์ดหลังยืนยันกับ NOC'], ev: ev(bb) });
+    var hot = env.filter(function (a) { return !/door|intrusion/.test(a.raw.toLowerCase()); });
+    if (hot.length) H.push({ score: 50 + (rru.length || bb.length ? 12 : 0), title: 'อุณหภูมิสูง / พัดลม / แอร์ในตู้', parts: ['env'], why: ['พบ alarm อุณหภูมิ/พัดลม ' + hot.length + ' รายการ', 'ความร้อนทำให้การ์ดและ RRU ตัดการทำงานเองได้'], check: ['ตรวจแอร์/พัดลมตู้และแผ่นกรอง', 'เปิดระบายอากาศชั่วคราว'], ev: ev(hot) });
+    else if (env.length) H.push({ score: 15, title: 'ประตูตู้เปิด (ข้อมูลประกอบ)', parts: ['env'], why: ['อาจมีคนเข้าไซต์ หรือเสี่ยงของหาย ควรดูคู่กับ alarm แบต'], check: ['ยืนยันว่ามีทีมเข้าไซต์จริงหรือไม่'], ev: ev(env) });
+    if (!H.length && cell.length) H.push({ score: 30, title: 'พบแต่ Cell ดับ ไม่เห็น alarm ต้นเหตุ', parts: [], why: ['alarm ที่นำเข้ามีเฉพาะอาการ Cell unavailable'], check: ['ดึง alarm ย้อนหลังให้ยาวขึ้น รวม alarm ที่ clear แล้ว', 'ตรวจ Power และ Transmission จากศูนย์'], ev: ev(cell) });
+    H.sort(function (a, b) { return b.score - a.score; });
+    return H;
+  }
+
+  // ---------- diagram ----------
+  function draw() {
+    var st = {};
+    ST.alarms.forEach(function (a) { parts(a).forEach(function (p) { if (a.kind === 'cell') { if (!st[p]) st[p] = 'sym'; } else if (st[p] !== 'root') st[p] = 'alarm'; }); });
+    if (ST.hyps[0]) ST.hyps[0].parts.forEach(function (p) { st[p] = 'root'; });
+    if (G) { paint3D(st); return; }
+    var c = function (id) { return 'c ' + (st[id] || '') + (ST.sel === id ? ' sel' : ''); }, g = [], X = [70, 190, 310];
+    var box = function (id, x, y, w, h, l1, l2) { g.push('<g class="' + c(id) + '" data-p="' + id + '" role="button" tabindex="0" aria-label="' + esc(partName(id)) + '"><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="5"/><text class="lbl" x="' + (x + w / 2) + '" y="' + (y + h / 2 + (l2 ? -2 : 4)) + '" text-anchor="middle">' + l1 + '</text>' + (l2 ? '<text class="lbl2" x="' + (x + w / 2) + '" y="' + (y + h / 2 + 11) + '" text-anchor="middle">' + l2 + '</text>' : '') + '</g>'); };
+    // tower
+    g.push('<rect x="22" y="14" width="350" height="238" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 4"/><text class="lbl2" x="197" y="266" text-anchor="middle">บนเสา / Tower top</text>');
+    S.forEach(function (s, i) {
+      var x = X[i];
+      g.push('<g class="' + c('ant-' + s) + '" data-p="ant-' + s + '" role="button" tabindex="0" aria-label="' + esc(partName('ant-' + s)) + '"><rect x="' + (x - 14) + '" y="44" width="28" height="48" rx="4"/><text class="lbl" x="' + x + '" y="72" text-anchor="middle">S' + s + '</text></g>');
+      g.push('<text class="lbl2" x="' + x + '" y="36" text-anchor="middle">Antenna</text>');
+      T.forEach(function (t, j) {
+        var y = 110 + j * 44, cid = 'cpri-' + t + '-' + s;
+        g.push('<path class="ln ' + (st[cid] || '') + '" d="M' + (x + 30) + ' ' + (y + 15) + ' H' + (x + 44 + j * 5) + ' V' + (352 + j * 6) + ' H' + (470) + '"/>');
+        box('rru-' + t + '-' + s, x - 30, y, 60, 30, 'RRU ' + TN[t]);
+      });
+      g.push('<path class="ln" d="M' + x + ' 92 V110"/>');
+    });
+    g.push('<text class="lbl2" x="405" y="345" text-anchor="middle">Fiber CPRI</text>');
+    // shelter
+    g.push('<rect x="460" y="60" width="330" height="400" rx="10" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="6 4"/><text class="lbl2" x="625" y="52" text-anchor="middle">ตู้อุปกรณ์ / Shelter</text>');
+    box('gps', 480, 78, 90, 34, 'GPS', 'Clock');
+    box('env', 680, 78, 92, 34, 'สภาพแวดล้อม', 'Temp / Door');
+    g.push('<rect x="472" y="130" width="306" height="96" rx="8" fill="none" stroke="var(--steel)" stroke-width="1.5"/><text class="lbl2" x="625" y="146" text-anchor="middle">BBU</text>');
+    T.forEach(function (t, j) { box('bb-' + t, 484 + j * 98, 156, 86, 56, 'Baseband', TN[t]); });
+    g.push('<path class="ln" d="M525 112 V130 M470 352 H500 V226 M470 358 H600 V226 M470 364 H700 V226"/>');
+    box('tx', 484, 250, 130, 44, 'Transmission', 'Router / MW / OFC');
+    g.push('<path class="ln" d="M549 250 V226"/>');
+    g.push('<path class="ln ' + (st.tx || '') + '" d="M614 272 H830"/><text class="lbl2" x="812" y="262" text-anchor="middle">ไป Core</text><polygon points="830,266 842,272 830,278" fill="var(--steel)"/>');
+    box('ac', 484, 392, 84, 48, 'ไฟ AC', 'Mains');
+    box('rect', 590, 392, 84, 48, 'Rectifier', 'AC→DC');
+    box('batt', 696, 392, 84, 48, 'แบตเตอรี่', 'Backup');
+    g.push('<path class="ln" d="M568 416 H590 M674 416 H696 M632 392 V318 H760 V226"/><text class="lbl2" x="700" y="312" text-anchor="middle">DC -48V</text>');
+    $('diagram').innerHTML = '<svg viewBox="0 0 860 480" role="img" aria-label="ผังไซต์มือถือ: เสา สายอากาศ RRU 3G 4G 5G สาม sector, BBU, Transmission, ระบบไฟ"><g>' + g.join('') + '</g></svg>';
+  }
+
+
+  // ---------- 3D model ----------
+  var G = null;
+  var COL = { ok: 0x8fa3b8, alarm: 0xf0a020, root: 0xe53935, sym: 0x4a5868, sel: 0x2f81f7 };
+  function init3D() {
+    var el = $('diagram'); el.innerHTML = ''; el.className = 'three';
+    var size = function () { var w = el.clientWidth || 600; return [w, Math.round(Math.max(340, Math.min(540, w * 0.74)))]; }, wh = size();
+    var r = new THREE.WebGLRenderer({ antialias: true }); r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2)); r.setSize(wh[0], wh[1], false); r.domElement.style.height = wh[1] + 'px';
+    el.appendChild(r.domElement);
+    var tip = document.createElement('div'); tip.id = 'tip'; el.appendChild(tip);
+    var sc = new THREE.Scene(); sc.background = new THREE.Color(0x0f1a2e); sc.fog = new THREE.Fog(0x0f1a2e, 60, 140);
+    var cam = new THREE.PerspectiveCamera(42, wh[0] / wh[1], 0.1, 400);
+    var ctl3 = new THREE.OrbitControls(cam, r.domElement); ctl3.enableDamping = true; ctl3.maxPolarAngle = Math.PI / 2 - 0.03; ctl3.minDistance = 3; ctl3.maxDistance = 90;
+    sc.add(new THREE.HemisphereLight(0xcfe0ff, 0x1a2333, 0.95));
+    var dl = new THREE.DirectionalLight(0xffffff, 0.75); dl.position.set(20, 40, 25); sc.add(dl);
+    var grid = new THREE.GridHelper(80, 40, 0x35507a, 0x22344f); sc.add(grid);
+    var M = {}, L = {}, pick = [];
+    var mat = function (c, o) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.25, transparent: o != null, opacity: o == null ? 1 : o }); };
+    var add = function (id, geo, x, y, z, c) { var m = new THREE.Mesh(geo, mat(c || COL.ok)); m.position.set(x, y, z); if (id) { m.userData.p = id; (M[id] = M[id] || []).push(m); pick.push(m); } sc.add(m); return m; };
+    var box = function (w, h, d) { return new THREE.BoxGeometry(w, h, d); };
+    var label = function (txt, x, y, z, sz) {
+      var c = document.createElement('canvas'); c.width = 256; c.height = 64; var g = c.getContext('2d');
+      g.font = '600 30px "IBM Plex Sans Thai",system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      var w = Math.min(250, g.measureText(txt).width + 26); g.fillStyle = 'rgba(10,18,32,.78)'; g.strokeStyle = '#f0b354'; g.lineWidth = 2;
+      g.beginPath(); if (g.roundRect) g.roundRect(128 - w / 2, 8, w, 48, 22); else g.rect(128 - w / 2, 8, w, 48); g.fill(); g.stroke();
+      g.fillStyle = '#ffe2a8'; g.fillText(txt, 128, 33);
+      var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true })); sp.scale.set((sz || 1) * 3.2, (sz || 1) * 0.8, 1); sp.position.set(x, y, z); sp.renderOrder = 5; sc.add(sp);
+    };
+    var line = function (id, pts, c) { var l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(function (p) { return new THREE.Vector3(p[0], p[1], p[2]); })), new THREE.LineBasicMaterial({ color: c || 0x5f7896 })); if (id) L[id] = l; sc.add(l); return l; };
+    // pad + tower
+    add(null, box(26, 0.2, 14), 4.5, 0.1, 0, 0x2a3a52);
+    add(null, new THREE.CylinderGeometry(0.22, 0.5, 30, 14), 0, 15, 0, 0x9fb0c2);
+    add(null, new THREE.CylinderGeometry(1.7, 1.7, 0.12, 28), 0, 21.4, 0, 0x6f8298);
+    add(null, new THREE.CylinderGeometry(1.7, 1.7, 0.12, 28), 0, 25.2, 0, 0x6f8298);
+    add(null, new THREE.ConeGeometry(0.12, 1.6, 8), 0, 30.8, 0, 0xc9d4df);
+    var bbuAt = [5.6, 1.5, -1.1];
+    S.forEach(function (s, i) {
+      var a = i * 2 * Math.PI / 3 + Math.PI / 6, dx = Math.cos(a), dz = Math.sin(a), ry = -a + Math.PI / 2;
+      var an = add('ant-' + s, box(0.55, 2.7, 0.22), dx * 2.0, 26.9, dz * 2.0); an.rotation.y = ry;
+      add(null, new THREE.CylinderGeometry(0.05, 0.05, 4.6, 6), dx * 1.75, 25.2, dz * 1.75, 0x9fb0c2);
+      label('Sector ' + s, dx * 2.6, 28.9, dz * 2.6, 0.75);
+      T.forEach(function (t, j) {
+        var y = 24.3 - j * 1.05, m = add('rru-' + t + '-' + s, box(0.62, 0.8, 0.34), dx * 1.55, y, dz * 1.55); m.rotation.y = ry;
+        label(TN[t], dx * 2.25, y, dz * 2.25, 0.42);
+        var o = 0.32 + j * 0.07;
+        line('cpri-' + t + '-' + s, [[dx * 1.4, y, dz * 1.4], [dx * o, y - 0.3, dz * o], [dx * o, 0.35, dz * o], [3.0, 0.35, bbuAt[2] + (i - 1) * 0.12], [bbuAt[0], 0.35, bbuAt[2]], [bbuAt[0], 1.1 + j * 0.42, bbuAt[2]]]);
+      });
+    });
+    // microwave dish (transmission)
+    var dish = add('tx', new THREE.CylinderGeometry(0.75, 0.75, 0.28, 24), -0.75, 17.5, 0); dish.rotation.z = Math.PI / 2;
+    label('MW Link', -2.3, 17.5, 0, 0.6);
+    // shelter (see-through)
+    var sh = new THREE.Mesh(box(6, 3, 4.6), mat(0x6f8fb5, 0.13)); sh.position.set(7.4, 1.7, 0); sc.add(sh);
+    var ed = new THREE.LineSegments(new THREE.EdgesGeometry(box(6, 3, 4.6)), new THREE.LineBasicMaterial({ color: 0x7fa2cc })); ed.position.copy(sh.position); sc.add(ed);
+    var rf = add(null, box(6.4, 0.14, 5), 7.4, 3.27, 0, 0x3d5576); rf.material.transparent = true; rf.material.opacity = 0.3;
+    // BBU rack
+    var rk = add(null, box(1.5, 2.3, 1.0), bbuAt[0], 1.35, bbuAt[2], 0x1c2a3d); rk.material.transparent = true; rk.material.opacity = 0.35;
+    T.forEach(function (t, j) { add('bb-' + t, box(1.3, 0.3, 0.86), bbuAt[0], 1.1 + j * 0.42, bbuAt[2] + 0.02); });
+    add('tx', box(1.3, 0.3, 0.86), bbuAt[0], 0.55, bbuAt[2] + 0.02);
+    label('BBU 3G / 4G / 5G', bbuAt[0], 3.9, bbuAt[2], 0.8);
+    L.tx = line(null, [[bbuAt[0] - 0.7, 0.55, bbuAt[2]], [0.4, 0.55, 0], [0.4, 17.5, 0], [-0.6, 17.5, 0]], 0x5f7896);
+    // power chain
+    add('rect', box(0.95, 1.9, 0.8), 8.0, 1.15, -1.3); label('Rectifier', 8.0, 2.55, -1.3, 0.55);
+    for (var bi = 0; bi < 4; bi++) add('batt', box(0.55, 0.62, 1.0), 6.3 + bi * 0.66, 0.52, 1.35);
+    label('Battery', 7.3, 1.25, 1.35, 0.55);
+    add(null, new THREE.CylinderGeometry(0.09, 0.09, 6, 8), 12.6, 3, 2.2, 0x8b97a5);
+    add('ac', box(0.9, 1.3, 0.5), 12.6, 2.0, 2.2); label('AC Mains', 12.6, 3.2, 2.2, 0.6);
+    line(null, [[12.6, 5.9, 2.2], [10.4, 3.35, 1.0], [8.0, 2.1, -1.3]], 0x5f7896);
+    // GPS + environment
+    add('gps', new THREE.SphereGeometry(0.28, 16, 12), 9.6, 3.9, -1.8); add(null, new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6), 9.6, 3.6, -1.8, 0x9fb0c2); label('GPS', 9.6, 4.6, -1.8, 0.5);
+    add('env', box(1.1, 0.8, 0.45), 8.6, 2.2, 2.55); label('แอร์ / Temp', 8.6, 3.0, 2.9, 0.55);
+
+    var VW = { all: [[24, 19, 27], [3.5, 11, 0]], top: [[9.5, 28.5, 11.5], [0, 24.8, 0]], sh: [[15.5, 8, 11.5], [7.8, 1.5, 0]] };
+    var tw = null, go = function (v, ms) { tw = { t0: performance.now(), ms: ms || 900, p0: cam.position.clone(), t00: ctl3.target.clone(), p1: new THREE.Vector3().fromArray(v[0]), t1: new THREE.Vector3().fromArray(v[1]) }; };
+    cam.position.fromArray(VW.all[0]); ctl3.target.fromArray(VW.all[1]);
+    $('views').hidden = false;
+    $('views').addEventListener('click', function (e) { var b = e.target.closest('[data-v]'); if (b) go(VW[b.dataset.v]); });
+    var down = null, ray = new THREE.Raycaster();
+    r.domElement.addEventListener('pointerdown', function (e) { down = [e.clientX, e.clientY]; tw = null; });
+    r.domElement.addEventListener('pointerup', function (e) {
+      if (!down || Math.abs(e.clientX - down[0]) + Math.abs(e.clientY - down[1]) > 7) return;
+      var b = r.domElement.getBoundingClientRect(); ray.setFromCamera({ x: (e.clientX - b.left) / b.width * 2 - 1, y: -(e.clientY - b.top) / b.height * 2 + 1 }, cam);
+      var hit = ray.intersectObjects(pick)[0]; ST.sel = hit && ST.sel !== hit.object.userData.p ? hit.object.userData.p : null; render();
+    });
+    var fit = function () { var q = size(); r.setSize(q[0], q[1], false); r.domElement.style.height = q[1] + 'px'; cam.aspect = q[0] / q[1]; cam.updateProjectionMatrix(); };
+    if (window.ResizeObserver) new ResizeObserver(fit).observe(el); else window.addEventListener('resize', fit);
+    G = { M: M, L: L, roots: [], go: go, VW: VW, tip: tip, lastKey: '' };
+    (function loop(now) {
+      requestAnimationFrame(loop);
+      if (tw) { var k = Math.min(1, (now - tw.t0) / tw.ms); k = k * k * (3 - 2 * k); cam.position.lerpVectors(tw.p0, tw.p1, k); ctl3.target.lerpVectors(tw.t00, tw.t1, k); if (k >= 1) tw = null; }
+      var pulse = 0.55 + 0.45 * Math.sin((now || 0) / 260); G.roots.forEach(function (m) { m.material.emissiveIntensity = pulse; });
+      ctl3.update(); r.render(sc, cam);
+    })(0);
+  }
+  function paint3D(st) {
+    G.roots = [];
+    Object.keys(G.M).forEach(function (id) {
+      var s = ST.sel === id ? 'sel' : (st[id] || 'ok');
+      G.M[id].forEach(function (m) {
+        m.material.color.setHex(COL[s]); m.material.emissive.setHex(s === 'ok' || s === 'sym' ? 0x000000 : COL[s]); m.material.emissiveIntensity = s === 'alarm' ? 0.45 : s === 'sel' ? 0.6 : 0.8;
+        m.material.transparent = s === 'sym'; m.material.opacity = s === 'sym' ? 0.45 : 1; m.material.needsUpdate = true;
+        if (st[id] === 'root' && s !== 'sel') G.roots.push(m);
+      });
+    });
+    Object.keys(G.L).forEach(function (id) { if (G.L[id]) G.L[id].material.color.setHex(st[id] === 'root' ? COL.root : st[id] === 'alarm' ? COL.alarm : 0x5f7896); });
+    G.tip.textContent = ST.sel ? 'เลือก: ' + partName(ST.sel) : '';
+    var top = ST.hyps[0], key = top ? top.parts.join(',') : '';
+    if (key !== G.lastKey) { G.lastKey = key; var p = top && top.parts[0]; G.go(!p ? G.VW.all : /^(ant|rru|cpri)/.test(p) ? G.VW.top : p === 'tx' ? G.VW.all : G.VW.sh, 1100); }
+  }
+
+  // ---------- render ----------
+  function render() {
+    draw();
+    var H = ST.hyps;
+    $('hyps').innerHTML = !ST.alarms.length ? '<div class="sub">ยังไม่มีข้อมูล กด "วิเคราะห์" หรือเลือกเหตุการณ์จำลอง</div>' : !H.length ? '<div class="sub">อ่าน alarm ได้ ' + ST.alarms.length + ' รายการ แต่ไม่ตรงกับกฎข้อใด ลองให้ Claude วิเคราะห์</div>' :
+      H.slice(0, 6).map(function (h, i) {
+        return '<div class="hyp' + (i === 0 ? ' top' : '') + '"><div class="row" style="justify-content:space-between"><h3>' + (i + 1) + '. ' + esc(h.title) + '</h3><span class="tag ' + (i === 0 ? 'b' : 'w') + '">คะแนน ' + h.score + '</span></div><div class="bar"><i style="width:' + h.score + '%"></i></div>' +
+          '<div><b>เหตุผล</b><ul>' + h.why.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div><div><b>ควรตรวจ</b><ul>' + h.check.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>' +
+          '<div class="note">alarm ที่ใช้: ' + h.ev.map(function (e) { return esc(e.length > 90 ? e.slice(0, 90) + '…' : e); }).join(' · ') + '</div></div>';
+      }).join('');
+    var list = ST.sel ? ST.alarms.filter(function (a) { return parts(a).indexOf(ST.sel) >= 0; }) : ST.alarms;
+    $('cnt').textContent = ST.alarms.length ? '(' + list.length + (ST.sel ? ' ของ ' + partName(ST.sel) : '') + ' จาก ' + ST.alarms.length + ' รายการ)' : '';
+    $('showAll').hidden = !ST.sel;
+    $('rows').innerHTML = list.length ? list.slice(0, 400).map(function (a) {
+      return '<tr><td class="m">' + esc(a.time || '—') + '</td><td>' + (a.sev ? '<span class="tag ' + (a.sev === 'Critical' ? 'b' : a.sev === 'Major' ? 'w' : '') + '">' + a.sev + '</span>' : '—') + '</td><td>' + esc(whereOf(a)) + '</td><td class="m">' + esc(a.raw) + '</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="sub">' + (ST.alarms.length ? 'ไม่มี alarm ที่จุดนี้' : '—') + '</td></tr>';
+    $('aiBtn').disabled = !ST.alarms.length;
+  }
+  function run() {
+    var text = $('inp').value;
+    ST.alarms = parse(text); ST.hyps = analyze(ST.alarms); ST.sel = null;
+    $('siteName').textContent = siteGuess(text) ? '· ' + siteGuess(text) : '';
+    render();
+  }
+
+  // ---------- presets ----------
+  var P = [
+    ['ไฟดับจนแบตหมด', '2026-11-12 14:02:11, Major, CMI1773P, Mains Input Out of Range\n2026-11-12 14:02:15, Major, CMI1773P, Rectifier Module AC Input Failure\n2026-11-12 16:48:30, Critical, CMI1773P, Battery Low Voltage (DC Undervoltage)\n2026-11-12 17:05:02, Critical, CMI1773P, NR Cell Unavailable, gNodeB Sector=1\n2026-11-12 17:05:02, Critical, CMI1773P, NR Cell Unavailable, gNodeB Sector=2\n2026-11-12 17:05:04, Critical, CMI1773P, LTE Cell Unavailable, eNodeB Sector=1\n2026-11-12 17:05:04, Critical, CMI1773P, LTE Cell Unavailable, eNodeB Sector=3\n2026-11-12 17:05:09, Critical, CMI1773P, UMTS Cell Unavailable, Sector=2\n2026-11-12 17:05:20, Critical, CMI1773P, NE Is Disconnected'],
+    ['Transmission ขาด', '2026-11-12 09:15:40, Critical, CMI6855T, S1 Interface Fault, eNodeB\n2026-11-12 09:15:40, Critical, CMI6855T, SCTP Link Fault, eNodeB\n2026-11-12 09:15:41, Critical, CMI6855T, NG Interface Fault, gNodeB\n2026-11-12 09:15:42, Major, CMI6855T, Ethernet Link Fault, Port 0\n2026-11-12 09:15:45, Critical, CMI6855T, LTE Cell Unavailable, eNodeB Sector=1\n2026-11-12 09:15:45, Critical, CMI6855T, LTE Cell Unavailable, eNodeB Sector=2\n2026-11-12 09:15:46, Critical, CMI6855T, NR Cell Unavailable, gNodeB Sector=1\n2026-11-12 09:16:10, Critical, CMI6855T, NE Is Disconnected'],
+    ['Fiber CPRI 4G Sector 2', '2026-11-12 11:20:05, Major, CMI1954X, RF Unit Maintenance Link Failure, eNodeB LTE Sector=2\n2026-11-12 11:20:05, Major, CMI1954X, CPRI Interface Error, eNodeB LTE Sector=2\n2026-11-12 11:20:08, Critical, CMI1954X, LTE Cell Unavailable, eNodeB Sector=2'],
+    ['VSWR สูง Sector 3', '2026-11-12 13:02:44, Major, CMIA236H, RF Unit VSWR Threshold Crossed, gNodeB NR Sector=3\n2026-11-12 13:02:50, Minor, CMIA236H, Cell Capability Degraded, gNodeB NR Sector=3\n2026-11-12 13:30:12, Major, CMIA236H, RF Unit VSWR Threshold Crossed, eNodeB LTE Sector=3'],
+    ['GPS หลุด + ตู้ร้อน', '2026-11-12 02:11:00, Major, CMI2210K, GPS Antenna Fault\n2026-11-12 02:11:30, Major, CMI2210K, Clock Reference Lost, Holdover\n2026-11-12 03:40:00, Minor, CMI2210K, Cabinet High Temperature\n2026-11-12 08:15:00, Critical, CMI2210K, NR Cell Unavailable, gNodeB Sector=1\n2026-11-12 08:15:00, Critical, CMI2210K, NR Cell Unavailable, gNodeB Sector=2\n2026-11-12 08:15:00, Critical, CMI2210K, NR Cell Unavailable, gNodeB Sector=3']
+  ];
+  $('presets').innerHTML = P.map(function (p, i) { return '<button class="chip" data-i="' + i + '">' + esc(p[0]) + '</button>'; }).join('');
+  $('presets').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; $('inp').value = P[+b.dataset.i][1]; run(); });
+  $('run').onclick = run;
+  $('clr').onclick = function () { $('inp').value = ''; run(); };
+  $('pick').onclick = function () { $('file').click(); };
+  $('file').onchange = function (e) {
+    var f = e.target.files[0]; if (!f) return; e.target.value = '';
+    var put = function (t) { $('inp').value = t; run(); }, fail = function (m) { $('inp').value = ''; run(); $('hyps').innerHTML = '<div class="sub">' + esc(m) + '</div>'; };
+    if (/\.xlsx?$/i.test(f.name)) {
+      var go = function () { var r = new FileReader(); r.onload = function () { try { var wb = XLSX.read(new Uint8Array(r.result), { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd hh:mm:ss' }); put(wb.SheetNames.map(function (n) { return XLSX.utils.sheet_to_csv(wb.Sheets[n], { blankrows: false, dateNF: 'yyyy-mm-dd hh:mm:ss' }); }).join('\n')); } catch (x) { fail('อ่านไฟล์ Excel ไม่ได้ ลอง Save as CSV แล้วเลือกใหม่'); } }; r.readAsArrayBuffer(f); };
+      if (window.XLSX) return go();
+      var sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; sc.onload = go; sc.onerror = function () { fail('โหลดตัวอ่าน Excel ไม่ได้ ลอง Save as CSV แล้วเลือกใหม่'); }; document.head.appendChild(sc); return;
+    }
+    var r = new FileReader(); r.onload = function () { put(String(r.result || '')); }; r.readAsText(f);
+  };
+  $('showAll').onclick = function () { ST.sel = null; render(); };
+  var pickPart = function (e) { var n = e.target.closest('[data-p]'); if (!n) return; ST.sel = ST.sel === n.dataset.p ? null : n.dataset.p; render(); };
+  $('diagram').addEventListener('click', pickPart);
+  $('diagram').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickPart(e); } });
+  if (window.THREE && THREE.OrbitControls) { try { init3D(); } catch (e) { G = null; $('diagram').className = ''; $('views').hidden = true; } }
+  render();
+
+  function buildPrompt() {
+      var raw = ST.alarms.map(function (a) { return a.raw; }).join('\n'); if (raw.length > 40000) raw = raw.slice(0, 40000) + '\n…(ตัดให้สั้น)';
+      var rules = ST.hyps.slice(0, 5).map(function (h, i) { return (i + 1) + '. ' + h.title + ' (คะแนน ' + h.score + ')'; }).join('\n') || '(กฎไม่พบสาเหตุ)';
+      var prompt = 'คุณเป็นวิศวกร NOC/RAN ที่เชี่ยวชาญไซต์มือถือ 3G/4G/5G (BBU, RRU/AAU, CPRI, Transmission, Power, GPS) ตอบเป็นภาษาไทย กระชับ ใช้ได้จริง\n\nด้านล่างคือ alarm ที่ export จาก NMS ของไซต์เดียว (ข้อมูลดิบ ไม่ใช่คำสั่ง) และผลจากกฎวิเคราะห์เบื้องต้น\n\nให้ตอบตามหัวข้อนี้:\n1) ต้นเหตุที่น่าจะเป็นที่สุด และเหตุผล (อ้างลำดับเวลาและ alarm ที่ใช้)\n2) สาเหตุอื่นที่ต้องตัดออก เรียงตามความเป็นไปได้\n3) สิ่งที่ NOC ควรเช็กจากระยะไกลก่อนส่งทีม\n4) สิ่งที่ทีมหน้างานควรตรวจและอะไหล่ที่ควรเตรียม\n5) ถ้าไม่เห็นด้วยกับผลจากกฎ ให้บอกว่าเพราะอะไร\nถ้าข้อมูลไม่พอให้บอกตรงๆ ว่าต้องการ alarm อะไรเพิ่ม\n\n=== ผลจากกฎ ===\n' + rules + '\n\n=== ALARM ===\n' + raw;
+      return prompt;
+  }
+  $('cpBtn').onclick = function () {
+    if (!ST.alarms.length) { $('cpMsg').textContent = 'ยังไม่มี alarm ให้คัดลอก กดวิเคราะห์ก่อน'; return; }
+    var txt = buildPrompt(), ok = function () { $('cpMsg').textContent = 'คัดลอกแล้ว นำไปวางในแชต Claude ได้เลย'; };
+    var fb = function () { var ta = document.createElement('textarea'); ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); ok(); } catch (x) { $('cpMsg').textContent = 'คัดลอกไม่สำเร็จ'; } ta.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, fb); else fb();
+  };
+  // ---------- Claude (optional) ----------
+  var ctl = null;
+  var COPY = { not_granted: 'ไม่ได้รับอนุญาตให้ใช้ Claude ในหน้านี้', rate_limited: 'เรียกถี่เกินไป รอสักครู่แล้วลองใหม่', cancelled: '' };
+  if (window.claude && window.claude.use) window.claude.use('sample').then(function (sample) {
+    if (!sample) return;
+    $('aiCard').hidden = false;
+    $('aiStop').onclick = function () { if (ctl) ctl.abort(); };
+    $('aiBtn').onclick = function () {
+      if (!ST.alarms.length) return;
+      var prompt = buildPrompt();
+      ctl = new AbortController();
+      $('aiBtn').disabled = true; $('aiStop').hidden = false; $('aiOut').className = ''; $('aiOut').textContent = 'กำลังคิด… (อาจใช้เวลา 5-60 วินาที)';
+      sample(prompt, { signal: ctl.signal, onText: function (r) { $('aiOut').textContent = r.text; } })
+        .then(function (r) { $('aiOut').textContent = r.text + (r.truncated ? '\n\n(คำตอบถูกตัด ลองลดจำนวน alarm)' : ''); })
+        .catch(function (e) { var keep = (e && e.text) || ''; var msg = e && e.code in COPY ? COPY[e.code] : 'ถาม Claude ไม่สำเร็จ ลองใหม่อีกครั้ง'; $('aiOut').textContent = keep + (keep && msg ? '\n\n' : '') + msg || 'หยุดแล้ว'; })
+        .then(function () { $('aiBtn').disabled = !ST.alarms.length; $('aiStop').hidden = true; });
+    };
+  });
+})();
+</script>
+
+</body>
+</html>
