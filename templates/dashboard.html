@@ -38,8 +38,8 @@ code, .mono { font-family: 'IBM Plex Mono', monospace; }
 /* Header */
 .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.3px; }
-.nmr-row{display:flex;align-items:center;gap:6px;margin:2px 0 6px}
-.nmr{position:relative;display:inline-flex;align-items:center;gap:5px;padding:2px 7px 2px 9px;border-radius:999px;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.45);color:#15803d;font-size:11px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;cursor:help;outline:none}
+.nmr-lb{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;flex:1;min-width:0}
+.nmr{position:relative;display:inline-flex;align-items:center;gap:4px;padding:1px 6px 1px 7px;border-radius:999px;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.45);color:#15803d;font-size:10.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums;cursor:help;outline:none;letter-spacing:0;text-transform:none}
 .nmr .nmr-d{font-weight:500;opacity:.85}
 .nmr .nmr-i{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid currentColor;font-size:9px;font-weight:700;font-style:normal;opacity:.75;margin-left:1px}
 .nmr .nmr-tip{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:30;background:#1b2533;color:#fff;font-size:11px;font-weight:500;padding:5px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.18);pointer-events:none}
@@ -3059,11 +3059,10 @@ async function loadP0SnapshotComparison(prefix) {
         ${p0Top5Html(g.top_p0, g.current_p0, accent, 'p0', g.key)}
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span>
+            <span class="nmr-lb"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend @01:15 (15 วัน)</span><span id="p0-min-${g.key}" style="display:contents;"></span></span>
             <span id="p0-trend-num-${g.key}" style="font-size:15px; font-weight:800; color:${accent}; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-${g.key}"></canvas></div>
-          <div id="p0-min-${g.key}" style="margin-top:6px;"></div>
         </div>
       </div>`;
     }).join('');
@@ -3086,7 +3085,7 @@ async function loadP0SnapshotComparison(prefix) {
 const p0TrendCharts = {};
 let cachedP0DailyTrendData = null;
 
-function renderP0Sparkline(key, accent, labels, series, idPrefix, minVal) {
+function renderP0Sparkline(key, accent, labels, series, idPrefix) {
   idPrefix = idPrefix || 'p0-trend'; // default keeps the existing Over SLA cards exactly as they were; 'tp-trend' is the Total Pending row
   const canvas = document.getElementById(idPrefix + '-' + key);
   const numEl = document.getElementById(idPrefix + '-num-' + key);
@@ -3106,10 +3105,7 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix, minVal) {
         data: series, borderColor: accent, backgroundColor: accent + '33',
         fill: true, tension: 0.35, spanGaps: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2,
         pointBackgroundColor: accent, pointBorderColor: '#fff', pointBorderWidth: 1,
-      }].concat(minVal != null ? [{
-        data: labels.map(() => minVal), borderColor: '#16a34a', borderWidth: 1.4, borderDash: [5, 3], pointRadius: 0, pointHoverRadius: 0,
-        fill: false, tension: 0, datalabels: { display: false },
-      }] : []),
+      }],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -3120,7 +3116,7 @@ function renderP0Sparkline(key, accent, labels, series, idPrefix, minVal) {
           align: 'top', anchor: 'end', offset: 4, font: { size: 9, weight: '600' }, color: accent,
           formatter: (value) => value,
         },
-        tooltip: { filter: (it) => it.datasetIndex === 0, callbacks: { title: (items) => labels[items[0].dataIndex] } } },
+        tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex] } } },
       scales: { x: { display: false }, y: { display: false, beginAtZero: true } },
       elements: { line: { capBezierPoints: true } },
     },
@@ -3141,8 +3137,7 @@ window.renderP0TotalTrend = function renderP0TotalTrend() {
     });
     return sum;
   });
-  const mt = nocMinRec(data, 'p0', 'TOTAL');
-  renderP0Sparkline('TOTAL', '#B23A3A', labels, totalSeries, undefined, mt ? mt.min : null);
+  renderP0Sparkline('TOTAL', '#B23A3A', labels, totalSeries);
   try { nocMinFillP0(data); } catch (e) { console.error('P0 min record badge failed', e); }
 };
 
@@ -3154,8 +3149,7 @@ async function loadP0DailyTrendSparklines(accents, groups) {
     cachedP0DailyTrendData = data;
     const labels = data.dates.map(d => d.slice(5).replace('-', '/')); // "2026-08-19" -> "08/19"
     groups.forEach((g, i) => {
-      const mr = nocMinRec(data, 'p0', g.key);
-      renderP0Sparkline(g.key, accents[i % accents.length], labels, data.series[g.key] || [], undefined, mr ? mr.min : null);
+      renderP0Sparkline(g.key, accents[i % accents.length], labels, data.series[g.key] || []);
     });
     renderP0TotalTrend();
   } catch (e) {
@@ -4284,7 +4278,7 @@ function tpAgingFg(c) {
   const n = parseInt(m[1], 16), lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return lum < 0.6 ? '#fff' : '#1c2a3a';
 }
-function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals, minVal) {
+function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals) {
   // Leading days with no data are dropped so the bars fill the whole card width.
   const st0 = dates.findIndex((_, d) => totals[d] != null || bySeg[order[0]][d] != null);
   if (st0 > 0) { dates = dates.slice(st0); totals = totals.slice(st0); order.forEach(k => { bySeg[k] = bySeg[k].slice(st0); }); }
@@ -4312,7 +4306,6 @@ function tpAgingBarsSvg(dates, bySeg, order, colorOf, totals, minVal) {
   });
   const lp = dates.map((_, d) => tops[d] == null ? null : `${x(d)},${y(tops[d]) - 1}`).filter(Boolean);
   if (lp.length > 1) s += `<polyline points="${lp.join(' ')}" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.3" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`;
-  if (minVal != null && minVal <= mx) s += `<line x1="${L}" x2="${W - R}" y1="${y(minVal)}" y2="${y(minVal)}" stroke="#16a34a" stroke-width="1.4" stroke-dasharray="5 3" vector-effect="non-scaling-stroke"><title>ต่ำสุด ${minVal}</title></line>`;
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block; overflow:visible; color:var(--text);" role="img" aria-label="Aging stack ${n} วัน">${s}</svg>`;
 }
 // Lowest @01:15 count since min_record.START (badge under each card's chart). Records come with
@@ -4326,7 +4319,7 @@ function nocMinBadgeHtml(data, row, key) {
   if (!rec || rec.min == null) return '';
   const dates = (data && data.dates) || [], isNew = rec.date === dates[dates.length - 1];
   const tip = 'Lowest @01:15 since ' + nocMinDate((data.min_record && data.min_record.start) || '') + (isNew ? ' · new low today' : '');
-  return `<div class="nmr-row"><span class="nmr${isNew ? ' new' : ''}" tabindex="0" aria-label="${tip}: ${rec.min} on ${nocMinDate(rec.date)}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="flex:none"><path d="M6 10 2 4h8z" fill="currentColor"/></svg>${isNew ? 'New ' : ''}Lowest ${rec.min} <span class="nmr-d">: ${nocMinDate(rec.date)}</span><span class="nmr-i" aria-hidden="true">i</span><span class="nmr-tip" role="tooltip">${tip}</span></span></div>`;
+  return `<span class="nmr${isNew ? ' new' : ''}" tabindex="0" aria-label="${tip}: ${rec.min} on ${nocMinDate(rec.date)}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" style="flex:none"><path d="M6 10 2 4h8z" fill="currentColor"/></svg>${isNew ? 'New ' : ''}Lowest ${rec.min} <span class="nmr-d">: @${nocMinDate(rec.date)}</span><span class="nmr-i" aria-hidden="true">i</span><span class="nmr-tip" role="tooltip">${tip}</span></span>`;
 }
 function nocMinFillP0(data) {
   if (!data || !data.series) return;
@@ -4361,11 +4354,10 @@ function renderTotalPendingAging(data, totalSeries) {
     const box = document.getElementById('tp-aging-' + key);
     if (!box) return;
     const totals = key === 'TOTAL' ? totalSeries : (data.series_total[key] || []);
-    const mrec = nocMinRec(data, 'pending', key);
-    const svg = tpAgingBarsSvg(data.dates, bySegFor(key), order, colorOf, totals, mrec ? mrec.min : null);
+    const svg = tpAgingBarsSvg(data.dates, bySegFor(key), order, colorOf, totals);
     if (!svg) { box.style.display = 'none'; return; }
     any.push(key);
-    box.innerHTML = `<div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${(data.dates.length - Math.max(0, data.dates.findIndex((_, d) => totalSeries[d] != null)))} วัน)</span></div>${nocMinBadgeHtml(data, 'pending', key)}${svg}`;
+    box.innerHTML = `<div class="nmr-lb" style="margin-bottom:6px;"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Aging @01:15 (${(data.dates.length - Math.max(0, data.dates.findIndex((_, d) => totalSeries[d] != null)))} วัน)</span>${nocMinBadgeHtml(data, 'pending', key)}</div>${svg}`;
     box.style.display = 'block';
   });
   if (legend) {
@@ -8996,11 +8988,10 @@ function renderPivot(ft) {
         <div id="p0-total-top5">${window.p0BigTop5Html ? window.p0BigTop5Html(cachedSnapshotData) : ''}</div>
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border2);">
           <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; gap:6px;">
-            <span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span>
+            <span class="nmr-lb"><span style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;">Trend รวมทุกกลุ่ม @01:15 (15 วัน)</span><span id="p0-min-TOTAL" style="display:contents;"></span></span>
             <span id="p0-trend-num-TOTAL" style="font-size:15px; font-weight:800; color:#B23A3A; white-space:nowrap;">…</span>
           </div>
           <div style="position:relative; height:56px; width:100%;"><canvas id="p0-trend-TOTAL"></canvas></div>
-          <div id="p0-min-TOTAL" style="margin-top:6px;"></div>
         </div>
       </div>`;
 
