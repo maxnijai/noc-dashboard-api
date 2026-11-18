@@ -3669,6 +3669,11 @@ def api_p0_daily_trend():
     try:
         drive_service, gs_client = get_drive_and_sheets_clients()
         data = build_p0_daily_trend(gs_client, drive_service, days=15)
+        try:
+            import min_record
+            data["min_record"] = min_record.update(gs_client, data)
+        except Exception:
+            log.exception("min_record update failed")
         return jsonify(data)
     except Exception as e:
         log.exception("p0-daily-trend API failed")
