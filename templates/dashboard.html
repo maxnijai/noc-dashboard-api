@@ -9614,9 +9614,7 @@ function renderPivot(ft) {
       p0lnPack.push({ name: b.bk[1], color: b.bk[2], sub: b.bt.length ? b.bt.length + ' ใบ' + (c.wait ? ' · ❌ ' + c.wait : '') : 'ไม่มีใบค้าง', cv: p0lnBmImage(b, now), file: 'P0_' + (P0LN_SHORT[b.bk[0]] || 'BM') + '_' + now.file + '.png', text: p0lnBmText(b, now) });
     });
     box.innerHTML = ''; p0lnPack.forEach(it => box.appendChild(p0lnSection(it)));
-    const imgs = p0lnPack.filter(it => it.cv);
-    imgs.forEach((it, i) => setTimeout(() => p0lnSaveCv(it.cv, it.file), i * 600));
-    p0lnStatusMsg('✓ บันทึกภาพ ' + imgs.length + ' ไฟล์ · คัดลอกข้อความทีละ Bookmark');
+    p0lnStatusMsg('พร้อมแล้ว · คัดลอกภาพ / ข้อความทีละ Bookmark');
   });
   el('p0-line-save-all').addEventListener('click', () => { const imgs = p0lnPack.filter(it => it.cv); imgs.forEach((it, i) => setTimeout(() => p0lnSaveCv(it.cv, it.file), i * 600)); p0lnStatusMsg('บันทึกภาพ ' + imgs.length + ' ไฟล์'); });
 
