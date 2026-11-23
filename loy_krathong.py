@@ -14,7 +14,7 @@ Field-team status = Mateline Status (OWS GGS), today-only rule, same as the Focu
 import logging
 import re
 
-from pending_ticket import fetch_live_rows, load_work_log, _dd_daily_extras, _safe_str, _exclusive_bookmark_label
+from pending_ticket import fetch_live_rows, load_work_log, _dd_daily_extras, _safe_str
 from pending_trend import bangkok_now
 from mateline_status import build_mateline_status_lookup
 from realtime_monitor import _parse_dt, _classify_priority
@@ -185,7 +185,9 @@ def build_response(gs_client):
         tickets.append({
             "id": tid, "sites": sites, "sev": sev,
             "pr": _classify_priority(r.get("TARGETFINISH"), now_dt),
-            "bm": _exclusive_bookmark_label(r.get("Bookmark")),
+            # the sheet's own Bookmark, as is: _exclusive_bookmark_label() would turn every unnamed Bookmark into
+            # "NSA3-4", which is wrong for an SA ticket whose Bookmark is something else (or blank)
+            "bm": _safe_str(r.get("Bookmark")).strip() or "(ไม่มี Bookmark)",
             "ciname": _safe_str(r.get("CINAME")), "subject": _safe_str(r.get("SUBJECT")),
             "created": _safe_str(r.get("CREATIONDATE")), "target": _safe_str(r.get("TARGETFINISH")),
             "left": round((target - now_dt).total_seconds() / 3600, 1) if target else None,
