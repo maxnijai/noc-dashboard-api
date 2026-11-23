@@ -2593,22 +2593,22 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   <!-- LOY KRATHONG 2026 SITE SUPPORT MONITOR (event sites x SA1-4 pending tickets x OWS GGS team status) -->
   <div class="page" id="page-loykrathong">
     <div class="lk-hero">
-      <div><div class="lk-h1">🏮 Loy Krathong 2026 · Site Support Monitor</div><div class="lk-hs" id="lk-sub">UPC1 · R01-North Upper · กำลังโหลด...</div></div>
+      <div><div class="lk-h1">🏮 Loy Krathong 2026 · Site Support Monitor</div><div class="lk-hs" id="lk-sub">NOR1 (UPC1) + NOR2 (U2) · กำลังโหลด...</div></div>
       <div class="lk-cd"><div><b id="lk-live">-</b><span>Event กำลังจัด</span></div><div><b id="lk-night">24 พ.ย.</b><span>คืนลอยกระทง</span></div><div><b id="lk-day">-</b><span>ถึงวันงานหลัก</span></div><button class="lk-chip" id="lk-refresh" style="align-self:center">↻ Refresh</button></div>
     </div>
     <div id="lk-err" style="display:none;color:var(--red);font-size:12px;margin:8px 0;"></div>
     <div class="lk-kpis" id="lk-kpis"></div>
-    <div class="lk-bar" id="lk-filters"><span class="lk-lab">จังหวัด</span><span id="lk-f-prov"></span><span class="lk-lab" style="margin-left:8px">สถานะ</span><span id="lk-f-st"></span><span style="flex:1"></span><button class="lk-chip" id="lk-copy">คัดลอกสรุปส่ง LINE</button></div>
+    <div class="lk-bar" id="lk-filters"><span class="lk-lab">Region</span><span id="lk-f-rg"></span><span class="lk-lab" style="margin-left:8px">จังหวัด</span><span id="lk-f-prov"></span><span class="lk-lab" style="margin-left:8px">สถานะ</span><span id="lk-f-st"></span><span style="flex:1"></span><button class="lk-chip" id="lk-copy">คัดลอกสรุปส่ง LINE</button></div>
     <div class="lk-grid">
-      <div class="lk-panel"><div class="lk-ph"><b>Event และ Site Serving</b><span>เฉพาะ Ticket SEVERITY SA1-4 · คลิกไซต์เพื่อซูมแผนที่และกรองตาราง</span></div>
-        <div class="lk-leg"><span><i style="background:var(--green-bg);border:1px solid var(--green)"></i>ไม่มี Ticket</span><span><i style="background:#d1453d"></i>❌ ยังไม่เดินทาง</span><span><i style="background:#d98a0b"></i>🚗 เดินทาง</span><span><i style="background:#2f6fd6"></i>🛠️ ถึงไซต์</span><span><i style="background:#2e9e4f"></i>✅ Completed วันนี้</span></div>
+      <div class="lk-panel"><div class="lk-ph"><b>Event และ Site Serving</b><span>Ticket SA1-4 และ NSA1-4 · คลิกไซต์เพื่อซูมแผนที่และกรองตาราง</span></div>
+        <div class="lk-leg"><span><i style="background:var(--green-bg);border:1px solid var(--green)"></i>ไม่มี Ticket</span><b style="font-size:11px">SA1-4 (ไซต์ล่ม):</b><span><i style="background:#d1453d"></i>❌ ยังไม่เดินทาง</span><span><i style="background:#d98a0b"></i>🚗 เดินทาง</span><span><i style="background:#2f6fd6"></i>🛠️ ถึงไซต์</span><span><i style="background:#fde3c8;border:1px solid #f0a35e"></i>NSA1-4 (ไซต์ไม่ล่ม)</span><span><i style="background:#2e9e4f"></i>✅ Completed วันนี้</span></div>
         <div id="lk-events"><div class="lk-empty">กำลังโหลด...</div></div></div>
       <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-        <div class="lk-panel"><div class="lk-ph"><b>แผนที่ไซต์</b><span>📍 เขียว = ปกติ · 📍 แดง = มีเหตุเสีย SA1-4 · คลิกหมุดดูทีม/สถานะ</span></div><div class="lk-mbtn" id="lk-mzoom"></div><div id="lk-map"></div></div>
+        <div class="lk-panel"><div class="lk-ph"><b>แผนที่ไซต์</b><span>📍 เขียว = ปกติ · 📍 แดง = ไซต์ล่ม SA1-4 · 📍 ส้มอ่อน = NSA1-4 · คลิกหมุดดูทีม/สถานะ</span></div><div class="lk-mbtn" id="lk-mzoom"></div><div id="lk-map"></div></div>
         <div class="lk-panel"><div class="lk-ph"><b>สรุปรายจังหวัด</b></div><div id="lk-provsum"></div></div>
       </div>
     </div>
-    <div class="lk-panel" style="margin-top:12px"><div class="lk-ph"><b>Ticket ค้างที่กระทบไซต์งาน (SA1-4)</b><span id="lk-tcount"></span></div><div style="overflow-x:auto"><table class="lk-tb"><thead><tr><th>ทีม · Mateline Status (OWS GGS)</th><th>Ticket</th><th>Site</th><th>Event</th><th>Severity</th><th>Pri</th><th>Bookmark</th><th>Created</th><th>SLA</th><th>Detail / Plan</th></tr></thead><tbody id="lk-tb"></tbody></table></div></div>
+    <div class="lk-panel" style="margin-top:12px"><div class="lk-ph"><b>Ticket ค้างที่กระทบไซต์งาน (SA1-4 · NSA1-4)</b><span id="lk-tcount"></span></div><div style="overflow-x:auto"><table class="lk-tb"><thead><tr><th>ทีม · Mateline Status (OWS GGS)</th><th>Ticket</th><th>Site</th><th>Event</th><th>Severity</th><th>Subject</th><th>Pri</th><th>Bookmark</th><th>Created</th><th>SLA</th><th>Detail / Plan</th></tr></thead><tbody id="lk-tb"></tbody></table></div></div>
   </div>
   <style>
   #page-loykrathong{font-size:13px}
@@ -2629,18 +2629,19 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .lk-dt{font-size:11px;color:var(--text3);white-space:nowrap}
   .lk-sites{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .lk-st{font-family:'IBM Plex Mono',monospace;font-size:11px;border-radius:4px;padding:2px 7px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap}
-  .lk-st.ok{border-color:rgba(46,158,79,.45);color:var(--green);background:var(--green-bg)}.lk-st.wait{border-color:#d1453d;color:#fff;background:#d1453d}.lk-st.dep{border-color:#d98a0b;color:#fff;background:#d98a0b}.lk-st.arr{border-color:#2f6fd6;color:#fff;background:#2f6fd6}.lk-st.done{border-color:#2e9e4f;color:#fff;background:#2e9e4f}.lk-st.sel{outline:2px solid var(--text);outline-offset:1px}
+  .lk-st.ok{border-color:rgba(46,158,79,.45);color:var(--green);background:var(--green-bg)}.lk-st.wait{border-color:#d1453d;color:#fff;background:#d1453d}.lk-st.dep{border-color:#d98a0b;color:#fff;background:#d98a0b}.lk-st.arr{border-color:#2f6fd6;color:#fff;background:#2f6fd6}.lk-st.done{border-color:#2e9e4f;color:#fff;background:#2e9e4f}.lk-st.nsa{border-color:#f0a35e;color:#9a4a0b;background:#fde3c8}.lk-st.sel{outline:2px solid var(--text);outline-offset:1px}
   .lk-tk{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-top:6px;padding:5px 8px;border-radius:4px;background:var(--bg2);border-left:3px solid var(--tc);font-size:12px;color:var(--text2)}.lk-tk b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text)}
   .lk-mbtn{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
   #lk-map{height:480px;border-radius:var(--r);border:1px solid var(--border)}
   .lk-pin{position:relative}.lk-pin svg{display:block;position:relative;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
+  .lk-sev-nsa{display:inline-block;padding:0 6px;border-radius:4px;background:#fde3c8;color:#9a4a0b}.lk-sev-sa{display:inline-block;padding:0 6px;border-radius:4px;background:#d1453d;color:#fff}
   .lk-pin.bad::before{content:'';position:absolute;left:50%;bottom:-4px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:rgba(209,69,61,.45);animation:lkpulse 1.6s ease-out infinite}
   @keyframes lkpulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(2.2);opacity:0}}
   @media (prefers-reduced-motion:reduce){.lk-pin.bad::before{animation:none;opacity:.4}}
   .lk-plab{font-size:12px;font-weight:700;color:#52657a;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff}
   .lk-pp .m{font-family:'IBM Plex Mono',monospace}.lk-pp .r{margin-top:5px;padding-top:5px;border-top:1px solid rgba(128,128,128,.3)}
-  .lk-tb{border-collapse:collapse;width:100%;min-width:980px;font-size:12.5px}.lk-tb th{background:var(--bg3);color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap}.lk-tb td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}.lk-tb td.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;white-space:nowrap}
-  .lk-ps{border-collapse:collapse;width:100%;font-size:12.5px}.lk-ps th{color:var(--text3);font-size:11px;text-align:left;padding:6px;border-bottom:1px solid var(--border)}.lk-ps td{padding:6px;border-bottom:1px solid var(--border)}
+  .lk-tb{border-collapse:collapse;width:100%;min-width:1200px;font-size:12.5px}.lk-tb th{background:var(--bg3);color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap}.lk-tb td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}.lk-tb td.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;white-space:nowrap}
+  .lk-ps{border-collapse:collapse;width:100%;font-size:12.5px}.lk-ps th{color:var(--text3);font-size:11px;text-align:left;padding:6px;border-bottom:1px solid var(--border)}.lk-ps td{padding:6px;border-bottom:1px solid var(--border)}.lk-ps tfoot td{border-top:2px solid var(--border2);border-bottom:none}
   .lk-empty{color:var(--text3);text-align:center;padding:16px}
   </style>
   <div class="page" id="page-floodnan">
@@ -19728,63 +19729,81 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
 <script>
 // ===== LOY KRATHONG 2026 MONITOR (begin) =====
 (function () {
-  const PROV = { CMI: 'เชียงใหม่', LPG: 'ลำปาง', MHS: 'แม่ฮ่องสอน', LPN: 'ลำพูน', CRI: 'เชียงราย', PYO: 'พะเยา' };
-  const PC = { CMI: '#2f6fd6', LPG: '#7c5cd6', MHS: '#0891b2', LPN: '#b45309', CRI: '#d1453d', PYO: '#2e9e4f' };
+  const PROV = { CMI: 'เชียงใหม่', LPG: 'ลำปาง', MHS: 'แม่ฮ่องสอน', LPN: 'ลำพูน', CRI: 'เชียงราย', PYO: 'พะเยา',
+    PSN: 'พิษณุโลก', SKT: 'สุโขทัย', KPP: 'กำแพงเพชร', UTR: 'อุตรดิตถ์', PCB: 'เพชรบูรณ์', TAK: 'ตาก', PCT: 'พิจิตร' };
+  const PC = { CMI: '#2f6fd6', LPG: '#7c5cd6', MHS: '#0891b2', LPN: '#b45309', CRI: '#d1453d', PYO: '#2e9e4f',
+    PSN: '#2563eb', SKT: '#9333ea', KPP: '#0d9488', UTR: '#c2410c', PCB: '#4d7c0f', TAK: '#be185d', PCT: '#0369a1' };
+  const LAB = { CMI: [18.79, 98.98], LPG: [18.29, 99.5], MHS: [18.3, 97.95], LPN: [18.58, 99.01], CRI: [19.91, 99.83], PYO: [19.17, 99.9],
+    PSN: [16.82, 100.26], SKT: [17.01, 99.82], KPP: [16.48, 99.52], UTR: [17.62, 100.1], PCB: [16.42, 101.16], TAK: [16.87, 99.13], PCT: [16.44, 100.35] };
   const ST = { wait: ['❌', 'ยังไม่เดินทาง', '#d1453d'], dep: ['🚗', 'เดินทาง', '#d98a0b'], arr: ['🛠️', 'ถึงไซต์', '#2f6fd6'], done: ['✅', 'Completed', '#2e9e4f'] };
+  const NSA_C = '#e8873a';
   const RANK = { wait: 0, dep: 1, arr: 2, done: 3 };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const evProv = n => /PYO/.test(n) ? 'PYO' : /Chiang Rai/.test(n) ? 'CRI' : /LPG/.test(n) ? 'LPG' : /MHS/.test(n) ? 'MHS' : /Lamphun/.test(n) ? 'LPN' : 'CMI';
   const evShort = n => {
     if (/^Loy Krathong PYO$/.test(n)) return 'Loy Krathong พะเยา';
     if (/^Loy Krathong Chiang Rai$/.test(n)) return 'Loy Krathong เชียงราย';
-    return n.replace(/^2026_/, '').replace(/^(CMI_|LPG_)?Loy Krathong[ _\-]*(CMI-|MHS-|Chiang Mai |Chiangmai |Lamphun )?/, '').replace(/^YI PENG-/, 'Yi Peng · ').replace(/^_/, '') || n;
+    return n.replace(/^งานประเพณีลอยกระทง 2569\s*/, 'ลอยกระทง ').replace(/^2026_/, '').replace(/^(CMI_|LPG_)?Loy Krathong[ _\-]*(CMI-|MHS-|Chiang Mai |Chiangmai |Lamphun )?/, '').replace(/^YI PENG-/, 'Yi Peng · ').replace(/^_/, '') || n;
   };
   const stOf = s => /^(Completed|Closed)/i.test(s) ? 'done' : /^Arrived/i.test(s) ? 'arr' : /^Departed/i.test(s) ? 'dep' : 'wait';
+  const isNsa = t => /^NSA/i.test(t.sev);
   const day = s => new Date(s + 'T00:00:00+07:00');
   const fmtD = s => { const d = day(s); return d.getDate() + '/' + (d.getMonth() + 1); };
   const slaTxt = t => t.left == null ? '' : t.left < 0 ? 'เกิน ' + Math.round(-t.left) + ' ชม.' : 'เหลือ ' + Math.round(t.left) + ' ชม.';
-  let D = null, evs = {}, order = [], siteEv = {}, siteLL = {}, bySite = {}, F = { prov: 'ALL', st: 'ALL', site: '' }, LM = null, LG = null, allPts = [], timer = null, busy = false;
+  let D = null, evs = {}, order = [], siteEv = {}, siteLL = {}, bySite = {}, F = { rg: 'ALL', prov: 'ALL', st: 'ALL', site: '' }, LM = null, LG = null, allPts = [], busy = false;
   const now = () => D ? new Date(D.generated_at.replace(' ', 'T') + ':00+07:00') : new Date();
   const live = e => now() >= day(e.s) && now() < new Date(day(e.e).getTime() + 864e5);
   const ended = e => now() >= new Date(day(e.e).getTime() + 864e5);
-  function siteSt(s) { const a = bySite[s]; if (!a) return 'ok'; return a.slice().sort((x, y) => RANK[x.st] - RANK[y.st])[0].st; }
-  const isBad = s => { const st = siteSt(s); return st !== 'ok' && st !== 'done'; };
+  // site level: 'sa' = open SA1-4 (site down, red) > 'nsa' = open NSA1-4 only (light orange) > 'done' = only Completed today > 'ok'
+  function siteLvl(s) {
+    const a = bySite[s]; if (!a) return 'ok';
+    const open = a.filter(t => t.st !== 'done');
+    if (open.some(t => !isNsa(t))) return 'sa';
+    if (open.length) return 'nsa';
+    return 'done';
+  }
+  function siteSt(s) { const lvl = siteLvl(s), a = (bySite[s] || []).filter(t => lvl !== 'sa' || !isNsa(t)); if (!a.length) return 'ok'; return a.slice().sort((x, y) => RANK[x.st] - RANK[y.st])[0].st; }
+  const isBad = s => siteLvl(s) === 'sa';
+  const isWarn = s => siteLvl(s) === 'nsa';
+  function chipCls(s) { const l = siteLvl(s); return l === 'sa' ? siteSt(s) : l; }
   function prep(d) {
     D = d; evs = {}; order = []; siteEv = {}; siteLL = {}; bySite = {};
     d.sites.forEach(r => {
-      if (!evs[r.event]) { evs[r.event] = { n: r.event, s: r.start, e: r.end, p: evProv(r.event), sites: [] }; order.push(r.event); }
+      if (!evs[r.event]) { evs[r.event] = { n: r.event, s: r.start, e: r.end, p: r.prov, rg: r.region, sites: [] }; order.push(r.event); }
       if (!evs[r.event].sites.includes(r.site)) evs[r.event].sites.push(r.site);
       (siteEv[r.site] = siteEv[r.site] || []); if (!siteEv[r.site].includes(r.event)) siteEv[r.site].push(r.event);
-      if (!siteLL[r.site]) siteLL[r.site] = [r.lat, r.lon, evProv(r.event)];
+      if (!siteLL[r.site]) siteLL[r.site] = [r.lat, r.lon, r.prov, r.region];
     });
     d.tickets.forEach(t => { t.st = stOf(t.ows); t.sites.forEach(s => (bySite[s] = bySite[s] || []).push(t)); });
   }
-  function pinSvg(bad, done) {
-    const c = bad ? '#d1453d' : '#2e9e4f', w = bad ? 34 : 24, h = Math.round(w * 1.35);
-    return `<svg width="${w}" height="${h}" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 1C6 1 1.5 5.4 1.5 11.2 1.5 19 12 31 12 31s10.5-12 10.5-19.8C22.5 5.4 18 1 12 1z" fill="${c}" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="11.2" r="4.6" fill="#fff"/>${bad ? `<text x="12" y="14.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="${c}">!</text>` : done ? `<path d="M9.6 11.3l1.7 1.7 3.2-3.4" stroke="${c}" stroke-width="1.6" fill="none"/>` : ''}</svg>`;
+  function pinSvg(lvl) {
+    const c = lvl === 'sa' ? '#d1453d' : lvl === 'nsa' ? NSA_C : '#2e9e4f', w = lvl === 'sa' ? 34 : lvl === 'nsa' ? 30 : 24, h = Math.round(w * 1.35);
+    const mark = lvl === 'sa' ? `<text x="12" y="14.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="${c}">!</text>` : lvl === 'nsa' ? `<text x="12" y="13.6" text-anchor="middle" font-size="6.5" font-weight="800" fill="${c}">N</text>` : lvl === 'done' ? `<path d="M9.6 11.3l1.7 1.7 3.2-3.4" stroke="${c}" stroke-width="1.6" fill="none"/>` : '';
+    return [`<svg width="${w}" height="${h}" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 1C6 1 1.5 5.4 1.5 11.2 1.5 19 12 31 12 31s10.5-12 10.5-19.8C22.5 5.4 18 1 12 1z" fill="${c}" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="11.2" r="4.6" fill="#fff"/>${mark}</svg>`, w, h];
   }
+  const sevH = t => `<span class="${isNsa(t) ? 'lk-sev-nsa' : 'lk-sev-sa'}">${esc(t.sev)}</span>`;
   function tkLine(t) { const c = ST[t.st]; return `<b style="color:${c[2]}">${c[0]} ${esc(t.ows)}${t.at ? ' ' + esc(t.at) : ''}</b> · ทีม <b>${esc(t.team || '-')}</b>`; }
   function drawMap(vs) {
     if (!window.L) return;
     if (!LM) {
       LM = L.map('lk-map', { zoomControl: true });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(LM);
-      const lab = { CMI: [18.79, 98.98], LPG: [18.29, 99.5], MHS: [18.3, 97.95], LPN: [18.58, 99.01], CRI: [19.91, 99.83], PYO: [19.17, 99.9] };
-      Object.keys(lab).forEach(k => L.marker(lab[k], { interactive: false, icon: L.divIcon({ className: '', html: '<div class="lk-plab">' + PROV[k] + '</div>', iconSize: [0, 0], iconAnchor: [-14, 26] }) }).addTo(LM));
+      Object.keys(LAB).forEach(k => L.marker(LAB[k], { interactive: false, icon: L.divIcon({ className: '', html: '<div class="lk-plab">' + PROV[k] + '</div>', iconSize: [0, 0], iconAnchor: [-14, 26] }) }).addTo(LM));
       LG = L.layerGroup().addTo(LM);
       const z = document.getElementById('lk-mzoom');
-      z.innerHTML = [['ALL', 'ภาพรวม'], ['BAD', '⚠ ไซต์มีเหตุเสีย']].concat(Object.keys(PROV).map(k => [k, PROV[k]])).map(o => `<button class="lk-chip" data-z="${o[0]}">${o[1]}</button>`).join(' ');
+      z.innerHTML = [['ALL', 'ภาพรวม'], ['BAD', '⚠ ไซต์ล่ม SA'], ['WARN', 'NSA'], ['R:NOR1', 'NOR1'], ['R:NOR2', 'NOR2']].map(o => `<button class="lk-chip" data-z="${o[0]}">${o[1]}</button>`).join(' ');
       z.addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (b) zoomTo(b.dataset.z); });
     }
     LG.clearLayers(); allPts = [];
-    vs.slice().sort((a, b) => isBad(a) - isBad(b)).forEach(sid => {
+    const lv = { ok: 0, done: 1, nsa: 2, sa: 3 };
+    vs.slice().sort((a, b) => lv[siteLvl(a)] - lv[siteLvl(b)]).forEach(sid => {
       const ll = siteLL[sid]; if (!ll || ll[0] == null) return;
-      const st = siteSt(sid), bad = isBad(sid), w = bad ? 34 : 24, h = Math.round(w * 1.35), pt = [ll[0], ll[1]];
+      const lvl = siteLvl(sid), st = siteSt(sid), pin = pinSvg(lvl), w = pin[1], h = pin[2], pt = [ll[0], ll[1]];
       allPts.push(pt);
-      const html = `<div class="lk-pp"><b class="m">${esc(sid)}</b> · ${PROV[ll[2]]}<div>${siteEv[sid].map(x => esc(evShort(x))).join('<br>')}</div>` +
-        ((bySite[sid] || []).map(t => `<div class="r">${tkLine(t)}<br><span class="m">${esc(t.id)}</span> · ${esc(t.sev)} · ${esc(t.pr)} · ${slaTxt(t)}${t.detail ? '<br>' + esc(t.detail) : ''}</div>`).join('') || '<div class="r" style="color:#2e9e4f">✅ ไม่มี Ticket SA1-4 ค้าง</div>') + '</div>';
-      const m = L.marker(pt, { zIndexOffset: bad ? 1000 : 0, riseOnHover: true, icon: L.divIcon({ className: '', html: `<div class="lk-pin${bad ? ' bad' : ''}">${pinSvg(bad, st === 'done')}</div>`, iconSize: [w, h], iconAnchor: [w / 2, h], popupAnchor: [0, -h + 4] }) })
-        .bindTooltip(sid + (bySite[sid] ? ' · ' + ST[st][0] + ' ' + bySite[sid][0].ows : ''), { direction: 'top', offset: [0, -h] }).bindPopup(html, { maxWidth: 320 }).addTo(LG);
+      const html = `<div class="lk-pp"><b class="m">${esc(sid)}</b> · ${PROV[ll[2]] || ll[2]} · ${ll[3]}<div>${siteEv[sid].map(x => esc(evShort(x))).join('<br>')}</div>` +
+        ((bySite[sid] || []).map(t => `<div class="r">${tkLine(t)}<br><span class="m">${esc(t.id)}</span> · ${sevH(t)} · ${esc(t.pr)} · ${slaTxt(t)}${t.subject ? '<br>' + esc(t.subject) : ''}${t.detail ? '<br><i>' + esc(t.detail) + '</i>' : ''}</div>`).join('') || '<div class="r" style="color:#2e9e4f">✅ ไม่มี Ticket ค้าง</div>') + '</div>';
+      const first = (bySite[sid] || []).filter(t => lvl !== 'sa' || !isNsa(t))[0];
+      const m = L.marker(pt, { zIndexOffset: lv[lvl] * 500, riseOnHover: true, icon: L.divIcon({ className: '', html: `<div class="lk-pin${lvl === 'sa' ? ' bad' : ''}">${pin[0]}</div>`, iconSize: [w, h], iconAnchor: [w / 2, h], popupAnchor: [0, -h + 4] }) })
+        .bindTooltip(sid + (first ? ' · ' + first.sev + ' ' + ST[st][0] + ' ' + first.ows : ''), { direction: 'top', offset: [0, -h] }).bindPopup(html, { maxWidth: 340 }).addTo(LG);
       m._lkSite = sid;
     });
     if (!drawMap.fit && allPts.length) { LM.fitBounds(allPts, { padding: [30, 30] }); drawMap.fit = 1; }
@@ -19793,43 +19812,57 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
   function zoomTo(k) {
     if (!LM) return;
     if (k === 'ALL') { if (allPts.length) LM.fitBounds(allPts, { padding: [30, 30] }); return; }
-    const pick = k === 'BAD' ? Object.keys(siteLL).filter(isBad) : Object.keys(siteLL).filter(s => siteLL[s][2] === k);
+    const pick = k === 'BAD' ? Object.keys(siteLL).filter(isBad) : k === 'WARN' ? Object.keys(siteLL).filter(isWarn) : k.startsWith('R:') ? Object.keys(siteLL).filter(s => siteLL[s][3] === k.slice(2)) : Object.keys(siteLL).filter(s => siteLL[s][2] === k);
     const pts = pick.map(s => [siteLL[s][0], siteLL[s][1]]);
     if (pts.length) LM.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
   }
   function chips(id, list, key) { document.getElementById(id).innerHTML = list.map(o => `<button class="lk-chip${F[key] === o[0] ? ' on' : ''}" data-k="${key}" data-v="${o[0]}">${o[1]}</button>`).join(' '); }
-  function drawChips() { chips('lk-f-prov', [['ALL', 'ทั้งหมด']].concat(Object.keys(PROV).map(k => [k, PROV[k]])), 'prov'); chips('lk-f-st', [['ALL', 'ทุกไซต์'], ['bad', 'เฉพาะมีปัญหา'], ['ok', 'ปกติ']], 'st'); }
+  function drawChips() {
+    chips('lk-f-rg', [['ALL', 'ทั้งหมด'], ['NOR1', 'NOR1'], ['NOR2', 'NOR2']], 'rg');
+    const provs = [...new Set(order.map(k => evs[k]).filter(e => F.rg === 'ALL' || e.rg === F.rg).map(e => e.p))];
+    chips('lk-f-prov', [['ALL', 'ทั้งหมด']].concat(provs.map(k => [k, PROV[k] || k])), 'prov');
+    chips('lk-f-st', [['ALL', 'ทุกไซต์'], ['bad', 'ไซต์ล่ม SA'], ['warn', 'NSA'], ['ok', 'ปกติ']], 'st');
+  }
   function render() {
     if (!D) return;
-    const visEv = order.map(k => evs[k]).filter(e => F.prov === 'ALL' || e.p === F.prov);
+    const visEv = order.map(k => evs[k]).filter(e => (F.rg === 'ALL' || e.rg === F.rg) && (F.prov === 'ALL' || e.p === F.prov));
     const vSites = {}; visEv.forEach(e => e.sites.forEach(s => { vSites[s] = 1; }));
-    const vs = Object.keys(vSites), hit = vs.filter(isBad);
-    const tks = D.tickets.filter(t => t.sites.some(s => vSites[s])), c = { wait: 0, dep: 0, arr: 0, done: 0 }; tks.forEach(t => c[t.st]++);
-    const open = tks.filter(t => t.st !== 'done'), liveN = order.filter(k => live(evs[k])).length;
-    document.getElementById('lk-sub').textContent = 'UPC1 · R01-North Upper · ช่วงดูแล ' + fmtD(D.season[0]) + ' – ' + fmtD(D.season[1]) + ' · เฉพาะ SEVERITY SA1-4 · อัปเดต ' + D.generated_at.slice(11) + ' · รีเฟรชอัตโนมัติทุก 5 นาที';
-    document.getElementById('lk-live').textContent = liveN + ' / ' + order.length;
+    const vs = Object.keys(vSites), hit = vs.filter(isBad), warn = vs.filter(isWarn);
+    const tks = D.tickets.filter(t => t.sites.some(s => vSites[s])), c = { wait: 0, dep: 0, arr: 0, done: 0 };
+    tks.filter(t => !isNsa(t)).forEach(t => c[t.st]++);
+    const open = tks.filter(t => t.st !== 'done'), openSa = open.filter(t => !isNsa(t)), openNsa = open.filter(isNsa), liveN = visEv.filter(live).length;
+    document.getElementById('lk-sub').textContent = 'NOR1 (UPC1) + NOR2 (U2) · ช่วงดูแล ' + fmtD(D.season[0]) + ' – ' + fmtD(D.season[1]) + ' · SA1-4 + NSA1-4 · อัปเดต ' + D.generated_at.slice(11) + ' · รีเฟรชอัตโนมัติทุก 5 นาที';
+    document.getElementById('lk-live').textContent = liveN + ' / ' + visEv.length;
     const dd = Math.ceil((day(D.main_night) - day(D.today)) / 864e5);
     document.getElementById('lk-day').textContent = dd > 0 ? dd + ' วัน' : dd === 0 ? 'คืนนี้' : 'ผ่านแล้ว';
-    const K = [['Event', visEv.length, '#27466f', liveN + ' งานกำลังจัดวันนี้'], ['Site Serving', vs.length, '#2f6fd6', D.sites.length + ' แถวในไฟล์'], ['Site มีเหตุเสีย', hit.length, '#d1453d', Math.round(hit.length / Math.max(1, vs.length) * 100) + '% ของไซต์งาน'], ['Ticket ค้าง (SA1-4)', open.length, '#b45309', 'P0 ' + open.filter(t => t.pr === 'P0').length + ' ใบ'],
-      ['❌ ยังไม่เดินทาง', c.wait, '#d1453d', 'ต้องตามทันที'], ['🚗 เดินทาง', c.dep, '#d98a0b', ''], ['🛠️ ถึงไซต์', c.arr, '#2f6fd6', ''], ['✅ Completed วันนี้', c.done, '#2e9e4f', 'ยังไม่ปิดในระบบ']];
+    const K = [['Event', visEv.length, '#27466f', liveN + ' งานกำลังจัดวันนี้'], ['Site Serving', vs.length, '#2f6fd6', 'NOR1 ' + vs.filter(s => siteLL[s][3] === 'NOR1').length + ' · NOR2 ' + vs.filter(s => siteLL[s][3] === 'NOR2').length],
+      ['Site ล่ม (SA1-4)', hit.length, '#d1453d', 'Ticket ค้าง ' + openSa.length + ' ใบ · P0 ' + openSa.filter(t => t.pr === 'P0').length], ['Site มี NSA1-4', warn.length, NSA_C, 'Ticket ค้าง ' + openNsa.length + ' ใบ · ไซต์ไม่ล่ม'],
+      ['❌ ยังไม่เดินทาง (SA)', c.wait, '#d1453d', 'ต้องตามทันที'], ['🚗 เดินทาง (SA)', c.dep, '#d98a0b', ''], ['🛠️ ถึงไซต์ (SA)', c.arr, '#2f6fd6', ''], ['✅ Completed วันนี้ (SA)', c.done, '#2e9e4f', 'ยังไม่ปิดในระบบ']];
     document.getElementById('lk-kpis').innerHTML = K.map(k => `<div class="lk-k" style="--c:${k[2]}"><div class="t">${k[0]}</div><div class="n">${k[1]}</div><div class="d">${k[3]}</div></div>`).join('');
-    const badN = e => e.sites.filter(isBad).length;
-    document.getElementById('lk-events').innerHTML = visEv.slice().sort((a, b) => badN(b) - badN(a) || (live(b) - live(a)) || (ended(a) - ended(b))).map(e => {
-      const bad = badN(e);
-      const shown = e.sites.filter(s => F.st === 'ALL' || (F.st === 'bad' ? isBad(s) : !isBad(s)));
+    const score = e => e.sites.filter(isBad).length * 100 + e.sites.filter(isWarn).length;
+    document.getElementById('lk-events').innerHTML = visEv.slice().sort((a, b) => score(b) - score(a) || (live(b) - live(a)) || (ended(a) - ended(b))).map(e => {
+      const bad = e.sites.filter(isBad).length, wn = e.sites.filter(isWarn).length;
+      const shown = e.sites.filter(s => F.st === 'ALL' || (F.st === 'bad' ? isBad(s) : F.st === 'warn' ? isWarn(s) : (!isBad(s) && !isWarn(s))));
       if (!shown.length) return '';
       const tag = live(e) ? '<span class="lk-tag lk-live">LIVE</span>' : ended(e) ? '<span class="lk-tag lk-end">จบแล้ว</span>' : '<span class="lk-tag lk-soon">เริ่ม ' + fmtD(e.s) + '</span>';
-      const chipsH = shown.map(s => { const st = siteSt(s), a = bySite[s]; return `<span class="lk-st ${st}${F.site === s ? ' sel' : ''}" data-s="${esc(s)}" title="${esc(s)}${a ? ' · ' + a.length + ' ticket' : ' · ไม่มี ticket'}${siteEv[s].length > 1 ? ' · ใช้ร่วม ' + siteEv[s].length + ' event' : ''}">${esc(s)}${a ? ' ' + ST[st][0] : ''}${siteEv[s].length > 1 ? ' ⧉' : ''}</span>`; }).join('');
-      const tkH = shown.filter(s => bySite[s]).map(s => bySite[s].map(t => { const cc = ST[t.st]; return `<div class="lk-tk" style="--tc:${cc[2]}"><b>${cc[0]} ${esc(s)}</b><span>${esc(t.sev)}</span><span>ทีม ${esc(t.team || '-')}</span><span style="color:${cc[2]};font-weight:700">${esc(t.ows)}${t.at ? ' ' + esc(t.at) : ''}</span><span>${slaTxt(t)}</span></div>`; }).join('')).join('');
-      return `<div class="lk-ev" style="--ec:${bad ? '#d1453d' : 'var(--green)'}"><div class="top"><span class="nm">${esc(evShort(e.n))}</span>${tag}<span class="lk-tag lk-prov">${PROV[e.p]}</span><span class="lk-dt">${fmtD(e.s)} – ${fmtD(e.e)} · ${e.sites.length} ไซต์${bad ? ' · <b style="color:#d1453d">มีเหตุเสีย ' + bad + '</b>' : ''}</span></div><div class="lk-sites">${chipsH}</div>${tkH}</div>`;
+      const chipsH = shown.map(s => { const a = bySite[s]; return `<span class="lk-st ${chipCls(s)}${F.site === s ? ' sel' : ''}" data-s="${esc(s)}" title="${esc(s)}${a ? ' · ' + a.map(t => t.sev).join(', ') : ' · ไม่มี ticket'}${siteEv[s].length > 1 ? ' · ใช้ร่วม ' + siteEv[s].length + ' event' : ''}">${esc(s)}${a ? ' ' + (isWarn(s) ? 'NSA' : ST[siteSt(s)][0]) : ''}${siteEv[s].length > 1 ? ' ⧉' : ''}</span>`; }).join('');
+      const tkH = shown.filter(s => bySite[s]).map(s => bySite[s].map(t => { const cc = ST[t.st], bc = isNsa(t) ? NSA_C : cc[2]; return `<div class="lk-tk" style="--tc:${bc}"><b>${cc[0]} ${esc(s)}</b>${sevH(t)}<span>ทีม ${esc(t.team || '-')}</span><span style="color:${cc[2]};font-weight:700">${esc(t.ows)}${t.at ? ' ' + esc(t.at) : ''}</span><span>${slaTxt(t)}</span></div>`; }).join('')).join('');
+      const ec = bad ? '#d1453d' : wn ? NSA_C : 'var(--green)';
+      return `<div class="lk-ev" style="--ec:${ec}"><div class="top"><span class="nm">${esc(evShort(e.n))}</span>${tag}<span class="lk-tag lk-prov">${e.rg} · ${PROV[e.p] || e.p}</span><span class="lk-dt">${fmtD(e.s)} – ${fmtD(e.e)} · ${e.sites.length} ไซต์${bad ? ' · <b style="color:#d1453d">ล่ม ' + bad + '</b>' : ''}${wn ? ' · <b style="color:' + NSA_C + '">NSA ' + wn + '</b>' : ''}</span></div><div class="lk-sites">${chipsH}</div>${tkH}</div>`;
     }).join('') || '<div class="lk-empty">ไม่มี Event ตามตัวกรอง</div>';
     drawMap(vs);
-    const ps = {}; vs.forEach(s => { const p = siteLL[s][2]; ps[p] = ps[p] || { n: 0, b: 0, t: 0 }; ps[p].n++; if (isBad(s)) ps[p].b++; });
-    open.forEach(t => { const p = (siteLL[t.sites[0]] || [])[2]; if (ps[p]) ps[p].t++; });
-    document.getElementById('lk-provsum').innerHTML = '<table class="lk-ps"><thead><tr><th>จังหวัด</th><th>Event</th><th>Site</th><th>Site มีเหตุเสีย</th><th>Ticket ค้าง</th></tr></thead><tbody>' + Object.keys(ps).sort((a, b) => ps[b].b - ps[a].b || ps[b].n - ps[a].n).map(p => `<tr><td><b style="color:${PC[p]}">${PROV[p]}</b></td><td>${visEv.filter(e => e.p === p).length}</td><td>${ps[p].n}</td><td${ps[p].b ? ' style="color:#d1453d;font-weight:700"' : ''}>${ps[p].b}</td><td>${ps[p].t}</td></tr>`).join('') + '</tbody></table>';
-    const rows = tks.filter(t => !F.site || t.sites.includes(F.site)).sort((a, b) => RANK[a.st] - RANK[b.st] || (a.left == null ? 1e9 : a.left) - (b.left == null ? 1e9 : b.left));
-    document.getElementById('lk-tcount').textContent = rows.length + ' ใบ' + (F.site ? ' · กรองไซต์ ' + F.site + ' (คลิกไซต์เดิมเพื่อยกเลิก)' : '');
-    document.getElementById('lk-tb').innerHTML = rows.map(t => { const s = ST[t.st]; return `<tr><td><div style="color:${s[2]};font-weight:700;white-space:nowrap">${s[0]} ${esc(t.ows)}${t.at ? ' · ' + esc(t.at) : ''}</div><div style="font-size:11.5px;color:var(--text2)">ทีม <b>${esc(t.team || '-')}</b></div></td><td class="m">${esc(t.id)}</td><td class="m"><b>${t.sites.map(esc).join('<br>')}</b></td><td>${[...new Set(t.sites.flatMap(x => siteEv[x] || []))].map(x => esc(evShort(x))).join('<br>')}</td><td><b>${esc(t.sev)}</b></td><td>${esc(t.pr)}</td><td>${esc(t.bm)}</td><td class="m">${esc(String(t.created).slice(0, 16))}</td><td>${t.left == null ? '' : t.left < 0 ? '<b style="color:#d1453d">' + slaTxt(t) + '</b>' : '<span style="color:var(--green)">' + slaTxt(t) + '</span>'}</td><td>${esc(t.detail)}${t.plan ? '<div style="font-size:11.5px;color:var(--text3)">Plan ' + esc(t.plan) + '</div>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="10" class="lk-empty">ไม่มี Ticket SA1-4 ค้างที่ไซต์งาน 🎉</td></tr>';
+    // per province: events, sites, open tickets SA / NSA (counted once per ticket, by its first matched site) + Total row
+    const ps = {}; vs.forEach(s => { const p = siteLL[s][2]; ps[p] = ps[p] || { rg: siteLL[s][3], n: 0, sa: 0, nsa: 0 }; ps[p].n++; });
+    open.forEach(t => { const p = (siteLL[t.sites.find(x => vSites[x]) || t.sites[0]] || [])[2]; if (ps[p]) ps[p][isNsa(t) ? 'nsa' : 'sa']++; });
+    const pk = Object.keys(ps).sort((a, b) => ps[b].sa - ps[a].sa || ps[b].nsa - ps[a].nsa || ps[b].n - ps[a].n);
+    const tot = pk.reduce((a, p) => ({ ev: a.ev + visEv.filter(e => e.p === p).length, n: a.n + ps[p].n, sa: a.sa + ps[p].sa, nsa: a.nsa + ps[p].nsa }), { ev: 0, n: 0, sa: 0, nsa: 0 });
+    const num = (v, c) => `<td${v ? ' style="color:' + c + ';font-weight:700"' : ''}>${v}</td>`;
+    document.getElementById('lk-provsum').innerHTML = '<table class="lk-ps"><thead><tr><th>จังหวัด</th><th>Event</th><th>Site</th><th>Ticket ค้าง SA1-4</th><th>Ticket ค้าง NSA1-4</th></tr></thead><tbody>' +
+      pk.map(p => `<tr><td><b style="color:${PC[p] || 'inherit'}">${PROV[p] || p}</b> <span style="font-size:11px;color:var(--text3)">${ps[p].rg}</span></td><td>${visEv.filter(e => e.p === p).length}</td><td>${ps[p].n}</td>${num(ps[p].sa, '#d1453d')}${num(ps[p].nsa, NSA_C)}</tr>`).join('') +
+      `</tbody><tfoot><tr style="font-weight:700;background:var(--bg3)"><td>Total</td><td>${tot.ev}</td><td>${tot.n}</td>${num(tot.sa, '#d1453d')}${num(tot.nsa, NSA_C)}</tr></tfoot></table>`;
+    const rows = tks.filter(t => !F.site || t.sites.includes(F.site)).sort((a, b) => isNsa(a) - isNsa(b) || RANK[a.st] - RANK[b.st] || (a.left == null ? 1e9 : a.left) - (b.left == null ? 1e9 : b.left));
+    document.getElementById('lk-tcount').textContent = rows.length + ' ใบ (SA ' + rows.filter(t => !isNsa(t)).length + ' · NSA ' + rows.filter(isNsa).length + ')' + (F.site ? ' · กรองไซต์ ' + F.site + ' (คลิกไซต์เดิมเพื่อยกเลิก)' : '');
+    document.getElementById('lk-tb').innerHTML = rows.map(t => { const s = ST[t.st]; return `<tr${isNsa(t) ? ' style="background:rgba(253,227,200,.35)"' : ''}><td><div style="color:${s[2]};font-weight:700;white-space:nowrap">${s[0]} ${esc(t.ows)}${t.at ? ' · ' + esc(t.at) : ''}</div><div style="font-size:11.5px;color:var(--text2)">ทีม <b>${esc(t.team || '-')}</b></div></td><td class="m">${esc(t.id)}</td><td class="m"><b>${t.sites.map(esc).join('<br>')}</b></td><td>${[...new Set(t.sites.flatMap(x => siteEv[x] || []))].map(x => esc(evShort(x))).join('<br>')}</td><td>${sevH(t)}</td><td style="min-width:240px;max-width:380px">${esc(t.subject)}</td><td>${esc(t.pr)}</td><td>${esc(t.bm)}</td><td class="m">${esc(String(t.created).slice(0, 16))}</td><td>${t.left == null ? '' : t.left < 0 ? '<b style="color:#d1453d">' + slaTxt(t) + '</b>' : '<span style="color:var(--green)">' + slaTxt(t) + '</span>'}</td><td>${esc(t.detail)}${t.plan ? '<div style="font-size:11.5px;color:var(--text3)">Plan ' + esc(t.plan) + '</div>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="11" class="lk-empty">ไม่มี Ticket ค้างที่ไซต์งาน 🎉</td></tr>';
   }
   async function load() {
     if (busy) return; busy = true;
@@ -19837,15 +19870,18 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     try {
       const r = await fetch('/api/loy-krathong'); const d = await r.json();
       if (!r.ok || d.error) throw new Error(d.error || ('API ' + r.status));
-      err.style.display = 'none'; prep(d); render();
+      err.style.display = 'none'; prep(d); drawChips(); render();
     } catch (e) { err.textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + e.message; err.style.display = 'block'; }
     finally { busy = false; }
   }
   let wired = false;
   window.initLoyKrathongTab = function () {
     if (!wired) {
-      wired = true; drawChips();
-      document.getElementById('lk-filters').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (!b) return; F[b.dataset.k] = b.dataset.v; drawChips(); render(); });
+      wired = true;
+      document.getElementById('lk-filters').addEventListener('click', e => {
+        const b = e.target.closest('[data-k]'); if (!b) return; F[b.dataset.k] = b.dataset.v; if (b.dataset.k === 'rg') F.prov = 'ALL'; drawChips(); render();
+        if (b.dataset.k === 'rg' || b.dataset.k === 'prov') zoomTo(F.prov !== 'ALL' ? F.prov : F.rg !== 'ALL' ? 'R:' + F.rg : 'ALL');
+      });
       document.getElementById('lk-events').addEventListener('click', e => {
         const b = e.target.closest('[data-s]'); if (!b) return; F.site = F.site === b.dataset.s ? '' : b.dataset.s; render();
         if (F.site && LM && siteLL[F.site]) { LM.setView([siteLL[F.site][0], siteLL[F.site][1]], 16); LG.eachLayer(m => { if (m._lkSite === F.site) m.openPopup(); }); }
@@ -19853,15 +19889,19 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       document.getElementById('lk-refresh').addEventListener('click', load);
       document.getElementById('lk-copy').addEventListener('click', async function () {
         if (!D) return;
-        const open = D.tickets.filter(t => t.st !== 'done').sort((a, b) => RANK[a.st] - RANK[b.st] || (a.left || 0) - (b.left || 0));
-        const L2 = ['🏮 Loy Krathong 2026 · Site Support  ' + D.generated_at.slice(8, 10) + '/' + D.generated_at.slice(5, 7) + ' ' + D.generated_at.slice(11), 'ไซต์งาน ' + Object.keys(siteEv).length + ' · มีเหตุเสีย ' + Object.keys(siteLL).filter(isBad).length + ' · Ticket SA1-4 ค้าง ' + open.length];
-        if (!open.length) L2.push('', '✅ ไม่มี Ticket SA1-4 ค้างที่ไซต์งาน');
-        open.forEach(t => L2.push('', ST[t.st][0] + ' ' + t.sites.join(', ') + ' · ' + evShort((siteEv[t.sites[0]] || [''])[0]), '     ' + t.id + ' · ' + t.sev + ' · ' + slaTxt(t), '     ทีม ' + (t.team || '-') + ' · ' + t.ows + (t.at ? ' ' + t.at : '')));
-        if (open.some(t => t.st === 'wait')) L2.push('', '👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
+        const inScope = t => t.sites.some(s => F.rg === 'ALL' || (siteLL[s] || [])[3] === F.rg);
+        const open = D.tickets.filter(t => t.st !== 'done' && inScope(t)).sort((a, b) => isNsa(a) - isNsa(b) || RANK[a.st] - RANK[b.st] || (a.left || 0) - (b.left || 0));
+        const sa = open.filter(t => !isNsa(t)), nsa = open.filter(isNsa), stamp = D.generated_at.slice(8, 10) + '/' + D.generated_at.slice(5, 7) + ' ' + D.generated_at.slice(11);
+        const L2 = ['🏮 Loy Krathong 2026 · Site Support' + (F.rg !== 'ALL' ? ' ' + F.rg : '') + '  ' + stamp, 'Ticket ค้าง SA1-4 ' + sa.length + ' · NSA1-4 ' + nsa.length];
+        if (!open.length) L2.push('', '✅ ไม่มี Ticket ค้างที่ไซต์งาน');
+        const one = t => L2.push('', ST[t.st][0] + ' ' + t.sites.join(', ') + ' · ' + evShort((siteEv[t.sites[0]] || [''])[0]), '     ' + t.id + ' · ' + t.sev + ' · ' + slaTxt(t), '     ' + (t.subject || '').slice(0, 80), '     ทีม ' + (t.team || '-') + ' · ' + t.ows + (t.at ? ' ' + t.at : ''));
+        if (sa.length) { L2.push('', '🔴 ไซต์ล่ม (SA1-4)'); sa.forEach(one); }
+        if (nsa.length) { L2.push('', '🟠 NSA1-4 (ไซต์ไม่ล่ม)'); nsa.forEach(one); }
+        if (sa.some(t => t.st === 'wait')) L2.push('', '👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
         try { await navigator.clipboard.writeText(L2.join('\n')); this.textContent = '✓ คัดลอกแล้ว'; } catch (e) { this.textContent = 'คัดลอกไม่ได้'; }
         setTimeout(() => { this.textContent = 'คัดลอกสรุปส่ง LINE'; }, 3000);
       });
-      timer = setInterval(() => { const pg = document.getElementById('page-loykrathong'); if (pg && pg.classList.contains('active')) load(); }, 5 * 60 * 1000);
+      setInterval(() => { const pg = document.getElementById('page-loykrathong'); if (pg && pg.classList.contains('active')) load(); }, 5 * 60 * 1000);
     }
     load();
     if (LM) setTimeout(() => LM.invalidateSize(), 80);
