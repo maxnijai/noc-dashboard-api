@@ -2632,7 +2632,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   .lk-st.ok{border-color:rgba(46,158,79,.45);color:var(--green);background:var(--green-bg)}.lk-st.wait{border-color:#d1453d;color:#fff;background:#d1453d}.lk-st.dep{border-color:#d98a0b;color:#fff;background:#d98a0b}.lk-st.arr{border-color:#2f6fd6;color:#fff;background:#2f6fd6}.lk-st.done{border-color:#2e9e4f;color:#fff;background:#2e9e4f}.lk-st.nsa{border-color:#f0a35e;color:#9a4a0b;background:#fde3c8}.lk-st.sel{outline:2px solid var(--text);outline-offset:1px}
   .lk-tk{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin-top:6px;padding:5px 8px;border-radius:4px;background:var(--bg2);border-left:3px solid var(--tc);font-size:12px;color:var(--text2)}.lk-tk b{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text)}
   .lk-mbtn{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-  #lk-map{height:480px;border-radius:var(--r);border:1px solid var(--border)}
+  #lk-map{height:760px;border-radius:var(--r);border:1px solid var(--border)}
   .lk-pin{position:relative}.lk-pin svg{display:block;position:relative;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35))}
   .lk-sev-nsa{display:inline-block;padding:0 6px;border-radius:4px;background:#fde3c8;color:#9a4a0b}.lk-sev-sa{display:inline-block;padding:0 6px;border-radius:4px;background:#d1453d;color:#fff}
   .lk-pin.bad::before{content:'';position:absolute;left:50%;bottom:-4px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:rgba(209,69,61,.45);animation:lkpulse 1.6s ease-out infinite}
@@ -19894,7 +19894,7 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
       });
       document.getElementById('lk-events').addEventListener('click', e => {
         const b = e.target.closest('[data-s]'); if (!b) return; F.site = F.site === b.dataset.s ? '' : b.dataset.s; render();
-        if (F.site && LM && siteLL[F.site]) { LM.setView([siteLL[F.site][0], siteLL[F.site][1]], 16); LG.eachLayer(m => { if (m._lkSite === F.site) m.openPopup(); }); }
+        if (F.site && LM && siteLL[F.site]) { const mp = document.getElementById('lk-map'); if (mp.getBoundingClientRect().bottom < 80) mp.scrollIntoView({ behavior: 'smooth', block: 'center' }); LM.setView([siteLL[F.site][0], siteLL[F.site][1]], 16); LG.eachLayer(m => { if (m._lkSite === F.site) m.openPopup(); }); }
       });
       document.getElementById('lk-refresh').addEventListener('click', load);
       document.getElementById('lk-copy').addEventListener('click', async function () {
