@@ -2090,21 +2090,11 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <span style="font-weight:700;font-size:14px;">ส่ง LINE: P0 ทุก Bookmark (ภาพ + ข้อความ)</span>
         <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span id="p0-line-copy-status" style="font-size:12px;color:#16a34a;font-weight:600;"></span>
-          <button id="p0-line-img-copy" class="btn-secondary">คัดลอกภาพ 1</button>
-          <button id="p0-line-img-save" class="btn-secondary">บันทึกภาพ 1</button>
-          <button id="p0-line-img2-copy" class="btn-secondary">คัดลอกภาพ 2</button>
-          <button id="p0-line-img2-save" class="btn-secondary">บันทึกภาพ 2</button>
+          <button id="p0-line-save-all" class="btn-secondary">บันทึกภาพทั้งหมด</button>
           <button onclick="document.getElementById('p0-line-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
         </span>
       </div>
-      <div style="padding:14px 18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;" class="p0ln-body">
-        <div style="display:flex;flex-direction:column;gap:12px;min-width:0;">
-          <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 1 · P0 ติดตามงาน</div><img id="p0-line-img" alt="ภาพสรุป P0 แยก Bookmark" style="width:100%;border-radius:10px;display:block;"></div>
-          <div id="p0-line-img2-wrap"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 2 · การ์ด P0 + Total Pending</div><img id="p0-line-img2" alt="การ์ด P0 และ Total Pending แยก Bookmark" style="width:100%;border-radius:10px;display:block;"><div id="p0-line-img2-msg" style="font-size:12px;color:var(--text3);"></div></div>
-        </div>
-        <div style="min-width:0;"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ข้อความรายใบ แยก Bookmark · กดคัดลอกแล้ววางในไลน์ทีละกล่อง</div>
-          <div id="p0-line-texts" style="display:flex;flex-direction:column;gap:10px;"></div></div>
-      </div>
+      <div id="p0-line-sections" style="padding:14px 18px;display:flex;flex-direction:column;gap:12px;"></div>
     </div>
   </div>
   <style>@media (max-width:860px){ .p0ln-body{grid-template-columns:1fr !important;} }</style>
@@ -9432,88 +9422,80 @@ function renderPivot(ft) {
   const p0lnByPv = a => { const m = {}; a.forEach(t => (m[t.pv] = m[t.pv] || []).push(t)); return m; };
   const p0lnOrdPv = m => Object.keys(m).sort((x, y) => p0lnCnt(m[y]).wait - p0lnCnt(m[x]).wait || m[y].length - m[x].length || x.localeCompare(y, 'th'));
   function p0lnStamp(d) { const p = n => String(n).padStart(2, '0'); return { txt: p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()), file: p(d.getDate()) + p(d.getMonth() + 1) + '_' + p(d.getHours()) + p(d.getMinutes()) }; }
-  // One LINE message per Bookmark: [{name, color, n, wait, text}]
-  function p0lnTexts(T, now) {
+  // Per-Bookmark LINE pack: one image + one message per Bookmark (province headers inside the message).
+  const p0lnStCnt = a => { const c = p0lnCnt(a); return P0LN_K.filter(k => c[k]).map(k => P0LN_ST[k][0] + c[k]).join(' '); };
+  function p0lnBms(T) {
     const known = new Set(P0LN_BM.map(b => b[0]));
-    const bms = P0LN_BM.concat([...new Set(T.map(t => t.bm).filter(b => !known.has(b)))].map(b => [b, b, '#64748b']));
-    return bms.map(bk => {
-      const bt = T.filter(t => t.bm === bk[0]);
-      if (!bt.length && !known.has(bk[0])) return null;
-      const bc = p0lnCnt(bt), open = bt.filter(t => t.st !== 'done'), p1 = bt.filter(t => t.pr === 'P1').length;
-      const O = ['🚨 ' + bk[1] + '  ' + now.txt];
-      if (!bt.length) { O.push('✅ ไม่มีใบค้าง'); return { name: bk[1], color: bk[2], n: 0, wait: 0, text: O.join('\n') }; }
-      O.push('รวม ' + bt.length + ' ใบ' + (p1 ? ' (P0 ' + (bt.length - p1) + ' · P1 ' + p1 + ')' : '') + '  ❌' + bc.wait + '  🚗' + bc.dep + '  🛠️' + bc.arr + '  ✅' + bc.done);
-      if (!open.length) O.push('', '✅ ปิดครบแล้ว');
-      ['NOR1', 'NOR2'].concat([...new Set(open.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => {
-        const rt = open.filter(t => t.rg === r); if (!rt.length) return;
-        const pv = p0lnByPv(rt); O.push('', r);
-        p0lnOrdPv(pv).forEach(p => pv[p].sort((x, y) => P0LN_RANK[x.st] - P0LN_RANK[y.st] || (y.over || 0) - (x.over || 0)).forEach(t => {
-          O.push(P0LN_ST[t.st][0] + ' ' + p + (t.ds ? ' · อ.' + t.ds : '') + (p1 ? ' · ' + t.pr : '') + (t.left == null ? '' : t.left > 0 ? ' · เหลือ ' + t.left + 'ชม.' : ' · เกิน ' + t.over + 'ชม.'), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
-        }));
-      });
-      O.push('', '❌ ยังไม่เดินทาง  🚗 เดินทาง  🛠️ ถึงไซต์  ✅ ปิดแล้ว');
-      if (bc.wait) O.push('👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
-      return { name: bk[1], color: bk[2], n: bt.length, wait: bc.wait, text: O.join('\n') };
-    }).filter(Boolean);
+    return P0LN_BM.concat([...new Set(T.map(t => t.bm).filter(b => !known.has(b)))].map(b => [b, b, '#64748b']))
+      .map(bk => ({ bk, bt: T.filter(t => t.bm === bk[0]) })).filter(b => b.bt.length || known.has(b.bk[0]));
   }
-  function p0lnRenderTexts(list) {
-    const box = el('p0-line-texts'); box.innerHTML = '';
-    list.forEach(m => {
-      const card = document.createElement('div');
-      card.style.cssText = 'border:1px solid var(--border);border-left:4px solid ' + m.color + ';border-radius:var(--r);background:var(--bg3);padding:8px 10px;';
-      const hd = document.createElement('div'); hd.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
-      const nm = document.createElement('b'); nm.style.cssText = 'font-size:13px;color:' + m.color + ';'; nm.textContent = m.name;
-      const ct = document.createElement('span'); ct.style.cssText = 'font-size:12px;color:var(--text3);flex:1;'; ct.textContent = m.n ? m.n + ' ใบ' + (m.wait ? ' · ❌ ' + m.wait : '') : 'ไม่มีใบค้าง';
-      const btn = document.createElement('button'); btn.className = 'btn-secondary'; btn.textContent = 'คัดลอก';
-      const ta = document.createElement('textarea'); ta.readOnly = true; ta.value = m.text;
-      ta.rows = Math.min(16, Math.max(3, m.text.split('\n').length));
-      ta.style.cssText = 'width:100%;font-size:12.5px;font-family:inherit;line-height:1.5;padding:8px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg2);color:var(--text);';
-      btn.addEventListener('click', async () => {
-        try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); }
-        btn.textContent = '✓ คัดลอกแล้ว'; btn.style.color = '#16a34a'; p0lnStatusMsg('คัดลอกข้อความ ' + m.name + ' แล้ว');
+  function p0lnBmText(b, now) {
+    const bk = b.bk, bt = b.bt, bc = p0lnCnt(bt), open = bt.filter(t => t.st !== 'done'), p1 = bt.filter(t => t.pr === 'P1').length;
+    const O = ['🚨 ' + bk[1] + '  ' + now.txt];
+    if (!bt.length) { O.push('✅ ไม่มีใบค้าง'); return O.join('\n'); }
+    O.push('รวม ' + bt.length + ' ใบ' + (p1 ? ' (P0 ' + (bt.length - p1) + ' · P1 ' + p1 + ')' : '') + '  ❌' + bc.wait + '  🚗' + bc.dep + '  🛠️' + bc.arr + '  ✅' + bc.done);
+    if (!open.length) O.push('', '✅ ปิดครบแล้ว');
+    ['NOR1', 'NOR2'].concat([...new Set(open.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => {
+      const rt = open.filter(t => t.rg === r); if (!rt.length) return;
+      const pv = p0lnByPv(rt); O.push('', '━━ ' + r + ' · ' + rt.length + ' ใบ ━━');
+      p0lnOrdPv(pv).forEach((p, pi) => {
+        if (pi) O.push('');
+        O.push('📍 ' + p + ' (' + pv[p].length + ')  ' + p0lnStCnt(pv[p]));
+        pv[p].sort((x, y) => P0LN_RANK[x.st] - P0LN_RANK[y.st] || (y.over || 0) - (x.over || 0)).forEach(t => {
+          O.push(P0LN_ST[t.st][0] + ' ' + (t.ds ? 'อ.' + t.ds : p) + (p1 ? ' · ' + t.pr : '') + (t.left == null ? '' : t.left > 0 ? ' · เหลือ ' + t.left + 'ชม.' : ' · เกิน ' + t.over + 'ชม.'), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
+        });
       });
-      hd.append(nm, ct, btn); card.append(hd, ta); box.appendChild(card);
     });
+    O.push('', '❌ ยังไม่เดินทาง  🚗 เดินทาง  🛠️ ถึงไซต์  ✅ ปิดแล้ว');
+    if (bc.wait) O.push('👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
+    return O.join('\n');
   }
-  function p0lnImage(T, now) {
+  function p0lnBmImage(b, now) {
+    const bk = b.bk, bt = b.bt, col = bk[2];
+    if (!bt.length) return null;
     const W = 1080, P = 44, F = '"IBM Plex Sans Thai","Sarabun","Tahoma",sans-serif', S = 2;
-    const blocks = P0LN_BM.map(bk => { const bt = T.filter(t => t.bm === bk[0]); const rows = []; ['NOR1', 'NOR2'].forEach(r => { const rt = bt.filter(t => t.rg === r); if (!rt.length) return; const pv = p0lnByPv(rt); rows.push({ rg: r, n: rt.length }); p0lnOrdPv(pv).forEach(p => rows.push({ pv: p, a: pv[p] })); }); return { bk, bt, rows }; }).filter(b => b.bt.length);
-    let H = P + 120 + 130; blocks.forEach(b => { H += 104 + b.rows.reduce((s, r) => s + (r.rg ? 34 : 42), 0) + 20; }); H += 60;
+    const rows = [];
+    ['NOR1', 'NOR2'].concat([...new Set(bt.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => { const rt = bt.filter(t => t.rg === r); if (!rt.length) return; const pv = p0lnByPv(rt); rows.push({ rg: r, n: rt.length }); p0lnOrdPv(pv).forEach(p => rows.push({ pv: p, a: pv[p] })); });
+    const H = P + 100 + 132 + rows.reduce((s, r) => s + (r.rg ? 44 : 50), 0) + 30 + 60;
     const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; const g = cv.getContext('2d'); g.scale(S, S);
     const rr = (x, y, w, h, r, fill, stroke) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); } };
     const tx = (s, x, y, size, color, weight, align) => { g.font = (weight || 400) + ' ' + size + 'px ' + F; g.fillStyle = color; g.textAlign = align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(s, x, y); };
-    g.fillStyle = '#0f1b2d'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#0f1b2d'; g.fillRect(0, 0, W, H); g.fillStyle = col; g.fillRect(0, 0, W, 8);
     let y = P;
-    tx('P0 · ติดตามงาน', P, y + 34, 38, '#e8eef6', 700); tx('แยก Bookmark', P, y + 78, 34, '#ff6b6b', 700);
-    tx(now.txt, W - P, y + 30, 22, '#9fb0c6', 500, 'right'); tx('NOR1 + NOR2', W - P, y + 60, 22, '#9fb0c6', 500, 'right');
-    y += 112;
-    const c = p0lnCnt(T), kw = (W - 2 * P - 4 * 12) / 5.2;
-    rr(P, y, kw * 1.2, 106, 14, 'rgba(255,107,107,.13)', 'rgba(255,107,107,.45)'); tx(String(T.length), P + kw * .6, y + 58, 48, '#ff8a8a', 800, 'center'); tx(T.some(t => t.pr === 'P1') ? 'P0 + FBB P1' : 'P0 ทั้งหมด', P + kw * .6, y + 90, 19, '#a9b8cc', 500, 'center');
+    const p1 = bt.filter(t => t.pr === 'P1').length;
+    tx(p1 ? 'P0 + P1 · ติดตามงาน' : 'P0 · ติดตามงาน', P, y + 22, 22, '#9fb0c6', 600); tx(bk[1].replace(/ · P0\+P1$/, ''), P, y + 70, 42, col, 800);
+    tx(now.txt, W - P, y + 22, 22, '#9fb0c6', 500, 'right'); tx(p1 ? 'P0 ' + (bt.length - p1) + ' · P1 ' + p1 : 'NOR1 + NOR2', W - P, y + 52, 22, '#9fb0c6', 500, 'right');
+    y += 100;
+    const c = p0lnCnt(bt), kw = (W - 2 * P - 4 * 12) / 5.2;
+    rr(P, y, kw * 1.2, 106, 14, 'rgba(255,255,255,.06)', col); tx(String(bt.length), P + kw * .6, y + 58, 48, '#e8eef6', 800, 'center'); tx('ทั้งหมด', P + kw * .6, y + 90, 19, '#a9b8cc', 500, 'center');
     P0LN_K.forEach((k, i) => { const x = P + kw * 1.2 + 12 + i * (kw + 12); rr(x, y, kw, 106, 14, '#16263d'); tx(String(c[k]), x + kw / 2, y + 58, 48, P0LN_ST[k][2], 800, 'center'); tx(P0LN_ST[k][0] + ' ' + P0LN_ST[k][1], x + kw / 2, y + 90, 17, '#a9b8cc', 500, 'center'); });
-    y += 130;
-    blocks.forEach(b => {
-      const bh = 104 + b.rows.reduce((s, r) => s + (r.rg ? 34 : 42), 0) + 6, col = b.bk[2], bc = p0lnCnt(b.bt);
-      rr(P, y, W - 2 * P, bh, 16, '#12213a', '#243650'); g.fillStyle = col; g.fillRect(P + 8, y, W - 2 * P - 16, 6);
-      tx(b.bk[1], P + 22, y + 48, 30, col, 700); tx(b.bt.length + ' ใบ', W - P - 22, y + 48, 30, '#e8eef6', 800, 'right');
-      let x = P + 22; P0LN_K.forEach(k => { const s = P0LN_ST[k][0] + ' ' + P0LN_ST[k][1] + ' ' + bc[k]; tx(s, x, y + 84, 19, '#c9d6e6', 500); g.font = '500 19px ' + F; x += g.measureText(s).width + 26; });
-      let yy = y + 104;
-      b.rows.forEach(r => {
-        if (r.rg) { tx(r.rg + ' · ' + r.n + ' ใบ', P + 22, yy + 24, 17, '#8fa3bb', 600); yy += 34; return; }
-        const a = r.a, cc = p0lnCnt(a), bx = P + 300, bw = W - 2 * P - 300 - 120;
-        tx(r.pv, P + 22, yy + 28, 22, cc.wait >= 2 ? '#ffb4b4' : '#e8eef6', cc.wait >= 2 ? 700 : 500);
-        tx(String(a.length), bx - 18, yy + 28, 22, '#e8eef6', 800, 'right');
-        rr(bx, yy + 12, bw, 20, 10, '#1d2f49'); let ox = bx;
-        g.save(); rr(bx, yy + 12, bw, 20, 10); g.clip(); P0LN_K.forEach(k => { if (!cc[k]) return; const w = bw * cc[k] / a.length; g.fillStyle = P0LN_ST[k][2]; g.fillRect(ox, yy + 12, w, 20); ox += w; }); g.restore();
-        if (cc.wait) tx('❌ ' + cc.wait, W - P - 22, yy + 28, 20, '#ff9a9a', 700, 'right');
-        yy += 42;
-      });
-      y += bh + 20;
+    y += 132;
+    const bx = P + 290, bw = W - 2 * P - 290 - 92;
+    rows.forEach(r => {
+      if (r.rg) { g.strokeStyle = '#22344d'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, y + 10); g.lineTo(W - P, y + 10); g.stroke(); tx(r.rg + ' · ' + r.n + ' ใบ', P, y + 36, 19, '#8fa3bb', 700); y += 44; return; }
+      const a = r.a, cc = p0lnCnt(a);
+      tx(r.pv, P + 4, y + 33, 24, cc.wait >= 2 ? '#ffb4b4' : '#e8eef6', cc.wait >= 2 ? 700 : 500);
+      tx(String(a.length), bx - 16, y + 33, 24, '#e8eef6', 800, 'right');
+      // segment widths: proportional, but never under MINW so its number always fits
+      const ks = P0LN_K.filter(k => cc[k]), MINW = 34;
+      let ws = ks.map(k => bw * cc[k] / a.length);
+      const small = ws.map(w => w < MINW), need = ws.reduce((s, w, i) => s + (small[i] ? MINW - w : 0), 0), big = ws.reduce((s, w, i) => s + (small[i] ? 0 : w), 0);
+      ws = ws.map((w, i) => small[i] ? MINW : w - (big ? need * w / big : 0));
+      rr(bx, y + 9, bw, 32, 8, '#1d2f49');
+      g.save(); rr(bx, y + 9, bw, 32, 8); g.clip(); let ox = bx;
+      ks.forEach((k, i) => { g.fillStyle = P0LN_ST[k][2]; g.fillRect(ox, y + 9, ws[i], 32); if (i) { g.fillStyle = '#0f1b2d'; g.fillRect(ox - 1, y + 9, 2, 32); } tx(String(cc[k]), ox + ws[i] / 2, y + 33, 19, '#fff', 800, 'center'); ox += ws[i]; });
+      g.restore();
+      if (cc.wait) tx('❌ ' + cc.wait, W - P, y + 33, 21, '#ff9a9a', 700, 'right');
+      y += 50;
     });
+    y += 30;
     g.strokeStyle = '#22344d'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, y); g.lineTo(W - P, y); g.stroke();
-    tx('❌ ยังไม่เดินทาง · 🚗 เดินทาง · 🛠️ ถึงไซต์ · ✅ Complete', P, y + 34, 17, '#8a9bb2', 500); tx('BBTEC NOC · NOC Dashboard', W - P, y + 34, 17, '#8a9bb2', 500, 'right');
+    let lx = P; P0LN_K.forEach(k => { g.fillStyle = P0LN_ST[k][2]; g.fillRect(lx, y + 22, 16, 16); const s = P0LN_ST[k][0] + ' ' + P0LN_ST[k][1]; tx(s, lx + 24, y + 36, 17, '#8a9bb2', 500); g.font = '500 17px ' + F; lx += 24 + g.measureText(s).width + 22; });
+    tx('BBTEC NOC', W - P, y + 36, 17, '#8a9bb2', 600, 'right');
     return cv;
   }
-  let p0lnCanvas = null, p0lnFile = 'P0.png', p0lnCanvas2 = null, p0lnFile2 = 'Cards.png';
+  const P0LN_SHORT = { '7.MB with SA1-4': 'MB', '4.FBB with SA1-4': 'FBB', '3. All NW Incident NSA1-2': 'NSA12', 'NSA3-4': 'NSA34' };
+  let p0lnPack = [];
   async function p0lnCardsCanvas(now) {
     let cmp = window.__p0CardsData, tr = (typeof cachedP0DailyTrendData !== 'undefined') ? cachedP0DailyTrendData : null;
     try {
@@ -9534,40 +9516,51 @@ function renderPivot(ft) {
     }, 'image/png');
   }
   function p0lnStatusMsg(m) { const s = el('p0-line-copy-status'); s.textContent = m; clearTimeout(p0lnStatusMsg.t); p0lnStatusMsg.t = setTimeout(() => { s.textContent = ''; }, 4000); }
-  function p0lnSave() {
-    if (!p0lnCanvas) return;
-    p0lnCanvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = p0lnFile; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }, 'image/png');
+  function p0lnBtn(label, fn) { const b = document.createElement('button'); b.className = 'btn-secondary'; b.textContent = label; b.addEventListener('click', () => fn(b)); return b; }
+  function p0lnDone(b, label) { b.textContent = '✓ ' + label; b.style.color = '#16a34a'; }
+  function p0lnSection(it) {
+    const sec = document.createElement('div');
+    sec.style.cssText = 'border:1px solid var(--border);border-left:4px solid ' + it.color + ';border-radius:var(--r);background:var(--bg3);padding:10px 12px;';
+    const hd = document.createElement('div'); hd.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;';
+    const nm = document.createElement('b'); nm.style.cssText = 'font-size:14px;color:' + it.color + ';'; nm.textContent = it.name;
+    const ct = document.createElement('span'); ct.style.cssText = 'font-size:12px;color:var(--text3);flex:1;'; ct.textContent = it.sub;
+    hd.append(nm, ct);
+    if (it.cv) {
+      hd.append(p0lnBtn('คัดลอกภาพ', b => { p0lnCopyCv(it.cv); p0lnDone(b, 'คัดลอกภาพแล้ว'); }), p0lnBtn('บันทึกภาพ', b => { p0lnSaveCv(it.cv, it.file); p0lnDone(b, 'บันทึกแล้ว'); }));
+    }
+    let ta = null;
+    if (it.text != null) {
+      ta = document.createElement('textarea'); ta.readOnly = true; ta.value = it.text; ta.rows = Math.min(18, Math.max(3, it.text.split('\n').length));
+      ta.style.cssText = 'width:100%;font-size:12.5px;font-family:inherit;line-height:1.5;padding:8px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg2);color:var(--text);';
+      hd.append(p0lnBtn('คัดลอกข้อความ', async b => { try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); } p0lnDone(b, 'คัดลอกข้อความแล้ว'); p0lnStatusMsg('คัดลอกข้อความ ' + it.name + ' แล้ว'); }));
+    }
+    const body = document.createElement('div');
+    body.className = 'p0ln-body';
+    body.style.cssText = 'display:grid;grid-template-columns:' + (it.cv && ta ? 'minmax(0,1fr) minmax(0,1fr)' : '1fr') + ';gap:12px;align-items:start;';
+    if (it.cv) { const im = document.createElement('img'); im.src = it.cv.toDataURL('image/png'); im.alt = it.name; im.style.cssText = 'width:100%;border-radius:8px;display:block;' + (ta ? '' : 'max-width:560px;'); body.appendChild(im); }
+    if (ta) body.appendChild(ta);
+    if (it.msg) { const mm = document.createElement('div'); mm.style.cssText = 'font-size:12px;color:var(--text3);'; mm.textContent = it.msg; body.appendChild(mm); }
+    sec.append(hd, body);
+    return sec;
   }
   el('p0-line-summary').addEventListener('click', async () => {
     if (!lastData) { alert('ยังโหลดข้อมูล P0 ไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
-    const T = p0lnData(), now = p0lnStamp(new Date());
-    p0lnRenderTexts(p0lnTexts(T, now));
+    const T = p0lnData(), now = p0lnStamp(new Date()), box = el('p0-line-sections');
+    box.innerHTML = '<div style="font-size:12px;color:var(--text3);">กำลังสร้างภาพ...</div>';
     el('p0-line-modal').style.display = 'block';
     try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
-    p0lnCanvas = p0lnImage(T, now); p0lnFile = 'P0_' + now.file + '.png';
-    el('p0-line-img').src = p0lnCanvas.toDataURL('image/png');
-    el('p0-line-img2').removeAttribute('src'); el('p0-line-img2').style.display = 'none'; el('p0-line-img2-msg').textContent = 'กำลังสร้างภาพการ์ด...';
-    p0lnSave();
-    p0lnCanvas2 = await p0lnCardsCanvas(now); p0lnFile2 = 'Cards_' + now.file + '.png';
-    if (p0lnCanvas2) {
-      el('p0-line-img2').src = p0lnCanvas2.toDataURL('image/png'); el('p0-line-img2').style.display = 'block'; el('p0-line-img2-msg').textContent = '';
-      setTimeout(() => p0lnSaveCv(p0lnCanvas2, p0lnFile2), 700);
-      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' + ' + p0lnFile2 + ' แล้ว · กดคัดลอกข้อความทีละ Bookmark');
-    } else {
-      el('p0-line-img2-msg').textContent = 'สร้างภาพการ์ดไม่ได้ (โหลดข้อมูลการ์ด P0 / Total Pending ไม่สำเร็จ)';
-      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' แล้ว · ภาพ 2 สร้างไม่ได้ · กดคัดลอกข้อความทีละ Bookmark');
-    }
+    const cards = await p0lnCardsCanvas(now);
+    p0lnPack = [{ name: 'ภาพรวม · การ์ด P0 + Total Pending', color: '#2563eb', sub: 'ส่งเป็นภาพแรก', cv: cards, file: 'Cards_' + now.file + '.png', text: null, msg: cards ? '' : 'สร้างภาพการ์ดไม่ได้ (โหลดข้อมูลการ์ด P0 / Total Pending ไม่สำเร็จ)' }];
+    p0lnBms(T).forEach(b => {
+      const c = p0lnCnt(b.bt);
+      p0lnPack.push({ name: b.bk[1], color: b.bk[2], sub: b.bt.length ? b.bt.length + ' ใบ' + (c.wait ? ' · ❌ ' + c.wait : '') : 'ไม่มีใบค้าง', cv: p0lnBmImage(b, now), file: 'P0_' + (P0LN_SHORT[b.bk[0]] || 'BM') + '_' + now.file + '.png', text: p0lnBmText(b, now) });
+    });
+    box.innerHTML = ''; p0lnPack.forEach(it => box.appendChild(p0lnSection(it)));
+    const imgs = p0lnPack.filter(it => it.cv);
+    imgs.forEach((it, i) => setTimeout(() => p0lnSaveCv(it.cv, it.file), i * 600));
+    p0lnStatusMsg('✓ บันทึกภาพ ' + imgs.length + ' ไฟล์ · คัดลอกข้อความทีละ Bookmark');
   });
-  el('p0-line-img2-save').addEventListener('click', () => { if (!p0lnCanvas2) { p0lnStatusMsg('ยังไม่มีภาพ 2'); return; } p0lnSaveCv(p0lnCanvas2, p0lnFile2); p0lnStatusMsg('บันทึกภาพ 2 แล้ว'); });
-  el('p0-line-img2-copy').addEventListener('click', () => p0lnCopyCv(p0lnCanvas2));
-  el('p0-line-img-save').addEventListener('click', () => { p0lnSave(); p0lnStatusMsg('บันทึกภาพแล้ว'); });
-  el('p0-line-img-copy').addEventListener('click', () => {
-    if (!p0lnCanvas) return;
-    p0lnCanvas.toBlob(async b => {
-      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); p0lnStatusMsg('คัดลอกภาพแล้ว วางในแชต LINE ได้เลย'); }
-      catch (e) { p0lnStatusMsg('เบราว์เซอร์นี้คัดลอกภาพไม่ได้ ใช้ปุ่มบันทึกภาพแทน'); }
-    }, 'image/png');
-  });
+  el('p0-line-save-all').addEventListener('click', () => { const imgs = p0lnPack.filter(it => it.cv); imgs.forEach((it, i) => setTimeout(() => p0lnSaveCv(it.cv, it.file), i * 600)); p0lnStatusMsg('บันทึกภาพ ' + imgs.length + ' ไฟล์'); });
 
   window.showP0SummaryLog = async function (ticketId) {
     el('p0-summarylog-modal-title').textContent = `📋 Summary Log — ${ticketId}`;
