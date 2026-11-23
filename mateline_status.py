@@ -237,6 +237,7 @@ def build_mateline_status_lookup(gs_client, today_str):
         entry = {
             "status_mateline": status_mateline,
             "mateline_wo_status": get(row, "Status").strip(),
+            "mateline_at": best_dt.strftime("%H:%M") if best_dt is not None else "",  # time of today's action (extra key, Loy Krathong monitor)
         }
         for tid in (source_tid, external_tid):
             if not tid:

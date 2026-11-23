@@ -3402,6 +3402,18 @@ def api_p0_nsa34_p2():
         log.exception("p0-nsa34-p2 API failed")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/loy-krathong')
+def api_loy_krathong():
+    """Loy Krathong 2026 monitor: event sites (embedded list) + SA1-4 pending tickets matched by site ID + OWS GGS status."""
+    try:
+        import loy_krathong as _lk
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(_lk.build_response(gs_client))
+    except Exception as e:
+        log.exception("loy-krathong API failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/p0-forecast')
 def api_p0_forecast():
     """NSA3/NSA4 P0 Forecast (next 7 days, every ticket) + per-province trend from the P0DailyTrend tab.
