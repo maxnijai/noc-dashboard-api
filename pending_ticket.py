@@ -1474,6 +1474,12 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
     except Exception:
         log.exception("GGS Daily mateline lookup failed - falling back to empty for this response")
         mateline_lookup = {}
+    # Field team for the P0 LINE report: the GGS Daily 'Team' (MatelineX), else the live sheet's Tech_Team.
+    try:
+        dd_extras = _dd_daily_extras(gs_client, now_dt.strftime("%Y-%m-%d"))
+    except Exception:
+        log.exception("GGS Daily team lookup failed - falling back to Tech_Team")
+        dd_extras = {}
 
     entries = []
     skipped_no_province = 0
@@ -1536,6 +1542,7 @@ def build_exclusive_pending_response(gs_client=None, priority_filter=None, restr
             "mateline_wo_status": mateline["mateline_wo_status"],
             "TARGETFINISH": _safe_str(r.get("TARGETFINISH")),
             "remaining_hours": remaining_hours,  # None if TARGETFINISH doesn't parse - never guessed
+            "team": (dd_extras.get(ticket_id.upper()) or {}).get("team") or _safe_str(r.get("Tech_Team")),
         })
     site_capacity.annotate_entries(entries, gs_client)
     if skipped_no_province:
