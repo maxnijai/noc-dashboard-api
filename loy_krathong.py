@@ -139,6 +139,12 @@ SITES = [
 _TOKEN_RE = re.compile(r"[A-Z0-9]+")
 
 
+def _team(v):
+    """'' for blank / None / 'None' / 'nan' (the sheet sometimes holds the text 'None'), else the trimmed name."""
+    v = _safe_str(v).strip()
+    return "" if v.lower() in ("", "none", "nan", "null", "-") else v
+
+
 def _site_ids(text, known):
     out = []
     for tok in _TOKEN_RE.findall(str(text or "").upper()):
@@ -192,7 +198,7 @@ def build_response(gs_client):
             "created": _safe_str(r.get("CREATIONDATE")), "target": _safe_str(r.get("TARGETFINISH")),
             "left": round((target - now_dt).total_seconds() / 3600, 1) if target else None,
             "ows": m.get("status_mateline") or "(ไม่พบใน MatelineX)", "at": m.get("mateline_at", ""),
-            "team": (extras.get(tid.upper()) or {}).get("team") or _safe_str(r.get("Tech_Team")),
+            "team": _team((extras.get(tid.upper()) or {}).get("team")) or _team(r.get("Tech_Team")),
             "detail": wl.get("detail", ""), "group_problem": wl.get("group_problem", ""), "plan": wl.get("plan_closed_date", ""),
         })
     return {
