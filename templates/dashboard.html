@@ -1058,7 +1058,7 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
       <div style="display:flex; align-items:center; gap:10px;">
         <input type="text" id="p0-ticket-search" placeholder="🔍 ค้นหาเลข Ticket..." style="padding:5px 10px; border:1px solid var(--border); border-radius:var(--r); font-size:12px; background:var(--bg3); color:var(--text); width:160px;">
         <span id="p0-status" style="color:var(--text); font-size:14px; font-weight:700;"></span>
-        <button id="p0-line-summary" class="btn-secondary" title="สร้างข้อความสรุปสำหรับส่ง LINE" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px;">
+        <button id="p0-line-summary" class="btn-secondary" title="ส่ง LINE: P0 ทุก Bookmark (ภาพสรุป + ข้อความรายใบ)" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#06C755"/><path d="M12 5c-4.14 0-7.5 2.74-7.5 6.12 0 3.03 2.67 5.57 6.28 6.05.24.05.58.16.66.37.08.19.05.49.03.68l-.11.66c-.03.19-.15.75.65.41s4.32-2.55 5.89-4.36c1.09-1.19 1.6-2.4 1.6-3.81C19.5 7.74 16.14 5 12 5z" fill="white"/></svg>
         </button>
         <button id="p0-present-btn" class="btn-secondary" title="โหมดนำเสนอ (Present) แบบเต็มจอ" style="display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; font-weight:700; color:#7c3aed;" onclick="window.p0Present && window.p0Present()">▶ Present</button>
@@ -2083,22 +2083,32 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     </div>
   </div>
 
-  <!-- P0 ONLY LINE SUMMARY MODAL -->
+  <!-- P0 ONLY LINE SUMMARY MODAL: one click = summary image (PNG) + per-ticket text, split by Bookmark -> Region -> Province -->
   <div id="p0-line-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('p0-line-modal').style.display='none'">
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:520px;margin:40px auto;padding:0;overflow:hidden;">
-      <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg3);">
-        <span style="font-weight:700;font-size:14px;">📋 สรุป Focus Priority 0 Ticket สำหรับส่ง LINE</span>
-        <button onclick="document.getElementById('p0-line-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);max-width:1060px;margin:30px auto;padding:0;overflow:hidden;">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg3);">
+        <span style="font-weight:700;font-size:14px;">ส่ง LINE: P0 ทุก Bookmark (ภาพ + ข้อความ)</span>
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span id="p0-line-copy-status" style="font-size:12px;color:#16a34a;font-weight:600;"></span>
+          <button id="p0-line-copy-btn" class="btn-secondary">คัดลอกข้อความ</button>
+          <button id="p0-line-img-copy" class="btn-secondary">คัดลอกภาพ 1</button>
+          <button id="p0-line-img-save" class="btn-secondary">บันทึกภาพ 1</button>
+          <button id="p0-line-img2-copy" class="btn-secondary">คัดลอกภาพ 2</button>
+          <button id="p0-line-img2-save" class="btn-secondary">บันทึกภาพ 2</button>
+          <button onclick="document.getElementById('p0-line-modal').style.display='none'" class="btn-secondary" style="padding:2px 10px;">✕</button>
+        </span>
       </div>
-      <div style="padding:16px 18px;">
-        <textarea id="p0-line-text" readonly style="width:100%; height:360px; font-size:13px; font-family:inherit; padding:10px; border:1px solid var(--border); border-radius:var(--r); resize:vertical; box-sizing:border-box; background:var(--bg1); color:var(--text);"></textarea>
-        <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end;">
-          <span id="p0-line-copy-status" style="font-size:12px; color:#639922; align-self:center;"></span>
-          <button id="p0-line-copy-btn" class="btn-secondary">📋 Copy ข้อความ</button>
+      <div style="padding:14px 18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;" class="p0ln-body">
+        <div style="display:flex;flex-direction:column;gap:12px;min-width:0;">
+          <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 1 · P0 ติดตามงาน</div><img id="p0-line-img" alt="ภาพสรุป P0 แยก Bookmark" style="width:100%;border-radius:10px;display:block;"></div>
+          <div id="p0-line-img2-wrap"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 2 · การ์ด P0 + Total Pending</div><img id="p0-line-img2" alt="การ์ด P0 และ Total Pending แยก Bookmark" style="width:100%;border-radius:10px;display:block;"><div id="p0-line-img2-msg" style="font-size:12px;color:var(--text3);"></div></div>
         </div>
+        <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ข้อความรายใบ (วางต่อจากภาพ)</div>
+          <textarea id="p0-line-text" readonly style="width:100%;height:640px;font-size:13px;font-family:inherit;line-height:1.5;padding:10px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg3);color:var(--text);"></textarea></div>
       </div>
     </div>
   </div>
+  <style>@media (max-width:860px){ .p0ln-body{grid-template-columns:1fr !important;} }</style>
 
   <!-- SLA IMPROVEMENT: HEATMAP CELL DRILLDOWN MODAL -->
   <div id="sla-heatmap-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;overflow-y:auto;" onclick="if(event.target===this) document.getElementById('sla-heatmap-modal').style.display='none'">
@@ -3036,6 +3046,7 @@ async function loadP0SnapshotComparison(prefix) {
     const res = await fetch('/api/p0-snapshot-comparison');
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || `API ${res.status}`); }
     const data = await res.json();
+    window.__p0CardsData = data; // also used by the P0 LINE button (second image = these cards)
     window.__p0SiteType = data.site_type_mb || null;
     const accents = ['#2563eb', '#7c3aed', '#B45309', '#0891b2']; // one accent color per group, in order
     const cards = data.groups.map((g, i) => {
@@ -4329,6 +4340,82 @@ function nocMinFillP0(data) {
     if (el) el.innerHTML = nocMinBadgeHtml(data, 'p0', k);
   });
 }
+
+// Second image of the P0 LINE button: the P0 + Total Pending cards (2 x 2 per row), drawn from the same data as the
+// cards (cmp = /api/p0-snapshot-comparison, tr = /api/p0-daily-trend). Returns a canvas, or null when cmp has no groups.
+window.nocCardsImage = function (cmp, tr, stamp) {
+  const groups = (cmp && cmp.groups) || [];
+  if (!groups.length) return null;
+  const NM = { MB: '7.MB WITH SA1-4', FBB: '4.FBB WITH SA1-4', NW_NSA12: 'NSA1-2', NSA34: 'NSA3 / NSA4' };
+  const AC = ['#2563eb', '#7c3aed', '#b45309', '#0891b2'];
+  const lastSeries = arr => { arr = arr || []; const i = arr.findIndex(v => v != null); return i < 0 ? [] : arr.slice(i).map(v => v == null ? null : v); };
+  const mk = (row, curK, snapK, topK, serK) => groups.filter(g => g[curK] != null).map((g, i) => ({
+    name: NM[g.key] || g.label || g.key, c: AC[i % AC.length], cur: g[curK], snap: g[snapK],
+    top: (g[topK] || []).map(a => [String(a[0]).startsWith('(') ? a[0] : (typeof provinceEnLabel === 'function' ? provinceEnLabel(a[0]) : a[0]), a[1]]),
+    tr: lastSeries(tr && tr[serK] && tr[serK][g.key]), low: nocMinRec(tr, row, g.key)
+  }));
+  const secs = [{ t: 'P0 · Priority 0', col: '#b23a3a', L: mk('p0', 'current_p0', 'snapshot_p0', 'top_p0', 'series') },
+                { t: 'Total Pending', col: '#27466f', L: mk('pending', 'current_total', 'snapshot_total', 'top_total', 'series_total') }].filter(s => s.L.length);
+  const W = 1080, S = 2, F = '"IBM Plex Sans Thai","Sarabun","Segoe UI",Tahoma,sans-serif', PAD = 24, GAP = 16, CW = (W - PAD * 2 - GAP) / 2, CH = 322;
+  const secH = n => 56 + Math.ceil(n / 2) * (CH + GAP);
+  const H = 96 + secs.reduce((s, x) => s + secH(x.L.length), 0) + 20;
+  const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; const x = cv.getContext('2d'); x.scale(S, S);
+  const rr = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
+  const t = (s, X, Y, f, c, a) => { x.font = f + ' ' + F; x.fillStyle = c; x.textAlign = a || 'left'; x.textBaseline = 'alphabetic'; x.fillText(s, X, Y); };
+  x.fillStyle = '#eef2f7'; x.fillRect(0, 0, W, H);
+  const hg = x.createLinearGradient(0, 0, W, 0); hg.addColorStop(0, '#0f2a5c'); hg.addColorStop(1, '#1d4ed8'); x.fillStyle = hg; x.fillRect(0, 0, W, 80);
+  t('สรุป Pending & P0 · แยก Bookmark', PAD, 38, '700 24px', '#fff');
+  t('ข้อมูล ณ ' + stamp + ' · เทียบกับ @01:15 วันนี้ · TREND 15 วัน', PAD, 62, '13px', '#c7d7f5');
+  t('BBTEC NOC', W - PAD, 46, '700 16px', '#fff', 'right');
+  const card = (X, Y, o) => {
+    const c = o.c, L = X + 20, R = X + CW - 18;
+    rr(X, Y, CW, CH, 10); x.fillStyle = '#fff'; x.fill(); x.strokeStyle = '#dfe5ee'; x.lineWidth = 1; x.stroke();
+    x.save(); rr(X, Y, CW, CH, 10); x.clip(); x.fillStyle = c; x.fillRect(X, Y, 5, CH); x.restore();
+    t(o.name, L, Y + 26, '600 13px', '#6b7788');
+    if (o.low && o.low.min != null) {
+      const lw = 'Lowest ' + o.low.min + ' : @' + nocMinDate(o.low.date); x.font = '700 11.5px ' + F; const pw = x.measureText(lw).width + 18;
+      rr(R - pw, Y + 12, pw, 21, 10); x.fillStyle = 'rgba(22,163,74,.12)'; x.fill(); x.strokeStyle = 'rgba(22,163,74,.5)'; x.stroke();
+      t(lw, R - pw / 2, Y + 27, '700 11.5px', '#15803d', 'center');
+    }
+    t(String(o.cur), L, Y + 72, '800 40px', '#1b2533'); x.font = '800 40px ' + F; const nw = x.measureText(String(o.cur)).width;
+    if (o.snap != null) {
+      const d = o.cur - o.snap, dc = d > 0 ? '#c62828' : d < 0 ? '#15803d' : '#6b7788';
+      t('@01:15: ' + o.snap, L + nw + 14, Y + 56, '13px', '#6b7788'); t(d > 0 ? '▲ +' + d : d < 0 ? '▼ ' + d : '– 0', L + nw + 14, Y + 74, '700 14px', dc);
+    }
+    const ty = Y + 98, top = o.top.slice(0, 5);
+    if (top.length && o.cur) {
+      const sum = top.reduce((s, p) => s + p[1], 0), mx = Math.max(1, ...top.map(p => p[1]));
+      t('TOP 5 จังหวัด', L, ty, '600 11px', '#6b7788'); t(Math.round(sum / o.cur * 100) + '% ของทั้งหมด', R, ty, '11px', '#6b7788', 'right');
+      top.forEach((p, i) => {
+        const yy = ty + 20 + i * 19, bx = R - 150, bw = 110;
+        t(String(i + 1), L, yy, '11px', '#9aa4b2'); t(String(p[0]), L + 16, yy, '13px', '#1b2533');
+        rr(bx, yy - 8, bw, 7, 3.5); x.fillStyle = '#eef2f7'; x.fill(); rr(bx, yy - 8, Math.max(7, bw * p[1] / mx), 7, 3.5); x.fillStyle = c; x.fill();
+        t(String(p[1]), R, yy, '700 13px', '#1b2533', 'right');
+      });
+      if (o.cur - sum > 0) t('อื่นๆ อีก ' + (o.cur - sum) + ' ใบ', R, ty + 20 + 5 * 19, '11px', '#6b7788', 'right');
+    } else t('ไม่มีใบค้าง', L, ty + 20, '13px', '#6b7788');
+    const sy = Y + CH - 74, sh = 50;
+    x.strokeStyle = '#e6ebf2'; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(L, sy - 16); x.lineTo(R, sy - 16); x.stroke(); x.setLineDash([]);
+    t('TREND @01:15 (' + (o.tr.length || 15) + ' วัน)', L, sy - 1, '600 10.5px', '#6b7788');
+    const vals = o.tr.filter(v => v != null);
+    if (vals.length < 2) return;
+    const smx = Math.max(...vals), smn = Math.min(...vals), rg = (smx - smn) || 1, n = o.tr.length;
+    const pts = o.tr.map((v, i) => v == null ? null : [L + i * (R - L) / (n - 1), sy + sh + 6 - (v - smn) / rg * (sh - 18), v]).filter(Boolean);
+    x.beginPath(); x.moveTo(pts[0][0], sy + sh + 8); pts.forEach(p => x.lineTo(p[0], p[1])); x.lineTo(pts[pts.length - 1][0], sy + sh + 8); x.closePath(); x.fillStyle = c + '22'; x.fill();
+    x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.strokeStyle = c; x.lineWidth = 2; x.stroke();
+    const im = pts.reduce((b, p, i) => p[2] > pts[b][2] ? i : b, 0);
+    [...new Set([0, im, pts.length - 1])].forEach(i => { const p = pts[i]; x.beginPath(); x.arc(p[0], p[1], 3, 0, 7); x.fillStyle = c; x.fill(); t(String(p[2]), Math.min(Math.max(p[0], L + 8), R - 8), p[1] - 7, '700 11px', c, 'center'); });
+  };
+  let y = 96;
+  secs.forEach(s => {
+    t(s.t, PAD, y + 28, '800 19px', s.col); x.font = '800 19px ' + F; const tw = x.measureText(s.t).width;
+    t('แยก Bookmark', PAD + tw + 12, y + 28, '13px', '#6b7788');
+    t('รวม ' + s.L.reduce((a, o) => a + o.cur, 0), W - PAD, y + 28, '800 19px', s.col, 'right');
+    s.L.forEach((o, i) => card(PAD + (i % 2) * (CW + GAP), y + 44 + Math.floor(i / 2) * (CH + GAP), o));
+    y += secH(s.L.length);
+  });
+  return cv;
+};
 
 function renderTotalPendingAging(data, totalSeries) {
   const ag = data && data.aging_total;
@@ -9325,24 +9412,143 @@ function renderPivot(ft) {
     return lines.join('\n');
   }
 
-  el('p0-line-summary').addEventListener('click', () => {
-    const text = buildExpLineSummaryText();
-    el('p0-line-text').value = text;
-    el('p0-line-copy-status').textContent = '';
-    el('p0-line-modal').style.display = 'block';
-  });
-
-  el('p0-line-copy-btn').addEventListener('click', async () => {
-    const textarea = el('p0-line-text');
-    const statusEl = el('p0-line-copy-status');
+  // ── P0 LINE report: one click -> summary image + per-ticket text (Bookmark -> Region -> Province) ──
+  // Status = the MatelineX status of TODAY (same rule as the Status column): ❌ not departed · 🚗 departed · 🛠️ on site · ✅ done.
+  const P0LN_BM = [['7.MB with SA1-4', 'MB WITH SA1-4', '#3b82f6'], ['4.FBB with SA1-4', 'FBB WITH SA1-4', '#8b5cf6'], ['3. All NW Incident NSA1-2', 'NSA1-2', '#f59e0b'], ['NSA3-4', 'NSA3 / NSA4', '#06b6d4']];
+  const P0LN_ST = { wait: ['❌', 'ยังไม่เดินทาง', '#e5484d'], dep: ['🚗', 'เดินทางแล้ว', '#f59e0b'], arr: ['🛠️', 'ถึงไซต์', '#2f81f7'], done: ['✅', 'Complete', '#16a34a'] };
+  const P0LN_K = ['wait', 'dep', 'arr', 'done'];
+  const P0LN_RANK = { wait: 0, dep: 1, arr: 2, done: 3 };
+  function p0lnStatus(t) { const s = String(t.status_mateline || ''); return /^(Completed|Closed)/i.test(s) ? 'done' : /^Arrived/i.test(s) ? 'arr' : /^Departed/i.test(s) ? 'dep' : 'wait'; }
+  function p0lnData() {
+    const all = ((lastData && lastData.detail) || []).flatMap(d => d.tickets || []).filter(t => t.priority === 'P0');
+    const seen = new Set();
+    return all.filter(t => !seen.has(t.TICKETID) && seen.add(t.TICKETID)).map(t => ({
+      id: t.TICKETID, bm: t.Bookmark, rg: String(t.Region || '').trim() || '-', pv: String(t.PROVINCE || '').trim() || '(ไม่ระบุจังหวัด)',
+      ds: String(t.DISTRICT || '').trim().replace(/^อ\.\s*/, ''), site: String(t.CINAME || '').trim(), team: String(t.team || '').trim(),
+      st: p0lnStatus(t), over: t.remaining_hours == null ? null : Math.max(0, Math.round(-t.remaining_hours)),
+    }));
+  }
+  const p0lnCnt = a => { const c = { wait: 0, dep: 0, arr: 0, done: 0 }; a.forEach(t => c[t.st]++); return c; };
+  const p0lnByPv = a => { const m = {}; a.forEach(t => (m[t.pv] = m[t.pv] || []).push(t)); return m; };
+  const p0lnOrdPv = m => Object.keys(m).sort((x, y) => p0lnCnt(m[y]).wait - p0lnCnt(m[x]).wait || m[y].length - m[x].length || x.localeCompare(y, 'th'));
+  function p0lnStamp(d) { const p = n => String(n).padStart(2, '0'); return { txt: p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()), file: p(d.getDate()) + p(d.getMonth() + 1) + '_' + p(d.getHours()) + p(d.getMinutes()) }; }
+  function p0lnText(T, now) {
+    const c = p0lnCnt(T), O = ['🚨 P0 ติดตามงาน  ' + now.txt, 'รวม ' + T.length + ' ใบ  ❌' + c.wait + '  🚗' + c.dep + '  🛠️' + c.arr + '  ✅' + c.done];
+    const known = new Set(P0LN_BM.map(b => b[0]));
+    const bms = P0LN_BM.concat([...new Set(T.map(t => t.bm).filter(b => !known.has(b)))].map(b => [b, b]));
+    bms.forEach(bk => {
+      const bt = T.filter(t => t.bm === bk[0]); if (!bt.length) return;
+      const bc = p0lnCnt(bt), open = bt.filter(t => t.st !== 'done');
+      O.push('', '【' + bk[1] + '】 ' + bt.length + ' ใบ' + (bc.done ? '  (ปิดแล้ว ' + bc.done + ')' : ''));
+      if (!open.length) { O.push('✅ ปิดครบแล้ว'); return; }
+      ['NOR1', 'NOR2'].concat([...new Set(open.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => {
+        const rt = open.filter(t => t.rg === r); if (!rt.length) return;
+        const pv = p0lnByPv(rt); O.push(r);
+        p0lnOrdPv(pv).forEach(p => pv[p].sort((x, y) => P0LN_RANK[x.st] - P0LN_RANK[y.st] || (y.over || 0) - (x.over || 0)).forEach(t => {
+          O.push(P0LN_ST[t.st][0] + ' ' + p + (t.ds ? ' · อ.' + t.ds : '') + (t.over != null ? ' · เกิน ' + t.over + 'ชม.' : ''), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
+        }));
+      });
+    });
+    O.push('', '❌ ยังไม่เดินทาง  🚗 เดินทาง  🛠️ ถึงไซต์  ✅ ปิดแล้ว', '👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
+    return O.join('\n');
+  }
+  function p0lnImage(T, now) {
+    const W = 1080, P = 44, F = '"IBM Plex Sans Thai","Sarabun","Tahoma",sans-serif', S = 2;
+    const blocks = P0LN_BM.map(bk => { const bt = T.filter(t => t.bm === bk[0]); const rows = []; ['NOR1', 'NOR2'].forEach(r => { const rt = bt.filter(t => t.rg === r); if (!rt.length) return; const pv = p0lnByPv(rt); rows.push({ rg: r, n: rt.length }); p0lnOrdPv(pv).forEach(p => rows.push({ pv: p, a: pv[p] })); }); return { bk, bt, rows }; }).filter(b => b.bt.length);
+    let H = P + 120 + 130; blocks.forEach(b => { H += 104 + b.rows.reduce((s, r) => s + (r.rg ? 34 : 42), 0) + 20; }); H += 60;
+    const cv = document.createElement('canvas'); cv.width = W * S; cv.height = H * S; const g = cv.getContext('2d'); g.scale(S, S);
+    const rr = (x, y, w, h, r, fill, stroke) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.5; g.stroke(); } };
+    const tx = (s, x, y, size, color, weight, align) => { g.font = (weight || 400) + ' ' + size + 'px ' + F; g.fillStyle = color; g.textAlign = align || 'left'; g.textBaseline = 'alphabetic'; g.fillText(s, x, y); };
+    g.fillStyle = '#0f1b2d'; g.fillRect(0, 0, W, H);
+    let y = P;
+    tx('P0 · ติดตามงาน', P, y + 34, 38, '#e8eef6', 700); tx('แยก Bookmark', P, y + 78, 34, '#ff6b6b', 700);
+    tx(now.txt, W - P, y + 30, 22, '#9fb0c6', 500, 'right'); tx('NOR1 + NOR2', W - P, y + 60, 22, '#9fb0c6', 500, 'right');
+    y += 112;
+    const c = p0lnCnt(T), kw = (W - 2 * P - 4 * 12) / 5.2;
+    rr(P, y, kw * 1.2, 106, 14, 'rgba(255,107,107,.13)', 'rgba(255,107,107,.45)'); tx(String(T.length), P + kw * .6, y + 58, 48, '#ff8a8a', 800, 'center'); tx('P0 ทั้งหมด', P + kw * .6, y + 90, 19, '#a9b8cc', 500, 'center');
+    P0LN_K.forEach((k, i) => { const x = P + kw * 1.2 + 12 + i * (kw + 12); rr(x, y, kw, 106, 14, '#16263d'); tx(String(c[k]), x + kw / 2, y + 58, 48, P0LN_ST[k][2], 800, 'center'); tx(P0LN_ST[k][0] + ' ' + P0LN_ST[k][1], x + kw / 2, y + 90, 17, '#a9b8cc', 500, 'center'); });
+    y += 130;
+    blocks.forEach(b => {
+      const bh = 104 + b.rows.reduce((s, r) => s + (r.rg ? 34 : 42), 0) + 6, col = b.bk[2], bc = p0lnCnt(b.bt);
+      rr(P, y, W - 2 * P, bh, 16, '#12213a', '#243650'); g.fillStyle = col; g.fillRect(P + 8, y, W - 2 * P - 16, 6);
+      tx(b.bk[1], P + 22, y + 48, 30, col, 700); tx(b.bt.length + ' ใบ', W - P - 22, y + 48, 30, '#e8eef6', 800, 'right');
+      let x = P + 22; P0LN_K.forEach(k => { const s = P0LN_ST[k][0] + ' ' + P0LN_ST[k][1] + ' ' + bc[k]; tx(s, x, y + 84, 19, '#c9d6e6', 500); g.font = '500 19px ' + F; x += g.measureText(s).width + 26; });
+      let yy = y + 104;
+      b.rows.forEach(r => {
+        if (r.rg) { tx(r.rg + ' · ' + r.n + ' ใบ', P + 22, yy + 24, 17, '#8fa3bb', 600); yy += 34; return; }
+        const a = r.a, cc = p0lnCnt(a), bx = P + 300, bw = W - 2 * P - 300 - 120;
+        tx(r.pv, P + 22, yy + 28, 22, cc.wait >= 2 ? '#ffb4b4' : '#e8eef6', cc.wait >= 2 ? 700 : 500);
+        tx(String(a.length), bx - 18, yy + 28, 22, '#e8eef6', 800, 'right');
+        rr(bx, yy + 12, bw, 20, 10, '#1d2f49'); let ox = bx;
+        g.save(); rr(bx, yy + 12, bw, 20, 10); g.clip(); P0LN_K.forEach(k => { if (!cc[k]) return; const w = bw * cc[k] / a.length; g.fillStyle = P0LN_ST[k][2]; g.fillRect(ox, yy + 12, w, 20); ox += w; }); g.restore();
+        if (cc.wait) tx('❌ ' + cc.wait, W - P - 22, yy + 28, 20, '#ff9a9a', 700, 'right');
+        yy += 42;
+      });
+      y += bh + 20;
+    });
+    g.strokeStyle = '#22344d'; g.lineWidth = 1; g.beginPath(); g.moveTo(P, y); g.lineTo(W - P, y); g.stroke();
+    tx('❌ ยังไม่เดินทาง · 🚗 เดินทาง · 🛠️ ถึงไซต์ · ✅ Complete', P, y + 34, 17, '#8a9bb2', 500); tx('BBTEC NOC · NOC Dashboard', W - P, y + 34, 17, '#8a9bb2', 500, 'right');
+    return cv;
+  }
+  let p0lnCanvas = null, p0lnFile = 'P0.png', p0lnCanvas2 = null, p0lnFile2 = 'Cards.png';
+  async function p0lnCardsCanvas(now) {
+    let cmp = window.__p0CardsData, tr = (typeof cachedP0DailyTrendData !== 'undefined') ? cachedP0DailyTrendData : null;
     try {
-      await navigator.clipboard.writeText(textarea.value);
-    } catch (e) {
-      textarea.select();
-      document.execCommand('copy');
+      if (!cmp) { const r = await fetch('/api/p0-snapshot-comparison'); if (r.ok) cmp = window.__p0CardsData = await r.json(); }
+      if (!tr) { const r = await fetch('/api/p0-daily-trend'); if (r.ok) tr = await r.json(); }
+    } catch (e) { console.error('P0 LINE cards data failed', e); }
+    try { return window.nocCardsImage ? window.nocCardsImage(cmp, tr, now.txt) : null; } catch (e) { console.error('P0 LINE cards image failed', e); return null; }
+  }
+  function p0lnSaveCv(cv, name) {
+    if (!cv) return;
+    cv.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }, 'image/png');
+  }
+  function p0lnCopyCv(cv) {
+    if (!cv) { p0lnStatusMsg('ยังไม่มีภาพนี้'); return; }
+    cv.toBlob(async b => {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); p0lnStatusMsg('คัดลอกภาพแล้ว วางในแชต LINE ได้เลย'); }
+      catch (e) { p0lnStatusMsg('เบราว์เซอร์นี้คัดลอกภาพไม่ได้ ใช้ปุ่มบันทึกภาพแทน'); }
+    }, 'image/png');
+  }
+  function p0lnStatusMsg(m) { const s = el('p0-line-copy-status'); s.textContent = m; clearTimeout(p0lnStatusMsg.t); p0lnStatusMsg.t = setTimeout(() => { s.textContent = ''; }, 4000); }
+  async function p0lnCopyText() {
+    const ta = el('p0-line-text');
+    try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); }
+  }
+  function p0lnSave() {
+    if (!p0lnCanvas) return;
+    p0lnCanvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = p0lnFile; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }, 'image/png');
+  }
+  el('p0-line-summary').addEventListener('click', async () => {
+    if (!lastData) { alert('ยังโหลดข้อมูล P0 ไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
+    const T = p0lnData(), now = p0lnStamp(new Date());
+    el('p0-line-text').value = p0lnText(T, now);
+    el('p0-line-modal').style.display = 'block';
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+    p0lnCanvas = p0lnImage(T, now); p0lnFile = 'P0_' + now.file + '.png';
+    el('p0-line-img').src = p0lnCanvas.toDataURL('image/png');
+    el('p0-line-img2').removeAttribute('src'); el('p0-line-img2').style.display = 'none'; el('p0-line-img2-msg').textContent = 'กำลังสร้างภาพการ์ด...';
+    await p0lnCopyText(); p0lnSave();
+    p0lnCanvas2 = await p0lnCardsCanvas(now); p0lnFile2 = 'Cards_' + now.file + '.png';
+    if (p0lnCanvas2) {
+      el('p0-line-img2').src = p0lnCanvas2.toDataURL('image/png'); el('p0-line-img2').style.display = 'block'; el('p0-line-img2-msg').textContent = '';
+      setTimeout(() => p0lnSaveCv(p0lnCanvas2, p0lnFile2), 700);
+      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' + ' + p0lnFile2 + ' และคัดลอกข้อความแล้ว');
+    } else {
+      el('p0-line-img2-msg').textContent = 'สร้างภาพการ์ดไม่ได้ (โหลดข้อมูลการ์ด P0 / Total Pending ไม่สำเร็จ)';
+      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' และคัดลอกข้อความแล้ว · ภาพ 2 สร้างไม่ได้');
     }
-    statusEl.textContent = 'คัดลอกแล้ว ✅';
-    setTimeout(() => { statusEl.textContent = ''; }, 2000);
+  });
+  el('p0-line-img2-save').addEventListener('click', () => { if (!p0lnCanvas2) { p0lnStatusMsg('ยังไม่มีภาพ 2'); return; } p0lnSaveCv(p0lnCanvas2, p0lnFile2); p0lnStatusMsg('บันทึกภาพ 2 แล้ว'); });
+  el('p0-line-img2-copy').addEventListener('click', () => p0lnCopyCv(p0lnCanvas2));
+  el('p0-line-copy-btn').addEventListener('click', async () => { await p0lnCopyText(); p0lnStatusMsg('คัดลอกข้อความแล้ว ✅'); });
+  el('p0-line-img-save').addEventListener('click', () => { p0lnSave(); p0lnStatusMsg('บันทึกภาพแล้ว'); });
+  el('p0-line-img-copy').addEventListener('click', () => {
+    if (!p0lnCanvas) return;
+    p0lnCanvas.toBlob(async b => {
+      try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); p0lnStatusMsg('คัดลอกภาพแล้ว วางในแชต LINE ได้เลย'); }
+      catch (e) { p0lnStatusMsg('เบราว์เซอร์นี้คัดลอกภาพไม่ได้ ใช้ปุ่มบันทึกภาพแทน'); }
+    }, 'image/png');
   });
 
   window.showP0SummaryLog = async function (ticketId) {
