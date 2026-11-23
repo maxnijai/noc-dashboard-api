@@ -2639,9 +2639,9 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
   @keyframes lkpulse{0%{transform:scale(.4);opacity:1}100%{transform:scale(2.2);opacity:0}}
   @media (prefers-reduced-motion:reduce){.lk-pin.bad::before{animation:none;opacity:.4}}
   .lk-plab{font-size:12px;font-weight:700;color:#52657a;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff}
-  .lk-pp .m{font-family:'IBM Plex Mono',monospace}.lk-pp .r{margin-top:5px;padding-top:5px;border-top:1px solid rgba(128,128,128,.3)}
+  .lk-pp{overflow-wrap:anywhere}.lk-pp .m{font-family:'IBM Plex Mono',monospace}.lk-pp .r{margin-top:5px;padding-top:5px;border-top:1px solid rgba(128,128,128,.3)}
   .lk-tb{border-collapse:collapse;width:100%;min-width:1200px;font-size:12.5px}.lk-tb th{background:var(--bg3);color:var(--text3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap}.lk-tb td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}.lk-tb td.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;white-space:nowrap}
-  .lk-ps{border-collapse:collapse;width:100%;font-size:12.5px}.lk-ps th{color:var(--text3);font-size:11px;text-align:left;padding:6px;border-bottom:1px solid var(--border)}.lk-ps td{padding:6px;border-bottom:1px solid var(--border)}.lk-ps tfoot td{border-top:2px solid var(--border2);border-bottom:none}
+  .lk-ps{border-collapse:collapse;width:100%;font-size:12.5px}.lk-ps th{color:var(--text3);font-size:11px;text-align:left;padding:6px;border-bottom:1px solid var(--border)}.lk-ps td{padding:6px;border-bottom:1px solid var(--border)}.lk-ps tfoot td{border-top:2px solid var(--border2);border-bottom:none}.lk-ps-rg td{font-weight:700;font-size:11.5px;letter-spacing:.04em;color:var(--text2);background:var(--bg4);padding:5px 6px}.lk-ps-sub td{border-bottom:2px solid var(--border2)}
   .lk-empty{color:var(--text3);text-align:center;padding:16px}
   </style>
   <div class="page" id="page-floodnan">
@@ -19854,15 +19854,25 @@ table.pr-t tr.sb td{background:rgba(255,255,255,.07);font-weight:700}table.pr-t 
     // per province: events, sites, open tickets SA / NSA (counted once per ticket, by its first matched site) + Total row
     const ps = {}; vs.forEach(s => { const p = siteLL[s][2]; ps[p] = ps[p] || { rg: siteLL[s][3], n: 0, sa: 0, nsa: 0 }; ps[p].n++; });
     open.forEach(t => { const p = (siteLL[t.sites.find(x => vSites[x]) || t.sites[0]] || [])[2]; if (ps[p]) ps[p][isNsa(t) ? 'nsa' : 'sa']++; });
-    const pk = Object.keys(ps).sort((a, b) => ps[b].sa - ps[a].sa || ps[b].nsa - ps[a].nsa || ps[b].n - ps[a].n);
-    const tot = pk.reduce((a, p) => ({ ev: a.ev + visEv.filter(e => e.p === p).length, n: a.n + ps[p].n, sa: a.sa + ps[p].sa, nsa: a.nsa + ps[p].nsa }), { ev: 0, n: 0, sa: 0, nsa: 0 });
     const num = (v, c) => `<td${v ? ' style="color:' + c + ';font-weight:700"' : ''}>${v}</td>`;
-    document.getElementById('lk-provsum').innerHTML = '<table class="lk-ps"><thead><tr><th>จังหวัด</th><th>Event</th><th>Site</th><th>Ticket ค้าง SA1-4</th><th>Ticket ค้าง NSA1-4</th></tr></thead><tbody>' +
-      pk.map(p => `<tr><td><b style="color:${PC[p] || 'inherit'}">${PROV[p] || p}</b> <span style="font-size:11px;color:var(--text3)">${ps[p].rg}</span></td><td>${visEv.filter(e => e.p === p).length}</td><td>${ps[p].n}</td>${num(ps[p].sa, '#d1453d')}${num(ps[p].nsa, NSA_C)}</tr>`).join('') +
-      `</tbody><tfoot><tr style="font-weight:700;background:var(--bg3)"><td>Total</td><td>${tot.ev}</td><td>${tot.n}</td>${num(tot.sa, '#d1453d')}${num(tot.nsa, NSA_C)}</tr></tfoot></table>`;
+    const evN = p => visEv.filter(e => e.p === p).length;
+    const add = (a, p) => ({ ev: a.ev + evN(p), n: a.n + ps[p].n, sa: a.sa + ps[p].sa, nsa: a.nsa + ps[p].nsa });
+    const zero = { ev: 0, n: 0, sa: 0, nsa: 0 };
+    const totRow = (label, t, bg, cls) => `<tr class="${cls}" style="font-weight:700;background:${bg}"><td>${label}</td><td>${t.ev}</td><td>${t.n}</td>${num(t.sa, '#d1453d')}${num(t.nsa, NSA_C)}</tr>`;
+    let body = '', grand = zero;
+    ['NOR1', 'NOR2'].concat([...new Set(Object.values(ps).map(x => x.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(rg => {
+      const pk = Object.keys(ps).filter(p => ps[p].rg === rg).sort((a, b) => ps[b].sa - ps[a].sa || ps[b].nsa - ps[a].nsa || ps[b].n - ps[a].n);
+      if (!pk.length) return;
+      const sub = pk.reduce(add, zero); grand = { ev: grand.ev + sub.ev, n: grand.n + sub.n, sa: grand.sa + sub.sa, nsa: grand.nsa + sub.nsa };
+      body += `<tr class="lk-ps-rg"><td colspan="5">${rg}</td></tr>` +
+        pk.map(p => `<tr><td style="padding-left:16px"><b style="color:${PC[p] || 'inherit'}">${PROV[p] || p}</b></td><td>${evN(p)}</td><td>${ps[p].n}</td>${num(ps[p].sa, '#d1453d')}${num(ps[p].nsa, NSA_C)}</tr>`).join('') +
+        totRow('Subtotal ' + rg, sub, 'var(--bg3)', 'lk-ps-sub');
+    });
+    document.getElementById('lk-provsum').innerHTML = '<table class="lk-ps"><thead><tr><th>จังหวัด</th><th>Event</th><th>Site</th><th>Ticket ค้าง SA1-4</th><th>Ticket ค้าง NSA1-4</th></tr></thead><tbody>' + body +
+      `</tbody><tfoot>${totRow('Grand Total', grand, 'var(--bg4)', 'lk-ps-grand')}</tfoot></table>`;
     const rows = tks.filter(t => !F.site || t.sites.includes(F.site)).sort((a, b) => isNsa(a) - isNsa(b) || RANK[a.st] - RANK[b.st] || (a.left == null ? 1e9 : a.left) - (b.left == null ? 1e9 : b.left));
     document.getElementById('lk-tcount').textContent = rows.length + ' ใบ (SA ' + rows.filter(t => !isNsa(t)).length + ' · NSA ' + rows.filter(isNsa).length + ')' + (F.site ? ' · กรองไซต์ ' + F.site + ' (คลิกไซต์เดิมเพื่อยกเลิก)' : '');
-    document.getElementById('lk-tb').innerHTML = rows.map(t => { const s = ST[t.st]; return `<tr${isNsa(t) ? ' style="background:rgba(253,227,200,.35)"' : ''}><td><div style="color:${s[2]};font-weight:700;white-space:nowrap">${s[0]} ${esc(t.ows)}${t.at ? ' · ' + esc(t.at) : ''}</div><div style="font-size:11.5px;color:var(--text2)">ทีม <b>${esc(t.team || '-')}</b></div></td><td class="m">${esc(t.id)}</td><td class="m"><b>${t.sites.map(esc).join('<br>')}</b></td><td>${[...new Set(t.sites.flatMap(x => siteEv[x] || []))].map(x => esc(evShort(x))).join('<br>')}</td><td>${sevH(t)}</td><td style="min-width:240px;max-width:380px">${esc(t.subject)}</td><td>${esc(t.pr)}</td><td>${esc(t.bm)}</td><td class="m">${esc(String(t.created).slice(0, 16))}</td><td>${t.left == null ? '' : t.left < 0 ? '<b style="color:#d1453d">' + slaTxt(t) + '</b>' : '<span style="color:var(--green)">' + slaTxt(t) + '</span>'}</td><td>${esc(t.detail)}${t.plan ? '<div style="font-size:11.5px;color:var(--text3)">Plan ' + esc(t.plan) + '</div>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="11" class="lk-empty">ไม่มี Ticket ค้างที่ไซต์งาน 🎉</td></tr>';
+    document.getElementById('lk-tb').innerHTML = rows.map(t => { const s = ST[t.st]; return `<tr${isNsa(t) ? ' style="background:rgba(253,227,200,.35)"' : ''}><td><div style="color:${s[2]};font-weight:700;white-space:nowrap">${s[0]} ${esc(t.ows)}${t.at ? ' · ' + esc(t.at) : ''}</div><div style="font-size:11.5px;color:var(--text2)">ทีม <b>${esc(t.team || '-')}</b></div></td><td class="m">${esc(t.id)}</td><td class="m"><b>${t.sites.map(esc).join('<br>')}</b></td><td>${[...new Set(t.sites.flatMap(x => siteEv[x] || []))].map(x => esc(evShort(x))).join('<br>')}</td><td>${sevH(t)}</td><td><div style="width:320px;white-space:normal;overflow-wrap:anywhere;word-break:break-all">${esc(t.subject)}</div></td><td>${esc(t.pr)}</td><td style="white-space:nowrap">${esc(t.bm)}</td><td class="m">${esc(String(t.created).slice(0, 16))}</td><td>${t.left == null ? '' : t.left < 0 ? '<b style="color:#d1453d">' + slaTxt(t) + '</b>' : '<span style="color:var(--green)">' + slaTxt(t) + '</span>'}</td><td>${esc(t.detail)}${t.plan ? '<div style="font-size:11.5px;color:var(--text3)">Plan ' + esc(t.plan) + '</div>' : ''}</td></tr>`; }).join('') || '<tr><td colspan="11" class="lk-empty">ไม่มี Ticket ค้างที่ไซต์งาน 🎉</td></tr>';
   }
   async function load() {
     if (busy) return; busy = true;
