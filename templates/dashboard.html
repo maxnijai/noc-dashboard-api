@@ -2090,7 +2090,6 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
         <span style="font-weight:700;font-size:14px;">ส่ง LINE: P0 ทุก Bookmark (ภาพ + ข้อความ)</span>
         <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span id="p0-line-copy-status" style="font-size:12px;color:#16a34a;font-weight:600;"></span>
-          <button id="p0-line-copy-btn" class="btn-secondary">คัดลอกข้อความ</button>
           <button id="p0-line-img-copy" class="btn-secondary">คัดลอกภาพ 1</button>
           <button id="p0-line-img-save" class="btn-secondary">บันทึกภาพ 1</button>
           <button id="p0-line-img2-copy" class="btn-secondary">คัดลอกภาพ 2</button>
@@ -2103,8 +2102,8 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
           <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 1 · P0 ติดตามงาน</div><img id="p0-line-img" alt="ภาพสรุป P0 แยก Bookmark" style="width:100%;border-radius:10px;display:block;"></div>
           <div id="p0-line-img2-wrap"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ภาพ 2 · การ์ด P0 + Total Pending</div><img id="p0-line-img2" alt="การ์ด P0 และ Total Pending แยก Bookmark" style="width:100%;border-radius:10px;display:block;"><div id="p0-line-img2-msg" style="font-size:12px;color:var(--text3);"></div></div>
         </div>
-        <div><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ข้อความรายใบ (วางต่อจากภาพ)</div>
-          <textarea id="p0-line-text" readonly style="width:100%;height:640px;font-size:13px;font-family:inherit;line-height:1.5;padding:10px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg3);color:var(--text);"></textarea></div>
+        <div style="min-width:0;"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;">ข้อความรายใบ แยก Bookmark · กดคัดลอกแล้ววางในไลน์ทีละกล่อง</div>
+          <div id="p0-line-texts" style="display:flex;flex-direction:column;gap:10px;"></div></div>
       </div>
     </div>
   </div>
@@ -9414,43 +9413,67 @@ function renderPivot(ft) {
 
   // ── P0 LINE report: one click -> summary image + per-ticket text (Bookmark -> Region -> Province) ──
   // Status = the MatelineX status of TODAY (same rule as the Status column): ❌ not departed · 🚗 departed · 🛠️ on site · ✅ done.
-  const P0LN_BM = [['7.MB with SA1-4', 'MB WITH SA1-4', '#3b82f6'], ['4.FBB with SA1-4', 'FBB WITH SA1-4', '#8b5cf6'], ['3. All NW Incident NSA1-2', 'NSA1-2', '#f59e0b'], ['NSA3-4', 'NSA3 / NSA4', '#06b6d4']];
+  const P0LN_BM = [['7.MB with SA1-4', 'MB WITH SA1-4', '#3b82f6'], ['4.FBB with SA1-4', 'FBB WITH SA1-4 · P0+P1', '#8b5cf6'], ['3. All NW Incident NSA1-2', 'NSA1-2', '#f59e0b'], ['NSA3-4', 'NSA3 / NSA4', '#06b6d4']];
   const P0LN_ST = { wait: ['❌', 'ยังไม่เดินทาง', '#e5484d'], dep: ['🚗', 'เดินทางแล้ว', '#f59e0b'], arr: ['🛠️', 'ถึงไซต์', '#2f81f7'], done: ['✅', 'Complete', '#16a34a'] };
   const P0LN_K = ['wait', 'dep', 'arr', 'done'];
   const P0LN_RANK = { wait: 0, dep: 1, arr: 2, done: 3 };
   function p0lnStatus(t) { const s = String(t.status_mateline || ''); return /^(Completed|Closed)/i.test(s) ? 'done' : /^Arrived/i.test(s) ? 'arr' : /^Departed/i.test(s) ? 'dep' : 'wait'; }
   function p0lnData() {
-    const all = ((lastData && lastData.detail) || []).flatMap(d => d.tickets || []).filter(t => t.priority === 'P0');
+    // P0 of every Bookmark + P1 of Online SA1-4 (4.FBB with SA1-4), as the Focus tab already lists them.
+    const all = ((lastData && lastData.detail) || []).flatMap(d => d.tickets || []).filter(t => t.priority === 'P0' || (t.priority === 'P1' && /FBB/i.test(String(t.Bookmark || ''))));
     const seen = new Set();
     return all.filter(t => !seen.has(t.TICKETID) && seen.add(t.TICKETID)).map(t => ({
-      id: t.TICKETID, bm: t.Bookmark, rg: String(t.Region || '').trim() || '-', pv: String(t.PROVINCE || '').trim() || '(ไม่ระบุจังหวัด)',
+      id: t.TICKETID, bm: t.Bookmark, pr: t.priority, rg: String(t.Region || '').trim() || '-', pv: String(t.PROVINCE || '').trim() || '(ไม่ระบุจังหวัด)',
       ds: String(t.DISTRICT || '').trim().replace(/^อ\.\s*/, ''), site: String(t.CINAME || '').trim(), team: String(t.team || '').trim(),
-      st: p0lnStatus(t), over: t.remaining_hours == null ? null : Math.max(0, Math.round(-t.remaining_hours)),
+      st: p0lnStatus(t), over: t.remaining_hours == null ? null : Math.max(0, Math.round(-t.remaining_hours)), left: t.remaining_hours == null ? null : Math.round(t.remaining_hours),
     }));
   }
   const p0lnCnt = a => { const c = { wait: 0, dep: 0, arr: 0, done: 0 }; a.forEach(t => c[t.st]++); return c; };
   const p0lnByPv = a => { const m = {}; a.forEach(t => (m[t.pv] = m[t.pv] || []).push(t)); return m; };
   const p0lnOrdPv = m => Object.keys(m).sort((x, y) => p0lnCnt(m[y]).wait - p0lnCnt(m[x]).wait || m[y].length - m[x].length || x.localeCompare(y, 'th'));
   function p0lnStamp(d) { const p = n => String(n).padStart(2, '0'); return { txt: p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()), file: p(d.getDate()) + p(d.getMonth() + 1) + '_' + p(d.getHours()) + p(d.getMinutes()) }; }
-  function p0lnText(T, now) {
-    const c = p0lnCnt(T), O = ['🚨 P0 ติดตามงาน  ' + now.txt, 'รวม ' + T.length + ' ใบ  ❌' + c.wait + '  🚗' + c.dep + '  🛠️' + c.arr + '  ✅' + c.done];
+  // One LINE message per Bookmark: [{name, color, n, wait, text}]
+  function p0lnTexts(T, now) {
     const known = new Set(P0LN_BM.map(b => b[0]));
-    const bms = P0LN_BM.concat([...new Set(T.map(t => t.bm).filter(b => !known.has(b)))].map(b => [b, b]));
-    bms.forEach(bk => {
-      const bt = T.filter(t => t.bm === bk[0]); if (!bt.length) return;
-      const bc = p0lnCnt(bt), open = bt.filter(t => t.st !== 'done');
-      O.push('', '【' + bk[1] + '】 ' + bt.length + ' ใบ' + (bc.done ? '  (ปิดแล้ว ' + bc.done + ')' : ''));
-      if (!open.length) { O.push('✅ ปิดครบแล้ว'); return; }
+    const bms = P0LN_BM.concat([...new Set(T.map(t => t.bm).filter(b => !known.has(b)))].map(b => [b, b, '#64748b']));
+    return bms.map(bk => {
+      const bt = T.filter(t => t.bm === bk[0]);
+      if (!bt.length && !known.has(bk[0])) return null;
+      const bc = p0lnCnt(bt), open = bt.filter(t => t.st !== 'done'), p1 = bt.filter(t => t.pr === 'P1').length;
+      const O = ['🚨 ' + bk[1] + '  ' + now.txt];
+      if (!bt.length) { O.push('✅ ไม่มีใบค้าง'); return { name: bk[1], color: bk[2], n: 0, wait: 0, text: O.join('\n') }; }
+      O.push('รวม ' + bt.length + ' ใบ' + (p1 ? ' (P0 ' + (bt.length - p1) + ' · P1 ' + p1 + ')' : '') + '  ❌' + bc.wait + '  🚗' + bc.dep + '  🛠️' + bc.arr + '  ✅' + bc.done);
+      if (!open.length) O.push('', '✅ ปิดครบแล้ว');
       ['NOR1', 'NOR2'].concat([...new Set(open.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => {
         const rt = open.filter(t => t.rg === r); if (!rt.length) return;
-        const pv = p0lnByPv(rt); O.push(r);
+        const pv = p0lnByPv(rt); O.push('', r);
         p0lnOrdPv(pv).forEach(p => pv[p].sort((x, y) => P0LN_RANK[x.st] - P0LN_RANK[y.st] || (y.over || 0) - (x.over || 0)).forEach(t => {
-          O.push(P0LN_ST[t.st][0] + ' ' + p + (t.ds ? ' · อ.' + t.ds : '') + (t.over != null ? ' · เกิน ' + t.over + 'ชม.' : ''), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
+          O.push(P0LN_ST[t.st][0] + ' ' + p + (t.ds ? ' · อ.' + t.ds : '') + (p1 ? ' · ' + t.pr : '') + (t.left == null ? '' : t.left > 0 ? ' · เหลือ ' + t.left + 'ชม.' : ' · เกิน ' + t.over + 'ชม.'), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
         }));
       });
+      O.push('', '❌ ยังไม่เดินทาง  🚗 เดินทาง  🛠️ ถึงไซต์  ✅ ปิดแล้ว');
+      if (bc.wait) O.push('👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
+      return { name: bk[1], color: bk[2], n: bt.length, wait: bc.wait, text: O.join('\n') };
+    }).filter(Boolean);
+  }
+  function p0lnRenderTexts(list) {
+    const box = el('p0-line-texts'); box.innerHTML = '';
+    list.forEach(m => {
+      const card = document.createElement('div');
+      card.style.cssText = 'border:1px solid var(--border);border-left:4px solid ' + m.color + ';border-radius:var(--r);background:var(--bg3);padding:8px 10px;';
+      const hd = document.createElement('div'); hd.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
+      const nm = document.createElement('b'); nm.style.cssText = 'font-size:13px;color:' + m.color + ';'; nm.textContent = m.name;
+      const ct = document.createElement('span'); ct.style.cssText = 'font-size:12px;color:var(--text3);flex:1;'; ct.textContent = m.n ? m.n + ' ใบ' + (m.wait ? ' · ❌ ' + m.wait : '') : 'ไม่มีใบค้าง';
+      const btn = document.createElement('button'); btn.className = 'btn-secondary'; btn.textContent = 'คัดลอก';
+      const ta = document.createElement('textarea'); ta.readOnly = true; ta.value = m.text;
+      ta.rows = Math.min(16, Math.max(3, m.text.split('\n').length));
+      ta.style.cssText = 'width:100%;font-size:12.5px;font-family:inherit;line-height:1.5;padding:8px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg2);color:var(--text);';
+      btn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); }
+        btn.textContent = '✓ คัดลอกแล้ว'; btn.style.color = '#16a34a'; p0lnStatusMsg('คัดลอกข้อความ ' + m.name + ' แล้ว');
+      });
+      hd.append(nm, ct, btn); card.append(hd, ta); box.appendChild(card);
     });
-    O.push('', '❌ ยังไม่เดินทาง  🚗 เดินทาง  🛠️ ถึงไซต์  ✅ ปิดแล้ว', '👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
-    return O.join('\n');
   }
   function p0lnImage(T, now) {
     const W = 1080, P = 44, F = '"IBM Plex Sans Thai","Sarabun","Tahoma",sans-serif', S = 2;
@@ -9465,7 +9488,7 @@ function renderPivot(ft) {
     tx(now.txt, W - P, y + 30, 22, '#9fb0c6', 500, 'right'); tx('NOR1 + NOR2', W - P, y + 60, 22, '#9fb0c6', 500, 'right');
     y += 112;
     const c = p0lnCnt(T), kw = (W - 2 * P - 4 * 12) / 5.2;
-    rr(P, y, kw * 1.2, 106, 14, 'rgba(255,107,107,.13)', 'rgba(255,107,107,.45)'); tx(String(T.length), P + kw * .6, y + 58, 48, '#ff8a8a', 800, 'center'); tx('P0 ทั้งหมด', P + kw * .6, y + 90, 19, '#a9b8cc', 500, 'center');
+    rr(P, y, kw * 1.2, 106, 14, 'rgba(255,107,107,.13)', 'rgba(255,107,107,.45)'); tx(String(T.length), P + kw * .6, y + 58, 48, '#ff8a8a', 800, 'center'); tx(T.some(t => t.pr === 'P1') ? 'P0 + FBB P1' : 'P0 ทั้งหมด', P + kw * .6, y + 90, 19, '#a9b8cc', 500, 'center');
     P0LN_K.forEach((k, i) => { const x = P + kw * 1.2 + 12 + i * (kw + 12); rr(x, y, kw, 106, 14, '#16263d'); tx(String(c[k]), x + kw / 2, y + 58, 48, P0LN_ST[k][2], 800, 'center'); tx(P0LN_ST[k][0] + ' ' + P0LN_ST[k][1], x + kw / 2, y + 90, 17, '#a9b8cc', 500, 'center'); });
     y += 130;
     blocks.forEach(b => {
@@ -9511,10 +9534,6 @@ function renderPivot(ft) {
     }, 'image/png');
   }
   function p0lnStatusMsg(m) { const s = el('p0-line-copy-status'); s.textContent = m; clearTimeout(p0lnStatusMsg.t); p0lnStatusMsg.t = setTimeout(() => { s.textContent = ''; }, 4000); }
-  async function p0lnCopyText() {
-    const ta = el('p0-line-text');
-    try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); }
-  }
   function p0lnSave() {
     if (!p0lnCanvas) return;
     p0lnCanvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = p0lnFile; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }, 'image/png');
@@ -9522,26 +9541,25 @@ function renderPivot(ft) {
   el('p0-line-summary').addEventListener('click', async () => {
     if (!lastData) { alert('ยังโหลดข้อมูล P0 ไม่เสร็จ ลองใหม่อีกครั้ง'); return; }
     const T = p0lnData(), now = p0lnStamp(new Date());
-    el('p0-line-text').value = p0lnText(T, now);
+    p0lnRenderTexts(p0lnTexts(T, now));
     el('p0-line-modal').style.display = 'block';
     try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
     p0lnCanvas = p0lnImage(T, now); p0lnFile = 'P0_' + now.file + '.png';
     el('p0-line-img').src = p0lnCanvas.toDataURL('image/png');
     el('p0-line-img2').removeAttribute('src'); el('p0-line-img2').style.display = 'none'; el('p0-line-img2-msg').textContent = 'กำลังสร้างภาพการ์ด...';
-    await p0lnCopyText(); p0lnSave();
+    p0lnSave();
     p0lnCanvas2 = await p0lnCardsCanvas(now); p0lnFile2 = 'Cards_' + now.file + '.png';
     if (p0lnCanvas2) {
       el('p0-line-img2').src = p0lnCanvas2.toDataURL('image/png'); el('p0-line-img2').style.display = 'block'; el('p0-line-img2-msg').textContent = '';
       setTimeout(() => p0lnSaveCv(p0lnCanvas2, p0lnFile2), 700);
-      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' + ' + p0lnFile2 + ' และคัดลอกข้อความแล้ว');
+      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' + ' + p0lnFile2 + ' แล้ว · กดคัดลอกข้อความทีละ Bookmark');
     } else {
       el('p0-line-img2-msg').textContent = 'สร้างภาพการ์ดไม่ได้ (โหลดข้อมูลการ์ด P0 / Total Pending ไม่สำเร็จ)';
-      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' และคัดลอกข้อความแล้ว · ภาพ 2 สร้างไม่ได้');
+      p0lnStatusMsg('✓ บันทึกภาพ ' + p0lnFile + ' แล้ว · ภาพ 2 สร้างไม่ได้ · กดคัดลอกข้อความทีละ Bookmark');
     }
   });
   el('p0-line-img2-save').addEventListener('click', () => { if (!p0lnCanvas2) { p0lnStatusMsg('ยังไม่มีภาพ 2'); return; } p0lnSaveCv(p0lnCanvas2, p0lnFile2); p0lnStatusMsg('บันทึกภาพ 2 แล้ว'); });
   el('p0-line-img2-copy').addEventListener('click', () => p0lnCopyCv(p0lnCanvas2));
-  el('p0-line-copy-btn').addEventListener('click', async () => { await p0lnCopyText(); p0lnStatusMsg('คัดลอกข้อความแล้ว ✅'); });
   el('p0-line-img-save').addEventListener('click', () => { p0lnSave(); p0lnStatusMsg('บันทึกภาพแล้ว'); });
   el('p0-line-img-copy').addEventListener('click', () => {
     if (!p0lnCanvas) return;
