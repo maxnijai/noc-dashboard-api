@@ -25,6 +25,11 @@ SEVERITIES = {"SA1", "SA2", "SA3", "SA4", "NSA1", "NSA2", "NSA3", "NSA4"}
 SEASON = ("2026-11-15", "2026-11-27")
 MAIN_NIGHT = "2026-11-24"
 
+# Remark shown on the event card (next to its site chips). Key = Event Name exactly as in SITES.
+EVENT_REMARKS = {
+    "2026_Loy Krathong Chiangmai CAD Khomloy Sky Lanterns Festival": "งานเริ่ม 16:00 น. ผู้จัดงานเริ่ม Start Gen",
+}
+
 SITES = [
     ('NOR1', 'CRI', 'Loy Krathong Chiang Rai', '2026-11-15', '2026-11-26', 'CRI0021', 19.92811, 99.81526),
     ('NOR1', 'CRI', 'Loy Krathong Chiang Rai', '2026-11-15', '2026-11-26', 'UNOEV03', 19.921911, 99.820471),
@@ -205,5 +210,6 @@ def build_response(gs_client):
         "generated_at": now_dt.strftime("%Y-%m-%d %H:%M"), "today": today,
         "season": SEASON, "main_night": MAIN_NIGHT, "severities": sorted(SEVERITIES),
         "sites": [{"region": s[0], "prov": s[1], "event": s[2], "start": s[3], "end": s[4], "site": s[5], "lat": s[6], "lon": s[7]} for s in SITES],
+        "remarks": EVENT_REMARKS,
         "tickets": tickets,
     }
