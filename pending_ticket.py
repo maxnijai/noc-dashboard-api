@@ -290,6 +290,13 @@ EXPORT_HEADER = [
     "Group_Problem (Team)",  # column AC: the NSA3/4-* value the team picked; column P then carries the customer-template wording
 ]
 
+# Column AD "Detail (EN)" exists ONLY in the mirror sheet (export_to_external_sheet), not in EXPORT_HEADER, so the
+# Excel / Google Sheet export buttons keep their 29 columns. Sheets translates column R itself (free, no API key). One MAP formula in AD2 covers every row; it is
+# re-written after each export because export_to_external_sheet() clears the whole tab. "th" -> "en": English text
+# in R passes through unchanged; if Google's translate quota is hit, IFERROR shows the original Thai instead of an error.
+DETAIL_EN_FORMULA = '=MAP(R2:R, LAMBDA(d, IF(LEN(TRIM(d))=0, "", IFERROR(GOOGLETRANSLATE(d, "th", "en"), d))))'
+
+
 # Customer template (NSA3/4): the team keeps picking the "NSA3/4-*" values on the web page; the export
 # writes the customer's wording into column P (Group_Problem) and keeps the team's own value in column AC.
 # Keys are compared stripped + case-insensitive; anything not listed passes through to P unchanged (AC blank).
@@ -1079,14 +1086,19 @@ def export_to_external_sheet(gs_client, tickets, insert_time_str):
     # A Sheets write past the grid's edge fails outright, so grow the grid first if the new
     # right-most column (or more rows than before) doesn't fit. Only ever adds, never removes.
     try:
-        if ws.col_count < len(EXPORT_HEADER):
-            ws.add_cols(len(EXPORT_HEADER) - ws.col_count)
+        if ws.col_count < len(EXPORT_HEADER) + 1:   # +1 = column AD (Detail EN)
+            ws.add_cols(len(EXPORT_HEADER) + 1 - ws.col_count)
         if ws.row_count < len(rows) + 1:
             ws.add_rows(len(rows) + 1 - ws.row_count)
     except Exception:
         log.exception("export_to_external_sheet: could not grow the sheet grid - attempting the write anyway")
     ws.clear()
     ws.update("A1", [EXPORT_HEADER] + rows, value_input_option="RAW")
+    # Column AD (Detail EN): the rows above stop at AC, so AD2 is empty and the MAP formula can fill AD2:AD downwards.
+    try:
+        _with_quota_retry(lambda: ws.update("AD1:AD2", [["Detail (EN)"], [DETAIL_EN_FORMULA]], value_input_option="USER_ENTERED"))
+    except Exception:
+        log.exception("export_to_external_sheet: could not write the Detail (EN) formula in AD2 - column AD left blank this round")
     log.info("Exported %d rows to external Pending Ticket mirror sheet", len(rows))
 
 
