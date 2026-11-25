@@ -1974,6 +1974,24 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
     .ofc-bar-total { flex: 0 0 34px; font-size: 11.5px; font-weight: 800; text-align: right; }
 
     .ofc-cov-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .ofc-q-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .ofc-q-chip{border:1px solid var(--border);background:var(--bg3);border-radius:999px;padding:2px 10px;font-size:11.5px;color:var(--text2);cursor:pointer}
+  .ofc-q-chip b{color:var(--text)}.ofc-q-chip.on{background:#1f6feb;border-color:#1f6feb;color:#fff}.ofc-q-chip.on b{color:#fff}
+  .ofc-q-row{display:grid;grid-template-columns:92px 86px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--border)}
+  .ofc-q-row:last-of-type{border-bottom:none}
+  .ofc-q-sla{font-weight:800;font-size:11px;border-radius:999px;padding:2px 8px;text-align:center;color:#fff;white-space:nowrap}
+  .ofc-q-st{font-size:11px;font-weight:700;border-radius:4px;padding:2px 6px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ofc-q-who{min-width:0;font-size:12px}.ofc-q-who b{cursor:pointer}.ofc-q-who b:hover{text-decoration:underline}
+  .ofc-q-who div{color:var(--text3);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ofc-q-tel{font-family:Consolas,monospace;font-size:11.5px;border:1px solid var(--border);background:var(--bg3);border-radius:4px;padding:2px 7px;cursor:pointer;white-space:nowrap;color:var(--text)}
+  .ofc-q-more{font-size:11px;color:#1f6feb;cursor:pointer;font-weight:700;margin-top:6px}
+  .ofc-pv-leg{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text2);margin-bottom:8px}.ofc-pv-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .ofc-pv-row{display:grid;grid-template-columns:70px minmax(0,1fr) 34px 60px;gap:8px;align-items:center;padding:3px 4px;cursor:pointer;border-radius:4px}
+  .ofc-pv-row:hover,.ofc-pv-row.on{background:var(--bg3)}.ofc-pv-row.on{outline:1px solid #1f6feb}
+  .ofc-pv-row>b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ofc-pv-bar{display:flex;height:18px;border-radius:4px;overflow:hidden;min-width:18px}
+  .ofc-pv-bar i{display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;font-style:normal;min-width:16px}
+  .ofc-pv-n{font-weight:700;font-size:12px}.ofc-pv-ov{font-size:11px;font-weight:700;color:#E24B4A;text-align:right;white-space:nowrap}
     .ofc-cov-label { flex: 0 0 130px; font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ofc-cov-track { flex: 1; height: 16px; background: #E24B4A33; border-radius: 4px; overflow: hidden; }
     .ofc-cov-fill { height: 100%; background: #639922; }
@@ -2057,13 +2075,14 @@ table.rank-tbl tr:last-child td { border-bottom:none; }
 
         <div class="ofc-row2" style="margin-bottom:16px;">
           <div class="ofc-card">
-            <div class="t">👷 TEAM WORKLOAD <span style="font-weight:400; color:var(--text3); font-size:11px;">(Total | 🔴P0 🟠P1 🔵P2 — คลิกเพื่อ Drill Down)</span></div>
-            <div id="ofc-team-workload"></div>
+            <div class="t">🚨 ต้องตามตอนนี้ <span style="font-weight:400; color:var(--text3); font-size:11px;">(Over SLA หรือเหลือ ≤ 2 ชม. · ทีมยังไม่ถึงไซต์ · เรียงเร่งด่วนสุดก่อน · กดเบอร์เพื่อคัดลอก)</span></div>
+            <div id="ofc-q-chips" class="ofc-q-chips"></div>
+            <div id="ofc-action-queue"></div>
           </div>
           <div class="ofc-card">
-            <div class="t">📶 OWS MAPPING COVERAGE <span style="font-weight:400; color:var(--text3); font-size:11px;">(จังหวัดไหนยังมี Ticket ที่ยังไม่มี Team รับผิดชอบ — ตัวเลข = จับคู่ Team ได้แล้ว/ทั้งหมด)</span></div>
-            <div style="font-size:11px; color:var(--text3); margin-bottom:8px;">⚠️ "Missing N" = มี N Ticket ในจังหวัดนี้ที่ยังไม่มีทีมดูแล ต้องเช็คว่าตกหล่นหรือรอ Mapping (ใช้ Filter Province ด้านบนถ้าอยากกรองดูจังหวัดเดียว)</div>
-            <div id="ofc-mapping-coverage"></div>
+            <div class="t">📍 สถานะงานรายจังหวัด <span style="font-weight:400; color:var(--text3); font-size:11px;">(คลิกจังหวัดเพื่อกรองทั้งหน้า)</span></div>
+            <div class="ofc-pv-leg"><span><i style="background:#E24B4A"></i>Dispatched (ยังไม่ออก)</span><span><i style="background:#EF9F27"></i>Departed</span><span><i style="background:#2f6fd6"></i>Arrived</span><span><i style="background:#8b5cf6"></i>Pause</span></div>
+            <div id="ofc-prov-pipeline"></div>
           </div>
         </div>
 
@@ -13620,6 +13639,82 @@ loadData();
     if (toggleEl) toggleEl.addEventListener('click', () => { teamWorkloadExpanded = !teamWorkloadExpanded; renderTeamWorkload(filtered); });
   }
 
+  // ── 🚨 Action queue + 📍 province pipeline (replaced Team Workload / OWS Mapping Coverage, 25 Nov 2026) ──
+  // stage of a WO from the Daily sheet's own Status text: done = no longer needs chasing
+  function ofcStage(e) {
+    const s = String(e.status || '');
+    if (e.completed || e.closed || /complet|clos|cancel|finish/i.test(s)) return 'done';
+    if (/arriv/i.test(s)) return 'arr';
+    if (/pause|suspend/i.test(s)) return 'pau';
+    if (/depart/i.test(s)) return 'dep';
+    return 'dis';
+  }
+  const OFC_STAGE = { dis: ['Dispatched', '#E24B4A', '#fde2e1', '#b42318'], dep: ['Departed', '#EF9F27', '#fdf0d8', '#a15c07'], arr: ['Arrived', '#2f6fd6', '#e3edff', '#1d4ed8'], pau: ['Pause', '#8b5cf6', '#ede9fe', '#6d28d9'] };
+  const OFC_Q_MINUTES = 120;
+  let ofcQChip = 'all', ofcQExpanded = false;
+  function ofcTeamParts(team) {
+    const t = String(team || '');
+    const tel = (t.match(/Tel\.?\s*:?\s*(0\d{8,9})/i) || [])[1] || '';
+    const code = t.split('(')[0].trim();
+    const name = ((t.match(/\(\s*([^_\s)]+)/) || [])[1] || '');
+    return { code: code || t, name, tel };
+  }
+  const ofcFmtMin = m => { const a = Math.round(Math.abs(m)); return a >= 60 ? Math.floor(a / 60) + 'h ' + (a % 60) + 'm' : a + 'm'; };
+  function renderActionQueue(filtered) {
+    const all = filtered.map(e => ({ e, m: slaMinutesRemaining(e), st: ofcStage(e) }))
+      .filter(x => x.m != null && x.m <= OFC_Q_MINUTES && x.st !== 'arr' && x.st !== 'done')
+      .sort((a, b) => a.m - b.m);
+    const cnt = { over: all.filter(x => x.m < 0).length, dis: 0, dep: 0, pau: 0 };
+    all.forEach(x => { cnt[x.st] = (cnt[x.st] || 0) + 1; });
+    const chips = [['all', 'ทั้งหมด', all.length], ['over', '🔴 Over SLA', cnt.over], ['dis', 'Dispatched', cnt.dis], ['dep', 'Departed', cnt.dep], ['pau', 'Pause', cnt.pau]];
+    el('ofc-q-chips').innerHTML = chips.map(c => `<span class="ofc-q-chip${ofcQChip === c[0] ? ' on' : ''}" data-qc="${c[0]}">${c[1]} <b>${c[2]}</b></span>`).join('');
+    const list = all.filter(x => ofcQChip === 'all' || (ofcQChip === 'over' ? x.m < 0 : x.st === ofcQChip));
+    const SHOWN = 10, rows = ofcQExpanded ? list : list.slice(0, SHOWN);
+    el('ofc-action-queue').innerHTML = rows.map(({ e, m, st }) => {
+      const tp = ofcTeamParts(e.team), sg = OFC_STAGE[st];
+      const slaBg = m < 0 || m <= 30 ? '#E24B4A' : m <= 60 ? '#EF9F27' : '#d98a0b';
+      const pr = classifyPriority(e);
+      return `<div class="ofc-q-row">
+        <span class="ofc-q-sla" style="background:${slaBg}">${m < 0 ? 'เกิน ' : 'เหลือ '}${ofcFmtMin(m)}</span>
+        <span class="ofc-q-st" style="background:${sg[2]};color:${sg[3]}" title="${escapeHtml(e.status || '')}">${sg[0]}</span>
+        <div class="ofc-q-who" title="${escapeHtml(e.team)}"><b data-qteam="${escapeHtml(e.team)}">${escapeHtml(tp.code)}</b>${tp.name ? ` <span style="color:var(--text3)">(${escapeHtml(tp.name)})</span>` : ''}
+          <div>${escapeHtml(e.ticket_id)} · ${escapeHtml(e.site_id || '-')} · ${escapeHtml(e.severity || '')}${pr ? ' · ' + pr : ''} · ${escapeHtml(e.filter_province || e.district || '')}</div></div>
+        ${tp.tel ? `<span class="ofc-q-tel" data-tel="${tp.tel}" title="กดเพื่อคัดลอกเบอร์">📞 ${tp.tel.replace(/^(\d{3})(\d{3})(\d{3,4})$/, '$1-$2-$3')}</span>` : '<span></span>'}
+      </div>`;
+    }).join('') || `<div style="color:var(--text3); font-size:12px; padding:10px 0;">✅ ไม่มีงานที่ต้องตามตอนนี้</div>`;
+    if (list.length > SHOWN) el('ofc-action-queue').innerHTML += `<div class="ofc-q-more" id="ofc-q-more">${ofcQExpanded ? '▴ แสดงน้อยลง' : `▾ แสดงอีก ${list.length - SHOWN} ใบ`}</div>`;
+    el('ofc-q-chips').querySelectorAll('[data-qc]').forEach(c => c.addEventListener('click', () => { ofcQChip = c.dataset.qc; renderActionQueue(filtered); }));
+    el('ofc-action-queue').querySelectorAll('[data-tel]').forEach(t => t.addEventListener('click', async ev => {
+      ev.stopPropagation();
+      try { await navigator.clipboard.writeText(t.dataset.tel); } catch (err) { /* ignore */ }
+      const old = t.innerHTML; t.innerHTML = '✓ คัดลอกแล้ว'; setTimeout(() => { t.innerHTML = old; }, 1500);
+    }));
+    el('ofc-action-queue').querySelectorAll('[data-qteam]').forEach(b => b.addEventListener('click', () => setFilter('team', b.dataset.qteam)));
+    const more = el('ofc-q-more'); if (more) more.addEventListener('click', () => { ofcQExpanded = !ofcQExpanded; renderActionQueue(filtered); });
+  }
+  function renderProvincePipeline(filtered) {
+    const by = {};
+    filtered.forEach(e => {
+      const st = ofcStage(e); if (st === 'done') return;
+      const p = e.filter_province || '(ไม่ระบุ)';
+      const d = by[p] = by[p] || { dis: 0, dep: 0, arr: 0, pau: 0, over: 0 };
+      d[st]++;
+      const m = slaMinutesRemaining(e); if (m != null && m < 0) d.over++;
+    });
+    const rows = Object.entries(by).map(([p, d]) => [p, d, d.dis + d.dep + d.arr + d.pau]).sort((a, b) => b[1].dis - a[1].dis || b[1].over - a[1].over || b[2] - a[2]);
+    const mx = Math.max(1, ...rows.map(r => r[2]));
+    el('ofc-prov-pipeline').innerHTML = rows.map(([p, d, tot]) => `<div class="ofc-pv-row${filters.province === p ? ' on' : ''}" data-pv="${escapeHtml(p)}" title="${escapeHtml(p)}: Dispatched ${d.dis} · Departed ${d.dep} · Arrived ${d.arr} · Pause ${d.pau} · Over SLA ${d.over}">
+        <b>${escapeHtml(p)}</b>
+        <div class="ofc-pv-bar" style="width:${tot / mx * 100}%">${['dis', 'dep', 'arr', 'pau'].map(k => d[k] ? `<i style="flex:${d[k]};background:${OFC_STAGE[k][1]}">${d[k]}</i>` : '').join('')}</div>
+        <span class="ofc-pv-n">${tot}</span><span class="ofc-pv-ov">${d.over ? 'Over ' + d.over : ''}</span>
+      </div>`).join('') + (rows.length ? '<div style="font-size:11px;color:var(--text3);margin-top:6px;">เรียงตามจำนวน Dispatched (ยังไม่ออก) มากสุดก่อน · ไม่นับงานที่ Completed / Closed แล้ว</div>' : '<div style="color:var(--text3); font-size:12px;">ไม่มีงานค้าง</div>');
+    el('ofc-prov-pipeline').querySelectorAll('[data-pv]').forEach(r => r.addEventListener('click', () => {
+      if (r.dataset.pv === '(ไม่ระบุ)') return;
+      const opt = [...el('ofc-filter-province').options].some(o => o.value === r.dataset.pv);
+      if (opt) setFilter('province', r.dataset.pv);
+    }));
+  }
+
   // ── OWS Mapping Coverage ────────────────────────────────────────────
   const MAPPING_COVERAGE_SHOWN = 12;
   function renderMappingCoverage() {
@@ -14016,8 +14111,8 @@ loadData();
     const filtered = getFiltered();
     renderKpis(filtered);
     renderAlertBar(filtered);
-    renderTeamWorkload(filtered);
-    renderMappingCoverage();
+    renderActionQueue(filtered);
+    renderProvincePipeline(filtered);
     renderProvinceGroups(filtered);
     renderActiveChips();
   }
