@@ -9528,6 +9528,26 @@ function renderPivot(ft) {
     if (bc.wait) O.push('👉 ใบ ❌ ขอสถานะการออกเดินทางภายใน 30 นาที');
     return O.join('\n');
   }
+  // Same layout, only the ❌ (no action today) tickets - for chasing the teams that have not moved yet.
+  function p0lnBmWaitText(b, now) {
+    const bk = b.bk, wt = b.bt.filter(t => t.st === 'wait'), p1 = b.bt.some(t => t.pr === 'P1');
+    const O = ['❌ ' + bk[1] + ' · ยังไม่มี Action  ' + now.txt];
+    if (!wt.length) { O.push('✅ ทุกใบมี Action แล้ว'); return O.join('\n'); }
+    O.push(wt.length + ' ใบ (จากทั้งหมด ' + b.bt.length + ' ใบ)');
+    ['NOR1', 'NOR2'].concat([...new Set(wt.map(t => t.rg))].filter(r => r !== 'NOR1' && r !== 'NOR2')).forEach(r => {
+      const rt = wt.filter(t => t.rg === r); if (!rt.length) return;
+      const pv = p0lnByPv(rt); O.push('', '━━ ' + r + ' · ' + rt.length + ' ใบ ━━');
+      p0lnOrdPv(pv).forEach((p, pi) => {
+        if (pi) O.push('');
+        O.push('📍 ' + p + ' (' + pv[p].length + ')');
+        pv[p].sort((x, y) => (y.over || 0) - (x.over || 0)).forEach(t => {
+          O.push('❌ ' + (t.ds ? 'อ.' + t.ds : p) + (p1 ? ' · ' + t.pr : '') + (t.left == null ? '' : t.left > 0 ? ' · เหลือ ' + t.left + 'ชม.' : ' · เกิน ' + t.over + 'ชม.'), '     ' + t.id, '     ' + [t.site, t.team].filter(Boolean).join(' · '));
+        });
+      });
+    });
+    O.push('', '👉 ขอสถานะการออกเดินทางภายใน 30 นาที');
+    return O.join('\n');
+  }
   function p0lnBmImage(b, now) {
     const bk = b.bk, bt = b.bt, col = bk[2];
     if (!bt.length) return null;
@@ -9611,6 +9631,10 @@ function renderPivot(ft) {
       ta = document.createElement('textarea'); ta.readOnly = true; ta.value = it.text; ta.rows = Math.min(18, Math.max(3, it.text.split('\n').length));
       ta.style.cssText = 'width:100%;font-size:12.5px;font-family:inherit;line-height:1.5;padding:8px;border:1px solid var(--border);border-radius:var(--r);resize:vertical;box-sizing:border-box;background:var(--bg2);color:var(--text);';
       hd.append(p0lnBtn('คัดลอกข้อความ', async b => { try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand('copy'); } p0lnDone(b, 'คัดลอกข้อความแล้ว'); p0lnStatusMsg('คัดลอกข้อความ ' + it.name + ' แล้ว'); }));
+      if (it.waitText != null && it.waitN) hd.append(p0lnBtn('คัดลอกเฉพาะ ❌ ไม่มี Action (' + it.waitN + ')', async b => {
+        try { await navigator.clipboard.writeText(it.waitText); } catch (e) { const t2 = document.createElement('textarea'); t2.value = it.waitText; document.body.appendChild(t2); t2.select(); document.execCommand('copy'); t2.remove(); }
+        p0lnDone(b, 'คัดลอก ❌ แล้ว'); p0lnStatusMsg('คัดลอกเฉพาะใบ ❌ ของ ' + it.name + ' แล้ว');
+      }));
     }
     const body = document.createElement('div');
     body.className = 'p0ln-body';
@@ -9631,7 +9655,7 @@ function renderPivot(ft) {
     p0lnPack = [{ name: 'ภาพรวม · การ์ด P0 + Total Pending', color: '#2563eb', sub: 'ส่งเป็นภาพแรก', cv: cards, file: 'Cards_' + now.file + '.png', text: null, msg: cards ? '' : 'สร้างภาพการ์ดไม่ได้ (โหลดข้อมูลการ์ด P0 / Total Pending ไม่สำเร็จ)' }];
     p0lnBms(T).forEach(b => {
       const c = p0lnCnt(b.bt);
-      p0lnPack.push({ name: b.bk[1], color: b.bk[2], sub: b.bt.length ? b.bt.length + ' ใบ' + (c.wait ? ' · ❌ ' + c.wait : '') : 'ไม่มีใบค้าง', cv: p0lnBmImage(b, now), file: 'P0_' + (P0LN_SHORT[b.bk[0]] || 'BM') + '_' + now.file + '.png', text: p0lnBmText(b, now) });
+      p0lnPack.push({ name: b.bk[1], color: b.bk[2], sub: b.bt.length ? b.bt.length + ' ใบ' + (c.wait ? ' · ❌ ' + c.wait : '') : 'ไม่มีใบค้าง', cv: p0lnBmImage(b, now), file: 'P0_' + (P0LN_SHORT[b.bk[0]] || 'BM') + '_' + now.file + '.png', text: p0lnBmText(b, now), waitText: p0lnBmWaitText(b, now), waitN: c.wait });
     });
     box.innerHTML = ''; p0lnPack.forEach(it => box.appendChild(p0lnSection(it)));
     p0lnStatusMsg('พร้อมแล้ว · คัดลอกภาพ / ข้อความทีละ Bookmark');
