@@ -804,7 +804,7 @@ def rename_group_problem_value(gs_client, old_value, new_value):
 
 
 # ---------------------------------------------------------------------------
-# Nightly auto-fill of untouched tickets (21:30 Bangkok, see app.py)
+# Nightly auto-fill of untouched tickets (20:00 Bangkok, see app.py)
 # ---------------------------------------------------------------------------
 # Explicit request: every night, a ticket whose Aging_Flag_Group is one of the
 # OverSLA buckets below and whose five work-log fields are ALL still
@@ -1785,6 +1785,39 @@ _p0_snapshot_lock = threading.Lock()
 
 P0_COMPARISON_GROUPS = ["MB", "FBB", "NW_NSA12", "NSA34"]  # matches ticket_views.BOOKMARK_VIEWS keys, in display order
 
+# ── Manual fix of one day's @01:15 Total Pending (explicit request from MAX) ──
+# {date: {group: {"total": n, "aging": {Aging_Flag_Group: n}}}}. Replaces the number computed from that day's
+# 01:15 Drive file for ONE group on ONE day, everywhere the @01:15 Total Pending is shown: the card's
+# "@01:15" (build_p0_snapshot_comparison), the TREND point and the AGING bars (build_p0_daily_trend), and
+# therefore the summed TOTAL card and the Lowest record (min_record reads the same series). P0 counts and the
+# live number are never touched. Every other day / group keeps the normal calculation. "aging" must add up to
+# "total". To fix another day, add a line here.
+MANUAL_DAY_FIX = {
+    "2026-11-26": {"NSA34": {"total": 208, "aging": {
+        "1) OverSLA : > 30 days": 3, "2) OverSLA : < 30 days": 3, "3) OverSLA : < 7 days": 7,
+        "4) OverSLA : < 3 days": 10, "5) OverSLA : < 1 day": 12, "6) Within SLA": 173}}},
+}
+
+
+def _apply_day_fix(date_str, t):
+    """Trend part {"counts","total","aging",...} with MANUAL_DAY_FIX applied for date_str (a new dict; t untouched).
+    Returns t itself when nothing to fix."""
+    fix = MANUAL_DAY_FIX.get(date_str)
+    if not fix or t is None:
+        return t
+    t = dict(t)
+    total = dict(t.get("total") or {k: None for k in P0_COMPARISON_GROUPS})
+    aging = {k: dict(v) for k, v in (t.get("aging") or {}).items()} if t.get("aging") else None
+    for g, f in fix.items():
+        if f.get("total") is not None:
+            total[g] = f["total"]
+        if f.get("aging"):
+            if aging is None:
+                aging = {k: {} for k in P0_COMPARISON_GROUPS}
+            aging[g] = dict(f["aging"])
+    t["total"], t["aging"] = total, aging
+    return t
+
 # ── Per-day computed snapshot cache (COUNTS ONLY - raw rows are never kept) ──
 # A day's ~01:15 Drive file is ~7k rows / ~5MB. Parking those rows in memory for every
 # past day (the old _day_rows_cache) made Railway memory climb all week. Now each file is
@@ -1997,10 +2030,10 @@ def build_p0_daily_trend(gs_client, drive_service, days=7):
 
         t = None
         if not is_today and date_str in store:
-            t = store[date_str]  # finished day already stored: no Drive download needed
+            t = _apply_day_fix(date_str, store[date_str])  # finished day already stored: no Drive download needed
         else:
             e = _day_calc(drive_service, day, today, "trend")
-            t = e.get("trend") if e else None
+            t = _apply_day_fix(date_str, e.get("trend") if e else None)  # fixed BEFORE recording, so the stored day is the fixed one
             if t is not None and not is_today and _trend_recordable(t):
                 to_record[date_str] = t
         counts = (t or {}).get("counts") or none_counts
@@ -2450,6 +2483,14 @@ def build_p0_snapshot_comparison(gs_client, drive_service, use_cache=True):
             with _p0_snapshot_lock:
                 _p0_snapshot_cache["data"] = (snapshot_date, matched_dt, filename, snapshot_counts, snapshot_row_count, snapshot_total_counts)
                 _p0_snapshot_cache["ts"] = now
+
+    if snapshot_total_counts is not None:
+        _fix = MANUAL_DAY_FIX.get(snapshot_date.strftime("%Y-%m-%d"), {})
+        if _fix:
+            snapshot_total_counts = dict(snapshot_total_counts)
+            for _g, _f in _fix.items():
+                if _f.get("total") is not None:
+                    snapshot_total_counts[_g] = _f["total"]
 
     live_rows = fetch_live_rows(gs_client)
     now_dt = bangkok_now()
