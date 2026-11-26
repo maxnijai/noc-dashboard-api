@@ -205,7 +205,14 @@ def find_closest_file(drive_service, target_dt, window_minutes):
 def find_nightly_file(drive_service, target_date):
     """Return the backup file closest to TARGET_TIME (01:15) on target_date."""
     target_dt = datetime.combine(target_date, TARGET_TIME)
-    return find_closest_file(drive_service, target_dt, window_minutes=SNAPSHOT_SEARCH_WINDOW_HOURS * 60)
+    found = find_closest_file(drive_service, target_dt, window_minutes=SNAPSHOT_SEARCH_WINDOW_HOURS * 60)
+    # TODAY before the 01:15 backup exists, the closest file is an EARLIER one (e.g. 00:15) - its counts are not
+    # "@01:15" and were once kept as a false Lowest (26 Nov 2026). Today only accepts a file from 01:00 on; until
+    # then there is no snapshot for today (callers already handle None: the card falls back to yesterday's file).
+    if found is not None and target_date == bangkok_now().date() and found[1] < target_dt - timedelta(minutes=15):
+        log.info("find_nightly_file: today's closest file %s (%s) is before 01:00 - not used as today's @01:15", found[2], found[1])
+        return None
+    return found
 
 
 def diagnose_backup_search(drive_service, target_date):

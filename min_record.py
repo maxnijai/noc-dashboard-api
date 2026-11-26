@@ -109,6 +109,23 @@ def update(gs_client, data):
     except Exception:
         rec, ws = (cached or {r: {k: {"min": v, "date": d, "source": "seed"} for k, (v, d) in SEED[r].items()} for r in SEED}), None
     changed = False
+    # Self-repair (26 Nov 2026: NSA1-2 Total Pending got "Lowest 9 @26 Nov" while that day's @01:15 is 11).
+    # An "auto" record whose date is still inside the trend window must equal that day's value in the trend.
+    # If it does not, the record came from a value that has since changed (today's point is recomputed every
+    # 15 min - e.g. computed from an earlier backup file before the real 01:15 one existed). Rebuild it from
+    # the trend points (>= START) and MAX's seed, keeping the lowest / earliest.
+    for r, field in (("pending", "series_total"), ("p0", "series")):
+        for k, pts in _series(data, field).items():
+            e, day_val = rec[r][k], dict(pts)
+            if e.get("source") != "auto" or e.get("date") not in day_val or day_val[e["date"]] == e["min"]:
+                continue
+            sv, sd = SEED[r][k]
+            best = (sv, sd, "seed")
+            for d, v in pts:
+                if v < best[0] or (v == best[0] and d < best[1]):
+                    best = (v, d, "auto")
+            rec[r][k] = {"min": best[0], "date": best[1], "source": best[2]}
+            changed = True
     for r, field in (("pending", "series_total"), ("p0", "series")):
         for k, pts in _series(data, field).items():
             for d, v in pts:
