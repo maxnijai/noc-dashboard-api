@@ -4255,6 +4255,18 @@ def run_flag_daily_record():
             pass
 
 
+@app.route('/api/pending-ticket/location-gaps')
+def api_pending_location_gaps():
+    """Tickets whose PROVINCE/DISTRICT/SUBDISTRICT are still empty after the district-tab fill-in (read-only)."""
+    try:
+        import pending_ticket as _pt
+        _, gs_client = get_drive_and_sheets_clients()
+        return jsonify(_pt.location_gaps(gs_client))
+    except Exception as e:
+        log.exception("location-gaps API failed")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/pending-ticket/auto-fill', methods=['POST'])
 def api_pending_auto_fill():
     """Manual check/run of the nightly auto-fill. DRY RUN unless the body is

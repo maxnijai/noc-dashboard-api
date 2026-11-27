@@ -453,6 +453,13 @@ def _fill_location_columns(rows, gs_client):
     try:
         def blank(v):
             return str(v if v is not None else "").strip().lower() in _LOC_BLANK
+        # One spelling for every row, filled or not: GGS itself mixes "MUEANG CHIANG MAI" and "MUEANGCHIANGMAI",
+        # which split one district into two in the DISTRICT filter (27 Nov 2026).
+        for r in rows:
+            for col in ("PROVINCE", "DISTRICT", "SUBDISTRICT"):
+                v = r.get(col)
+                if isinstance(v, str) and " " in v.strip() and not blank(v):
+                    r[col] = re.sub(r"\s+", "", v).upper()
         todo = [r for r in rows if blank(r.get("PROVINCE")) or blank(r.get("DISTRICT")) or blank(r.get("SUBDISTRICT"))]
         if not todo:
             return
@@ -475,6 +482,19 @@ def _fill_location_columns(rows, gs_client):
         log.info("location fill-in: %d of %d tickets with empty PROVINCE/DISTRICT/SUBDISTRICT filled", filled, len(todo))
     except Exception:
         log.exception("location fill-in failed - rows left as they are")
+
+
+def location_gaps(gs_client):
+    """Tickets whose PROVINCE/DISTRICT/SUBDISTRICT are still empty after the fill-in - what to add to the district tab."""
+    blank = lambda v: str(v if v is not None else "").strip().lower() in _LOC_BLANK
+    loc = _load_location_map(gs_client) or {}
+    out = []
+    for r in fetch_live_rows(gs_client):
+        if blank(r.get("PROVINCE")) or blank(r.get("DISTRICT")) or blank(r.get("SUBDISTRICT")):
+            out.append({"TICKETID": _safe_str(r.get("TICKETID")), "CINAME": _safe_str(r.get("CINAME")),
+                        "SUBJECT": _safe_str(r.get("SUBJECT"))[:90], "Bookmark": _safe_str(r.get("Bookmark")),
+                        "PROVINCE": _safe_str(r.get("PROVINCE")), "DISTRICT": _safe_str(r.get("DISTRICT")), "SUBDISTRICT": _safe_str(r.get("SUBDISTRICT"))})
+    return {"location_ids_in_district_tab": len(loc), "still_empty": len(out), "tickets": out}
 
 
 def fetch_live_rows(gs_client, use_cache=True):

@@ -123,7 +123,11 @@ def fetch_rows(gs_client=None):
     if gs_client is None:
         _, gs_client = get_drive_and_sheets_clients()
     ws = _get_worksheet(gs_client)
-    return ws.get_all_records()
+    rows = ws.get_all_records()
+    # Same PROVINCE/DISTRICT/SUBDISTRICT fill-in + no-space spelling as every other page (local import: circular).
+    from pending_ticket import _fill_location_columns
+    _fill_location_columns(rows, gs_client)
+    return rows
 
 
 def _row_matches_filters(row, region_filter, trueowner_filter, aging_filter, district_filter):
