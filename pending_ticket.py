@@ -850,6 +850,23 @@ _AUTO_FILL_AGING_NORM = {_norm_aging(x) for x in AUTO_FILL_AGING_GROUPS}
 _AUTO_FILL_AGING_CANON = {_norm_aging(x): x for x in AUTO_FILL_AGING_GROUPS}
 
 
+def _parse_plan_date(v):
+    """Plan_Closed_Date cell -> date, or None when blank/unreadable (unreadable cells are never touched).
+    Accepts 2026-11-24, 2026-11-24 10:00:00, 24/11/2026, 24/11/2569 (Buddhist year)."""
+    s = str(v or "").strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d/%m/%Y", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M"):
+        try:
+            d = datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+        if d.year > 2400:
+            d = d.replace(year=d.year - 543)
+        return d
+    return None
+
+
 def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_ticket_id=None):
     """Fills the default plan for untouched over-SLA tickets. Returns a
     summary dict (never raises for "nothing to do").
@@ -866,7 +883,11 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
         new ones) - per-ticket writes would blow through the Sheets write quota.
       * dry_run=True reports what WOULD change and writes nothing.
       * explain_ticket_id (optional) adds an "explain" entry saying why that one
-        ticket was / wasn't picked - a read-only answer to "why didn't ticket X update?"."""
+        ticket was / wasn't picked - a read-only answer to "why didn't ticket X update?".
+      * Plan roll-over (explicit request 27 Nov 2026): every in-scope ticket (any Aging bucket, filled by a
+        person or by the bot) whose Plan_Closed_Date is BEFORE today gets Plan_Closed_Date = today. Only
+        column F is written - group_problem/action_team/detail/image_link and updated_at/updated_by (who
+        planned it) stay as they are. Blank or unreadable dates are left alone."""
     if not _auto_fill_run_lock.acquire(blocking=False):
         return {"skipped": "another auto-fill run is already in progress"}
     try:
@@ -890,8 +911,11 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
                 padded = row + [""] * (len(WORK_LOG_HEADER) - len(row))
                 existing[padded[0]] = (i, padded[1:6])
 
+        today = now_dt.date()
+        today_str = today.strftime("%Y-%m-%d")
+        rolls = []                                     # (sheet row number, old plan text) -> F = today
         summary = {
-            "dry_run": bool(dry_run), "plan_closed_date": plan_date,
+            "dry_run": bool(dry_run), "plan_closed_date": plan_date, "plan_rolled_to_today": 0, "plan_roll_sample": [],
             "tickets_in_scope": len(entries), "in_aging_buckets": 0,
             "skipped_already_has_data": 0, "to_update_existing_rows": 0, "to_append_new_rows": 0,
             "written": 0, "to_fill_by_action_team": {}, "to_fill_by_bucket": {g: 0 for g in AUTO_FILL_AGING_GROUPS}, "sample_ticket_ids": [],
@@ -904,6 +928,12 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
             if not tid or tid in seen:
                 continue
             seen.add(tid)
+            _row_no, _cells = existing.get(tid, (None, [""] * 5))
+            _pd = _parse_plan_date(_cells[4]) if _row_no is not None else None
+            if _pd is not None and _pd < today:
+                rolls.append((_row_no, _cells[4]))
+                if len(summary["plan_roll_sample"]) < 20:
+                    summary["plan_roll_sample"].append(f"{tid}: {_cells[4]} -> {today_str}")
             if _norm_aging(e.get("Aging_Flag_Group")) not in _AUTO_FILL_AGING_NORM:
                 if tid == target:
                     explain = {"ticket_id": tid, "in_pending_ticket_tab": True, "would_fill": False,
@@ -942,6 +972,7 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
 
         summary["to_update_existing_rows"] = len(updates)
         summary["to_append_new_rows"] = len(appends)
+        summary["plan_rolled_to_today"] = len(rolls)
 
         if target:
             if explain is None:
@@ -966,6 +997,11 @@ def auto_fill_blank_work_log(gs_client, dry_run=False, chunk_size=200, explain_t
                     explain = {"ticket_id": target, "would_fill": False, "reason": f"could not look up the live sheet: {ex}"}
             summary["explain"] = explain
 
+        if not dry_run and rolls:
+            for i in range(0, len(rolls), chunk_size):
+                chunk = rolls[i:i + chunk_size]
+                ws.batch_update([{"range": f"F{r}", "values": [[today_str]]} for r, _old in chunk], value_input_option="RAW")
+            _invalidate_work_log_cache()
         if not dry_run and (updates or appends):
             for i in range(0, len(updates), chunk_size):
                 chunk = updates[i:i + chunk_size]

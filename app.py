@@ -4179,26 +4179,30 @@ def add_no_cache_headers(resp):
         resp.headers['Expires'] = '0'
     return resp
 
-def run_pending_auto_fill():
-    """21:30 Bangkok nightly job (scheduled in start()). Fills the default plan
-    for untouched over-SLA tickets - all the rules live in
-    pending_ticket.auto_fill_blank_work_log. Never raises (a scheduler thread
-    must not die). Set env PENDING_AUTO_FILL_ENABLED=0 to switch it off
-    without a code change.
+PENDING_AUTO_FILL_EVERY_MIN = 15   # explicit request 27 Nov 2026: run all the time (was once a night at 20:00, before that 21:30)
 
-    Every gunicorn worker registers this job, so all of them fire at 21:30 -
-    an O_EXCL lock file (one per Bangkok date, same container) lets exactly one
-    run; the function is idempotent anyway, this just avoids duplicate work."""
+
+def run_pending_auto_fill():
+    """Every PENDING_AUTO_FILL_EVERY_MIN minutes (scheduled in start(); first run ~2 min after a deploy/restart):
+    fills the default plan for untouched tickets AND moves any back-dated Plan_Closed_Date to today - all the
+    rules live in pending_ticket.auto_fill_blank_work_log. Never raises (a scheduler thread must not die).
+    Set env PENDING_AUTO_FILL_ENABLED=0 to switch it off without a code change.
+
+    Every gunicorn worker registers this job, so all of them fire together - an O_EXCL lock file (one per
+    time slot, same container) lets exactly one run; the function is idempotent anyway, this just avoids
+    duplicate work."""
     import tempfile
     import pending_ticket as _pt
     if os.environ.get('PENDING_AUTO_FILL_ENABLED', '1') == '0':
         log.info("pending auto-fill: disabled by PENDING_AUTO_FILL_ENABLED=0")
         return
-    lock_path = os.path.join(tempfile.gettempdir(), f"pending_auto_fill_{bangkok_now().strftime('%Y%m%d')}.lock")
+    _now = bangkok_now()
+    _slot = _now.strftime('%Y%m%d%H') + '%02d' % (_now.minute // PENDING_AUTO_FILL_EVERY_MIN * PENDING_AUTO_FILL_EVERY_MIN)
+    lock_path = os.path.join(tempfile.gettempdir(), f"pending_auto_fill_{_slot}.lock")
     try:
         os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
     except FileExistsError:
-        log.info("pending auto-fill: another worker already ran it today (%s) - skipping", lock_path)
+        log.info("pending auto-fill: another worker already ran this slot (%s) - skipping", lock_path)
         return
     try:
         _, gs_client = get_drive_and_sheets_clients()
@@ -4272,9 +4276,10 @@ def start():
     threading.Thread(target=rebuild_cache, daemon=True).start()
     s = BackgroundScheduler()
     s.add_job(rebuild_cache, 'interval', hours=REBUILD_HOURS)
-    # 21:30 Asia/Bangkok explicitly - the container clock is UTC, so a bare hour=21 would fire at 04:00 Bangkok.
-    s.add_job(run_pending_auto_fill, 'cron', hour=21, minute=30, timezone='Asia/Bangkok',
-              id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=3600, replace_existing=True)
+    # Every 15 min, first run 2 min after start (was 20:00 nightly until 27 Nov 2026, 21:30 before 24 Nov).
+    s.add_job(run_pending_auto_fill, 'interval', minutes=PENDING_AUTO_FILL_EVERY_MIN,
+              next_run_time=datetime.now() + timedelta(minutes=2),
+              id='pending_auto_fill', max_instances=1, coalesce=True, misfire_grace_time=600, replace_existing=True)
     s.add_job(run_p0_daily_snapshot, 'cron', hour=1, minute=20, timezone='Asia/Bangkok',
               id='p0_daily_snapshot', max_instances=1, coalesce=True, misfire_grace_time=7200, replace_existing=True)
     s.add_job(run_flag_daily_record, 'cron', hour=6, minute=0, timezone='Asia/Bangkok',
@@ -4287,7 +4292,7 @@ def start():
     except Exception:
         log.exception("site_capacity warm-up skipped")
     try:
-        # Startup proof in the logs that the nightly job is registered and when it will next fire.
+        # Startup proof in the logs that the auto-fill job is registered and when it will next fire.
         _job = s.get_job('pending_auto_fill')
         log.info("pending auto-fill scheduled - next run at %s", _job.next_run_time if _job else "NOT REGISTERED")
     except Exception:
