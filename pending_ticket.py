@@ -406,6 +406,77 @@ _work_log_row_index_cache = {}  # ticket_id -> sheet row number, kept alongside 
 _cache_lock = threading.Lock()
 
 
+# ── PROVINCE / DISTRICT / SUBDISTRICT fill-in (explicit request 27 Nov 2026) ──
+# GGS Pending leaves these three "None" for many tickets. For such a ticket the site ID is taken from CINAME (or,
+# if CINAME gives none, from SUBJECT - the first token that is a known LOCATION ID) and looked up in the
+# "district" tab of EXPORT_SHEET_ID: PROVINCE_E -> PROVINCE, DISTRICT_E -> DISTRICT, SUB-DISTRICT_E -> SUBDISTRICT.
+# Only empty/"None" cells are filled; values GGS already has are kept. Done in memory when the live sheet is
+# read (GGS Pending itself is synced from upstream, a write there would be overwritten). Spaces are removed
+# ("MUEANG CHIANG MAI" -> "MUEANGCHIANGMAI") so filled values group with GGS's own no-space spelling.
+LOCATION_TAB = "district"
+_LOCATION_TTL_SECONDS = 6 * 3600
+_location_cache = {"data": None, "ts": 0.0}
+_location_lock = threading.Lock()
+_LOC_BLANK = {"", "none", "nan", "null", "-", "#n/a", "n/a"}
+_LOC_TOKEN_RE = re.compile(r"[A-Z0-9]+")
+
+
+def _load_location_map(gs_client):
+    """{LOCATION ID: (PROVINCE, DISTRICT, SUBDISTRICT)} from the district tab, cached 6h. {} on any problem."""
+    now = time.monotonic()
+    with _location_lock:
+        if _location_cache["data"] is not None and now - _location_cache["ts"] < _LOCATION_TTL_SECONDS:
+            return _location_cache["data"]
+        try:
+            vals = _with_quota_retry(lambda: gs_client.open_by_key(EXPORT_SHEET_ID).worksheet(LOCATION_TAB).get_all_values())
+            head = [str(h).strip().upper() for h in (vals[0] if vals else [])]
+            ix = {k: head.index(k) for k in ("LOCATION ID", "PROVINCE_E", "DISTRICT_E", "SUB-DISTRICT_E") if k in head}
+            if len(ix) < 4:
+                raise ValueError(f"district tab header missing columns: {head[:8]}")
+            clean = lambda v: re.sub(r"\s+", "", str(v or "")).upper()
+            out = {}
+            for row in vals[1:]:
+                row = row + [""] * (len(head) - len(row))
+                loc = str(row[ix["LOCATION ID"]]).strip().upper()
+                if loc:
+                    out[loc] = (clean(row[ix["PROVINCE_E"]]), clean(row[ix["DISTRICT_E"]]), clean(row[ix["SUB-DISTRICT_E"]]))
+            _location_cache.update(data=out, ts=now)
+            log.info("location map loaded: %d LOCATION IDs from '%s'", len(out), LOCATION_TAB)
+        except Exception:
+            log.exception("location map load failed - PROVINCE/DISTRICT/SUBDISTRICT fill-in skipped this round")
+            _location_cache.update(data=_location_cache["data"] or {}, ts=now - _LOCATION_TTL_SECONDS + 600)  # retry in 10 min
+        return _location_cache["data"]
+
+
+def _fill_location_columns(rows, gs_client):
+    """Fill empty PROVINCE / DISTRICT / SUBDISTRICT in place (see the block comment above). Never raises."""
+    try:
+        def blank(v):
+            return str(v if v is not None else "").strip().lower() in _LOC_BLANK
+        todo = [r for r in rows if blank(r.get("PROVINCE")) or blank(r.get("DISTRICT")) or blank(r.get("SUBDISTRICT"))]
+        if not todo:
+            return
+        loc = _load_location_map(gs_client)
+        if not loc:
+            return
+        filled = 0
+        for r in todo:
+            hit = None
+            for field in ("CINAME", "SUBJECT"):
+                hit = next((loc[t] for t in _LOC_TOKEN_RE.findall(str(r.get(field) or "").upper()) if t in loc), None)
+                if hit:
+                    break
+            if not hit:
+                continue
+            for col, v in zip(("PROVINCE", "DISTRICT", "SUBDISTRICT"), hit):
+                if v and blank(r.get(col)):
+                    r[col] = v
+            filled += 1
+        log.info("location fill-in: %d of %d tickets with empty PROVINCE/DISTRICT/SUBDISTRICT filled", filled, len(todo))
+    except Exception:
+        log.exception("location fill-in failed - rows left as they are")
+
+
 def fetch_live_rows(gs_client, use_cache=True):
     now = time.monotonic()
     if use_cache:
@@ -423,12 +494,15 @@ def fetch_live_rows(gs_client, use_cache=True):
             # reads tripping the per-minute read quota.
             ws = _get_worksheet(gs_client)
             rows = ws.get_all_records()
+            _fill_location_columns(rows, gs_client)
             _live_rows_cache["data"] = rows
             _live_rows_cache["ts"] = time.monotonic()
             return rows
 
     ws = _get_worksheet(gs_client)
-    return ws.get_all_records()
+    rows = ws.get_all_records()
+    _fill_location_columns(rows, gs_client)
+    return rows
 
 
 
